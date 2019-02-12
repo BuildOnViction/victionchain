@@ -12,7 +12,7 @@ type OrderItem struct {
 	Timestamp uint64   `json:"timestamp"`
 	Quantity  *big.Int `json:"quantity"`
 	Price     *big.Int `json:"price"`
-	TradeID string `json:"tradeID"`
+	TradeID   string   `json:"tradeID"`
 	// *OrderMeta
 	NextOrder []byte `json:"-"`
 	PrevOrder []byte `json:"-"`

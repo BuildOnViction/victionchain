@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	Ask = "ask"
+	Ask    = "ask"
 	Bid    = "bid"
 	Market = "market"
 	Limit  = "limit"

@@ -9,10 +9,10 @@ import (
 )
 
 type OrderTreeItem struct {
-	Volume    *big.Int `json:"volume"`    // Contains total quantity from all Orders in tree
-	NumOrders uint64   `json:"numOrders"` // Contains count of Orders in tree
-	PriceTreeKey  []byte `json:"priceTreeKey"`  // Root Key of price tree
-	PriceTreeSize uint64 `json:"priceTreeSize"` // Number of nodes, currently it is Depth
+	Volume        *big.Int `json:"volume"`        // Contains total quantity from all Orders in tree
+	NumOrders     uint64   `json:"numOrders"`     // Contains count of Orders in tree
+	PriceTreeKey  []byte   `json:"priceTreeKey"`  // Root Key of price tree
+	PriceTreeSize uint64   `json:"priceTreeSize"` // Number of nodes, currently it is Depth
 }
 
 // OrderTree : order tree structure for travelling
@@ -23,7 +23,6 @@ type OrderTree struct {
 	slot      *big.Int
 	Key       []byte
 	Item      *OrderTreeItem
-
 }
 
 // NewOrderTree create new order tree
@@ -110,7 +109,6 @@ func (orderTree *OrderTree) GetOrder(key []byte, price *big.Int) *Order {
 	// we can use orderID incremental way, so we just need a big slot from price of order tree
 	return orderList.GetOrder(key)
 }
-
 
 func (orderTree *OrderTree) getSlotFromPrice(price *big.Int) *big.Int {
 	return Add(orderTree.slot, price)

@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/orderbook"
 	"github.com/ethereum/go-ethereum/params"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/naoina/toml"
@@ -93,6 +94,7 @@ type tomoConfig struct {
 	Node        node.Config
 	Ethstats    ethstatsConfig
 	Dashboard   dashboard.Config
+	TomoX       orderbook.Config
 	Account     account
 	StakeEnable bool
 	Bootnodes   Bootnodes
@@ -248,6 +250,11 @@ func makeFullNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Add the Ethereum Stats daemon if requested.
 	if cfg.Ethstats.URL != "" {
 		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
+	}
+
+	// Register TomoX's OrderBook service if requested.
+	if ctx.GlobalBool(utils.TomoXEnabledFlag.Name) {
+		utils.RegisterTomoXService(stack, &cfg.TomoX)
 	}
 	return stack, cfg
 }

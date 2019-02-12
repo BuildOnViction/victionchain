@@ -12,10 +12,10 @@ import (
 
 // Tree holds elements of the red-black tree
 type Tree struct {
-	db *BatchDatabase
-	rootKey []byte
-	size       uint64
-	Comparator Comparator
+	db          *BatchDatabase
+	rootKey     []byte
+	size        uint64
+	Comparator  Comparator
 	FormatBytes FormatBytes
 }
 
@@ -23,7 +23,7 @@ type Tree struct {
 func NewWith(comparator Comparator, db *BatchDatabase) *Tree {
 	tree := &Tree{
 		Comparator: comparator,
-		db: db,
+		db:         db,
 	}
 
 	return tree
@@ -99,7 +99,7 @@ func (tree *Tree) Put(key []byte, value []byte) error {
 
 		insertedNode.ParentKey(node.Key)
 		tree.Save(insertedNode)
-}
+	}
 
 	tree.insertCase1(insertedNode)
 	tree.Save(insertedNode)

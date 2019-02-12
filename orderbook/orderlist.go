@@ -26,8 +26,8 @@ type OrderListItem struct {
 type OrderList struct {
 	orderTree *OrderTree
 	slot      *big.Int
-	Item *OrderListItem
-	Key  []byte
+	Item      *OrderListItem
+	Key       []byte
 }
 
 // NewOrderList : return new OrderList
