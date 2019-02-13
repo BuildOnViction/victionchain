@@ -4,13 +4,13 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/orderbook"
+	"github.com/ethereum/go-ethereum/tomox"
 )
 
 // remember that API structs to be offered MUST be exported
 type OrderbookAPI struct {
 	V      int
-	Engine *orderbook.Engine
+	Engine *tomox.Engine
 }
 
 // Version : return version
@@ -18,14 +18,14 @@ func (api *OrderbookAPI) Version() (int, error) {
 	return api.V, nil
 }
 
-func NewOrderbookAPI(v int, orderbookEngine *orderbook.Engine) *OrderbookAPI {
+func NewOrderbookAPI(v int, orderbookEngine *tomox.Engine) *OrderbookAPI {
 	return &OrderbookAPI{
 		V:      v,
 		Engine: orderbookEngine,
 	}
 }
 
-func (api *OrderbookAPI) getRecordFromOrder(order *orderbook.Order, ob *orderbook.OrderBook) map[string]string {
+func (api *OrderbookAPI) getRecordFromOrder(order *tomox.Order, ob *tomox.OrderBook) map[string]string {
 	record := make(map[string]string)
 	record["timestamp"] = strconv.FormatUint(order.Item.Timestamp, 10)
 	record["price"] = order.Item.Price.String()
@@ -86,7 +86,7 @@ func (api *OrderbookAPI) GetOrder(pairName, orderID string) map[string]string {
 	if ob == nil {
 		return nil
 	}
-	key := orderbook.GetKeyFromString(orderID)
+	key := tomox.GetKeyFromString(orderID)
 	order := ob.GetOrder(key)
 	if order != nil {
 		result = api.getRecordFromOrder(order, ob)

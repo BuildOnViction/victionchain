@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethstats"
 	"github.com/ethereum/go-ethereum/les"
 	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/orderbook"
-	op "github.com/ethereum/go-ethereum/orderbook/protocol"
+	"github.com/ethereum/go-ethereum/tomox"
+	op "github.com/ethereum/go-ethereum/tomox/protocol"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 )
 
@@ -67,15 +67,10 @@ func RegisterEthStatsService(stack *node.Node, url string) {
 	}
 }
 
-func RegisterTomoXService(stack *node.Node, cfg *orderbook.Config) {
-	msgC := make(chan interface{})
-	quitC := make(chan struct{}, 1)
-	datadir := cfg.DataDir
-	allowedPairs := orderbook.AllowedPairs
-	engine := orderbook.NewEngine(datadir, allowedPairs)
-	service := op.NewService(msgC, quitC, engine)
-	err := stack.Register(service)
-	if err != nil {
+func RegisterTomoXService(stack *node.Node, cfg *tomox.Config) {
+	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
+		return tomox.New(cfg), nil
+	}); err != nil {
 		Fatalf("Failed to register the TomoX service: %v", err)
 	}
 }

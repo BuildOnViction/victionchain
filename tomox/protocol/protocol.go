@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/orderbook"
+	"github.com/ethereum/go-ethereum/tomox"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/protocols"
 )
@@ -103,7 +103,7 @@ type OrderbookHandshake struct {
 
 // the protocols abstraction enables use of an external handler function
 type OrderbookHandler struct {
-	Engine *orderbook.Engine
+	Engine *tomox.Engine
 	Peer   *protocols.Peer
 	InC    <-chan interface{}
 	QuitC  <-chan struct{}
@@ -198,7 +198,7 @@ func (orderbookHandler *OrderbookHandler) handle(msg interface{}) error {
 }
 
 // create the protocol with the protocols extension
-func NewProtocol(inC <-chan interface{}, quitC <-chan struct{}, orderbookEngine *orderbook.Engine) *p2p.Protocol {
+func NewProtocol(inC <-chan interface{}, quitC <-chan struct{}, orderbookEngine *tomox.Engine) *p2p.Protocol {
 	return &p2p.Protocol{
 		Name:    "Orderbook",
 		Version: 42,

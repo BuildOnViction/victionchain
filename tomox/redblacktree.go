@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // References: http://en.wikipedia.org/wiki/Red%E2%80%93black_tree
-package orderbook
+package tomox
 
 import (
 	"bytes"

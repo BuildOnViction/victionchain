@@ -34,7 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/orderbook"
+	"github.com/ethereum/go-ethereum/tomox"
 	"github.com/ethereum/go-ethereum/params"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/naoina/toml"
@@ -94,7 +94,7 @@ type tomoConfig struct {
 	Node        node.Config
 	Ethstats    ethstatsConfig
 	Dashboard   dashboard.Config
-	TomoX       orderbook.Config
+	TomoX       tomox.Config
 	Account     account
 	StakeEnable bool
 	Bootnodes   Bootnodes

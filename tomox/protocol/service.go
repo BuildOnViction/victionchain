@@ -2,7 +2,7 @@ package protocol
 
 import (
 	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/orderbook"
+	"github.com/ethereum/go-ethereum/tomox"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -11,7 +11,7 @@ import (
 // it must implement the node.Service interface
 type OrderbookService struct {
 	V      int
-	Engine *orderbook.Engine
+	Engine *tomox.Engine
 	protos []p2p.Protocol
 }
 
@@ -43,7 +43,7 @@ func (service *OrderbookService) Stop() error {
 }
 
 // NewService: wrapper function for servicenode to start the service, both APIs and Protocols
-func NewService(inC <-chan interface{}, quitC <-chan struct{}, orderbookEngine *orderbook.Engine) func(ctx *node.ServiceContext) (node.Service, error) {
+func NewService(inC <-chan interface{}, quitC <-chan struct{}, orderbookEngine *tomox.Engine) func(ctx *node.ServiceContext) (node.Service, error) {
 	proto := NewProtocol(inC, quitC, orderbookEngine)
 	var protocolArr []p2p.Protocol
 	if proto != nil {
