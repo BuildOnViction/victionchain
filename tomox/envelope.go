@@ -2,10 +2,14 @@ package tomox
 
 import (
 	"time"
+	"encoding/binary"
+	"math/big"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 type Envelope struct {
@@ -69,4 +73,35 @@ func (w *TomoX) GetEnvelope(hash common.Hash) *Envelope {
 	w.poolMu.RLock()
 	defer w.poolMu.RUnlock()
 	return w.envelopes[hash]
+}
+
+// Seal closes the envelope by spending the requested amount of time as a proof
+// of work on hashing the data.
+func (e *Envelope) Seal(options *MessageParams) error {
+	var target, bestBit int
+	buf := make([]byte, 64)
+	h := crypto.Keccak256(e.rlpWithoutNonce())
+	copy(buf[:32], h)
+
+	finish := time.Now().Add(time.Duration(options.WorkTime) * time.Second).UnixNano()
+	for nonce := uint64(0); time.Now().UnixNano() < finish; {
+		for i := 0; i < 1024; i++ {
+			binary.BigEndian.PutUint64(buf[56:], nonce)
+			d := new(big.Int).SetBytes(crypto.Keccak256(buf))
+			firstBit := math.FirstBitSet(d)
+			if firstBit > bestBit {
+				e.Nonce, bestBit = nonce, firstBit
+				if target > 0 && bestBit >= target {
+					return nil
+				}
+			}
+			nonce++
+		}
+	}
+
+	if target > 0 && bestBit < target {
+		return fmt.Errorf("failed to reach the PoW target, specified pow time (%d seconds) was insufficient", options.WorkTime)
+	}
+
+	return nil
 }

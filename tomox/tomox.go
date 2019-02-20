@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/fatih/set.v0"
 	"golang.org/x/sync/syncmap"
+	"crypto/ecdsa"
 )
 
 const (
@@ -30,6 +31,11 @@ const (
 	DefaultSyncAllowance = 10 // seconds
 	messageQueueLimit = 1024
 	overflowIdx                    // Indicator of message queue overflow
+	signatureLength = 65 // in bytes
+	padSizeLimit      = 256 // just an arbitrary number, could be changed without breaking the protocol
+	flagsLength     = 1
+	signatureFlag = byte(4)
+	SizeMask      = byte(3) // mask used to extract the size of payload size field from the flags
 )
 
 type Config struct {
@@ -331,6 +337,43 @@ func (tomox *TomoX) isEnvelopeCached(hash common.Hash) bool {
 
 	_, exist := tomox.envelopes[hash]
 	return exist
+}
+
+// validateDataIntegrity returns false if the data have the wrong or contains all zeros,
+// which is the simplest and the most common bug.
+func validateDataIntegrity(k []byte, expectedSize int) bool {
+	if len(k) != expectedSize {
+		return false
+	}
+	if expectedSize > 3 && containsOnlyZeros(k) {
+		return false
+	}
+	return true
+}
+
+// containsOnlyZeros checks if the data contain only zeros.
+func containsOnlyZeros(data []byte) bool {
+	for _, b := range data {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// ValidatePublicKey checks the format of the given public key.
+func ValidatePublicKey(k *ecdsa.PublicKey) bool {
+	return k != nil && k.X != nil && k.Y != nil && k.X.Sign() != 0 && k.Y.Sign() != 0
+}
+
+// bytesToUintLittleEndian converts the slice to 64-bit unsigned integer.
+func bytesToUintLittleEndian(b []byte) (res uint64) {
+	mul := uint64(1)
+	for i := 0; i < len(b); i++ {
+		res += uint64(b[i]) * mul
+		mul *= 256
+	}
+	return res
 }
 /*
 =====================================================================================
