@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 	"errors"
+	"runtime"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -15,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/fatih/set.v0"
 	"golang.org/x/sync/syncmap"
-	"crypto/ecdsa"
 )
 
 const (
@@ -34,7 +34,6 @@ const (
 	signatureLength = 65 // in bytes
 	padSizeLimit      = 256 // just an arbitrary number, could be changed without breaking the protocol
 	flagsLength     = 1
-	signatureFlag = byte(4)
 	SizeMask      = byte(3) // mask used to extract the size of payload size field from the flags
 )
 
@@ -307,15 +306,70 @@ func (tomox *TomoX) Stop() error {
 // Start implements node.Service, starting the background data propagation thread
 // of the TomoX protocol.
 func (tomox *TomoX) Start(*p2p.Server) error {
-	//log.Info("started tomoX v." + ProtocolVersionStr)
-	//go tomox.update()
-	//
-	//numCPU := runtime.NumCPU()
-	//for i := 0; i < numCPU; i++ {
-	//	go tomox.processQueue()
-	//}
+	log.Info("started tomoX v." + ProtocolVersionStr)
+	go tomox.update()
+
+	numCPU := runtime.NumCPU()
+	for i := 0; i < numCPU; i++ {
+		go tomox.processQueue()
+	}
 
 	return nil
+}
+
+// update loops until the lifetime of the whisper node, updating its internal
+// state by expiring stale messages from the pool.
+func (tomox *TomoX) update() {
+	// Start a ticker to check for expirations
+	expire := time.NewTicker(expirationCycle)
+
+	// Repeat updates until termination is requested
+	for {
+		select {
+		case <-expire.C:
+			tomox.expire()
+
+		case <-tomox.quit:
+			return
+		}
+	}
+}
+
+// expire iterates over all the expiration timestamps, removing all stale
+// messages from the pools.
+func (tomox *TomoX) expire() {
+	tomox.poolMu.Lock()
+	defer tomox.poolMu.Unlock()
+
+	now := uint32(time.Now().Unix())
+	for expiry, hashSet := range tomox.expirations {
+		if expiry < now {
+			// Dump all expired messages and remove timestamp
+			hashSet.Each(func(v interface{}) bool {
+				delete(tomox.envelopes, v.(common.Hash))
+				return true
+			})
+			tomox.expirations[expiry].Clear()
+			delete(tomox.expirations, expiry)
+		}
+	}
+}
+
+// processQueue delivers the messages to the watchers during the lifetime of the whisper node.
+func (tomox *TomoX) processQueue() {
+	var e *Envelope
+	for {
+		select {
+		case <-tomox.quit:
+			return
+
+		case e = <-tomox.messageQueue:
+			//tomox.filters.NotifyWatchers(e, false)
+
+		case e = <-tomox.p2pMsgQueue:
+			//tomox.filters.NotifyWatchers(e, true)
+		}
+	}
 }
 
 // Envelopes retrieves all the messages currently pooled by the node.
@@ -359,11 +413,6 @@ func containsOnlyZeros(data []byte) bool {
 		}
 	}
 	return true
-}
-
-// ValidatePublicKey checks the format of the given public key.
-func ValidatePublicKey(k *ecdsa.PublicKey) bool {
-	return k != nil && k.X != nil && k.Y != nil && k.X.Sign() != 0 && k.Y.Sign() != 0
 }
 
 // bytesToUintLittleEndian converts the slice to 64-bit unsigned integer.
