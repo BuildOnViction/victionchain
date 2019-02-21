@@ -4,7 +4,6 @@ import (
 	"time"
 	"encoding/binary"
 	"math/big"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -97,10 +96,6 @@ func (e *Envelope) Seal(options *MessageParams) error {
 			}
 			nonce++
 		}
-	}
-
-	if target > 0 && bestBit < target {
-		return fmt.Errorf("failed to reach the PoW target, specified pow time (%d seconds) was insufficient", options.WorkTime)
 	}
 
 	return nil

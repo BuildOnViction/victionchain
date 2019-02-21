@@ -1,25 +1,19 @@
 package tomox
 
 import (
-	"crypto/ecdsa"
 	crand "crypto/rand"
 	"encoding/binary"
 	"errors"
-	mrand "math/rand"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // MessageParams specifies the exact way a message should be wrapped
 // into an Envelope.
 type MessageParams struct {
 	TTL      uint32
-	Src      *ecdsa.PrivateKey
-	Dst      *ecdsa.PublicKey
 	WorkTime uint32
 	Payload  []byte
 	Padding  []byte
@@ -39,29 +33,13 @@ type ReceivedMessage struct {
 
 	Payload   []byte
 	Padding   []byte
-	Signature []byte
 	Salt      []byte
 
 	Sent  uint32           // Time when the message was posted into the network
 	TTL   uint32           // Maximum time to live allowed for the message
-	Src   *ecdsa.PublicKey // Message recipient (identity used to decode the message)
-	Dst   *ecdsa.PublicKey // Message recipient (identity used to decode the message)
 
-	SymKeyHash   common.Hash // The Keccak256Hash of the key
 	EnvelopeHash common.Hash // Message envelope hash to act as a unique id
 }
-
-func isMessageSigned(flags byte) bool {
-	return (flags & signatureFlag) != 0
-}
-
-//func (msg *ReceivedMessage) isSymmetricEncryption() bool {
-//	return msg.SymKeyHash != common.Hash{}
-//}
-//
-//func (msg *ReceivedMessage) isAsymmetricEncryption() bool {
-//	return msg.Dst != nil
-//}
 
 // NewSentMessage creates and initializes a non-signed, non-encrypted TomoX message.
 func NewSentMessage(params *MessageParams) (*sentMessage, error) {
@@ -105,9 +83,6 @@ func (msg *sentMessage) appendPadding(params *MessageParams) error {
 	}
 
 	rawSize := flagsLength + getSizeOfPayloadSizeField(params.Payload) + len(params.Payload)
-	if params.Src != nil {
-		rawSize += signatureLength
-	}
 	odd := rawSize % padSizeLimit
 	paddingSize := padSizeLimit - odd
 	pad := make([]byte, paddingSize)
@@ -122,86 +97,10 @@ func (msg *sentMessage) appendPadding(params *MessageParams) error {
 	return nil
 }
 
-// sign calculates and sets the cryptographic signature for the message,
-// also setting the sign flag.
-func (msg *sentMessage) sign(key *ecdsa.PrivateKey) error {
-	if isMessageSigned(msg.Raw[0]) {
-		// this should not happen, but no reason to panic
-		log.Error("failed to sign the message: already signed")
-		return nil
-	}
-
-	msg.Raw[0] |= signatureFlag // it is important to set this flag before signing
-	hash := crypto.Keccak256(msg.Raw)
-	signature, err := crypto.Sign(hash, key)
-	if err != nil {
-		msg.Raw[0] &= (0xFF ^ signatureFlag) // clear the flag
-		return err
-	}
-	msg.Raw = append(msg.Raw, signature...)
-	return nil
-}
-
-// encryptAsymmetric encrypts a message with a public key.
-func (msg *sentMessage) encryptAsymmetric(key *ecdsa.PublicKey) error {
-	if !ValidatePublicKey(key) {
-		return errors.New("invalid public key provided for asymmetric encryption")
-	}
-	encrypted, err := ecies.Encrypt(crand.Reader, ecies.ImportECDSAPublic(key), msg.Raw, nil, nil)
-	if err == nil {
-		msg.Raw = encrypted
-	}
-	return err
-}
-
-// generateSecureRandomData generates random data where extra security is required.
-// The purpose of this function is to prevent some bugs in software or in hardware
-// from delivering not-very-random data. This is especially useful for AES nonce,
-// where true randomness does not really matter, but it is very important to have
-// a unique nonce for every message.
-func generateSecureRandomData(length int) ([]byte, error) {
-	x := make([]byte, length)
-	y := make([]byte, length)
-	res := make([]byte, length)
-
-	_, err := crand.Read(x)
-	if err != nil {
-		return nil, err
-	} else if !validateDataIntegrity(x, length) {
-		return nil, errors.New("crypto/rand failed to generate secure random data")
-	}
-	_, err = mrand.Read(y)
-	if err != nil {
-		return nil, err
-	} else if !validateDataIntegrity(y, length) {
-		return nil, errors.New("math/rand failed to generate secure random data")
-	}
-	for i := 0; i < length; i++ {
-		res[i] = x[i] ^ y[i]
-	}
-	if !validateDataIntegrity(res, length) {
-		return nil, errors.New("failed to generate secure random data")
-	}
-	return res, nil
-}
-
 // Wrap bundles the message into an Envelope to transmit over the network.
 func (msg *sentMessage) Wrap(options *MessageParams) (envelope *Envelope, err error) {
 	if options.TTL == 0 {
 		options.TTL = DefaultTTL
-	}
-	if options.Src != nil {
-		if err = msg.sign(options.Src); err != nil {
-			return nil, err
-		}
-	}
-	if options.Dst != nil {
-		err = msg.encryptAsymmetric(options.Dst)
-	} else {
-		err = errors.New("unable to encrypt the message: neither symmetric nor assymmetric key provided")
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	envelope = NewEnvelope(options.TTL, msg)
@@ -216,18 +115,6 @@ func (msg *ReceivedMessage) ValidateAndParse() bool {
 	end := len(msg.Raw)
 	if end < 1 {
 		return false
-	}
-
-	if isMessageSigned(msg.Raw[0]) {
-		end -= signatureLength
-		if end <= 1 {
-			return false
-		}
-		msg.Signature = msg.Raw[end : end+signatureLength]
-		msg.Src = msg.SigToPubKey()
-		if msg.Src == nil {
-			return false
-		}
 	}
 
 	beg := 1
@@ -247,24 +134,7 @@ func (msg *ReceivedMessage) ValidateAndParse() bool {
 	return true
 }
 
-// SigToPubKey returns the public key associated to the message's
-// signature.
-func (msg *ReceivedMessage) SigToPubKey() *ecdsa.PublicKey {
-	defer func() { recover() }() // in case of invalid signature
-
-	pub, err := crypto.SigToPub(msg.hash(), msg.Signature)
-	if err != nil {
-		log.Error("failed to recover public key from signature", "err", err)
-		return nil
-	}
-	return pub
-}
-
 // hash calculates the SHA3 checksum of the message flags, payload size field, payload and padding.
 func (msg *ReceivedMessage) hash() []byte {
-	if isMessageSigned(msg.Raw[0]) {
-		sz := len(msg.Raw) - signatureLength
-		return crypto.Keccak256(msg.Raw[:sz])
-	}
 	return crypto.Keccak256(msg.Raw)
 }
