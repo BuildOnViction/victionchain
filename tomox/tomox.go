@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/fatih/set.v0"
 	"golang.org/x/sync/syncmap"
+	"bytes"
 )
 
 const (
@@ -57,6 +58,7 @@ type TomoX struct {
 	quit chan struct{}
 	peers  map[*Peer]struct{} // Set of currently active peers
 	peerMu sync.RWMutex       // Mutex to sync the active peer set
+	filters  *Filters     // Message filters installed with Subscribe function
 
 	messageQueue chan *Envelope // Message queue for normal TomoX messages
 	p2pMsgQueue  chan *Envelope // Message queue for peer-to-peer messages (not to be forwarded any further)
@@ -245,6 +247,78 @@ func (tomox *TomoX) add(envelope *Envelope, isP2P bool) (bool, error) {
 	return true, nil
 }
 
+// AllowP2PMessagesFromPeer marks specific peer trusted,
+// which will allow it to send historic (expired) messages.
+func (tomox *TomoX) AllowP2PMessagesFromPeer(peerID []byte) error {
+	p, err := tomox.getPeer(peerID)
+	if err != nil {
+		return err
+	}
+	p.trusted = true
+	return nil
+}
+
+// getPeer retrieves peer by ID
+func (tomox *TomoX) getPeer(peerID []byte) (*Peer, error) {
+	tomox.peerMu.Lock()
+	defer tomox.peerMu.Unlock()
+	for p := range tomox.peers {
+		id := p.peer.ID()
+		if bytes.Equal(peerID, id[:]) {
+			return p, nil
+		}
+	}
+	return nil, fmt.Errorf("Could not find peer with ID: %x", peerID)
+}
+
+
+// SendP2PMessage sends a peer-to-peer message to a specific peer.
+func (tomox *TomoX) SendP2PMessage(peerID []byte, envelope *Envelope) error {
+	p, err := tomox.getPeer(peerID)
+	if err != nil {
+		return err
+	}
+	return tomox.SendP2PDirect(p, envelope)
+}
+
+// SendP2PDirect sends a peer-to-peer message to a specific peer.
+func (tomox *TomoX) SendP2PDirect(peer *Peer, envelope *Envelope) error {
+	return p2p.Send(peer.ws, p2pMessageCode, envelope)
+}
+
+// Send injects a message into the whisper send queue, to be distributed in the
+// network in the coming cycles.
+func (tomox *TomoX) Send(envelope *Envelope) error {
+	ok, err := tomox.add(envelope, false)
+	if err == nil && !ok {
+		return fmt.Errorf("failed to add envelope")
+	}
+	return err
+}
+
+// Subscribe installs a new message handler used for filtering, decrypting
+// and subsequent storing of incoming messages.
+func (tomox *TomoX) Subscribe(f *Filter) (string, error) {
+	s, err := tomox.filters.Install(f)
+	if err == nil {
+		tomox.updateBloomFilter(f)
+	}
+	return s, err
+}
+
+// GetFilter returns the filter by id.
+func (tomox *TomoX) GetFilter(id string) *Filter {
+	return tomox.filters.Get(id)
+}
+
+// Unsubscribe removes an installed message handler.
+func (tomox *TomoX) Unsubscribe(id string) error {
+	ok := tomox.filters.Uninstall(id)
+	if !ok {
+		return fmt.Errorf("Unsubscribe: Invalid ID")
+	}
+	return nil
+}
 // postEvent queues the message for further processing.
 func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) {
 	if isP2P {
