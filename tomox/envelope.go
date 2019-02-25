@@ -16,15 +16,17 @@ type Envelope struct {
 	TTL    uint32
 	Data   []byte
 	Nonce  uint64
+	Topic  TopicType
 	hash  common.Hash
 }
 
 // NewEnvelope wraps a Whisper message with expiration and destination data
 // included into an envelope for network forwarding.
-func NewEnvelope(ttl uint32, msg *sentMessage) *Envelope {
+func NewEnvelope(ttl uint32, topic TopicType, msg *sentMessage) *Envelope {
 	env := Envelope{
 		Expiry: uint32(time.Now().Add(time.Second * time.Duration(ttl)).Unix()),
 		TTL:    ttl,
+		Topic:  topic,
 		Data:   msg.Raw,
 		Nonce:  0,
 	}
@@ -43,7 +45,7 @@ func (e *Envelope) Hash() common.Hash {
 
 // rlpWithoutNonce returns the RLP encoded envelope contents, except the nonce.
 func (e *Envelope) rlpWithoutNonce() []byte {
-	res, _ := rlp.EncodeToBytes([]interface{}{e.Expiry, e.TTL, e.Data})
+	res, _ := rlp.EncodeToBytes([]interface{}{e.Expiry, e.TTL, e.Topic, e.Data})
 	return res
 }
 
@@ -99,4 +101,23 @@ func (e *Envelope) Seal(options *MessageParams) error {
 	}
 
 	return nil
+}
+
+// Open tries to decrypt an envelope, and populates the message fields in case of success.
+func (e *Envelope) Open(watcher *Filter) (msg *ReceivedMessage) {
+	if watcher == nil {
+		return nil
+	}
+
+	if msg != nil {
+		ok := msg.ValidateAndParse()
+		if !ok {
+			return nil
+		}
+		msg.Topic = e.Topic
+		msg.TTL = e.TTL
+		msg.Sent = e.Expiry - e.TTL
+		msg.EnvelopeHash = e.Hash()
+	}
+	return msg
 }

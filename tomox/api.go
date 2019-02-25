@@ -20,23 +20,22 @@ const (
 
 // List of errors
 var (
-	ErrTooLowPoW            = errors.New("message rejected, PoW too low")
 	ErrNoTopics             = errors.New("missing topic(s)")
 )
 
-// PublicTomoXAPI provides the TomoX RPC service that can be
+// PublicTomoXAPI provides the tomoX RPC service that can be
 // use publicly without security implications.
 type PublicTomoXAPI struct {
-	w *TomoX
+	t *TomoX
 
 	mu       sync.Mutex
 	lastUsed map[string]time.Time // keeps track when a filter was polled for the last time.
 }
 
-// NewPublicTomoXAPI create a new RPC TomoX service.
-func NewPublicTomoXAPI(w *TomoX) *PublicTomoXAPI {
+// NewPublicTomoXAPI create a new RPC tomoX service.
+func NewPublicTomoXAPI(t *TomoX) *PublicTomoXAPI {
 	api := &PublicTomoXAPI{
-		w:        w,
+		t:        t,
 		lastUsed: make(map[string]time.Time),
 	}
 	return api
@@ -51,14 +50,13 @@ func (api *PublicTomoXAPI) Version(ctx context.Context) string {
 type Info struct {
 	Memory         int     `json:"memory"`         // Memory size of the floating messages in bytes.
 	Messages       int     `json:"messages"`       // Number of floating messages.
-	MinPow         float64 `json:"minPow"`         // Minimal accepted PoW
 	MaxMessageSize uint32  `json:"maxMessageSize"` // Maximum accepted message size
 }
 
-// Info returns diagnostic information about the TomoX node.
+// Info returns diagnostic information about the tomoX node.
 func (api *PublicTomoXAPI) Info(ctx context.Context) Info {
 	return Info{
-		Messages:       len(api.w.messageQueue) + len(api.w.p2pMsgQueue),
+		Messages:       len(api.t.messageQueue) + len(api.t.p2pMsgQueue),
 	}
 }
 
@@ -69,27 +67,28 @@ func (api *PublicTomoXAPI) MarkTrustedPeer(ctx context.Context, enode string) (b
 	if err != nil {
 		return false, err
 	}
-	return true, api.w.AllowP2PMessagesFromPeer(n.ID[:])
+	return true, api.t.AllowP2PMessagesFromPeer(n.ID[:])
 }
 
 // MakeLightClient turns the node into light client, which does not forward
 // any incoming messages, and sends only messages originated in this node.
 func (api *PublicTomoXAPI) MakeLightClient(ctx context.Context) bool {
-	api.w.lightClient = true
-	return api.w.lightClient
+	api.t.lightClient = true
+	return api.t.lightClient
 }
 
 // CancelLightClient cancels light client mode.
 func (api *PublicTomoXAPI) CancelLightClient(ctx context.Context) bool {
-	api.w.lightClient = false
-	return !api.w.lightClient
+	api.t.lightClient = false
+	return !api.t.lightClient
 }
 
 //go:generate gencodec -type NewMessage -field-override newMessageOverride -out gen_newmessage_json.go
 
-// NewMessage represents a new TomoX message that is posted through the RPC.
+// NewMessage represents a new tomoX message that is posted through the RPC.
 type NewMessage struct {
 	TTL        uint32    `json:"ttl"`
+	Topic      TopicType `json:"topic"`
 	Payload    []byte    `json:"payload"`
 	Padding    []byte    `json:"padding"`
 	PowTime    uint32    `json:"powTime"`
@@ -113,15 +112,15 @@ func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, erro
 		Payload:  req.Payload,
 		Padding:  req.Padding,
 		WorkTime: req.PowTime,
+		Topic:    req.Topic,
 	}
-
 	// encrypt and sent message
-	whisperMsg, err := NewSentMessage(params)
+	tomoXMsg, err := NewSentMessage(params)
 	if err != nil {
 		return false, err
 	}
 
-	env, err := whisperMsg.Wrap(params)
+	env, err := tomoXMsg.Wrap(params)
 	if err != nil {
 		return false, err
 	}
@@ -132,17 +131,17 @@ func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, erro
 		if err != nil {
 			return false, fmt.Errorf("failed to parse target peer: %s", err)
 		}
-		return true, api.w.SendP2PMessage(n.ID[:], env)
+		return true, api.t.SendP2PMessage(n.ID[:], env)
 	}
 
-	return true, api.w.Send(env)
+	return true, api.t.Send(env)
 }
 
 //go:generate gencodec -type Criteria -field-override criteriaOverride -out gen_criteria_json.go
 
 // Criteria holds various filter options for inbound messages.
 type Criteria struct {
-	MinPow       float64     `json:"minPow"`
+	Topics       []TopicType `json:"topics"`
 	AllowP2P     bool        `json:"allowP2P"`
 }
 
@@ -164,12 +163,23 @@ func (api *PublicTomoXAPI) Messages(ctx context.Context, crit Criteria) (*rpc.Su
 	}
 
 	filter := Filter{
-		PoW:      crit.MinPow,
 		Messages: make(map[common.Hash]*ReceivedMessage),
 		AllowP2P: crit.AllowP2P,
 	}
 
-	id, err := api.w.Subscribe(&filter)
+	for i, bt := range crit.Topics {
+		if len(bt) == 0 || len(bt) > 4 {
+			return nil, fmt.Errorf("subscribe: topic %d has wrong size: %d", i, len(bt))
+		}
+		filter.Topics = append(filter.Topics, bt[:])
+	}
+
+	// listen for message that are encrypted with the given symmetric key
+	if len(filter.Topics) == 0 {
+		return nil, ErrNoTopics
+	}
+
+	id, err := api.t.Subscribe(&filter)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +194,7 @@ func (api *PublicTomoXAPI) Messages(ctx context.Context, crit Criteria) (*rpc.Su
 		for {
 			select {
 			case <-ticker.C:
-				if filter := api.w.GetFilter(id); filter != nil {
+				if filter := api.t.GetFilter(id); filter != nil {
 					for _, rpcMessage := range toMessage(filter.Retrieve()) {
 						if err := notifier.Notify(rpcSub.ID, rpcMessage); err != nil {
 							log.Error("Failed to send notification", "err", err)
@@ -192,10 +202,10 @@ func (api *PublicTomoXAPI) Messages(ctx context.Context, crit Criteria) (*rpc.Su
 					}
 				}
 			case <-rpcSub.Err():
-				api.w.Unsubscribe(id)
+				api.t.Unsubscribe(id)
 				return
 			case <-notifier.Closed():
-				api.w.Unsubscribe(id)
+				api.t.Unsubscribe(id)
 				return
 			}
 		}
@@ -210,18 +220,16 @@ func (api *PublicTomoXAPI) Messages(ctx context.Context, crit Criteria) (*rpc.Su
 type Message struct {
 	TTL       uint32    `json:"ttl"`
 	Timestamp uint32    `json:"timestamp"`
+	Topic     TopicType `json:"topic"`
 	Payload   []byte    `json:"payload"`
 	Padding   []byte    `json:"padding"`
-	PoW       float64   `json:"pow"`
 	Hash      []byte    `json:"hash"`
-	Dst       []byte    `json:"recipientPublicKey,omitempty"`
 }
 
 type messageOverride struct {
 	Payload hexutil.Bytes
 	Padding hexutil.Bytes
 	Hash    hexutil.Bytes
-	Dst     hexutil.Bytes
 }
 
 // ToTomoXMessage converts an internal message into an API version.
@@ -232,6 +240,7 @@ func ToTomoXMessage(message *ReceivedMessage) *Message {
 		Timestamp: message.Sent,
 		TTL:       message.TTL,
 		Hash:      message.EnvelopeHash.Bytes(),
+		Topic:     message.Topic,
 	}
 
 	return &msg
@@ -250,7 +259,7 @@ func toMessage(messages []*ReceivedMessage) []*Message {
 // are received between the last poll and now.
 func (api *PublicTomoXAPI) GetFilterMessages(id string) ([]*Message, error) {
 	api.mu.Lock()
-	f := api.w.GetFilter(id)
+	f := api.t.GetFilter(id)
 	if f == nil {
 		api.mu.Unlock()
 		return nil, fmt.Errorf("filter not found")
@@ -273,24 +282,32 @@ func (api *PublicTomoXAPI) DeleteMessageFilter(id string) (bool, error) {
 	defer api.mu.Unlock()
 
 	delete(api.lastUsed, id)
-	return true, api.w.Unsubscribe(id)
+	return true, api.t.Unsubscribe(id)
 }
 
 // NewMessageFilter creates a new filter that can be used to poll for
 // (new) messages that satisfy the given criteria.
 func (api *PublicTomoXAPI) NewMessageFilter(req Criteria) (string, error) {
 	var (
+		topics  [][]byte
 		err error
 	)
 
+	if len(req.Topics) > 0 {
+		topics = make([][]byte, len(req.Topics))
+		for i, topic := range req.Topics {
+			topics[i] = make([]byte, TopicLength)
+			copy(topics[i], topic[:])
+		}
+	}
 
 	f := &Filter{
-		PoW:      req.MinPow,
 		AllowP2P: req.AllowP2P,
+		Topics:   topics,
 		Messages: make(map[common.Hash]*ReceivedMessage),
 	}
 
-	id, err := api.w.Subscribe(f)
+	id, err := api.t.Subscribe(f)
 	if err != nil {
 		return "", err
 	}

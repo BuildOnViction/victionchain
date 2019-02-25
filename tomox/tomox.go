@@ -4,11 +4,11 @@ import (
 	"sync"
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
 	"errors"
 	"runtime"
+	"bytes"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/fatih/set.v0"
 	"golang.org/x/sync/syncmap"
-	"bytes"
 )
 
 const (
@@ -36,6 +35,8 @@ const (
 	padSizeLimit      = 256 // just an arbitrary number, could be changed without breaking the protocol
 	flagsLength     = 1
 	SizeMask      = byte(3) // mask used to extract the size of payload size field from the flags
+	TopicLength     = 4  // in bytes
+	keyIDSize       = 32 // in bytes
 )
 
 type Config struct {
@@ -55,10 +56,11 @@ type TomoX struct {
 
 	// P2P messaging related
 	protocol p2p.Protocol
+	filters  *Filters     // Message filters installed with Subscribe function
 	quit chan struct{}
 	peers  map[*Peer]struct{} // Set of currently active peers
 	peerMu sync.RWMutex       // Mutex to sync the active peer set
-	filters  *Filters     // Message filters installed with Subscribe function
+	//filters  *Filters     // Message filters installed with Subscribe function
 
 	messageQueue chan *Envelope // Message queue for normal TomoX messages
 	p2pMsgQueue  chan *Envelope // Message queue for peer-to-peer messages (not to be forwarded any further)
@@ -300,9 +302,6 @@ func (tomox *TomoX) Send(envelope *Envelope) error {
 // and subsequent storing of incoming messages.
 func (tomox *TomoX) Subscribe(f *Filter) (string, error) {
 	s, err := tomox.filters.Install(f)
-	if err == nil {
-		tomox.updateBloomFilter(f)
-	}
 	return s, err
 }
 
@@ -502,94 +501,94 @@ func bytesToUintLittleEndian(b []byte) (res uint64) {
 =====================================================================================
 */
 
-func (tomox *TomoX) GetOrderBook(pairName string) (*OrderBook, error) {
-	return tomox.getAndCreateIfNotExisted(pairName)
-}
-
-func (tomox *TomoX) hasOrderBook(name string) bool {
-	_, ok := tomox.Orderbooks[name]
-	return ok
-}
-
-// commit for all orderbooks
-func (tomox *TomoX) Commit() error {
-	return tomox.db.Commit()
-}
-
-func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error) {
-
-	name := strings.ToLower(pairName)
-
-	if !tomox.hasOrderBook(name) {
-		// check allow pair
-		if _, ok := tomox.allowedPairs[name]; !ok {
-			return nil, fmt.Errorf("Orderbook not found for pair :%s", pairName)
-		}
-
-		// then create one
-		ob := NewOrderBook(name, tomox.db)
-		if ob != nil {
-			ob.Restore()
-			tomox.Orderbooks[name] = ob
-		}
-	}
-
-	// return from map
-	return tomox.Orderbooks[name], nil
-}
-
-func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
-	ob, _ := tomox.getAndCreateIfNotExisted(pairName)
-	if ob == nil {
-		return nil
-	}
-	key := GetKeyFromString(orderID)
-	return ob.GetOrder(key)
-}
-
-func (tomox *TomoX) ProcessOrder(quote map[string]string) ([]map[string]string, map[string]string) {
-
-	ob, _ := tomox.getAndCreateIfNotExisted(quote["pair_name"])
-	var trades []map[string]string
-	var orderInBook map[string]string
-
-	if ob != nil {
-		// get map as general input, we can set format later to make sure there is no problem
-		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
-		if err == nil {
-			// insert
-			if orderID == 0 {
-				log.Info("Process order")
-				trades, orderInBook = ob.ProcessOrder(quote, true)
-			} else {
-				log.Info("Update order")
-				err = ob.UpdateOrder(quote)
-				if err != nil {
-					log.Info("Update order failed", "quote", quote, "err", err)
-				}
-			}
-		}
-
-	}
-
-	return trades, orderInBook
-
-}
-
-func (tomox *TomoX) CancelOrder(quote map[string]string) error {
-	ob, err := tomox.getAndCreateIfNotExisted(quote["pair_name"])
-	if ob != nil {
-		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
-		if err == nil {
-
-			price, ok := new(big.Int).SetString(quote["price"], 10)
-			if !ok {
-				return fmt.Errorf("Price is not correct :%s", quote["price"])
-			}
-
-			return ob.CancelOrder(quote["side"], orderID, price)
-		}
-	}
-
-	return err
-}
+//func (tomox *TomoX) GetOrderBook(pairName string) (*OrderBook, error) {
+//	return tomox.getAndCreateIfNotExisted(pairName)
+//}
+//
+//func (tomox *TomoX) hasOrderBook(name string) bool {
+//	_, ok := tomox.Orderbooks[name]
+//	return ok
+//}
+//
+//// commit for all orderbooks
+//func (tomox *TomoX) Commit() error {
+//	return tomox.db.Commit()
+//}
+//
+//func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error) {
+//
+//	name := strings.ToLower(pairName)
+//
+//	if !tomox.hasOrderBook(name) {
+//		// check allow pair
+//		if _, ok := tomox.allowedPairs[name]; !ok {
+//			return nil, fmt.Errorf("Orderbook not found for pair :%s", pairName)
+//		}
+//
+//		// then create one
+//		ob := NewOrderBook(name, tomox.db)
+//		if ob != nil {
+//			ob.Restore()
+//			tomox.Orderbooks[name] = ob
+//		}
+//	}
+//
+//	// return from map
+//	return tomox.Orderbooks[name], nil
+//}
+//
+//func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
+//	ob, _ := tomox.getAndCreateIfNotExisted(pairName)
+//	if ob == nil {
+//		return nil
+//	}
+//	key := GetKeyFromString(orderID)
+//	return ob.GetOrder(key)
+//}
+//
+//func (tomox *TomoX) ProcessOrder(quote map[string]string) ([]map[string]string, map[string]string) {
+//
+//	ob, _ := tomox.getAndCreateIfNotExisted(quote["pair_name"])
+//	var trades []map[string]string
+//	var orderInBook map[string]string
+//
+//	if ob != nil {
+//		// get map as general input, we can set format later to make sure there is no problem
+//		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
+//		if err == nil {
+//			// insert
+//			if orderID == 0 {
+//				log.Info("Process order")
+//				trades, orderInBook = ob.ProcessOrder(quote, true)
+//			} else {
+//				log.Info("Update order")
+//				err = ob.UpdateOrder(quote)
+//				if err != nil {
+//					log.Info("Update order failed", "quote", quote, "err", err)
+//				}
+//			}
+//		}
+//
+//	}
+//
+//	return trades, orderInBook
+//
+//}
+//
+//func (tomox *TomoX) CancelOrder(quote map[string]string) error {
+//	ob, err := tomox.getAndCreateIfNotExisted(quote["pair_name"])
+//	if ob != nil {
+//		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
+//		if err == nil {
+//
+//			price, ok := new(big.Int).SetString(quote["price"], 10)
+//			if !ok {
+//				return fmt.Errorf("Price is not correct :%s", quote["price"])
+//			}
+//
+//			return ob.CancelOrder(quote["side"], orderID, price)
+//		}
+//	}
+//
+//	return err
+//}

@@ -17,6 +17,7 @@ type MessageParams struct {
 	WorkTime uint32
 	Payload  []byte
 	Padding  []byte
+	Topic TopicType
 }
 
 // SentMessage represents an end-user data packet to transmit through the
@@ -34,6 +35,7 @@ type ReceivedMessage struct {
 	Payload   []byte
 	Padding   []byte
 	Salt      []byte
+	Topic    TopicType
 
 	Sent  uint32           // Time when the message was posted into the network
 	TTL   uint32           // Maximum time to live allowed for the message
@@ -103,7 +105,7 @@ func (msg *sentMessage) Wrap(options *MessageParams) (envelope *Envelope, err er
 		options.TTL = DefaultTTL
 	}
 
-	envelope = NewEnvelope(options.TTL, msg)
+	envelope = NewEnvelope(options.TTL, options.Topic, msg)
 	if err = envelope.Seal(options); err != nil {
 		return nil, err
 	}
