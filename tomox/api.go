@@ -114,6 +114,11 @@ func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, erro
 		WorkTime: req.PowTime,
 		Topic:    req.Topic,
 	}
+
+	if params.Topic == (TopicType{}) {
+		return false, ErrNoTopics
+	}
+
 	// encrypt and sent message
 	tomoXMsg, err := NewSentMessage(params)
 	if err != nil {
@@ -125,7 +130,7 @@ func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, erro
 		return false, err
 	}
 
-	// send to specific node (skip PoW check)
+	// send to specific node
 	if len(req.TargetPeer) > 0 {
 		n, err := discover.ParseNode(req.TargetPeer)
 		if err != nil {

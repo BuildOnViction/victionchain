@@ -20,6 +20,12 @@ type Envelope struct {
 	hash  common.Hash
 }
 
+// rlpWithoutNonce returns the RLP encoded envelope contents, except the nonce.
+func (e *Envelope) rlpWithoutNonce() []byte {
+	res, _ := rlp.EncodeToBytes([]interface{}{e.Expiry, e.TTL, e.Topic, e.Data})
+	return res
+}
+
 // NewEnvelope wraps a Whisper message with expiration and destination data
 // included into an envelope for network forwarding.
 func NewEnvelope(ttl uint32, topic TopicType, msg *sentMessage) *Envelope {
@@ -32,48 +38,6 @@ func NewEnvelope(ttl uint32, topic TopicType, msg *sentMessage) *Envelope {
 	}
 
 	return &env
-}
-
-// Hash returns the SHA3 hash of the envelope, calculating it if not yet done.
-func (e *Envelope) Hash() common.Hash {
-	if (e.hash == common.Hash{}) {
-		encoded, _ := rlp.EncodeToBytes(e)
-		e.hash = crypto.Keccak256Hash(encoded)
-	}
-	return e.hash
-}
-
-// rlpWithoutNonce returns the RLP encoded envelope contents, except the nonce.
-func (e *Envelope) rlpWithoutNonce() []byte {
-	res, _ := rlp.EncodeToBytes([]interface{}{e.Expiry, e.TTL, e.Topic, e.Data})
-	return res
-}
-
-// DecodeRLP decodes an Envelope from an RLP data stream.
-func (e *Envelope) DecodeRLP(s *rlp.Stream) error {
-	raw, err := s.Raw()
-	if err != nil {
-		return err
-	}
-	// The decoding of Envelope uses the struct fields but also needs
-	// to compute the hash of the whole RLP-encoded envelope. This
-	// type has the same structure as Envelope but is not an
-	// rlp.Decoder (does not implement DecodeRLP function).
-	// Only public members will be encoded.
-	type rlpenv Envelope
-	if err := rlp.DecodeBytes(raw, (*rlpenv)(e)); err != nil {
-		return err
-	}
-	e.hash = crypto.Keccak256Hash(raw)
-	return nil
-}
-
-// GetEnvelope retrieves an envelope from the message queue by its hash.
-// It returns nil if the envelope can not be found.
-func (w *TomoX) GetEnvelope(hash common.Hash) *Envelope {
-	w.poolMu.RLock()
-	defer w.poolMu.RUnlock()
-	return w.envelopes[hash]
 }
 
 // Seal closes the envelope by spending the requested amount of time as a proof
@@ -103,11 +67,41 @@ func (e *Envelope) Seal(options *MessageParams) error {
 	return nil
 }
 
+// Hash returns the SHA3 hash of the envelope, calculating it if not yet done.
+func (e *Envelope) Hash() common.Hash {
+	if (e.hash == common.Hash{}) {
+		encoded, _ := rlp.EncodeToBytes(e)
+		e.hash = crypto.Keccak256Hash(encoded)
+	}
+	return e.hash
+}
+
+// DecodeRLP decodes an Envelope from an RLP data stream.
+func (e *Envelope) DecodeRLP(s *rlp.Stream) error {
+	raw, err := s.Raw()
+	if err != nil {
+		return err
+	}
+	// The decoding of Envelope uses the struct fields but also needs
+	// to compute the hash of the whole RLP-encoded envelope. This
+	// type has the same structure as Envelope but is not an
+	// rlp.Decoder (does not implement DecodeRLP function).
+	// Only public members will be encoded.
+	type rlpenv Envelope
+	if err := rlp.DecodeBytes(raw, (*rlpenv)(e)); err != nil {
+		return err
+	}
+	e.hash = crypto.Keccak256Hash(raw)
+	return nil
+}
+
 // Open tries to decrypt an envelope, and populates the message fields in case of success.
 func (e *Envelope) Open(watcher *Filter) (msg *ReceivedMessage) {
 	if watcher == nil {
 		return nil
 	}
+
+	msg = &ReceivedMessage{Raw: e.Data}
 
 	if msg != nil {
 		ok := msg.ValidateAndParse()
@@ -120,4 +114,12 @@ func (e *Envelope) Open(watcher *Filter) (msg *ReceivedMessage) {
 		msg.EnvelopeHash = e.Hash()
 	}
 	return msg
+}
+
+// GetEnvelope retrieves an envelope from the message queue by its hash.
+// It returns nil if the envelope can not be found.
+func (w *TomoX) GetEnvelope(hash common.Hash) *Envelope {
+	w.poolMu.RLock()
+	defer w.poolMu.RUnlock()
+	return w.envelopes[hash]
 }

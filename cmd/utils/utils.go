@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/les"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/tomox"
-	op "github.com/ethereum/go-ethereum/tomox/protocol"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 )
 

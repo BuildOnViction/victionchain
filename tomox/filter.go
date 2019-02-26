@@ -155,8 +155,8 @@ func (fs *Filters) NotifyWatchers(env *Envelope, p2pMessage bool) {
 		}
 
 		if match && msg != nil {
-			log.Trace("processing message: decrypted", "hash", env.Hash().Hex())
-				watcher.Trigger(msg)
+			log.Debug("processing message: decrypted", "hash", env.Hash().Hex())
+			watcher.Trigger(msg)
 		}
 	}
 }

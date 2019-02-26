@@ -4,7 +4,7 @@ import (
 	"sync"
 	"fmt"
 	"math/big"
-	"strings"
+	//"strings"
 	"time"
 	"errors"
 	"runtime"
@@ -80,19 +80,19 @@ type TomoX struct {
 }
 
 func New(cfg *Config) *TomoX {
-	datadir := cfg.DataDir
-	batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0,
-		EncodeBytesItem, DecodeBytesItem)
-
-	fixAllowedPairs := make(map[string]*big.Int)
-	for key, value := range AllowedPairs {
-		fixAllowedPairs[strings.ToLower(key)] = value
-	}
+	//datadir := cfg.DataDir
+	//batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0,
+	//	EncodeBytesItem, DecodeBytesItem)
+	//
+	//fixAllowedPairs := make(map[string]*big.Int)
+	//for key, value := range AllowedPairs {
+	//	fixAllowedPairs[strings.ToLower(key)] = value
+	//}
 
 	tomoX := &TomoX{
 		Orderbooks:   make(map[string]*OrderBook),
-		db:           batchDB,
-		allowedPairs: fixAllowedPairs,
+		//db:           batchDB,
+		//allowedPairs: fixAllowedPairs,
 		peers:         make(map[*Peer]struct{}),
 		quit:          make(chan struct{}),
 		envelopes:     make(map[common.Hash]*Envelope),
@@ -101,6 +101,7 @@ func New(cfg *Config) *TomoX {
 		messageQueue:  make(chan *Envelope, messageQueueLimit),
 		p2pMsgQueue:   make(chan *Envelope, messageQueueLimit),
 	}
+	tomoX.filters = NewFilters(tomoX)
 
 	tomoX.settings.Store(overflowIdx, false)
 
@@ -117,6 +118,137 @@ func New(cfg *Config) *TomoX {
 	}
 
 	return tomoX
+}
+
+// Overflow returns an indication if the message queue is full.
+func (tomox *TomoX) Overflow() bool {
+	val, _ := tomox.settings.Load(overflowIdx)
+	return val.(bool)
+}
+
+// APIs returns the RPC descriptors the TomoX implementation offers
+func (tomox *TomoX) APIs() []rpc.API {
+	return []rpc.API{
+		{
+			Namespace: ProtocolName,
+			Version:   ProtocolVersionStr,
+			Service:   NewPublicTomoXAPI(tomox),
+			Public:    true,
+		},
+	}
+}
+
+// Protocols returns the whisper sub-protocols ran by this particular client.
+func (tomox *TomoX) Protocols() []p2p.Protocol {
+	return []p2p.Protocol{tomox.protocol}
+}
+
+// Version returns the TomoX sub-protocols version number.
+func (tomox *TomoX) Version() uint {
+	return tomox.protocol.Version
+}
+
+func (tomox *TomoX) getPeers() []*Peer {
+	arr := make([]*Peer, len(tomox.peers))
+	i := 0
+	tomox.peerMu.Lock()
+	for p := range tomox.peers {
+		arr[i] = p
+		i++
+	}
+	tomox.peerMu.Unlock()
+	return arr
+}
+
+// getPeer retrieves peer by ID
+func (tomox *TomoX) getPeer(peerID []byte) (*Peer, error) {
+	tomox.peerMu.Lock()
+	defer tomox.peerMu.Unlock()
+	for p := range tomox.peers {
+		id := p.peer.ID()
+		if bytes.Equal(peerID, id[:]) {
+			return p, nil
+		}
+	}
+	return nil, fmt.Errorf("Could not find peer with ID: %x", peerID)
+}
+
+// AllowP2PMessagesFromPeer marks specific peer trusted,
+// which will allow it to send historic (expired) messages.
+func (tomox *TomoX) AllowP2PMessagesFromPeer(peerID []byte) error {
+	p, err := tomox.getPeer(peerID)
+	if err != nil {
+		return err
+	}
+	p.trusted = true
+	return nil
+}
+
+// SendP2PMessage sends a peer-to-peer message to a specific peer.
+func (tomox *TomoX) SendP2PMessage(peerID []byte, envelope *Envelope) error {
+	p, err := tomox.getPeer(peerID)
+	if err != nil {
+		return err
+	}
+	return tomox.SendP2PDirect(p, envelope)
+}
+
+// SendP2PDirect sends a peer-to-peer message to a specific peer.
+func (tomox *TomoX) SendP2PDirect(peer *Peer, envelope *Envelope) error {
+	return p2p.Send(peer.ws, p2pMessageCode, envelope)
+}
+
+// Subscribe installs a new message handler used for filtering, decrypting
+// and subsequent storing of incoming messages.
+func (tomox *TomoX) Subscribe(f *Filter) (string, error) {
+	s, err := tomox.filters.Install(f)
+	return s, err
+}
+
+// GetFilter returns the filter by id.
+func (tomox *TomoX) GetFilter(id string) *Filter {
+	return tomox.filters.Get(id)
+}
+
+// Unsubscribe removes an installed message handler.
+func (tomox *TomoX) Unsubscribe(id string) error {
+	ok := tomox.filters.Uninstall(id)
+	if !ok {
+		return fmt.Errorf("Unsubscribe: Invalid ID")
+	}
+	return nil
+}
+
+// Send injects a message into the whisper send queue, to be distributed in the
+// network in the coming cycles.
+func (tomox *TomoX) Send(envelope *Envelope) error {
+	ok, err := tomox.add(envelope, false)
+	if err == nil && !ok {
+		return fmt.Errorf("failed to add envelope")
+	}
+	return err
+}
+
+// Start implements node.Service, starting the background data propagation thread
+// of the TomoX protocol.
+func (tomox *TomoX) Start(*p2p.Server) error {
+	log.Info("started tomoX v." + ProtocolVersionStr)
+	go tomox.update()
+
+	numCPU := runtime.NumCPU()
+	for i := 0; i < numCPU; i++ {
+		go tomox.processQueue()
+	}
+
+	return nil
+}
+
+// Stop implements node.Service, stopping the background data propagation thread
+// of the TomoX protocol.
+func (tomox *TomoX) Stop() error {
+	close(tomox.quit)
+	log.Info("tomoX stopped")
+	return nil
 }
 
 // HandlePeer is called by the underlying P2P layer when the TomoX sub-protocol
@@ -249,75 +381,6 @@ func (tomox *TomoX) add(envelope *Envelope, isP2P bool) (bool, error) {
 	return true, nil
 }
 
-// AllowP2PMessagesFromPeer marks specific peer trusted,
-// which will allow it to send historic (expired) messages.
-func (tomox *TomoX) AllowP2PMessagesFromPeer(peerID []byte) error {
-	p, err := tomox.getPeer(peerID)
-	if err != nil {
-		return err
-	}
-	p.trusted = true
-	return nil
-}
-
-// getPeer retrieves peer by ID
-func (tomox *TomoX) getPeer(peerID []byte) (*Peer, error) {
-	tomox.peerMu.Lock()
-	defer tomox.peerMu.Unlock()
-	for p := range tomox.peers {
-		id := p.peer.ID()
-		if bytes.Equal(peerID, id[:]) {
-			return p, nil
-		}
-	}
-	return nil, fmt.Errorf("Could not find peer with ID: %x", peerID)
-}
-
-
-// SendP2PMessage sends a peer-to-peer message to a specific peer.
-func (tomox *TomoX) SendP2PMessage(peerID []byte, envelope *Envelope) error {
-	p, err := tomox.getPeer(peerID)
-	if err != nil {
-		return err
-	}
-	return tomox.SendP2PDirect(p, envelope)
-}
-
-// SendP2PDirect sends a peer-to-peer message to a specific peer.
-func (tomox *TomoX) SendP2PDirect(peer *Peer, envelope *Envelope) error {
-	return p2p.Send(peer.ws, p2pMessageCode, envelope)
-}
-
-// Send injects a message into the whisper send queue, to be distributed in the
-// network in the coming cycles.
-func (tomox *TomoX) Send(envelope *Envelope) error {
-	ok, err := tomox.add(envelope, false)
-	if err == nil && !ok {
-		return fmt.Errorf("failed to add envelope")
-	}
-	return err
-}
-
-// Subscribe installs a new message handler used for filtering, decrypting
-// and subsequent storing of incoming messages.
-func (tomox *TomoX) Subscribe(f *Filter) (string, error) {
-	s, err := tomox.filters.Install(f)
-	return s, err
-}
-
-// GetFilter returns the filter by id.
-func (tomox *TomoX) GetFilter(id string) *Filter {
-	return tomox.filters.Get(id)
-}
-
-// Unsubscribe removes an installed message handler.
-func (tomox *TomoX) Unsubscribe(id string) error {
-	ok := tomox.filters.Uninstall(id)
-	if !ok {
-		return fmt.Errorf("Unsubscribe: Invalid ID")
-	}
-	return nil
-}
 // postEvent queues the message for further processing.
 func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) {
 	if isP2P {
@@ -345,49 +408,21 @@ func (tomox *TomoX) checkOverflow() {
 	}
 }
 
-// Overflow returns an indication if the message queue is full.
-func (tomox *TomoX) Overflow() bool {
-	val, _ := tomox.settings.Load(overflowIdx)
-	return val.(bool)
-}
+// processQueue delivers the messages to the watchers during the lifetime of the whisper node.
+func (tomox *TomoX) processQueue() {
+	var e *Envelope
+	for {
+		select {
+		case <-tomox.quit:
+			return
 
-// Protocols returns the whisper sub-protocols ran by this particular client.
-func (tomox *TomoX) Protocols() []p2p.Protocol {
-	return []p2p.Protocol{tomox.protocol}
-}
+		case e = <-tomox.messageQueue:
+			tomox.filters.NotifyWatchers(e, false)
 
-// APIs returns the RPC descriptors the TomoX implementation offers
-func (tomox *TomoX) APIs() []rpc.API {
-	return []rpc.API{
-		{
-			Namespace: ProtocolName,
-			Version:   ProtocolVersionStr,
-			Service:   NewPublicTomoXAPI(tomox),
-			Public:    true,
-		},
+		case e = <-tomox.p2pMsgQueue:
+			tomox.filters.NotifyWatchers(e, true)
+		}
 	}
-}
-
-// Stop implements node.Service, stopping the background data propagation thread
-// of the TomoX protocol.
-func (tomox *TomoX) Stop() error {
-	close(tomox.quit)
-	log.Info("tomoX stopped")
-	return nil
-}
-
-// Start implements node.Service, starting the background data propagation thread
-// of the TomoX protocol.
-func (tomox *TomoX) Start(*p2p.Server) error {
-	log.Info("started tomoX v." + ProtocolVersionStr)
-	go tomox.update()
-
-	numCPU := runtime.NumCPU()
-	for i := 0; i < numCPU; i++ {
-		go tomox.processQueue()
-	}
-
-	return nil
 }
 
 // update loops until the lifetime of the whisper node, updating its internal
@@ -424,23 +459,6 @@ func (tomox *TomoX) expire() {
 			})
 			tomox.expirations[expiry].Clear()
 			delete(tomox.expirations, expiry)
-		}
-	}
-}
-
-// processQueue delivers the messages to the watchers during the lifetime of the whisper node.
-func (tomox *TomoX) processQueue() {
-	var e *Envelope
-	for {
-		select {
-		case <-tomox.quit:
-			return
-
-		case e = <-tomox.messageQueue:
-			//tomox.filters.NotifyWatchers(e, false)
-
-		case e = <-tomox.p2pMsgQueue:
-			//tomox.filters.NotifyWatchers(e, true)
 		}
 	}
 }

@@ -2511,6 +2511,7 @@ var Iban = require('./web3/iban');
 var Eth = require('./web3/methods/eth');
 var DB = require('./web3/methods/db');
 var Shh = require('./web3/methods/shh');
+var TomoX = require('./web3/methods/tomoX')
 var Net = require('./web3/methods/net');
 var Personal = require('./web3/methods/personal');
 var Swarm = require('./web3/methods/swarm');
@@ -2533,6 +2534,7 @@ function Web3 (provider) {
     this.eth = new Eth(this);
     this.db = new DB(this);
     this.shh = new Shh(this);
+    this.tomoX = new TomoX(this);
     this.net = new Net(this);
     this.personal = new Personal(this);
     this.bzz = new Swarm(this);
@@ -6148,9 +6150,37 @@ var shh = function () {
     ];
 };
 
+/// @returns an array of objects describing web3.tomoX.watch api methods
+var tomoX = function () {
+
+    return [
+        new Method({
+            name: 'newFilter',
+            call: 'tomoX_newMessageFilter',
+            params: 1
+        }),
+        new Method({
+            name: 'uninstallFilter',
+            call: 'tomoX_deleteMessageFilter',
+            params: 1
+        }),
+        new Method({
+            name: 'getLogs',
+            call: 'tomoX_getFilterMessages',
+            params: 1
+        }),
+        new Method({
+            name: 'poll',
+            call: 'tomoX_getFilterMessages',
+            params: 1
+        })
+    ];
+};
+
 module.exports = {
     eth: eth,
-    shh: shh
+    shh: shh,
+    tomoX: tomoX,
 };
 
 
@@ -13666,7 +13696,58 @@ module.exports = transfer;
 },{}],86:[function(require,module,exports){
 module.exports = XMLHttpRequest;
 
-},{}],"bignumber.js":[function(require,module,exports){
+},{}],87:[function(require,module,exports){
+        var Method = require('../method');
+        var Filter = require('../filter');
+        var watches = require('./watches');
+
+        var TomoX = function (web3) {
+            this._requestManager = web3._requestManager;
+
+            var self = this;
+
+            methods().forEach(function(method) {
+                method.attachToObject(self);
+                method.setRequestManager(self._requestManager);
+            });
+        };
+
+        TomoX.prototype.newMessageFilter = function (options, callback, filterCreationErrorCallback) {
+            return new Filter(options, 'tomoX', this._requestManager, watches.tomoX(), null, callback, filterCreationErrorCallback);
+        };
+
+        var methods = function () {
+
+            return [
+                new Method({
+                    name: 'version',
+                    call: 'tomoX_version',
+                    params: 0
+                }),
+                new Method({
+                    name: 'info',
+                    call: 'tomoX_info',
+                    params: 0
+                }),
+                new Method({
+                    name: 'markTrustedPeer',
+                    call: 'tomoX_markTrustedPeer',
+                    params: 1
+                }),
+                // subscribe and unsubscribe missing
+                new Method({
+                    name: 'post',
+                    call: 'tomoX_post',
+                    params: 1,
+                    inputFormatter: [null]
+                })
+            ];
+        };
+
+        module.exports = TomoX;
+
+
+    },{"../filter":29,"../method":36,"./watches":43}],"bignumber.js":[function(require,module,exports){
 'use strict';
 
 module.exports = BigNumber; // jshint ignore:line
