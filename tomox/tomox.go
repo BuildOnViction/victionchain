@@ -24,9 +24,10 @@ const (
 	ProtocolVersionStr = "1.0"
 	expirationCycle   = time.Second
 	transmissionCycle = 300 * time.Millisecond
-	statusCode           = 0   // used by TomoX protocol
-	messagesCode         = 1   // normal TomoX message
+	statusCode           = 10   // used by TomoX protocol
+	messagesCode         = 11   // normal TomoX message
 	p2pMessageCode       = 127 // peer-to-peer message (to be consumed by the peer, but not forwarded any further)
+	NumberOfMessageCodes = 128
 	DefaultTTL           = 50 // seconds
 	DefaultSyncAllowance = 10 // seconds
 	messageQueueLimit = 1024
@@ -109,6 +110,7 @@ func New(cfg *Config) *TomoX {
 	tomoX.protocol = p2p.Protocol{
 		Name: ProtocolName,
 		Version: uint(ProtocolVersion),
+		Length:  NumberOfMessageCodes,
 		Run: tomoX.HandlePeer,
 		NodeInfo: func() interface{} {
 			return map[string]interface{}{
@@ -254,6 +256,7 @@ func (tomox *TomoX) Stop() error {
 // HandlePeer is called by the underlying P2P layer when the TomoX sub-protocol
 // connection is negotiated.
 func (tomox *TomoX) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
+	log.Debug("TomoX handshake start", "peer", peer.Name())
 	// Create the new peer and start tracking it
 	tomoPeer := newPeer(tomox, peer, rw)
 
@@ -269,8 +272,10 @@ func (tomox *TomoX) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 
 	// Run the peer handshake and state updates
 	if err := tomoPeer.handshake(); err != nil {
+		log.Error("TomoX handshake failed", "peer", peer.Name(), "err", err)
 		return err
 	}
+	log.Debug("TomoX handshake success","peer", peer.Name())
 	tomoPeer.start()
 	defer tomoPeer.stop()
 
