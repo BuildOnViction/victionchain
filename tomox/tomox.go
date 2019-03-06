@@ -36,7 +36,7 @@ const (
 	padSizeLimit      = 256 // just an arbitrary number, could be changed without breaking the protocol
 	flagsLength     = 1
 	SizeMask      = byte(3) // mask used to extract the size of payload size field from the flags
-	TopicLength     = 4  // in bytes
+	TopicLength     = 8  // in bytes
 	keyIDSize       = 32 // in bytes
 )
 
