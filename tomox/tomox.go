@@ -4,16 +4,18 @@ import (
 	"sync"
 	"fmt"
 	"math/big"
-	//"strings"
 	"time"
 	"errors"
 	"runtime"
 	"bytes"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/tomochain/dex-server/types"
 	"gopkg.in/fatih/set.v0"
 	"golang.org/x/sync/syncmap"
 )
@@ -38,6 +40,7 @@ const (
 	SizeMask      = byte(3) // mask used to extract the size of payload size field from the flags
 	TopicLength     = 8  // in bytes
 	keyIDSize       = 32 // in bytes
+	DefaultTradeID = "1"
 )
 
 type Config struct {
@@ -53,7 +56,7 @@ type TomoX struct {
 	Orderbooks map[string]*OrderBook
 	db         *BatchDatabase
 	// pair and max volume ...
-	allowedPairs map[string]*big.Int
+	//allowedPairs map[string]*big.Int
 
 	// P2P messaging related
 	protocol p2p.Protocol
@@ -61,7 +64,6 @@ type TomoX struct {
 	quit chan struct{}
 	peers  map[*Peer]struct{} // Set of currently active peers
 	peerMu sync.RWMutex       // Mutex to sync the active peer set
-	//filters  *Filters     // Message filters installed with Subscribe function
 
 	messageQueue chan *Envelope // Message queue for normal TomoX messages
 	p2pMsgQueue  chan *Envelope // Message queue for peer-to-peer messages (not to be forwarded any further)
@@ -81,10 +83,10 @@ type TomoX struct {
 }
 
 func New(cfg *Config) *TomoX {
-	//datadir := cfg.DataDir
-	//batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0,
-	//	EncodeBytesItem, DecodeBytesItem)
-	//
+	datadir := cfg.DataDir
+	batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0,
+		EncodeBytesItem, DecodeBytesItem)
+
 	//fixAllowedPairs := make(map[string]*big.Int)
 	//for key, value := range AllowedPairs {
 	//	fixAllowedPairs[strings.ToLower(key)] = value
@@ -92,7 +94,7 @@ func New(cfg *Config) *TomoX {
 
 	tomoX := &TomoX{
 		Orderbooks:   make(map[string]*OrderBook),
-		//db:           batchDB,
+		db:           batchDB,
 		//allowedPairs: fixAllowedPairs,
 		peers:         make(map[*Peer]struct{}),
 		quit:          make(chan struct{}),
@@ -329,7 +331,10 @@ func (tomox *TomoX) runMessageLoop(p *Peer, rw p2p.MsgReadWriter) error {
 					log.Warn("failed to decode direct message, peer will be disconnected", "peer", p.peer.ID(), "err", err)
 					return errors.New("invalid direct message")
 				}
-				tomox.postEvent(&envelope, true)
+				err := tomox.postEvent(&envelope, true)
+				if err != nil {
+					return err
+				}
 			}
 		default:
 		}
@@ -381,19 +386,53 @@ func (tomox *TomoX) add(envelope *Envelope, isP2P bool) (bool, error) {
 		log.Trace("cached tomoX envelope", "hash", envelope.Hash().Hex())
 		tomox.statsMu.Lock()
 		tomox.statsMu.Unlock()
-		tomox.postEvent(envelope, isP2P) // notify the local node about the new message
+		err := tomox.postEvent(envelope, isP2P) // notify the local node about the new message
+		if err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }
 
 // postEvent queues the message for further processing.
-func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) {
+func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 	if isP2P {
 		tomox.p2pMsgQueue <- envelope
 	} else {
 		tomox.checkOverflow()
 		tomox.messageQueue <- envelope
 	}
+
+	payload := &types.Order{}
+	err := payload.UnmarshalJSON(envelope.Data)
+	if err != nil {
+		log.Error("Fail to parse envelope", "err", err)
+		return err
+	}
+
+	order := toOrder(payload)
+	log.Info("Save order", "detail", order)
+	trades, orderInBook, err := tomox.ProcessOrder(order)
+	if err != nil {
+		log.Error("Can process order", "err", err)
+		return err
+	}
+	log.Info("Orderbook result", "Trade", trades, "OrderInBook", orderInBook)
+	return nil
+}
+
+func toOrder(payload *types.Order) map[string]string {
+	order := map[string]string{}
+	order["timestamp"] = strconv.FormatInt(payload.CreatedAt.UnixNano()/int64(time.Millisecond), 10)
+	order["type"] = Market
+	order["side"] = payload.Side
+	order["quantity"] = strconv.FormatInt(payload.Amount.Int64(), 10)
+	order["price"] = strconv.FormatInt(payload.PricePoint.Int64(), 10)
+	order["trade_id"] = DefaultTradeID
+	order["pair_name"] = payload.PairName
+	// if insert id is not used, just for update
+	//order["order_id"] = payload.ID.String()
+	return order
 }
 
 // checkOverflow checks if message queue overflow occurs and reports it if necessary.
@@ -520,98 +559,96 @@ func bytesToUintLittleEndian(b []byte) (res uint64) {
 	}
 	return res
 }
-/*
-=====================================================================================
-*/
 
-//func (tomox *TomoX) GetOrderBook(pairName string) (*OrderBook, error) {
-//	return tomox.getAndCreateIfNotExisted(pairName)
-//}
-//
-//func (tomox *TomoX) hasOrderBook(name string) bool {
-//	_, ok := tomox.Orderbooks[name]
-//	return ok
-//}
-//
-//// commit for all orderbooks
-//func (tomox *TomoX) Commit() error {
-//	return tomox.db.Commit()
-//}
-//
-//func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error) {
-//
-//	name := strings.ToLower(pairName)
-//
-//	if !tomox.hasOrderBook(name) {
-//		// check allow pair
-//		if _, ok := tomox.allowedPairs[name]; !ok {
-//			return nil, fmt.Errorf("Orderbook not found for pair :%s", pairName)
-//		}
-//
-//		// then create one
-//		ob := NewOrderBook(name, tomox.db)
-//		if ob != nil {
-//			ob.Restore()
-//			tomox.Orderbooks[name] = ob
-//		}
-//	}
-//
-//	// return from map
-//	return tomox.Orderbooks[name], nil
-//}
-//
-//func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
-//	ob, _ := tomox.getAndCreateIfNotExisted(pairName)
-//	if ob == nil {
-//		return nil
-//	}
-//	key := GetKeyFromString(orderID)
-//	return ob.GetOrder(key)
-//}
-//
-//func (tomox *TomoX) ProcessOrder(quote map[string]string) ([]map[string]string, map[string]string) {
-//
-//	ob, _ := tomox.getAndCreateIfNotExisted(quote["pair_name"])
-//	var trades []map[string]string
-//	var orderInBook map[string]string
-//
-//	if ob != nil {
-//		// get map as general input, we can set format later to make sure there is no problem
-//		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
-//		if err == nil {
-//			// insert
-//			if orderID == 0 {
-//				log.Info("Process order")
-//				trades, orderInBook = ob.ProcessOrder(quote, true)
-//			} else {
-//				log.Info("Update order")
-//				err = ob.UpdateOrder(quote)
-//				if err != nil {
-//					log.Info("Update order failed", "quote", quote, "err", err)
-//				}
-//			}
-//		}
-//
-//	}
-//
-//	return trades, orderInBook
-//
-//}
-//
-//func (tomox *TomoX) CancelOrder(quote map[string]string) error {
-//	ob, err := tomox.getAndCreateIfNotExisted(quote["pair_name"])
-//	if ob != nil {
-//		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
-//		if err == nil {
-//
-//			price, ok := new(big.Int).SetString(quote["price"], 10)
-//			if !ok {
-//				return fmt.Errorf("Price is not correct :%s", quote["price"])
-//			}
-//
-//			return ob.CancelOrder(quote["side"], orderID, price)
-//		}
-//	}
-//
-//	return err
-//}
+// list Orderbook by topic
+func (tomox *TomoX) GetOrderBook(pairName string) (*OrderBook, error) {
+	return tomox.getAndCreateIfNotExisted(pairName)
+}
+
+func (tomox *TomoX) hasOrderBook(name string) bool {
+	_, ok := tomox.Orderbooks[name]
+	return ok
+}
+
+// commit for all orderbooks
+func (tomox *TomoX) Commit() error {
+	return tomox.db.Commit()
+}
+
+func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error) {
+
+	name := strings.ToLower(pairName)
+
+	if !tomox.hasOrderBook(name) {
+		// check allow pair
+		//if _, ok := tomox.allowedPairs[name]; !ok {
+		//	return nil, fmt.Errorf("Orderbook not found for pair :%s", pairName)
+		//}
+
+		// then create one
+		ob := NewOrderBook(name, tomox.db)
+		if ob != nil {
+			ob.Restore()
+			tomox.Orderbooks[name] = ob
+		}
+	}
+
+	// return from map
+	return tomox.Orderbooks[name], nil
+}
+
+func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
+	ob, _ := tomox.getAndCreateIfNotExisted(pairName)
+	if ob == nil {
+		return nil
+	}
+	key := GetKeyFromString(orderID)
+	return ob.GetOrder(key)
+}
+
+func (tomox *TomoX) ProcessOrder(quote map[string]string) ([]map[string]string, map[string]string, error) {
+	ob, _ := tomox.getAndCreateIfNotExisted(quote["pair_name"])
+	var trades []map[string]string
+	var orderInBook map[string]string
+
+	if ob != nil {
+		// get map as general input, we can set format later to make sure there is no problem
+		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
+		if err != nil {
+			return trades, orderInBook, err
+		}
+
+		// insert
+		if orderID == 0 {
+			log.Info("Process order")
+			trades, orderInBook = ob.ProcessOrder(quote, true)
+		} else {
+			log.Info("Update order")
+			err = ob.UpdateOrder(quote)
+			if err != nil {
+				log.Error("Update order failed", "quote", quote, "err", err)
+				return trades, orderInBook, err
+			}
+		}
+	}
+
+	return trades, orderInBook, nil
+}
+
+func (tomox *TomoX) CancelOrder(quote map[string]string) error {
+	ob, err := tomox.getAndCreateIfNotExisted(quote["pair_name"])
+	if ob != nil {
+		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
+		if err == nil {
+
+			price, ok := new(big.Int).SetString(quote["price"], 10)
+			if !ok {
+				return fmt.Errorf("Price is not correct :%s", quote["price"])
+			}
+
+			return ob.CancelOrder(quote["side"], orderID, price)
+		}
+	}
+
+	return err
+}

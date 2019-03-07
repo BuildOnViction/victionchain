@@ -116,6 +116,7 @@ func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, erro
 	}
 
 	if params.Topic == (TopicType{}) {
+		log.Error("Missing topic(s)", "params.Topic", params.Topic)
 		return false, ErrNoTopics
 	}
 
