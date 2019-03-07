@@ -96,11 +96,7 @@ func (e *Envelope) DecodeRLP(s *rlp.Stream) error {
 }
 
 // Open tries to decrypt an envelope, and populates the message fields in case of success.
-func (e *Envelope) Open(watcher *Filter) (msg *ReceivedMessage) {
-	if watcher == nil {
-		return nil
-	}
-
+func (e *Envelope) Open() (msg *ReceivedMessage) {
 	msg = &ReceivedMessage{Raw: e.Data}
 
 	if msg != nil {

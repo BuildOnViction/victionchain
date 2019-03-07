@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"strconv"
 	"strings"
+	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -396,6 +397,7 @@ func (tomox *TomoX) add(envelope *Envelope, isP2P bool) (bool, error) {
 
 // postEvent queues the message for further processing.
 func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
+	log.Debug("Received envelope", "hash", envelope.hash.Hex())
 	if isP2P {
 		tomox.p2pMsgQueue <- envelope
 	} else {
@@ -404,7 +406,8 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 	}
 
 	payload := &types.Order{}
-	err := payload.UnmarshalJSON(envelope.Data)
+	msg := envelope.Open()
+	err := json.Unmarshal(msg.Payload, &payload)
 	if err != nil {
 		log.Error("Fail to parse envelope", "err", err)
 		return err

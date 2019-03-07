@@ -145,7 +145,7 @@ func (fs *Filters) NotifyWatchers(env *Envelope, p2pMessage bool) {
 		} else {
 			match = watcher.MatchEnvelope(env)
 			if match {
-				msg = env.Open(watcher)
+				msg = env.Open()
 				if msg == nil {
 					log.Trace("processing message: failed to open", "message", env.Hash().Hex(), "filter", watcher.id)
 				}
