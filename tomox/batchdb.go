@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	lru "github.com/hashicorp/golang-lru"
 )
@@ -41,7 +42,11 @@ func NewBatchDatabase(datadir string, cacheLimit, maxPending int) *BatchDatabase
 
 // batchdatabase is a fast cache db to retrieve in-mem object
 func NewBatchDatabaseWithEncode(datadir string, cacheLimit, maxPending int, encode EncodeToBytes, decode DecodeBytes) *BatchDatabase {
-	db, _ := ethdb.NewLDBDatabase(datadir, 128, 1024)
+	db, err := ethdb.NewLDBDatabase(datadir, 128, 1024)
+	if err != nil {
+		log.Error("Can't create new DB", "error", err)
+		return nil
+	}
 	itemCacheLimit := defaultCacheLimit
 	if cacheLimit > 0 {
 		itemCacheLimit = cacheLimit

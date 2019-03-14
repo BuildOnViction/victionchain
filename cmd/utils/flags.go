@@ -53,6 +53,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/tomox"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -207,7 +208,7 @@ var (
 	}
 	// TomoX settings
 	TomoXEnabledFlag = cli.BoolFlag{
-		Name:  "tomoX",
+		Name:  "tomox",
 		Usage: "Enable the tomoX protocol",
 	}
 	// Dashboard settings
@@ -552,6 +553,11 @@ var (
 		Name:  "shh.pow",
 		Usage: "Minimum POW accepted",
 		Value: whisper.DefaultMinimumPoW,
+	}
+	TomoXDataDirFlag = DirectoryFlag{
+		Name:  "tomox.datadir",
+		Usage: "Data directory for the TomoX databases",
+		Value: DirectoryString{node.DefaultDataDir()},
 	}
 )
 
@@ -1031,6 +1037,12 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 	}
 	if ctx.GlobalIsSet(WhisperMinPOWFlag.Name) {
 		cfg.MinimumAcceptedPOW = ctx.GlobalFloat64(WhisperMinPOWFlag.Name)
+	}
+}
+
+func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
+	if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
+		cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
 	}
 }
 

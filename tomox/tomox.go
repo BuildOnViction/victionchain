@@ -1,51 +1,57 @@
 package tomox
 
 import (
-	"sync"
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
-	"time"
-	"errors"
 	"runtime"
-	"bytes"
 	"strconv"
 	"strings"
-	"encoding/json"
+	"sync"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/tomochain/dex-server/types"
-	"gopkg.in/fatih/set.v0"
 	"golang.org/x/sync/syncmap"
+	"gopkg.in/fatih/set.v0"
 )
 
 const (
-	ProtocolName = "tomoX"
-	ProtocolVersion = uint64(1)
-	ProtocolVersionStr = "1.0"
-	expirationCycle   = time.Second
-	transmissionCycle = 300 * time.Millisecond
-	statusCode           = 10   // used by TomoX protocol
-	messagesCode         = 11   // normal TomoX message
+	ProtocolName         = "tomoX"
+	ProtocolVersion      = uint64(1)
+	ProtocolVersionStr   = "1.0"
+	expirationCycle      = time.Second
+	transmissionCycle    = 300 * time.Millisecond
+	statusCode           = 10  // used by TomoX protocol
+	messagesCode         = 11  // normal TomoX message
 	p2pMessageCode       = 127 // peer-to-peer message (to be consumed by the peer, but not forwarded any further)
 	NumberOfMessageCodes = 128
 	DefaultTTL           = 50 // seconds
 	DefaultSyncAllowance = 10 // seconds
-	messageQueueLimit = 1024
-	overflowIdx                    // Indicator of message queue overflow
-	signatureLength = 65 // in bytes
-	padSizeLimit      = 256 // just an arbitrary number, could be changed without breaking the protocol
-	flagsLength     = 1
-	SizeMask      = byte(3) // mask used to extract the size of payload size field from the flags
-	TopicLength     = 8  // in bytes
-	keyIDSize       = 32 // in bytes
-	DefaultTradeID = "1"
+	messageQueueLimit    = 1024
+	overflowIdx                // Indicator of message queue overflow
+	signatureLength      = 65  // in bytes
+	padSizeLimit         = 256 // just an arbitrary number, could be changed without breaking the protocol
+	flagsLength          = 1
+	SizeMask             = byte(3) // mask used to extract the size of payload size field from the flags
+	TopicLength          = 8       // in bytes
+	keyIDSize            = 32      // in bytes
+	DefaultTradeID       = "1"
 )
 
 type Config struct {
 	DataDir string `toml:",omitempty"`
+}
+
+// DefaultConfig represents (shocker!) the default configuration.
+var DefaultConfig = Config{
+	DataDir: node.DefaultDataDir(),
 }
 
 var AllowedPairs = map[string]*big.Int{
@@ -61,17 +67,17 @@ type TomoX struct {
 
 	// P2P messaging related
 	protocol p2p.Protocol
-	filters  *Filters     // Message filters installed with Subscribe function
-	quit chan struct{}
-	peers  map[*Peer]struct{} // Set of currently active peers
-	peerMu sync.RWMutex       // Mutex to sync the active peer set
+	filters  *Filters // Message filters installed with Subscribe function
+	quit     chan struct{}
+	peers    map[*Peer]struct{} // Set of currently active peers
+	peerMu   sync.RWMutex       // Mutex to sync the active peer set
 
 	messageQueue chan *Envelope // Message queue for normal TomoX messages
 	p2pMsgQueue  chan *Envelope // Message queue for peer-to-peer messages (not to be forwarded any further)
 
 	envelopes   map[common.Hash]*Envelope
-	expirations map[uint32]*set.SetNonTS  // Message expiration pool
-	poolMu      sync.RWMutex  // Mutex to sync the message and expiration pools
+	expirations map[uint32]*set.SetNonTS // Message expiration pool
+	poolMu      sync.RWMutex             // Mutex to sync the message and expiration pools
 
 	syncAllowance int // maximum time in seconds allowed to process the tomoX-related messages
 
@@ -94,8 +100,8 @@ func New(cfg *Config) *TomoX {
 	//}
 
 	tomoX := &TomoX{
-		Orderbooks:   make(map[string]*OrderBook),
-		db:           batchDB,
+		Orderbooks: make(map[string]*OrderBook),
+		db:         batchDB,
 		//allowedPairs: fixAllowedPairs,
 		peers:         make(map[*Peer]struct{}),
 		quit:          make(chan struct{}),
@@ -111,13 +117,13 @@ func New(cfg *Config) *TomoX {
 
 	// p2p tomoX sub protocol handler
 	tomoX.protocol = p2p.Protocol{
-		Name: ProtocolName,
+		Name:    ProtocolName,
 		Version: uint(ProtocolVersion),
 		Length:  NumberOfMessageCodes,
-		Run: tomoX.HandlePeer,
+		Run:     tomoX.HandlePeer,
 		NodeInfo: func() interface{} {
 			return map[string]interface{}{
-				"version":        ProtocolVersionStr,
+				"version": ProtocolVersionStr,
 			}
 		},
 	}
@@ -278,7 +284,7 @@ func (tomox *TomoX) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 		log.Error("TomoX handshake failed", "peer", peer.Name(), "err", err)
 		return err
 	}
-	log.Debug("TomoX handshake success","peer", peer.Name())
+	log.Debug("TomoX handshake success", "peer", peer.Name())
 	tomoPeer.start()
 	defer tomoPeer.stop()
 
@@ -322,7 +328,7 @@ func (tomox *TomoX) runMessageLoop(p *Peer, rw p2p.MsgReadWriter) error {
 			if trouble {
 				return errors.New("invalid envelope")
 			}
-		case  p2pMessageCode:
+		case p2pMessageCode:
 			// peer-to-peer message, sent directly to peer.
 			// this message is not supposed to be forwarded to other peers.
 			// these messages are only accepted from the trusted peer.
@@ -417,7 +423,7 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 	log.Info("Save order", "detail", order)
 	trades, orderInBook, err := tomox.ProcessOrder(order)
 	if err != nil {
-		log.Error("Can process order", "err", err)
+		log.Error("Can't process order", "err", err)
 		return err
 	}
 	log.Info("Orderbook result", "Trade", trades, "OrderInBook", orderInBook)
@@ -434,7 +440,7 @@ func toOrder(payload *types.Order) map[string]string {
 	order["trade_id"] = DefaultTradeID
 	order["pair_name"] = payload.PairName
 	// if insert id is not used, just for update
-	//order["order_id"] = payload.ID.String()
+	order["order_id"] = "0"
 	return order
 }
 
