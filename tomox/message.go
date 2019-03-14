@@ -17,7 +17,7 @@ type MessageParams struct {
 	WorkTime uint32
 	Payload  []byte
 	Padding  []byte
-	Topic TopicType
+	Topic    TopicType
 }
 
 // SentMessage represents an end-user data packet to transmit through the
@@ -32,13 +32,13 @@ type sentMessage struct {
 type ReceivedMessage struct {
 	Raw []byte
 
-	Payload   []byte
-	Padding   []byte
-	Salt      []byte
-	Topic    TopicType
+	Payload []byte
+	Padding []byte
+	Salt    []byte
+	Topic   TopicType
 
-	Sent  uint32           // Time when the message was posted into the network
-	TTL   uint32           // Maximum time to live allowed for the message
+	Sent uint32 // Time when the message was posted into the network
+	TTL  uint32 // Maximum time to live allowed for the message
 
 	EnvelopeHash common.Hash // Message envelope hash to act as a unique id
 }

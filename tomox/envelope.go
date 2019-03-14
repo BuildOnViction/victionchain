@@ -1,14 +1,14 @@
 package tomox
 
 import (
-	"time"
 	"encoding/binary"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type Envelope struct {
@@ -17,7 +17,7 @@ type Envelope struct {
 	Data   []byte
 	Nonce  uint64
 	Topic  TopicType
-	hash  common.Hash
+	hash   common.Hash
 }
 
 // rlpWithoutNonce returns the RLP encoded envelope contents, except the nonce.

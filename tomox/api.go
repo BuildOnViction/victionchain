@@ -20,7 +20,7 @@ const (
 
 // List of errors
 var (
-	ErrNoTopics             = errors.New("missing topic(s)")
+	ErrNoTopics = errors.New("missing topic(s)")
 )
 
 // PublicTomoXAPI provides the tomoX RPC service that can be
@@ -48,15 +48,15 @@ func (api *PublicTomoXAPI) Version(ctx context.Context) string {
 
 // Info contains diagnostic information.
 type Info struct {
-	Memory         int     `json:"memory"`         // Memory size of the floating messages in bytes.
-	Messages       int     `json:"messages"`       // Number of floating messages.
-	MaxMessageSize uint32  `json:"maxMessageSize"` // Maximum accepted message size
+	Memory         int    `json:"memory"`         // Memory size of the floating messages in bytes.
+	Messages       int    `json:"messages"`       // Number of floating messages.
+	MaxMessageSize uint32 `json:"maxMessageSize"` // Maximum accepted message size
 }
 
 // Info returns diagnostic information about the tomoX node.
 func (api *PublicTomoXAPI) Info(ctx context.Context) Info {
 	return Info{
-		Messages:       len(api.t.messageQueue) + len(api.t.p2pMsgQueue),
+		Messages: len(api.t.messageQueue) + len(api.t.p2pMsgQueue),
 	}
 }
 
@@ -97,14 +97,14 @@ type NewMessage struct {
 }
 
 type newMessageOverride struct {
-	Payload   hexutil.Bytes
-	Padding   hexutil.Bytes
+	Payload hexutil.Bytes
+	Padding hexutil.Bytes
 }
 
 // Post a message on the TomoX network.
 func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, error) {
 	var (
-		err         error
+		err error
 	)
 
 	params := &MessageParams{
@@ -147,8 +147,8 @@ func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, erro
 
 // Criteria holds various filter options for inbound messages.
 type Criteria struct {
-	Topics       []TopicType `json:"topics"`
-	AllowP2P     bool        `json:"allowP2P"`
+	Topics   []TopicType `json:"topics"`
+	AllowP2P bool        `json:"allowP2P"`
 }
 
 type criteriaOverride struct {
@@ -159,7 +159,7 @@ type criteriaOverride struct {
 // the given set of criteria.
 func (api *PublicTomoXAPI) Messages(ctx context.Context, crit Criteria) (*rpc.Subscription, error) {
 	var (
-		err         error
+		err error
 	)
 
 	// ensure that the RPC connection supports subscriptions
@@ -295,8 +295,8 @@ func (api *PublicTomoXAPI) DeleteMessageFilter(id string) (bool, error) {
 // (new) messages that satisfy the given criteria.
 func (api *PublicTomoXAPI) NewMessageFilter(req Criteria) (string, error) {
 	var (
-		topics  [][]byte
-		err error
+		topics [][]byte
+		err    error
 	)
 
 	if len(req.Topics) > 0 {

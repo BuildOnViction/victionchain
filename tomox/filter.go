@@ -1,11 +1,11 @@
 package tomox
 
 import (
-	"fmt"
-	"sync"
-	mrand "math/rand"
 	crand "crypto/rand"
 	"errors"
+	"fmt"
+	mrand "math/rand"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -13,9 +13,9 @@ import (
 
 // Filter represents a TomoX message filter
 type Filter struct {
-	Topics     [][]byte          // Topics to filter messages with
-	AllowP2P   bool              // Indicates whether this filter is interested in direct peer-to-peer messages
-	id         string            // unique identifier
+	Topics   [][]byte // Topics to filter messages with
+	AllowP2P bool     // Indicates whether this filter is interested in direct peer-to-peer messages
+	id       string   // unique identifier
 
 	Messages map[common.Hash]*ReceivedMessage
 	mutex    sync.RWMutex
@@ -29,7 +29,7 @@ type Filters struct {
 	allTopicsMatcher map[*Filter]struct{}               // list all the filters that will be notified of a new message, no matter what its topic is
 
 	tomox *TomoX
-	mutex   sync.RWMutex
+	mutex sync.RWMutex
 }
 
 // NewFilters returns a newly created filter collection
@@ -38,7 +38,7 @@ func NewFilters(t *TomoX) *Filters {
 		watchers:         make(map[string]*Filter),
 		topicMatcher:     make(map[TopicType]map[*Filter]struct{}),
 		allTopicsMatcher: make(map[*Filter]struct{}),
-		tomox:          t,
+		tomox:            t,
 	}
 }
 

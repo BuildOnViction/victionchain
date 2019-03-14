@@ -1,14 +1,14 @@
 package tomox
 
 import (
-	"time"
 	"fmt"
+	"time"
 
-	"gopkg.in/fatih/set.v0"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
+	"gopkg.in/fatih/set.v0"
 )
 
 // Peer represents a TomoX protocol peer connection.
@@ -17,25 +17,24 @@ type Peer struct {
 	peer *p2p.Peer
 	ws   p2p.MsgReadWriter
 
-	trusted        bool
-	fullNode       bool
+	trusted  bool
+	fullNode bool
 
 	known *set.Set // Messages already known by the peer to avoid wasting bandwidth
 
 	quit chan struct{}
 }
 
-
 // newPeer creates a new tomoX peer object, but does not run the handshake itself.
 func newPeer(host *TomoX, remote *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 	return &Peer{
-		host:           host,
-		peer:           remote,
-		ws:             rw,
-		trusted:        false,
-		known:          set.New(),
-		quit:           make(chan struct{}),
-		fullNode:       true,
+		host:     host,
+		peer:     remote,
+		ws:       rw,
+		trusted:  false,
+		known:    set.New(),
+		quit:     make(chan struct{}),
+		fullNode: true,
 	}
 }
 
