@@ -420,13 +420,24 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 	}
 
 	order := toOrder(payload)
-	log.Info("Save order", "detail", order)
-	trades, orderInBook, err := tomox.ProcessOrder(order)
-	if err != nil {
-		log.Error("Can't process order", "err", err)
-		return err
+	switch order["action"] {
+	case Create:
+		log.Info("Save order", "detail", order)
+		trades, orderInBook, err := tomox.ProcessOrder(order)
+		if err != nil {
+			log.Error("Can't process order", "err", err)
+			return err
+		}
+		log.Info("Orderbook result", "Trade", trades, "OrderInBook", orderInBook)
+	case Cancel:
+		err := tomox.CancelOrder(order)
+		if err != nil {
+			log.Error("Can't process order", "err", err)
+			return err
+		}
+		log.Info("Cancelled order", "detail", order)
+	default:
 	}
-	log.Info("Orderbook result", "Trade", trades, "OrderInBook", orderInBook)
 	return nil
 }
 
@@ -441,6 +452,7 @@ func toOrder(payload *types.Order) map[string]string {
 	order["pair_name"] = payload.PairName
 	// if insert id is not used, just for update
 	order["order_id"] = "0"
+	order["action"] = payload.Action
 	return order
 }
 
