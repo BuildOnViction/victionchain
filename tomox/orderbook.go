@@ -16,7 +16,6 @@ const (
 	Bid    = "BUY"
 	Market = "market"
 	Limit  = "limit"
-	Create = "ADD"
 	Cancel = "CANCEL"
 
 	// we use a big number as segment for storing order, order list from order tree slot.
@@ -34,8 +33,8 @@ type OrderBookItem struct {
 // OrderBook : list of orders
 type OrderBook struct {
 	db   *BatchDatabase // this is for orderBook
-	Bids *OrderTree `json:"bids"`
-	Asks *OrderTree `json:"asks"`
+	Bids *OrderTree     `json:"bids"`
+	Asks *OrderTree     `json:"asks"`
 	Item *OrderBookItem
 
 	Key  []byte

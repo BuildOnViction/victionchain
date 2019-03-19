@@ -420,8 +420,14 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 	}
 
 	order := toOrder(payload)
-	switch order["action"] {
-	case Create:
+	if order["action"] == Cancel {
+		err := tomox.CancelOrder(order)
+		if err != nil {
+			log.Error("Can't cancel order", "err", err)
+			return err
+		}
+		log.Info("Cancelled order", "detail", order)
+	} else {
 		log.Info("Save order", "detail", order)
 		trades, orderInBook, err := tomox.ProcessOrder(order)
 		if err != nil {
@@ -429,14 +435,6 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 			return err
 		}
 		log.Info("Orderbook result", "Trade", trades, "OrderInBook", orderInBook)
-	case Cancel:
-		err := tomox.CancelOrder(order)
-		if err != nil {
-			log.Error("Can't process order", "err", err)
-			return err
-		}
-		log.Info("Cancelled order", "detail", order)
-	default:
 	}
 	return nil
 }
@@ -444,7 +442,7 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 func toOrder(payload *types.Order) map[string]string {
 	order := map[string]string{}
 	order["timestamp"] = strconv.FormatInt(payload.CreatedAt.UnixNano()/int64(time.Millisecond), 10)
-	order["type"] = Market
+	order["type"] = payload.Type
 	order["side"] = payload.Side
 	order["quantity"] = strconv.FormatInt(payload.Amount.Int64(), 10)
 	order["price"] = strconv.FormatInt(payload.PricePoint.Int64(), 10)
@@ -452,7 +450,6 @@ func toOrder(payload *types.Order) map[string]string {
 	order["pair_name"] = payload.PairName
 	// if insert id is not used, just for update
 	order["order_id"] = "0"
-	order["action"] = payload.Action
 	return order
 }
 
