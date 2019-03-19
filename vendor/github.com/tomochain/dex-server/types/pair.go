@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/tomochain/dex-server/utils/math"
 
-	validation "github.com/go-ozzo/ozzo-validation"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/globalsign/mgo/bson"
+	"github.com/go-ozzo/ozzo-validation"
 )
 
 // Pair struct is used to model the pair data in the system and DB

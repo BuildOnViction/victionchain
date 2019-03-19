@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/globalsign/mgo/bson"
 	"github.com/go-ozzo/ozzo-validation"
-	"gopkg.in/mgo.v2/bson"
 )
 
 // Account corresponds to a single Ethereum address. It contains a list of token balances for that address

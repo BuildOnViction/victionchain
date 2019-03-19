@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/globalsign/mgo/bson"
 	"github.com/go-ozzo/ozzo-validation"
 	"github.com/tomochain/dex-server/utils/math"
-	"gopkg.in/mgo.v2/bson"
 )
 
 // Token struct is used to model the token data in the system and DB
@@ -25,6 +25,7 @@ type Token struct {
 	Quote           bool           `json:"quote" bson:"quote"`
 	MakeFee         *big.Int       `json:"makeFee,omitempty" bson:"makeFee,omitempty"`
 	TakeFee         *big.Int       `json:"takeFee,omitempty" bson:"makeFee,omitempty"`
+	USD             string         `json:"usd,omitempty" bson:"usd,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt" bson:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt" bson:"updatedAt"`
@@ -42,6 +43,7 @@ type TokenRecord struct {
 	Quote           bool          `json:"quote" bson:"quote"`
 	MakeFee         string        `json:"makeFee,omitempty" bson:"makeFee,omitempty"`
 	TakeFee         string        `json:"takeFee,omitempty" bson:"takeFee,omitempty"`
+	USD             string        `json:"usd,omitempty" bson:"usd,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt" bson:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt" bson:"updatedAt"`
@@ -54,26 +56,22 @@ type Image struct {
 }
 
 type NativeCurrency struct {
-	Address common.Address `json:"address" bson:"address"`
-	Symbol  string         `json:"symbol" bson:"symbol"`
+	Address  common.Address `json:"address" bson:"address"`
+	Symbol   string         `json:"symbol" bson:"symbol"`
+	Decimals int            `json:"decimals" bson:"decimals"`
 }
 
 func GetNativeCurrency() NativeCurrency {
 	return NativeCurrency{
-		Address: common.HexToAddress("0x1"),
-		Symbol:  "TOMO",
+		Address:  common.HexToAddress("0x1"),
+		Symbol:   "TOMO",
+		Decimals: 18,
 	}
 }
 
 // DefaultTestBalance returns the default balance
 // Only for testing/mock purpose
 func DefaultTestBalance() int64 {
-	return 1000
-}
-
-// DefaultTestBalance returns the default allowance
-// Only for testing/mock purpose
-func DefaultTestAllowance() int64 {
 	return 1000
 }
 
@@ -108,6 +106,7 @@ func (t *Token) MarshalJSON() ([]byte, error) {
 		"image":           t.Image,
 		"active":          t.Active,
 		"quote":           t.Quote,
+		"usd":             t.USD,
 		"createdAt":       t.CreatedAt.Format(time.RFC3339Nano),
 		"updatedAt":       t.UpdatedAt.Format(time.RFC3339Nano),
 	}
@@ -136,6 +135,7 @@ func (t *Token) UnmarshalJSON(b []byte) error {
 	t.Decimals = token["decimals"].(int)
 	t.Active = token["active"].(bool)
 	t.Quote = token["quote"].(bool)
+	t.USD = token["usd"].(string)
 
 	if token["createdAt"] != nil {
 		tm, _ := time.Parse(time.RFC3339Nano, token["createdAt"].(string))
@@ -176,6 +176,7 @@ func (t *Token) GetBSON() (interface{}, error) {
 		Decimals:        t.Decimals,
 		Active:          t.Active,
 		Quote:           t.Quote,
+		USD:             t.USD,
 		CreatedAt:       t.CreatedAt,
 		UpdatedAt:       t.UpdatedAt,
 	}
@@ -209,6 +210,7 @@ func (t *Token) SetBSON(raw bson.Raw) error {
 	t.Decimals = decoded.Decimals
 	t.Active = decoded.Active
 	t.Quote = decoded.Quote
+	t.USD = decoded.USD
 	t.CreatedAt = decoded.CreatedAt
 	t.UpdatedAt = decoded.UpdatedAt
 	if decoded.MakeFee != "" {

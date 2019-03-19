@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/tomochain/dex-server/utils/math"
 
-	"gopkg.in/mgo.v2/bson"
+	"github.com/globalsign/mgo/bson"
 )
 
 // Trade struct holds arguments corresponding to a "Taker Order"

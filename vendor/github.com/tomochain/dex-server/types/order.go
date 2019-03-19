@@ -7,19 +7,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tomochain/dex-server/errors"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/globalsign/mgo/bson"
 	"github.com/tomochain/dex-server/app"
+	"github.com/tomochain/dex-server/errors"
 	"github.com/tomochain/dex-server/utils/math"
-	"gopkg.in/mgo.v2/bson"
 )
 
 const (
-	BUY  = "BUY"
-	SELL = "SELL"
+	BUY         = "BUY"
+	SELL        = "SELL"
+	MarketOrder = "MO"
+	LimitOrder  = "LO"
+	StopOrder   = "SO"
 )
 
 // Order contains the data related to an order sent by the user
@@ -31,6 +33,7 @@ type Order struct {
 	QuoteToken      common.Address `json:"quoteToken" bson:"quoteToken"`
 	Status          string         `json:"status" bson:"status"`
 	Side            string         `json:"side" bson:"side"`
+	Type            string         `json:"type" bson:"type"`
 	Hash            common.Hash    `json:"hash" bson:"hash"`
 	Signature       *Signature     `json:"signature,omitempty" bson:"signature"`
 	PricePoint      *big.Int       `json:"pricepoint" bson:"pricepoint"`
@@ -172,6 +175,11 @@ func (o *Order) Sign(w *Wallet) error {
 func (o *Order) Process(p *Pair) error {
 	if o.FilledAmount == nil {
 		o.FilledAmount = big.NewInt(0)
+	}
+
+	// TODO: Handle this in Validate function
+	if o.Type != MarketOrder && o.Type != LimitOrder && o.Type != StopOrder {
+		o.Type = LimitOrder
 	}
 
 	if !math.IsEqual(o.MakeFee, p.MakeFee) {
@@ -357,6 +365,7 @@ func (o *Order) MarshalJSON() ([]byte, error) {
 		"baseToken":       o.BaseToken,
 		"quoteToken":      o.QuoteToken,
 		"side":            o.Side,
+		"type":            o.Type,
 		"status":          o.Status,
 		"pairName":        o.PairName,
 		"amount":          o.Amount.String(),
@@ -457,6 +466,10 @@ func (o *Order) UnmarshalJSON(b []byte) error {
 		o.Side = order["side"].(string)
 	}
 
+	if order["type"] != nil {
+		o.Type = order["type"].(string)
+	}
+
 	if order["status"] != nil {
 		o.Status = order["status"].(string)
 	}
@@ -483,72 +496,6 @@ func (o *Order) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type OrderFeed struct {
-	Amount          *big.Int `json:"amount"`
-	BaseToken       []byte   `json:"baseToken"`
-	ExchangeAddress []byte   `json:"exchangeAddress"`
-	FilledAmount    *big.Int `json:"filledAmount"`
-	Hash            []byte   `json:"hash"`
-	ID              []byte   `json:"id"`
-	MakeFee         *big.Int `json:"makeFee"`
-	Nonce           *big.Int `json:"nonce"`
-	PairName        string   `json:"pairName"`
-	PricePoint      *big.Int `json:"pricepoint"`
-	QuoteToken      []byte   `json:"quoteToken"`
-	Side            string   `json:"side"`
-	Signature       []byte   `json:"signature"`
-	Status          string   `json:"status"`
-	TakeFee         *big.Int `json:"takeFee"`
-	Timestamp       uint     `json:"timestamp"`
-	UserAddress     []byte   `json:"userAddress"`
-}
-
-func (o *OrderFeed) GetBSON() (*OrderRecord, error) {
-
-	timestamp := time.Unix(int64(o.Timestamp), 0)
-
-	or := &OrderRecord{
-		ID:              bson.ObjectId(o.ID),
-		PairName:        o.PairName,
-		ExchangeAddress: common.BytesToAddress(o.ExchangeAddress).Hex(),
-		UserAddress:     common.BytesToAddress(o.UserAddress).Hex(),
-		BaseToken:       common.BytesToAddress(o.BaseToken).Hex(),
-		QuoteToken:      common.BytesToAddress(o.QuoteToken).Hex(),
-		Amount:          o.Amount.String(),
-		FilledAmount:    o.FilledAmount.String(),
-		Status:          o.Status,
-		Side:            o.Side,
-		Hash:            common.BytesToHash(o.Hash).Hex(),
-		Nonce:           o.Nonce.String(),
-		MakeFee:         o.MakeFee.String(),
-		TakeFee:         o.TakeFee.String(),
-		CreatedAt:       timestamp,
-		UpdatedAt:       timestamp,
-	}
-
-	if o.PricePoint != nil {
-		or.PricePoint = o.PricePoint.String()
-	}
-
-	if o.Amount != nil {
-		or.Amount = o.Amount.String()
-	}
-
-	if o.FilledAmount != nil {
-		or.FilledAmount = o.FilledAmount.String()
-	}
-
-	if o.Signature != nil {
-		signature, err := NewSignature(o.Signature)
-		if err != nil {
-			return or, err
-		}
-		or.Signature = signature.GetRecord()
-	}
-
-	return or, nil
-}
-
 // OrderRecord is the object that will be saved in the database
 type OrderRecord struct {
 	ID              bson.ObjectId    `json:"id" bson:"_id"`
@@ -558,6 +505,7 @@ type OrderRecord struct {
 	QuoteToken      string           `json:"quoteToken" bson:"quoteToken"`
 	Status          string           `json:"status" bson:"status"`
 	Side            string           `json:"side" bson:"side"`
+	Type            string           `json:"type" bson:"type"`
 	Hash            string           `json:"hash" bson:"hash"`
 	PricePoint      string           `json:"pricepoint" bson:"pricepoint"`
 	Amount          string           `json:"amount" bson:"amount"`
@@ -581,6 +529,7 @@ func (o *Order) GetBSON() (interface{}, error) {
 		QuoteToken:      o.QuoteToken.Hex(),
 		Status:          o.Status,
 		Side:            o.Side,
+		Type:            o.Type,
 		Hash:            o.Hash.Hex(),
 		Amount:          o.Amount.String(),
 		PricePoint:      o.PricePoint.String(),
@@ -622,6 +571,7 @@ func (o *Order) SetBSON(raw bson.Raw) error {
 		QuoteToken      string           `json:"quoteToken" bson:"quoteToken"`
 		Status          string           `json:"status" bson:"status"`
 		Side            string           `json:"side" bson:"side"`
+		Type            string           `json:"type" bson:"type"`
 		Hash            string           `json:"hash" bson:"hash"`
 		PricePoint      string           `json:"pricepoint" bson:"pricepoint"`
 		Amount          string           `json:"amount" bson:"amount"`
@@ -652,6 +602,7 @@ func (o *Order) SetBSON(raw bson.Raw) error {
 	o.TakeFee = math.ToBigInt(decoded.TakeFee)
 	o.Status = decoded.Status
 	o.Side = decoded.Side
+	o.Type = decoded.Type
 	o.Hash = common.HexToHash(decoded.Hash)
 
 	if decoded.Amount != "" {
@@ -695,6 +646,7 @@ func (o OrderBSONUpdate) GetBSON() (interface{}, error) {
 		"quoteToken":      o.QuoteToken.Hex(),
 		"status":          o.Status,
 		"side":            o.Side,
+		"type":            o.Type,
 		"pricepoint":      o.PricePoint.String(),
 		"amount":          o.Amount.String(),
 		"nonce":           o.Nonce.String(),
