@@ -104,7 +104,7 @@ type newMessageOverride struct {
 }
 
 // Post a message on the TomoX network.
-func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, error) {
+func (api *PublicTomoXAPI) CreateOrder(ctx context.Context, req NewMessage) (bool, error) {
 	var (
 		err error
 	)
@@ -145,7 +145,7 @@ func (api *PublicTomoXAPI) Post(ctx context.Context, req NewMessage) (bool, erro
 	return true, api.t.Send(env)
 }
 
-func (api *PublicTomoXAPI) Cancel(ctx context.Context, req NewMessage) (bool, error) {
+func (api *PublicTomoXAPI) CancelOrder(ctx context.Context, req NewMessage) (bool, error) {
 	params := &MessageParams{
 		TTL:      req.TTL,
 		Payload:  req.Payload,

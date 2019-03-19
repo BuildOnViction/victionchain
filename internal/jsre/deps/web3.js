@@ -13734,10 +13734,15 @@ module.exports = XMLHttpRequest;
                     call: 'tomoX_markTrustedPeer',
                     params: 1
                 }),
-                // subscribe and unsubscribe missing
                 new Method({
-                    name: 'post',
-                    call: 'tomoX_post',
+                    name: '',
+                    call: 'tomoX_createOrder',
+                    params: 1,
+                    inputFormatter: [null]
+                }),
+                new Method({
+                    name: '',
+                    call: 'tomoX_cancelOrder',
                     params: 1,
                     inputFormatter: [null]
                 })
