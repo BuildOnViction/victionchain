@@ -420,7 +420,7 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 	}
 
 	order := toOrder(payload)
-	if order["action"] == Cancel {
+	if order["type"] == Cancel {
 		err := tomox.CancelOrder(order)
 		if err != nil {
 			log.Error("Can't cancel order", "err", err)
