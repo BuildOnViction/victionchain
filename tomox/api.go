@@ -304,9 +304,9 @@ func toMessage(messages []*ReceivedMessage) []*Message {
 	return msgs
 }
 
-// GetFilterMessages returns the messages that match the filter criteria and
+// GetOrders returns the orders that match the filter criteria and
 // are received between the last poll and now.
-func (api *PublicTomoXAPI) GetFilterMessages(id string) ([]*Message, error) {
+func (api *PublicTomoXAPI) GetOrders(id string) ([]*Message, error) {
 	api.mu.Lock()
 	f := api.t.GetFilter(id)
 	if f == nil {
@@ -325,8 +325,8 @@ func (api *PublicTomoXAPI) GetFilterMessages(id string) ([]*Message, error) {
 	return messages, nil
 }
 
-// DeleteMessageFilter deletes a filter.
-func (api *PublicTomoXAPI) DeleteMessageFilter(id string) (bool, error) {
+// DeleteTopic deletes a topic.
+func (api *PublicTomoXAPI) DeleteTopic(id string) (bool, error) {
 	api.mu.Lock()
 	defer api.mu.Unlock()
 
@@ -334,9 +334,9 @@ func (api *PublicTomoXAPI) DeleteMessageFilter(id string) (bool, error) {
 	return true, api.t.Unsubscribe(id)
 }
 
-// NewMessageFilter creates a new filter that can be used to poll for
+// NewTopic creates a new topic that can be used to poll for
 // (new) messages that satisfy the given criteria.
-func (api *PublicTomoXAPI) NewMessageFilter(req Criteria) (string, error) {
+func (api *PublicTomoXAPI) NewTopic(req Criteria) (string, error) {
 	var (
 		topics [][]byte
 		err    error

@@ -29,6 +29,7 @@ var Modules = map[string]string{
 	"personal":   Personal_JS,
 	"rpc":        RPC_JS,
 	"shh":        Shh_JS,
+	"tomoX":      TomoX_JS,
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
 }
@@ -619,6 +620,57 @@ web3._extend({
 			name: 'info',
 			getter: 'shh_info'
 		}),
+	]
+});
+`
+
+const TomoX_JS = `
+web3._extend({
+	property: 'tomoX',
+	methods: [
+		new web3._extend.Method({
+			name: 'version',
+			getter: 'tomoX_version',
+			params: 0,
+			outputFormatter: web3._extend.utils.toDecimal
+		}),
+		new web3._extend.Method({
+			name: 'info',
+			getter: 'tomoX_info',
+			params: 0
+		}),
+		new web3._extend.Method({
+            name: 'markTrustedPeer',
+            call: 'tomoX_markTrustedPeer',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'createOrder',
+            call: 'tomoX_createOrder',
+            params: 1,
+            inputFormatter: [null]
+        }),
+        new web3._extend.Method({
+            name: 'cancelOrder',
+            call: 'tomoX_cancelOrder',
+            params: 1,
+            inputFormatter: [null]
+        }),
+		new web3._extend.Method({
+            name: 'newTopic',
+            call: 'tomoX_newTopic',
+            params: 1
+        }),
+        new web3._extend.Method({
+            name: 'deleteTopic',
+            call: 'tomoX_deleteTopic',
+            params: 1
+        }),
+        new web3._extend.Method({
+            name: 'getOrders',
+            call: 'tomoX_getOrders',
+            params: 1
+        })
 	]
 });
 `
