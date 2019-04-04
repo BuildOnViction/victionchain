@@ -31,8 +31,8 @@ type BatchDatabase struct {
 	cacheItems     *lru.Cache // Cache for reading
 	Debug          bool
 
-	EncodeToBytes EncodeToBytes
-	DecodeBytes   DecodeBytes
+	//EncodeToBytes EncodeToBytes
+	//DecodeBytes   DecodeBytes
 }
 
 // NewBatchDatabase use rlp as encoding
@@ -60,8 +60,8 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit, maxPending int, enco
 
 	batchDB := &BatchDatabase{
 		db:             db,
-		EncodeToBytes:  encode,
-		DecodeBytes:    decode,
+		//EncodeToBytes:  encode,
+		//DecodeBytes:    decode,
 		itemCacheLimit: itemCacheLimit,
 		itemMaxPending: itemMaxPending,
 		cacheItems:     cacheItems,
@@ -114,22 +114,17 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 	if cached, ok := db.cacheItems.Get(cacheKey); ok {
 		val = cached
-		if db.Debug {
-			fmt.Println("Cache hit :", cacheKey)
-		}
 	} else {
 
 		// we can use lru for retrieving cache item, by default leveldb support get data from cache
 		// but it is raw bytes
 		bytes, err := db.db.Get(key)
 		if err != nil {
-			if db.Debug {
-				fmt.Printf("Key not found :%x\n", key)
-			}
+			log.Debug("Key not found", "key", key)
 			return nil, err
 		}
 
-		err = db.DecodeBytes(bytes, val)
+		err = DecodeBytesItem(bytes, val)
 
 		// has problem here
 		if err != nil {
@@ -189,17 +184,14 @@ func (db *BatchDatabase) Commit() error {
 	batch := db.db.NewBatch()
 	for cacheKey, item := range db.pendingItems {
 		key, _ := hex.DecodeString(cacheKey)
-		value, err := db.EncodeToBytes(item.Value)
+		value, err := EncodeBytesItem(item.Value)
 		if err != nil {
 			fmt.Println(err)
 			return err
 		}
 
 		batch.Put(key, value)
-
-		if db.Debug {
-			fmt.Printf("Save %x, value :%s\n", key, ToJSON(item.Value))
-		}
+		log.Debug("Save", "key", key, "value", ToJSON(item.Value))
 	}
 	// commit pending items does not affect the cache
 	db.pendingItems = make(map[string]*BatchItem)

@@ -13,7 +13,7 @@ type RedBlackTreeExtended struct {
 	*Tree
 }
 
-func NewRedBlackTreeExtended(obdb *BatchDatabase) *RedBlackTreeExtended {
+func NewRedBlackTreeExtended(obdb OrderDao) *RedBlackTreeExtended {
 	tree := &RedBlackTreeExtended{NewWith(CmpBigInt, obdb)}
 
 	tree.FormatBytes = func(key []byte) string {

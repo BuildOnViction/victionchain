@@ -32,7 +32,7 @@ type OrderBookItem struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db   *BatchDatabase // this is for orderBook
+	db   OrderDao // this is for orderBook
 	Bids *OrderTree     `json:"bids"`
 	Asks *OrderTree     `json:"asks"`
 	Item *OrderBookItem
@@ -42,7 +42,7 @@ type OrderBook struct {
 }
 
 // NewOrderBook : return new order book
-func NewOrderBook(name string, db *BatchDatabase) *OrderBook {
+func NewOrderBook(name string, db OrderDao) *OrderBook {
 
 	item := &OrderBookItem{
 		NextOrderID: 0,
@@ -81,10 +81,6 @@ func NewOrderBook(name string, db *BatchDatabase) *OrderBook {
 	orderBook.UpdateTime()
 
 	return orderBook
-}
-
-func (orderBook *OrderBook) SetDebug(debug bool) {
-	orderBook.db.Debug = debug
 }
 
 func (orderBook *OrderBook) Save() error {

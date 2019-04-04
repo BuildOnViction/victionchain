@@ -8,11 +8,13 @@ package tomox
 import (
 	"bytes"
 	"fmt"
+
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Tree holds elements of the red-black tree
 type Tree struct {
-	db          *BatchDatabase
+	db          OrderDao
 	rootKey     []byte
 	size        uint64
 	Comparator  Comparator
@@ -20,7 +22,7 @@ type Tree struct {
 }
 
 // NewWith instantiates a red-black tree with the custom comparator.
-func NewWith(comparator Comparator, db *BatchDatabase) *Tree {
+func NewWith(comparator Comparator, db OrderDao) *Tree {
 	tree := &Tree{
 		Comparator: comparator,
 		db:         db,
@@ -29,7 +31,7 @@ func NewWith(comparator Comparator, db *BatchDatabase) *Tree {
 	return tree
 }
 
-func NewWithBytesComparator(db *BatchDatabase) *Tree {
+func NewWithBytesComparator(db OrderDao) *Tree {
 	return NewWith(
 		bytes.Compare,
 		db,
@@ -546,10 +548,7 @@ func (tree *Tree) deleteCase3(node *Node) {
 		sibling.Item.Color = red
 		tree.Save(sibling)
 		tree.deleteCase1(parent)
-
-		if tree.db.Debug {
-			fmt.Printf("delete node,  key: %x, parentKey :%x\n", node.Key, parent.Key)
-		}
+		log.Debug("delete node,  key: %x, parentKey :%x\n", node.Key, parent.Key)
 		tree.deleteNode(node, false)
 
 	} else {

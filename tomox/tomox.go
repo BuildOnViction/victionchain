@@ -5,19 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"golang.org/x/sync/syncmap"
+	"gopkg.in/fatih/set.v0"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
-	"golang.org/x/sync/syncmap"
-	"gopkg.in/fatih/set.v0"
 )
 
 const (
@@ -43,7 +42,8 @@ const (
 )
 
 type Config struct {
-	DataDir string `toml:",omitempty"`
+	DataDir  string `toml:",omitempty"`
+	DBEngine string `toml:",omitempty"`
 }
 
 // DefaultConfig represents (shocker!) the default configuration.
@@ -51,14 +51,10 @@ var DefaultConfig = Config{
 	DataDir: node.DefaultDataDir(),
 }
 
-var AllowedPairs = map[string]*big.Int{
-	"TOMO/WETH": big.NewInt(10e9),
-}
-
 type TomoX struct {
 	// Order related
 	Orderbooks map[string]*OrderBook
-	db         *BatchDatabase
+	db         OrderDao
 
 	// P2P messaging related
 	protocol p2p.Protocol
@@ -81,17 +77,22 @@ type TomoX struct {
 	statsMu sync.Mutex // guard stats
 
 	settings syncmap.Map // holds configuration settings that can be dynamically changed
-
 }
 
-func New(cfg *Config) *TomoX {
+func NewLDBEngine(cfg *Config) *BatchDatabase {
 	datadir := cfg.DataDir
 	batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0,
 		EncodeBytesItem, DecodeBytesItem)
+	return batchDB
+}
 
+func NewMongoDBEngine(cfg *Config) *MongoDatabase {
+	return &MongoDatabase{}
+}
+
+func New(cfg *Config) *TomoX {
 	tomoX := &TomoX{
-		Orderbooks: make(map[string]*OrderBook),
-		db:         batchDB,
+		Orderbooks:    make(map[string]*OrderBook),
 		peers:         make(map[*Peer]struct{}),
 		quit:          make(chan struct{}),
 		envelopes:     make(map[common.Hash]*Envelope),
@@ -100,6 +101,15 @@ func New(cfg *Config) *TomoX {
 		messageQueue:  make(chan *Envelope, messageQueueLimit),
 		p2pMsgQueue:   make(chan *Envelope, messageQueueLimit),
 	}
+	switch cfg.DBEngine {
+	case "leveldb":
+		tomoX.db = NewLDBEngine(cfg)
+	case "mongodb":
+		tomoX.db = NewMongoDBEngine(cfg)
+	default:
+		log.Crit("wrong database engine, only accept either leveldb or mongodb")
+	}
+
 	tomoX.filters = NewFilters(tomoX)
 
 	tomoX.settings.Store(overflowIdx, false)
