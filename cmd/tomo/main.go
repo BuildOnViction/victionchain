@@ -72,6 +72,7 @@ var (
 		//utils.EthashDatasetsOnDiskFlag,
 		utils.TomoXEnabledFlag,
 		utils.TomoXDataDirFlag,
+		utils.TomoXDBEngineFlag,
 		utils.TxPoolNoLocalsFlag,
 		utils.TxPoolJournalFlag,
 		utils.TxPoolRejournalFlag,
