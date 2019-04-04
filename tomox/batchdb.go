@@ -3,7 +3,6 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
@@ -186,7 +185,7 @@ func (db *BatchDatabase) Commit() error {
 		key, _ := hex.DecodeString(cacheKey)
 		value, err := EncodeBytesItem(item.Value)
 		if err != nil {
-			fmt.Println(err)
+			log.Error("Can't commit", "err", err)
 			return err
 		}
 

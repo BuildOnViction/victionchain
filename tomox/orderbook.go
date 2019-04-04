@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -126,7 +127,7 @@ func (orderBook *OrderBook) GetOrder(key []byte) *Order {
 	orderItem := &OrderItem{}
 	val, err := orderBook.db.Get(storedKey, orderItem)
 	if err != nil {
-		fmt.Printf("Key not found :%x, %v\n", storedKey, err)
+		log.Error("Key not found", "key", storedKey, "err", err)
 		return nil
 	}
 
@@ -310,8 +311,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		}
 
 		if verbose {
-			fmt.Printf("TRADE: Timestamp - %d, Price - %s, Quantity - %s, RelayerID - %s, Matching RelayerID - %s\n",
-				orderBook.Item.Timestamp, tradedPrice, tradedQuantity, headOrder.Item.ExchangeAddress.Hex(), order.ExchangeAddress.Hex())
+			log.Info("TRADE", "Timestamp", orderBook.Item.Timestamp, "Price", tradedPrice, "Quantity", tradedQuantity, "TradeID", headOrder.Item.ExchangeAddress.Hex(), "Matching TradeID", order.ExchangeAddress.Hex())
 		}
 
 		transactionRecord := make(map[string]string)

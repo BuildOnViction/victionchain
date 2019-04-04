@@ -6,6 +6,7 @@ package tomox
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -98,7 +99,7 @@ func (node *Node) Left(tree *Tree) *Node {
 
 	newNode, err := tree.GetNode(key)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("Error at left", "err", err)
 	}
 
 	return newNode
@@ -117,7 +118,7 @@ func (node *Node) Parent(tree *Tree) *Node {
 	key := node.ParentKey()
 	newNode, err := tree.GetNode(key)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("Error at parent", "err", err)
 	}
 	return newNode
 }

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Signature struct
@@ -89,7 +89,7 @@ func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, n
 	orderList.Item.Volume = Sub(orderList.Item.Volume, Sub(order.Item.Quantity, newQuantity))
 	order.Item.UpdatedAt = newTimestamp
 	order.Item.Quantity = CloneBigInt(newQuantity)
-	fmt.Println("QUANTITY", order.Item.Quantity.String())
+	log.Debug("QUANTITY", order.Item.Quantity.String())
 	orderList.SaveOrder(order)
 	orderList.Save()
 }

@@ -203,7 +203,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem) error {
 
 	if !orderTree.PriceExist(price) {
 		// create and save
-		fmt.Println("CREATE price list", price.String())
+		log.Debug("CREATE price list", "price list", price.String())
 		orderList = orderTree.CreatePrice(price)
 	} else {
 		orderList = orderTree.PriceList(price)
