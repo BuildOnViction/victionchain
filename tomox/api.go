@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/tomochain/dex-server/types"
 )
 
 const (
@@ -153,7 +152,7 @@ func (api *PublicTomoXAPI) CancelOrder(ctx context.Context, req NewMessage) (boo
 		WorkTime: req.PowTime,
 		Topic:    req.Topic,
 	}
-	payload := &types.Order{}
+	payload := &OrderItem{}
 	err := json.Unmarshal(params.Payload, &payload)
 	if err != nil {
 		log.Error("Wrong order payload format", "err", err)

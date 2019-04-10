@@ -3,7 +3,6 @@ package tomox
 import (
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 	// rbt "github.com/emirpasic/gods/trees/redblacktree"
 )
@@ -199,9 +198,9 @@ func (orderTree *OrderTree) OrderExist(key []byte, price *big.Int) bool {
 }
 
 // InsertOrder : insert new order using quote data as map
-func (orderTree *OrderTree) InsertOrder(quote map[string]string) error {
+func (orderTree *OrderTree) InsertOrder(order *OrderItem) error {
 
-	price := ToBigInt(quote["price"])
+	price := order.Price
 
 	var orderList *OrderList
 
@@ -216,7 +215,7 @@ func (orderTree *OrderTree) InsertOrder(quote map[string]string) error {
 	// order will be insert if there is a follow orderList key
 	if orderList != nil {
 
-		order := NewOrder(quote, orderList.Key)
+		order := NewOrder(order, orderList.Key)
 
 		if orderList.OrderExist(order.Key) {
 			orderTree.RemoveOrder(order)
@@ -237,9 +236,9 @@ func (orderTree *OrderTree) InsertOrder(quote map[string]string) error {
 }
 
 // UpdateOrder : update an order
-func (orderTree *OrderTree) UpdateOrder(quote map[string]string) error {
+func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem) error {
 
-	price := ToBigInt(quote["price"])
+	price := orderItem.Price
 	orderList := orderTree.PriceList(price)
 
 	if orderList == nil {
@@ -247,7 +246,7 @@ func (orderTree *OrderTree) UpdateOrder(quote map[string]string) error {
 		orderList = orderTree.CreatePrice(price)
 	}
 
-	orderID := ToBigInt(quote["order_id"])
+	orderID := new(big.Int).SetUint64(orderItem.OrderID)
 	key := GetKeyFromBig(orderID)
 
 	order := orderList.GetOrder(key)
@@ -259,10 +258,11 @@ func (orderTree *OrderTree) UpdateOrder(quote map[string]string) error {
 		if orderList.Item.Length == 0 {
 			orderTree.RemovePrice(price)
 		}
-		orderTree.InsertOrder(quote)
+		orderTree.InsertOrder(orderItem)
 	} else {
-		quantity := ToBigInt(quote["quantity"])
-		timestamp, _ := strconv.ParseUint(quote["timestamp"], 10, 64)
+		quantity := orderItem.Quantity
+		//timestamp, _ := strconv.ParseInt(quote["timestamp"], 10, 64)
+		timestamp := orderItem.CreatedAt
 		order.UpdateQuantity(orderList, quantity, timestamp)
 	}
 

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/tomochain/dex-server/types"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
 )
@@ -42,7 +40,6 @@ const (
 	SizeMask             = byte(3) // mask used to extract the size of payload size field from the flags
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
-	DefaultTradeID       = "1"
 )
 
 type Config struct {
@@ -411,16 +408,15 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 		tomox.messageQueue <- envelope
 	}
 
-	payload := &types.Order{}
+	order := &OrderItem{}
 	msg := envelope.Open()
-	err := json.Unmarshal(msg.Payload, &payload)
+	err := json.Unmarshal(msg.Payload, &order)
 	if err != nil {
 		log.Error("Fail to parse envelope", "err", err)
 		return err
 	}
 
-	order := toOrder(payload)
-	if order["type"] == Cancel {
+	if order.Type == Cancel {
 		err := tomox.CancelOrder(order)
 		if err != nil {
 			log.Error("Can't cancel order", "err", err)
@@ -437,20 +433,6 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 		log.Info("Orderbook result", "Trade", trades, "OrderInBook", orderInBook)
 	}
 	return nil
-}
-
-func toOrder(payload *types.Order) map[string]string {
-	order := map[string]string{}
-	order["timestamp"] = strconv.FormatInt(payload.CreatedAt.UnixNano()/int64(time.Millisecond), 10)
-	order["type"] = payload.Type
-	order["side"] = payload.Side
-	order["quantity"] = strconv.FormatInt(payload.Amount.Int64(), 10)
-	order["price"] = strconv.FormatInt(payload.PricePoint.Int64(), 10)
-	order["trade_id"] = DefaultTradeID
-	order["pair_name"] = payload.PairName
-	// if insert id is not used, just for update
-	order["order_id"] = "0"
-	return order
 }
 
 // checkOverflow checks if message queue overflow occurs and reports it if necessary.
@@ -624,27 +606,21 @@ func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
 	return ob.GetOrder(key)
 }
 
-func (tomox *TomoX) ProcessOrder(quote map[string]string) ([]map[string]string, map[string]string, error) {
-	ob, _ := tomox.getAndCreateIfNotExisted(quote["pair_name"])
+func (tomox *TomoX) ProcessOrder(order *OrderItem) ([]map[string]string, *OrderItem, error) {
+	ob, _ := tomox.getAndCreateIfNotExisted(order.PairName)
 	var trades []map[string]string
-	var orderInBook map[string]string
+	var orderInBook *OrderItem
 
 	if ob != nil {
-		// get map as general input, we can set format later to make sure there is no problem
-		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
-		if err != nil {
-			return trades, orderInBook, err
-		}
-
 		// insert
-		if orderID == 0 {
+		if order.OrderID == 0 {
 			log.Info("Process order")
-			trades, orderInBook = ob.ProcessOrder(quote, true)
+			trades, orderInBook = ob.ProcessOrder(order, true)
 		} else {
 			log.Info("Update order")
-			err = ob.UpdateOrder(quote)
+			err := ob.UpdateOrder(order)
 			if err != nil {
-				log.Error("Update order failed", "quote", quote, "err", err)
+				log.Error("Update order failed", "order", order, "err", err)
 				return trades, orderInBook, err
 			}
 		}
@@ -653,19 +629,10 @@ func (tomox *TomoX) ProcessOrder(quote map[string]string) ([]map[string]string, 
 	return trades, orderInBook, nil
 }
 
-func (tomox *TomoX) CancelOrder(quote map[string]string) error {
-	ob, err := tomox.getAndCreateIfNotExisted(quote["pair_name"])
-	if ob != nil {
-		orderID, err := strconv.ParseUint(quote["order_id"], 10, 64)
-		if err == nil {
-
-			price, ok := new(big.Int).SetString(quote["price"], 10)
-			if !ok {
-				return fmt.Errorf("Price is not correct :%s", quote["price"])
-			}
-
-			return ob.CancelOrder(quote["side"], orderID, price)
-		}
+func (tomox *TomoX) CancelOrder(order *OrderItem) error {
+	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
+	if ob != nil && err == nil {
+		return ob.CancelOrder(order.Side, order.OrderID, order.Price)
 	}
 
 	return err
