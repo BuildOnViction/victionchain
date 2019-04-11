@@ -177,23 +177,23 @@ func (orderBook *OrderBook) WorstAsk() (value *big.Int) {
 }
 
 // processMarketOrder : process the market order
-func (orderBook *OrderBook) processMarketOrder(quote map[string]string, verbose bool) []map[string]string {
+func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool) []map[string]string {
 	var trades []map[string]string
-	quantityToTrade := ToBigInt(quote["quantity"])
-	side := quote["side"]
+	quantityToTrade := order.Quantity
+	side := order.Side
 	var newTrades []map[string]string
 	// speedup the comparison, do not assign because it is pointer
 	zero := Zero()
 	if side == Bid {
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() {
 			bestPriceAsks := orderBook.Asks.MinPriceList()
-			quantityToTrade, newTrades = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, quote, verbose)
+			quantityToTrade, newTrades = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose)
 			trades = append(trades, newTrades...)
 		}
 	} else {
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() {
 			bestPriceBids := orderBook.Bids.MaxPriceList()
-			quantityToTrade, newTrades = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, quote, verbose)
+			quantityToTrade, newTrades = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose)
 			trades = append(trades, newTrades...)
 		}
 	}
@@ -202,14 +202,14 @@ func (orderBook *OrderBook) processMarketOrder(quote map[string]string, verbose 
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (orderBook *OrderBook) processLimitOrder(quote map[string]string, verbose bool) ([]map[string]string, map[string]string) {
+func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem) {
 	var trades []map[string]string
-	quantityToTrade := ToBigInt(quote["quantity"])
-	side := quote["side"]
-	price := ToBigInt(quote["price"])
+	quantityToTrade := order.Quantity
+	side := order.Side
+	price := order.Price
 
 	var newTrades []map[string]string
-	var orderInBook map[string]string
+	var orderInBook *OrderItem
 	// speedup the comparison, do not assign because it is pointer
 	zero := Zero()
 
@@ -217,41 +217,41 @@ func (orderBook *OrderBook) processLimitOrder(quote map[string]string, verbose b
 		minPrice := orderBook.Asks.MinPrice()
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() && price.Cmp(minPrice) >= 0 {
 			bestPriceAsks := orderBook.Asks.MinPriceList()
-			quantityToTrade, newTrades = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, quote, verbose)
+			quantityToTrade, newTrades = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose)
 			trades = append(trades, newTrades...)
 			minPrice = orderBook.Asks.MinPrice()
 		}
 
 		if quantityToTrade.Cmp(zero) > 0 {
-			quote["order_id"] = strconv.FormatUint(orderBook.Item.NextOrderID, 10)
-			quote["quantity"] = quantityToTrade.String()
-			orderBook.Bids.InsertOrder(quote)
-			orderInBook = quote
+			order.OrderID = orderBook.Item.NextOrderID
+			order.Quantity = quantityToTrade
+			orderBook.Bids.InsertOrder(order)
+			orderInBook = order
 		}
 
 	} else {
 		maxPrice := orderBook.Bids.MaxPrice()
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() && price.Cmp(maxPrice) <= 0 {
 			bestPriceBids := orderBook.Bids.MaxPriceList()
-			quantityToTrade, newTrades = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, quote, verbose)
+			quantityToTrade, newTrades = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose)
 			trades = append(trades, newTrades...)
 			maxPrice = orderBook.Bids.MaxPrice()
 		}
 
 		if quantityToTrade.Cmp(zero) > 0 {
-			quote["order_id"] = strconv.FormatUint(orderBook.Item.NextOrderID, 10)
-			quote["quantity"] = quantityToTrade.String()
-			orderBook.Asks.InsertOrder(quote)
-			orderInBook = quote
+			order.OrderID = orderBook.Item.NextOrderID
+			order.Quantity = quantityToTrade
+			orderBook.Asks.InsertOrder(order)
+			orderInBook = order
 		}
 	}
 	return trades, orderInBook
 }
 
 // ProcessOrder : process the order
-func (orderBook *OrderBook) ProcessOrder(quote map[string]string, verbose bool) ([]map[string]string, map[string]string) {
-	orderType := quote["type"]
-	var orderInBook map[string]string
+func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem) {
+	orderType := order.Type
+	var orderInBook *OrderItem
 	var trades []map[string]string
 
 	orderBook.UpdateTime()
@@ -259,9 +259,9 @@ func (orderBook *OrderBook) ProcessOrder(quote map[string]string, verbose bool) 
 	orderBook.Item.NextOrderID++
 
 	if orderType == Market {
-		trades = orderBook.processMarketOrder(quote, verbose)
+		trades = orderBook.processMarketOrder(order, verbose)
 	} else {
-		trades, orderInBook = orderBook.processLimitOrder(quote, verbose)
+		trades, orderInBook = orderBook.processLimitOrder(order, verbose)
 	}
 
 	// update orderBook
@@ -271,7 +271,7 @@ func (orderBook *OrderBook) ProcessOrder(quote map[string]string, verbose bool) 
 }
 
 // processOrderList : process the order list
-func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, quote map[string]string, verbose bool) (*big.Int, []map[string]string) {
+func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool) (*big.Int, []map[string]string) {
 	quantityToTrade := CloneBigInt(quantityStillToTrade)
 	var trades []map[string]string
 	// speedup the comparison, do not assign because it is pointer
@@ -292,7 +292,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			// Do the transaction
 			newBookQuantity = Sub(headOrder.Item.Quantity, quantityToTrade)
-			headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.Timestamp)
+			headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt)
 			quantityToTrade = Zero()
 
 		} else if IsEqual(quantityToTrade, headOrder.Item.Quantity) {
@@ -314,8 +314,8 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		}
 
 		if verbose {
-			fmt.Printf("TRADE: Timestamp - %d, Price - %s, Quantity - %s, TradeID - %s, Matching TradeID - %s\n",
-				orderBook.Item.Timestamp, tradedPrice, tradedQuantity, headOrder.Item.TradeID, quote["trade_id"])
+			fmt.Printf("TRADE: Timestamp - %d, Price - %s, Quantity - %s, RelayerID - %s, Matching RelayerID - %s\n",
+				orderBook.Item.Timestamp, tradedPrice, tradedQuantity, headOrder.Item.ExchangeAddress.Hex(), order.ExchangeAddress.Hex())
 		}
 
 		transactionRecord := make(map[string]string)
@@ -350,36 +350,24 @@ func (orderBook *OrderBook) CancelOrder(side string, orderID uint64, price *big.
 	return err
 }
 
-func (orderBook *OrderBook) UpdateOrder(quoteUpdate map[string]string) error {
-	orderID, err := strconv.ParseUint(quoteUpdate["order_id"], 10, 64)
-	if err == nil {
-		price, ok := new(big.Int).SetString(quoteUpdate["price"], 10)
-		if !ok {
-			return fmt.Errorf("Price is not correct :%s", quoteUpdate["price"])
-		}
-
-		return orderBook.ModifyOrder(quoteUpdate, orderID, price)
-	}
-	return err
+func (orderBook *OrderBook) UpdateOrder(order *OrderItem) error {
+	return orderBook.ModifyOrder(order, order.OrderID, order.Price)
 }
 
 // ModifyOrder : modify the order
-func (orderBook *OrderBook) ModifyOrder(quoteUpdate map[string]string, orderID uint64, price *big.Int) error {
+func (orderBook *OrderBook) ModifyOrder(order *OrderItem, orderID uint64, price *big.Int) error {
 	orderBook.UpdateTime()
 
-	side := quoteUpdate["side"]
-	quoteUpdate["order_id"] = strconv.FormatUint(orderID, 10)
-	quoteUpdate["timestamp"] = strconv.FormatUint(orderBook.Item.Timestamp, 10)
-	key := GetKeyFromBig(ToBigInt(quoteUpdate["order_id"]))
-	if side == Bid {
+	key := GetKeyFromBig(new(big.Int).SetUint64(order.OrderID))
+	if order.Side == Bid {
 
 		if orderBook.Bids.OrderExist(key, price) {
-			return orderBook.Bids.UpdateOrder(quoteUpdate)
+			return orderBook.Bids.UpdateOrder(order)
 		}
 	} else {
 
 		if orderBook.Asks.OrderExist(key, price) {
-			return orderBook.Asks.UpdateOrder(quoteUpdate)
+			return orderBook.Asks.UpdateOrder(order)
 		}
 	}
 

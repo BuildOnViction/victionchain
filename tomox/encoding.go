@@ -61,13 +61,19 @@ func DecodeBytesNodeItem(bytes []byte, item *Item) error {
 
 // Order item
 func EncodeBytesOrderItem(item *OrderItem) ([]byte, error) {
-	// try with order item from quantity and price
-	start := 2 * common.HashLength
-	totalLength := start + 3*common.HashLength // next, prev, orderlist
-	// uint64 is 8 byte
-	totalLength += 8 // timestamp
-	// the left is tradeID, maybe fix byte
-	totalLength += len(item.TradeID)
+	start := 2 * common.HashLength //Quantity, Price
+	totalLength := start + 4*common.AddressLength //ExchangeAddress,UserAddress,BaseToken,QuoteToken
+	totalLength += 15 // maxlength item.Status = 15
+	totalLength += 4 // maxlength item.Side = 4
+	totalLength += 6 // maxlength item.Type = 6
+	totalLength += common.HashLength //hash
+	totalLength += 1 //Signature.V = 1 byte
+	totalLength += 2*common.HashLength //Signature.R, Signature.S
+	totalLength += 4*common.HashLength //FilledAmount, Nonce, MakeFee, TakeFee
+	totalLength += len(item.PairName) //PairName
+	// uint64 and int64 are 8 byte
+	totalLength += 3*8 // CreatedAt, UpdatedAt, OrderID
+	totalLength += 3*common.HashLength // next, prev, orderlist
 
 	returnBytes := make([]byte, totalLength)
 
@@ -78,6 +84,55 @@ func EncodeBytesOrderItem(item *OrderItem) ([]byte, error) {
 		copy(returnBytes[common.HashLength:2*common.HashLength], common.BigToHash(item.Price).Bytes())
 	}
 
+	copy(returnBytes[start:start+common.AddressLength], item.ExchangeAddress[:])
+	start += common.AddressLength
+	copy(returnBytes[start:start+common.AddressLength], item.UserAddress[:])
+	start += common.AddressLength
+	copy(returnBytes[start:start+common.AddressLength], item.BaseToken[:])
+	start += common.AddressLength
+	copy(returnBytes[start:start+common.AddressLength], item.QuoteToken[:])
+	start += common.AddressLength
+
+	copy(returnBytes[start:start+15],[]byte(item.Status))
+	start += 15
+
+	copy(returnBytes[start:start+4],[]byte(item.Side))
+	start += 4
+
+	copy(returnBytes[start:start+6],[]byte(item.Type))
+	start += 6
+
+	copy(returnBytes[start:start+common.HashLength], item.Hash.Bytes())
+	start += common.HashLength
+
+	returnBytes = append(returnBytes, item.Signature.V)
+	start += 1
+	copy(returnBytes[start:start+common.HashLength], item.Signature.R.Bytes())
+	start += common.HashLength
+	copy(returnBytes[start:start+common.HashLength], item.Signature.S.Bytes())
+	start += common.HashLength
+
+	copy(returnBytes[start:start+common.HashLength], common.BigToHash(item.FilledAmount).Bytes())
+	start += common.HashLength
+	copy(returnBytes[start:start+common.HashLength], common.BigToHash(item.Nonce).Bytes())
+	start += common.HashLength
+	copy(returnBytes[start:start+common.HashLength], common.BigToHash(item.MakeFee).Bytes())
+	start += common.HashLength
+	copy(returnBytes[start:start+common.HashLength], common.BigToHash(item.TakeFee).Bytes())
+	start += common.HashLength
+
+	//fixed length item.PairName = 86 bytes
+	copy(returnBytes[start:start+86], []byte(item.PairName))
+	start += 86
+
+	binary.BigEndian.PutUint64(returnBytes[start:start+8], item.CreatedAt)
+	start += 8
+	binary.BigEndian.PutUint64(returnBytes[start:start+8], item.UpdatedAt)
+	start += 8
+
+	binary.BigEndian.PutUint64(returnBytes[start:start+8], item.OrderID)
+	start += 8
+
 	copy(returnBytes[start:start+common.HashLength], item.NextOrder)
 	start += common.HashLength
 
@@ -87,20 +142,11 @@ func EncodeBytesOrderItem(item *OrderItem) ([]byte, error) {
 	copy(returnBytes[start:start+common.HashLength], item.OrderList)
 	start += common.HashLength
 
-	binary.BigEndian.PutUint64(returnBytes[start:start+8], item.Timestamp)
-	start += 8
-
-	if start < totalLength {
-		copy(returnBytes[start:], item.TradeID)
-	}
-
 	return returnBytes, nil
 }
 
 func DecodeBytesOrderItem(bytes []byte, item *OrderItem) error {
-	// try with OrderItem
 	start := 0
-	totalLength := len(bytes)
 
 	if item.Quantity == nil {
 		item.Quantity = new(big.Int)
@@ -113,6 +159,63 @@ func DecodeBytesOrderItem(bytes []byte, item *OrderItem) error {
 	}
 	item.Price.SetBytes(bytes[start : start+common.HashLength])
 	start += common.HashLength
+
+	item.ExchangeAddress = common.BytesToAddress(bytes[start:start+common.AddressLength])
+	start += common.AddressLength
+	item.UserAddress = common.BytesToAddress(bytes[start:start+common.AddressLength])
+	start += common.AddressLength
+	item.BaseToken = common.BytesToAddress(bytes[start:start+common.AddressLength])
+	start += common.AddressLength
+	item.QuoteToken = common.BytesToAddress(bytes[start:start+common.AddressLength])
+	start += common.AddressLength
+
+	item.Status = string(bytes[start:start+15])
+	start += 15
+	item.Side = string(bytes[start:start+4])
+	start += 4
+	item.Type = string(bytes[start:start+6])
+	start += 6
+
+	item.Hash = common.BytesToHash(bytes[start:start+common.HashLength])
+	start += common.HashLength
+
+	if item.Signature == nil {
+		item.Signature = &Signature{}
+	}
+	item.Signature.V = bytes[start]
+	start += 1
+	item.Signature.R = common.BytesToHash(bytes[start:start+common.HashLength])
+	start += common.HashLength
+	item.Signature.S = common.BytesToHash(bytes[start:start+common.HashLength])
+	start += common.HashLength
+
+	item.FilledAmount = new(big.Int)
+	item.FilledAmount.SetBytes(bytes[start:start+common.HashLength])
+	start += common.HashLength
+
+	item.Nonce = new(big.Int)
+	item.Nonce.SetBytes(bytes[start:start+common.HashLength])
+	start += common.HashLength
+
+	item.MakeFee = new(big.Int)
+	item.MakeFee.SetBytes(bytes[start:start+common.HashLength])
+	start += common.HashLength
+
+	item.TakeFee = new(big.Int)
+	item.TakeFee.SetBytes(bytes[start:start+common.HashLength])
+	start += common.HashLength
+
+	item.PairName = string(bytes[start:start+86])
+	start += 86
+
+	item.CreatedAt = uint64(binary.BigEndian.Uint64(bytes[start:start+8]))
+	start += 8
+
+	item.UpdatedAt = uint64(binary.BigEndian.Uint64(bytes[start:start+8]))
+	start += 8
+
+	item.OrderID = uint64(binary.BigEndian.Uint64(bytes[start:start+8]))
+	start += 8
 
 	// pointers
 	if item.NextOrder == nil {
@@ -133,12 +236,6 @@ func DecodeBytesOrderItem(bytes []byte, item *OrderItem) error {
 	copy(item.OrderList, bytes[start:start+common.HashLength])
 	start += common.HashLength
 
-	item.Timestamp = binary.BigEndian.Uint64(bytes[start : start+8])
-	start += 8
-
-	if start < totalLength {
-		item.TradeID = string(bytes[start:])
-	}
 	return nil
 }
 
