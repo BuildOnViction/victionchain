@@ -142,7 +142,7 @@ func (peer *Peer) expire() {
 // ones over the network.
 func (peer *Peer) broadcast() error {
 	envelopes := peer.host.Envelopes()
-	log.Debug("Pending envelopes to be broadcasted", "number", len(envelopes))
+	log.Trace("Pending envelopes to be broadcasted", "number", len(envelopes))
 	bundle := make([]*Envelope, 0, len(envelopes))
 	for _, envelope := range envelopes {
 		if !peer.marked(envelope) {
