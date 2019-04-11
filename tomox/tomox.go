@@ -422,7 +422,7 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 			log.Error("Can't cancel order", "err", err)
 			return err
 		}
-		log.Info("Cancelled order", "detail", order)
+		log.Debug("Cancelled order", "detail", order)
 	} else {
 		log.Info("Save order", "detail", order)
 		trades, orderInBook, err := tomox.ProcessOrder(order)

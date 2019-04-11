@@ -11,11 +11,8 @@ import (
 	"encoding/hex"
 )
 
-func TestCreateOrder(t *testing.T) {
-	price, ok := new(big.Int).SetString("250000000000000000000000000000000000000", 10)
-	if !ok {
-		t.Error("bad value", "price", "250000000000000000000000000000000000000")
-	}
+func buildOrder() *OrderItem {
+	price, _ := new(big.Int).SetString("250000000000000000000000000000000000000", 10)
 	v := []byte("123")
 	order := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(1000000000000000000),
@@ -40,12 +37,16 @@ func TestCreateOrder(t *testing.T) {
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
 	}
+	return order
+}
 
+func TestCreateOrder(t *testing.T) {
+	order := buildOrder()
 	topic := order.BaseToken.Hex() + "::" + order.QuoteToken.Hex()
 	encodedTopic := fmt.Sprintf("0x%s", hex.EncodeToString([]byte(topic)))
 	fmt.Println("topic: ", encodedTopic)
 
-	ipaddress := "178.128.53.170"
+	ipaddress := "0.0.0.0"
 	url := fmt.Sprintf("http://%s:8501", ipaddress)
 
 	//create topic
@@ -69,6 +70,35 @@ func TestCreateOrder(t *testing.T) {
 	}
 
 	err = rpcClient.Call(&result, "tomoX_createOrder", params)
+	if err != nil {
+		t.Error("rpcClient.Call tomoX_createOrder failed", "err", err)
+	}
+}
+
+func TestCancelOrder(t *testing.T) {
+	order := buildOrder()
+	topic := order.BaseToken.Hex() + "::" + order.QuoteToken.Hex()
+	encodedTopic := fmt.Sprintf("0x%s", hex.EncodeToString([]byte(topic)))
+	fmt.Println("topic: ", encodedTopic)
+
+	ipaddress := "0.0.0.0"
+	url := fmt.Sprintf("http://%s:8501", ipaddress)
+
+	//cancel order
+	rpcClient, err := rpc.DialHTTP(url)
+	defer rpcClient.Close()
+	if err != nil {
+		t.Error("rpc.DialHTTP failed", "err", err)
+	}
+	var result interface{}
+	params := make(map[string]interface{})
+	params["topic"] = encodedTopic
+	params["payload"], err = json.Marshal(order)
+	if err != nil {
+		t.Error("json.Marshal failed", "err", err)
+	}
+
+	err = rpcClient.Call(&result, "tomoX_cancelOrder", params)
 	if err != nil {
 		t.Error("rpcClient.Call tomoX_createOrder failed", "err", err)
 	}
