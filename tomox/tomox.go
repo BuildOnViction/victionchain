@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/syncmap"
-	"gopkg.in/fatih/set.v0"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
+	"golang.org/x/sync/syncmap"
+	"gopkg.in/fatih/set.v0"
 )
 
 const (
@@ -42,8 +42,9 @@ const (
 )
 
 type Config struct {
-	DataDir  string `toml:",omitempty"`
-	DBEngine string `toml:",omitempty"`
+	DataDir       string `toml:",omitempty"`
+	DBEngine      string `toml:",omitempty"`
+	ConnectionUrl string `toml:",omitempty"`
 }
 
 // DefaultConfig represents (shocker!) the default configuration.
@@ -87,7 +88,14 @@ func NewLDBEngine(cfg *Config) *BatchDatabase {
 }
 
 func NewMongoDBEngine(cfg *Config) *MongoDatabase {
-	return &MongoDatabase{}
+	mongoDB, err := NewMongoDatabase(nil, cfg.ConnectionUrl)
+
+	if err != nil {
+		log.Error(err.Error())
+		return &MongoDatabase{}
+	}
+
+	return mongoDB
 }
 
 func New(cfg *Config) *TomoX {
