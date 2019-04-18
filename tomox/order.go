@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -13,6 +14,12 @@ type Signature struct {
 	V byte
 	R common.Hash
 	S common.Hash
+}
+
+type SignatureRecord struct {
+	V byte   `json:"V" bson:"V"`
+	R string `json:"R" bson:"R"`
+	S string `json:"S" bson:"S"`
 }
 
 // OrderItem : info that will be store in database
@@ -36,6 +43,32 @@ type OrderItem struct {
 	CreatedAt       uint64         `json:"createdAt,omitempty"`
 	UpdatedAt       uint64         `json:"updatedAt,omitempty"`
 	OrderID         uint64         `json:"orderID,omitempty"`
+	// *OrderMeta
+	NextOrder []byte `json:"-"`
+	PrevOrder []byte `json:"-"`
+	OrderList []byte `json:"-"`
+}
+
+type OrderItemBSON struct {
+	Quantity        string           `json:"quantity,omitempty" bson:"quantity"`
+	Price           string           `json:"price,omitempty" bson:"price"`
+	ExchangeAddress string           `json:"exchangeAddress,omitempty" bson:"exchangeAddress"`
+	UserAddress     string           `json:"userAddress,omitempty" bson:"userAddress"`
+	BaseToken       string           `json:"baseToken,omitempty" bson:"baseToken"`
+	QuoteToken      string           `json:"quoteToken,omitempty" bson:"quoteToken"`
+	Status          string           `json:"status,omitempty" bson:"status"`
+	Side            string           `json:"side,omitempty" bson:"side"`
+	Type            string           `json:"type,omitempty" bson:"type"`
+	Hash            string           `json:"hash,omitempty" bson:"hash"`
+	Signature       *SignatureRecord `json:"signature,omitempty" bson:"signature"`
+	FilledAmount    string           `json:"filledAmount,omitempty" bson:"filledAmount"`
+	Nonce           string           `json:"nonce,omitempty" bson:"nonce"`
+	MakeFee         string           `json:"makeFee,omitempty" bson:"makeFee"`
+	TakeFee         string           `json:"takeFee,omitempty" bson:"takeFee"`
+	PairName        string           `json:"pairName,omitempty" bson:"pairName"`
+	CreatedAt       string           `json:"createdAt,omitempty" bson:"createdAt"`
+	UpdatedAt       string           `json:"updatedAt,omitempty" bson:"updatedAt"`
+	OrderID         string           `json:"orderID,omitempty" bson:"orderID"`
 	// *OrderMeta
 	NextOrder []byte `json:"-"`
 	PrevOrder []byte `json:"-"`

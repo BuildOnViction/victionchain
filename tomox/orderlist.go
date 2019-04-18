@@ -23,6 +23,14 @@ type OrderListItem struct {
 	Price     *big.Int `json:"price"`
 }
 
+type OrderListItemBSON struct {
+	HeadOrder []byte `json:"headOrder" bson:"headOrder"`
+	TailOrder []byte `json:"tailOrder" bson:"tailOrder"`
+	Length    string `json:"length" bson:"length"`
+	Volume    string `json:"volume" bson:"volume"`
+	Price     string `json:"price" bson:"price"`
+}
+
 // OrderList : order list
 type OrderList struct {
 	orderTree *OrderTree

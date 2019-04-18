@@ -3,7 +3,7 @@ package utils
 import (
 	"math/big"
 
-	"github.com/tomochain/dex-server/utils/math"
+	"github.com/tomochain/tomodex/utils/math"
 )
 
 func Ethers(value int64) *big.Int {

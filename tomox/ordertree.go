@@ -15,6 +15,13 @@ type OrderTreeItem struct {
 	PriceTreeSize uint64   `json:"priceTreeSize"` // Number of nodes, currently it is Depth
 }
 
+type OrderTreeItemBSON struct {
+	Volume        string `json:"volume" bson:"volume"`               // Contains total quantity from all Orders in tree
+	NumOrders     string `json:"numOrders" bson:"numOrders"`         // Contains count of Orders in tree
+	PriceTreeKey  string `json:"priceTreeKey"`                       // Root Key of price tree
+	PriceTreeSize string `json:"priceTreeSize" bson:"priceTreeSize"` // Number of nodes, currently it is Depth
+}
+
 // OrderTree : order tree structure for travelling
 type OrderTree struct {
 	PriceTree *RedBlackTreeExtended `json:"priceTree"`

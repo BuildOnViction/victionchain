@@ -31,11 +31,18 @@ type OrderBookItem struct {
 	Name          string `json:"name"`
 }
 
+type OrderBookItemBSON struct {
+	Timestamp     string `json:"time" bson:"time"`
+	NextOrderID   string `json:"nextOrderID" bson:"nextOrderID"`
+	MaxPricePoint string `json:"maxVolume" bson:"maxVolume"`
+	Name          string `json:"name" bson:"name"`
+}
+
 // OrderBook : list of orders
 type OrderBook struct {
 	db   OrderDao // this is for orderBook
-	Bids *OrderTree     `json:"bids"`
-	Asks *OrderTree     `json:"asks"`
+	Bids *OrderTree `json:"bids"`
+	Asks *OrderTree `json:"asks"`
 	Item *OrderBookItem
 
 	Key  []byte
