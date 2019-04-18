@@ -83,7 +83,6 @@ type TomoX struct {
 	statsMu sync.Mutex // guard stats
 
 	settings syncmap.Map // holds configuration settings that can be dynamically changed
-
 }
 
 func New(cfg *Config) *TomoX {
@@ -642,4 +641,20 @@ func (tomox *TomoX) CancelOrder(order *OrderItem) error {
 	}
 
 	return err
+}
+
+func (tomox *TomoX) GetBidsTree(pairName string) (*OrderTree, error) {
+	ob, err := tomox.GetOrderBook(pairName)
+	if err != nil {
+		return nil, err
+	}
+	return ob.Bids, nil
+}
+
+func (tomox *TomoX) GetAsksTree(pairName string) (*OrderTree, error) {
+	ob, err := tomox.GetOrderBook(pairName)
+	if err != nil {
+		return nil, err
+	}
+	return ob.Asks, nil
 }
