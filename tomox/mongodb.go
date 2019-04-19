@@ -1,6 +1,7 @@
 package tomox
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -14,8 +15,8 @@ type MongoDatabase struct {
 }
 
 type MongoRecord struct {
-	ID bson.ObjectId
-	Key string
+	ID    bson.ObjectId
+	Key   string
 	Value interface{}
 }
 
@@ -47,8 +48,7 @@ func NewMongoDatabase(session *mgo.Session, mongoURL string) (*MongoDatabase, er
 }
 
 func (m *MongoDatabase) IsEmptyKey(key []byte) bool {
-	//TODO: put implementation here
-	return false
+	return key == nil || len(key) == 0 || bytes.Equal(key, EmptyKey())
 }
 
 func (m *MongoDatabase) getCacheKey(key []byte) string {
@@ -62,8 +62,6 @@ func (m *MongoDatabase) Has(key []byte) (bool, error) {
 
 func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 	cacheKey := db.getCacheKey(key)
-
-	fmt.Println("In Get function")
 
 	sc := db.Session.Copy()
 	defer sc.Close()

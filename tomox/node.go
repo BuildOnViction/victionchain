@@ -19,6 +19,12 @@ type KeyMeta struct {
 	Parent []byte
 }
 
+type KeyMetaBSON struct {
+	Left   string
+	Right  string
+	Parent string
+}
+
 func (keys *KeyMeta) String(tree *Tree) string {
 	return fmt.Sprintf("L: %v, P: %v, R: %v", tree.FormatBytes(keys.Left),
 		tree.FormatBytes(keys.Parent), tree.FormatBytes(keys.Right))
@@ -27,6 +33,13 @@ func (keys *KeyMeta) String(tree *Tree) string {
 type Item struct {
 	Keys  *KeyMeta
 	Value []byte
+	// Deleted bool
+	Color bool
+}
+
+type ItemBSON struct {
+	Keys  *KeyMetaBSON
+	Value string
 	// Deleted bool
 	Color bool
 }

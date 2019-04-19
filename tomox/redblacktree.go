@@ -63,7 +63,11 @@ func (tree *Tree) Put(key []byte, value []byte) error {
 		insertedNode = &Node{Key: key, Item: item}
 	} else {
 		node := tree.Root()
+		log.Debug("vvvvv", "node", node)
 		loop := true
+
+		log.Debug("aaaaaaaa", "key", key, "node.Key", node.Key)
+
 		for loop {
 			compare := tree.Comparator(key, node.Key)
 			switch {

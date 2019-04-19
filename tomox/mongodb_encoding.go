@@ -11,11 +11,38 @@ import (
 )
 
 func EncodeNodeItem(item *Item) (interface{}, error) {
+	n := ItemBSON{
+		Keys: &KeyMetaBSON{
+			Left:   string(item.Keys.Left),
+			Right:  string(item.Keys.Right),
+			Parent: string(item.Keys.Parent),
+		},
+		Value: string(item.Value),
+		Color: item.Color,
+	}
 
-	return nil, nil
+	return n, nil
 }
 
-func DecodeNodeItem(data bson.Raw, item *Item) error {
+func DecodeNodeItem(raw bson.Raw, item *Item) error {
+	decoded := new(struct {
+		Keys  *KeyMetaBSON
+		Value string
+		Color bool
+	})
+
+	err := raw.Unmarshal(decoded)
+	if err != nil {
+		return err
+	}
+
+	item.Keys = &KeyMeta{
+		Left:   []byte(decoded.Keys.Left),
+		Right:  []byte(decoded.Keys.Right),
+		Parent: []byte(decoded.Keys.Parent),
+	}
+	item.Value = []byte(decoded.Value)
+	item.Color = decoded.Color
 
 	return nil
 }
