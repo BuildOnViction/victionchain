@@ -22,6 +22,11 @@ type OrderTreeItemBSON struct {
 	PriceTreeSize string `json:"priceTreeSize" bson:"priceTreeSize"` // Number of nodes, currently it is Depth
 }
 
+type OrderTreeItemRecord struct {
+	Key   string
+	Value *OrderTreeItem
+}
+
 // OrderTree : order tree structure for travelling
 type OrderTree struct {
 	PriceTree *RedBlackTreeExtended `json:"priceTree"`

@@ -15,7 +15,6 @@ type MongoDatabase struct {
 }
 
 type MongoRecord struct {
-	ID    bson.ObjectId
 	Key   string
 	Value interface{}
 }
@@ -61,18 +60,17 @@ func (m *MongoDatabase) Has(key []byte) (bool, error) {
 }
 
 func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
-	cacheKey := db.getCacheKey(key)
+	cacheKey := m.getCacheKey(key)
 
 	sc := db.Session.Copy()
 	defer sc.Close()
 
-	var res MongoRecord
-
 	switch val.(type) {
 	case *Item:
+		var res *ItemRecord
 		query := bson.M{"key": cacheKey}
 
-		err := sc.DB(m.dbName).C("node_items").Find(query).One(res)
+		err := sc.DB(m.dbName).C("node_items").Find(query).One(&res)
 
 		if err != nil {
 			return nil, err
@@ -98,9 +96,10 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 		break
 	case *OrderListItem:
+		var res *OrderListItemRecord
 		query := bson.M{"key": cacheKey}
 
-		err := sc.DB(m.dbName).C("order_list_items").Find(query).One(res)
+		err := sc.DB(m.dbName).C("order_list_items").Find(query).One(&res)
 
 		if err != nil {
 			return nil, err
@@ -110,9 +109,10 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 		break
 	case *OrderTreeItem:
+		var res *OrderTreeItemRecord
 		query := bson.M{"key": cacheKey}
 
-		err := sc.DB(m.dbName).C("order_tree_items").Find(query).One(res)
+		err := sc.DB(m.dbName).C("order_tree_items").Find(query).One(&res)
 
 		if err != nil {
 			return nil, err
@@ -122,9 +122,10 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 		break
 	case *OrderBookItem:
+		var res *OrderBookItemRecord
 		query := bson.M{"key": cacheKey}
 
-		err := sc.DB(m.dbName).C("order_book_items").Find(query).One(res)
+		err := sc.DB(m.dbName).C("order_book_items").Find(query).One(&res)
 
 		if err != nil {
 			return nil, err
@@ -142,7 +143,7 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 }
 
 func (m *MongoDatabase) Put(key []byte, val interface{}) error {
-	cacheKey := db.getCacheKey(key)
+	cacheKey := m.getCacheKey(key)
 
 	fmt.Println("In Put function")
 	sc := db.Session.Copy()
@@ -157,15 +158,14 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 			return errors.New("val is not OrderListItem type")
 		}
 
-		ib, err := EncodeItem(i)
-
-		if err != nil {
-			return err
+		r := &ItemRecord{
+			Key:   cacheKey,
+			Value: i,
 		}
 
 		query := bson.M{"key": cacheKey}
 
-		_, err = sc.DB(m.dbName).C("node_items").Upsert(query, ib)
+		_, err := sc.DB(m.dbName).C("node_items").Upsert(query, r)
 
 		if err != nil {
 			return err
@@ -203,15 +203,14 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 			return errors.New("val is not OrderListItem type")
 		}
 
-		olib, err := EncodeItem(oli)
-
-		if err != nil {
-			return err
+		r := &OrderListItemRecord{
+			Key:   cacheKey,
+			Value: oli,
 		}
 
 		query := bson.M{"key": cacheKey}
 
-		_, err = sc.DB(m.dbName).C("order_list_items").Upsert(query, olib)
+		_, err := sc.DB(m.dbName).C("order_list_items").Upsert(query, r)
 
 		if err != nil {
 			return err
@@ -226,15 +225,14 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 			return errors.New("val is not OrderTreeItem type")
 		}
 
-		otib, err := EncodeItem(oti)
-
-		if err != nil {
-			return err
+		r := &OrderTreeItemRecord{
+			Key:   cacheKey,
+			Value: oti,
 		}
 
 		query := bson.M{"key": cacheKey}
 
-		_, err = sc.DB(m.dbName).C("order_tree_items").Upsert(query, otib)
+		_, err := sc.DB(m.dbName).C("order_tree_items").Upsert(query, r)
 
 		if err != nil {
 			return err
@@ -249,15 +247,14 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 			return errors.New("val is not OrderBookItem type")
 		}
 
-		obib, err := EncodeItem(obi)
-
-		if err != nil {
-			return err
+		r := &OrderBookItemRecord{
+			Key:   cacheKey,
+			Value: obi,
 		}
 
 		query := bson.M{"key": cacheKey}
 
-		_, err = sc.DB(m.dbName).C("order_book_items").Upsert(query, obib)
+		_, err := sc.DB(m.dbName).C("order_book_items").Upsert(query, r)
 
 		if err != nil {
 			return err

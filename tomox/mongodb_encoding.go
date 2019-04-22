@@ -24,29 +24,6 @@ func EncodeNodeItem(item *Item) (interface{}, error) {
 	return n, nil
 }
 
-func DecodeNodeItem(raw bson.Raw, item *Item) error {
-	decoded := new(struct {
-		Keys  *KeyMetaBSON
-		Value string
-		Color bool
-	})
-
-	err := raw.Unmarshal(decoded)
-	if err != nil {
-		return err
-	}
-
-	item.Keys = &KeyMeta{
-		Left:   []byte(decoded.Keys.Left),
-		Right:  []byte(decoded.Keys.Right),
-		Parent: []byte(decoded.Keys.Parent),
-	}
-	item.Value = []byte(decoded.Value)
-	item.Color = decoded.Color
-
-	return nil
-}
-
 func EncodeOrderItem(o *OrderItem) (interface{}, error) {
 	or := OrderItemBSON{
 		PairName:        o.PairName,
@@ -82,7 +59,70 @@ func EncodeOrderItem(o *OrderItem) (interface{}, error) {
 	return or, nil
 }
 
-func DecodeOrderItem(raw bson.Raw, o *OrderItem) error {
+func EncodeOrderListItem(item *OrderListItem) (interface{}, error) {
+
+	return nil, nil
+}
+
+func EncodeOrderTreeItem(oti *OrderTreeItem) (interface{}, error) {
+	otib := OrderTreeItemBSON{
+		Volume:        oti.Volume.String(),
+		NumOrders:     strconv.FormatUint(oti.NumOrders, 10),
+		PriceTreeKey:  string(oti.PriceTreeKey),
+		PriceTreeSize: strconv.FormatUint(oti.PriceTreeSize, 10),
+	}
+
+	return otib, nil
+}
+
+func EncodeOrderBookItem(item *OrderBookItem) (interface{}, error) {
+
+	return nil, nil
+}
+
+func EncodeItem(val interface{}) (interface{}, error) {
+	switch val.(type) {
+	case *Item:
+		return EncodeNodeItem(val.(*Item))
+	case *OrderItem:
+		return EncodeOrderItem(val.(*OrderItem))
+	case *OrderListItem:
+		return EncodeOrderListItem(val.(*OrderListItem))
+	case *OrderTreeItem:
+		return EncodeOrderTreeItem(val.(*OrderTreeItem))
+	case *OrderBookItem:
+		return EncodeOrderBookItem(val.(*OrderBookItem))
+	default:
+		return nil, nil
+	}
+}
+
+func (nir *ItemRecord) SetBSON(raw bson.Raw) error {
+	decoded := new(struct {
+		Key   string
+		Value ItemBSON
+	})
+
+	err := raw.Unmarshal(decoded)
+	if err != nil {
+		return err
+	}
+
+	nir.Key = decoded.Key
+	nir.Value = &Item{
+		Keys: &KeyMeta{
+			Left:   []byte(decoded.Value.Keys.Left),
+			Right:  []byte(decoded.Value.Keys.Right),
+			Parent: []byte(decoded.Value.Keys.Parent),
+		},
+		Value: []byte(decoded.Value.Value),
+		Color: decoded.Value.Color,
+	}
+
+	return nil
+}
+
+func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	decoded := new(struct {
 		ID              bson.ObjectId    `json:"id,omitempty" bson:"_id"`
 		PairName        string           `json:"pairName" bson:"pairName"`
@@ -150,34 +190,10 @@ func DecodeOrderItem(raw bson.Raw, o *OrderItem) error {
 	return nil
 }
 
-func EncodeOrderListItem(item *OrderListItem) (interface{}, error) {
-
-	return nil, nil
-}
-
-func DecodeOrderListItem(data bson.Raw, item *OrderListItem) error {
-
-	return nil
-}
-
-func EncodeOrderTreeItem(oti *OrderTreeItem) (interface{}, error) {
-	otib := OrderTreeItemBSON{
-		Volume:        oti.Volume.String(),
-		NumOrders:     strconv.FormatUint(oti.NumOrders, 10),
-		PriceTreeKey:  string(oti.PriceTreeKey),
-		PriceTreeSize: strconv.FormatUint(oti.PriceTreeSize, 10),
-	}
-
-	return otib, nil
-}
-
-func DecodeOrderTreeItem(raw bson.Raw, oti *OrderTreeItem) error {
-
+func (otir *OrderTreeItemRecord) SetBSON(raw bson.Raw) error {
 	decoded := new(struct {
-		Volume        string `json:"volume" bson:"volume"`
-		NumOrders     string `json:"numOrders" bson:"numOrders"`
-		PriceTreeKey  string `json:"priceTreeKey"`
-		PriceTreeSize string `json:"priceTreeSize" bson:"priceTreeSize"`
+		Key   string
+		Value OrderTreeItemBSON
 	})
 
 	err := raw.Unmarshal(decoded)
@@ -185,63 +201,85 @@ func DecodeOrderTreeItem(raw bson.Raw, oti *OrderTreeItem) error {
 		return err
 	}
 
-	oti.Volume = math.ToBigInt(decoded.Volume)
-	numOrders, err := strconv.ParseInt(decoded.NumOrders, 10, 64)
+	otir.Key = decoded.Key
+
+	otir.Value.Volume = math.ToBigInt(decoded.Value.Volume)
+	numOrders, err := strconv.ParseInt(decoded.Value.NumOrders, 10, 64)
 	if err == nil {
 		fmt.Printf("%d of type %T", numOrders, numOrders)
 	}
-	oti.NumOrders = uint64(numOrders)
-	oti.PriceTreeKey = []byte(decoded.PriceTreeKey)
+	otir.Value.NumOrders = uint64(numOrders)
+	otir.Value.PriceTreeKey = []byte(decoded.Value.PriceTreeKey)
 
-	priceTreeSize, err := strconv.ParseInt(decoded.PriceTreeSize, 10, 64)
+	priceTreeSize, err := strconv.ParseInt(decoded.Value.PriceTreeSize, 10, 64)
 	if err == nil {
 		fmt.Printf("%d of type %T", priceTreeSize, priceTreeSize)
 	}
-	oti.PriceTreeSize = uint64(priceTreeSize)
+	otir.Value.PriceTreeSize = uint64(priceTreeSize)
 
 	return nil
 }
 
-func EncodeOrderBookItem(item *OrderBookItem) (interface{}, error) {
+func (olir *OrderListItemRecord) SetBSON(raw bson.Raw) error {
+	decoded := new(struct {
+		Key   string
+		Value OrderListItemBSON
+	})
 
-	return nil, nil
-}
+	err := raw.Unmarshal(decoded)
+	if err != nil {
+		return err
+	}
 
-func DecodeOrderBookItem(data bson.Raw, item *OrderBookItem) error {
+	olir.Key = decoded.Key
+
+	olir.Value.HeadOrder = []byte(decoded.Value.HeadOrder)
+	olir.Value.TailOrder = []byte(decoded.Value.TailOrder)
+
+	length, err := strconv.ParseInt(decoded.Value.Length, 10, 64)
+	if err == nil {
+		fmt.Printf("%d of type %T", length, length)
+	}
+	olir.Value.Length = uint64(length)
+
+	olir.Value.Volume = math.ToBigInt(decoded.Value.Volume)
+	olir.Value.Price = math.ToBigInt(decoded.Value.Price)
 
 	return nil
 }
 
-func EncodeItem(val interface{}) (interface{}, error) {
-	switch val.(type) {
-	case *Item:
-		return EncodeNodeItem(val.(*Item))
-	case *OrderItem:
-		return EncodeOrderItem(val.(*OrderItem))
-	case *OrderListItem:
-		return EncodeOrderListItem(val.(*OrderListItem))
-	case *OrderTreeItem:
-		return EncodeOrderTreeItem(val.(*OrderTreeItem))
-	case *OrderBookItem:
-		return EncodeOrderBookItem(val.(*OrderBookItem))
-	default:
-		return nil, nil
-	}
-}
+func (obir *OrderBookItemRecord) SetBSON(raw bson.Raw) error {
+	decoded := new(struct {
+		Key   string
+		Value OrderBookItemBSON
+	})
 
-func DecodeItem(data bson.Raw, val interface{}) error {
-	switch val.(type) {
-	case *Item:
-		return DecodeNodeItem(data, val.(*Item))
-	case *OrderItem:
-		return DecodeOrderItem(data, val.(*OrderItem))
-	case *OrderListItem:
-		return DecodeOrderListItem(data, val.(*OrderListItem))
-	case *OrderTreeItem:
-		return DecodeOrderTreeItem(data, val.(*OrderTreeItem))
-	case *OrderBookItem:
-		return DecodeOrderBookItem(data, val.(*OrderBookItem))
-	default:
-		return nil
+	err := raw.Unmarshal(decoded)
+	if err != nil {
+		return err
 	}
+
+	obir.Key = decoded.Key
+
+	timestamp, err := strconv.ParseInt(decoded.Value.Timestamp, 10, 64)
+	if err == nil {
+		fmt.Printf("%d of type %T", timestamp, timestamp)
+	}
+	obir.Value.Timestamp = uint64(timestamp)
+
+	nextOrderID, err := strconv.ParseInt(decoded.Value.NextOrderID, 10, 64)
+	if err == nil {
+		fmt.Printf("%d of type %T", nextOrderID, nextOrderID)
+	}
+	obir.Value.NextOrderID = uint64(nextOrderID)
+
+	maxPricePoint, err := strconv.ParseInt(decoded.Value.MaxPricePoint, 10, 64)
+	if err == nil {
+		fmt.Printf("%d of type %T", maxPricePoint, maxPricePoint)
+	}
+	obir.Value.MaxPricePoint = uint64(maxPricePoint)
+
+	obir.Value.Name = decoded.Value.Name
+
+	return nil
 }

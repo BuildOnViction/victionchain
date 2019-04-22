@@ -38,9 +38,14 @@ type OrderBookItemBSON struct {
 	Name          string `json:"name" bson:"name"`
 }
 
+type OrderBookItemRecord struct {
+	Key   string
+	Value *OrderBookItem
+}
+
 // OrderBook : list of orders
 type OrderBook struct {
-	db   OrderDao // this is for orderBook
+	db   OrderDao   // this is for orderBook
 	Bids *OrderTree `json:"bids"`
 	Asks *OrderTree `json:"asks"`
 	Item *OrderBookItem

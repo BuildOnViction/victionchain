@@ -31,6 +31,11 @@ type OrderListItemBSON struct {
 	Price     string `json:"price" bson:"price"`
 }
 
+type OrderListItemRecord struct {
+	Key   string
+	Value *OrderListItem
+}
+
 // OrderList : order list
 type OrderList struct {
 	orderTree *OrderTree
