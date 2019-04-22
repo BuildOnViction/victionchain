@@ -97,6 +97,23 @@ func EncodeItem(val interface{}) (interface{}, error) {
 	}
 }
 
+func (nir *ItemRecord) GetBSON() (interface{}, error) {
+	irb := ItemRecordBSON{
+		Key: nir.Key,
+		Value: &ItemBSON{
+			Keys: &KeyMetaBSON{
+				Left:   string(nir.Value.Keys.Left),
+				Right:  string(nir.Value.Keys.Right),
+				Parent: string(nir.Value.Keys.Parent),
+			},
+			Value: string(nir.Value.Value),
+			Color: nir.Value.Color,
+		},
+	}
+
+	return irb, nil
+}
+
 func (nir *ItemRecord) SetBSON(raw bson.Raw) error {
 	decoded := new(struct {
 		Key   string
@@ -120,6 +137,41 @@ func (nir *ItemRecord) SetBSON(raw bson.Raw) error {
 	}
 
 	return nil
+}
+
+func (o *OrderItem) GetBSON() (interface{}, error) {
+	or := OrderItemBSON{
+		PairName:        o.PairName,
+		ExchangeAddress: o.ExchangeAddress.Hex(),
+		UserAddress:     o.UserAddress.Hex(),
+		BaseToken:       o.BaseToken.Hex(),
+		QuoteToken:      o.QuoteToken.Hex(),
+		Status:          o.Status,
+		Side:            o.Side,
+		Type:            o.Type,
+		Hash:            o.Hash.Hex(),
+		Quantity:        o.Quantity.String(),
+		Price:           o.Price.String(),
+		Nonce:           o.Nonce.String(),
+		MakeFee:         o.MakeFee.String(),
+		TakeFee:         o.TakeFee.String(),
+		CreatedAt:       strconv.FormatUint(o.CreatedAt, 10),
+		UpdatedAt:       strconv.FormatUint(o.UpdatedAt, 10),
+	}
+
+	if o.FilledAmount != nil {
+		or.FilledAmount = o.FilledAmount.String()
+	}
+
+	if o.Signature != nil {
+		or.Signature = &SignatureRecord{
+			V: o.Signature.V,
+			R: o.Signature.R.Hex(),
+			S: o.Signature.S.Hex(),
+		}
+	}
+
+	return or, nil
 }
 
 func (o *OrderItem) SetBSON(raw bson.Raw) error {
@@ -190,6 +242,20 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
+func (otir *OrderTreeItemRecord) GetBSON() (interface{}, error) {
+	otirb := OrderTreeItemRecordBSON{
+		Key: otir.Key,
+		Value: &OrderTreeItemBSON{
+			Volume:        otir.Value.Volume.String(),
+			NumOrders:     strconv.FormatUint(otir.Value.NumOrders, 10),
+			PriceTreeKey:  string(otir.Value.PriceTreeKey),
+			PriceTreeSize: strconv.FormatUint(otir.Value.PriceTreeSize, 10),
+		},
+	}
+
+	return otirb, nil
+}
+
 func (otir *OrderTreeItemRecord) SetBSON(raw bson.Raw) error {
 	decoded := new(struct {
 		Key   string
@@ -220,6 +286,21 @@ func (otir *OrderTreeItemRecord) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
+func (olir *OrderListItemRecord) GetBSON() (interface{}, error) {
+	olirb := OrderListItemRecordBSON{
+		Key: olir.Key,
+		Value: &OrderListItemBSON{
+			HeadOrder: string(olir.Value.HeadOrder),
+			TailOrder: string(olir.Value.TailOrder),
+			Length:    string(olir.Value.Length),
+			Volume:    olir.Value.Volume.String(),
+			Price:     olir.Value.Price.String(),
+		},
+	}
+
+	return olirb, nil
+}
+
 func (olir *OrderListItemRecord) SetBSON(raw bson.Raw) error {
 	decoded := new(struct {
 		Key   string
@@ -246,6 +327,20 @@ func (olir *OrderListItemRecord) SetBSON(raw bson.Raw) error {
 	olir.Value.Price = math.ToBigInt(decoded.Value.Price)
 
 	return nil
+}
+
+func (obir *OrderBookItemRecord) GetBSON() (interface{}, error) {
+	obirb := OrderBookItemRecordBSON{
+		Key: obir.Key,
+		Value: &OrderBookItemBSON{
+			Timestamp:     string(obir.Value.Timestamp),
+			NextOrderID:   string(obir.Value.NextOrderID),
+			MaxPricePoint: string(obir.Value.MaxPricePoint),
+			Name:          obir.Value.Name,
+		},
+	}
+
+	return obirb, nil
 }
 
 func (obir *OrderBookItemRecord) SetBSON(raw bson.Raw) error {

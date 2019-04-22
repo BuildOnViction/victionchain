@@ -24,8 +24,8 @@ type OrderListItem struct {
 }
 
 type OrderListItemBSON struct {
-	HeadOrder []byte `json:"headOrder" bson:"headOrder"`
-	TailOrder []byte `json:"tailOrder" bson:"tailOrder"`
+	HeadOrder string `json:"headOrder" bson:"headOrder"`
+	TailOrder string `json:"tailOrder" bson:"tailOrder"`
 	Length    string `json:"length" bson:"length"`
 	Volume    string `json:"volume" bson:"volume"`
 	Price     string `json:"price" bson:"price"`
@@ -34,6 +34,11 @@ type OrderListItemBSON struct {
 type OrderListItemRecord struct {
 	Key   string
 	Value *OrderListItem
+}
+
+type OrderListItemRecordBSON struct {
+	Key   string
+	Value *OrderListItemBSON
 }
 
 // OrderList : order list

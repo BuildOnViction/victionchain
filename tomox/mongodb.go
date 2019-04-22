@@ -180,15 +180,9 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 			return errors.New("val is not OrderItem type")
 		}
 
-		oib, err := EncodeItem(oi)
-
-		if err != nil {
-			return err
-		}
-
 		query := bson.M{"hash": oi.Hash.Hex()}
 
-		_, err = sc.DB(m.dbName).C("orders").Upsert(query, oib)
+		_, err := sc.DB(m.dbName).C("orders").Upsert(query, oi)
 
 		if err != nil {
 			return err

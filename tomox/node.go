@@ -49,6 +49,11 @@ type ItemRecord struct {
 	Value *Item
 }
 
+type ItemRecordBSON struct {
+	Key   string
+	Value *ItemBSON
+}
+
 // Node is a single element within the tree
 type Node struct {
 	Key  []byte

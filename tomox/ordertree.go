@@ -27,6 +27,11 @@ type OrderTreeItemRecord struct {
 	Value *OrderTreeItem
 }
 
+type OrderTreeItemRecordBSON struct {
+	Key   string
+	Value *OrderTreeItemBSON
+}
+
 // OrderTree : order tree structure for travelling
 type OrderTree struct {
 	PriceTree *RedBlackTreeExtended `json:"priceTree"`

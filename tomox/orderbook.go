@@ -43,6 +43,11 @@ type OrderBookItemRecord struct {
 	Value *OrderBookItem
 }
 
+type OrderBookItemRecordBSON struct {
+	Key   string
+	Value *OrderBookItemBSON
+}
+
 // OrderBook : list of orders
 type OrderBook struct {
 	db   OrderDao   // this is for orderBook
