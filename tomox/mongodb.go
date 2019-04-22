@@ -86,7 +86,8 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 			fmt.Println("val is not OrderItem type")
 			return nil, errors.New("val is not OrderItem type")
 		}
-		query := bson.M{"hash": oi.Hash.Hex()}
+
+		query := bson.M{"key": cacheKey}
 
 		err := sc.DB(m.dbName).C("orders").Find(query).One(oi)
 
@@ -180,7 +181,7 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 			return errors.New("val is not OrderItem type")
 		}
 
-		query := bson.M{"hash": oi.Hash.Hex()}
+		query := bson.M{"key": cacheKey}
 
 		_, err := sc.DB(m.dbName).C("orders").Upsert(query, oi)
 

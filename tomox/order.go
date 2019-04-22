@@ -47,6 +47,7 @@ type OrderItem struct {
 	NextOrder []byte `json:"-"`
 	PrevOrder []byte `json:"-"`
 	OrderList []byte `json:"-"`
+	Key       string `json:"key"`
 }
 
 type OrderItemBSON struct {
@@ -69,10 +70,10 @@ type OrderItemBSON struct {
 	CreatedAt       string           `json:"createdAt,omitempty" bson:"createdAt"`
 	UpdatedAt       string           `json:"updatedAt,omitempty" bson:"updatedAt"`
 	OrderID         string           `json:"orderID,omitempty" bson:"orderID"`
-	// *OrderMeta
-	NextOrder []byte `json:"-"`
-	PrevOrder []byte `json:"-"`
-	OrderList []byte `json:"-"`
+	NextOrder       string           `json:"nextOrder,omitempty" bson:"nextOrder"`
+	PrevOrder       string           `json:"prevOrder,omitempty" bson:"prevOrder"`
+	OrderList       string           `json:"orderList,omitempty" bson:"orderList"`
+	Key             string           `json:"key" bson:"key"`
 }
 
 type Order struct {

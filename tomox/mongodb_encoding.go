@@ -13,11 +13,11 @@ import (
 func EncodeNodeItem(item *Item) (interface{}, error) {
 	n := ItemBSON{
 		Keys: &KeyMetaBSON{
-			Left:   string(item.Keys.Left),
-			Right:  string(item.Keys.Right),
-			Parent: string(item.Keys.Parent),
+			Left:   common.Bytes2Hex(item.Keys.Left),
+			Right:  common.Bytes2Hex(item.Keys.Right),
+			Parent: common.Bytes2Hex(item.Keys.Parent),
 		},
-		Value: string(item.Value),
+		Value: common.Bytes2Hex(item.Value),
 		Color: item.Color,
 	}
 
@@ -68,7 +68,7 @@ func EncodeOrderTreeItem(oti *OrderTreeItem) (interface{}, error) {
 	otib := OrderTreeItemBSON{
 		Volume:        oti.Volume.String(),
 		NumOrders:     strconv.FormatUint(oti.NumOrders, 10),
-		PriceTreeKey:  string(oti.PriceTreeKey),
+		PriceTreeKey:  common.Bytes2Hex(oti.PriceTreeKey),
 		PriceTreeSize: strconv.FormatUint(oti.PriceTreeSize, 10),
 	}
 
@@ -102,11 +102,11 @@ func (nir *ItemRecord) GetBSON() (interface{}, error) {
 		Key: nir.Key,
 		Value: &ItemBSON{
 			Keys: &KeyMetaBSON{
-				Left:   string(nir.Value.Keys.Left),
-				Right:  string(nir.Value.Keys.Right),
-				Parent: string(nir.Value.Keys.Parent),
+				Left:   common.Bytes2Hex(nir.Value.Keys.Left),
+				Right:  common.Bytes2Hex(nir.Value.Keys.Right),
+				Parent: common.Bytes2Hex(nir.Value.Keys.Parent),
 			},
-			Value: string(nir.Value.Value),
+			Value: common.Bytes2Hex(nir.Value.Value),
 			Color: nir.Value.Color,
 		},
 	}
@@ -128,11 +128,11 @@ func (nir *ItemRecord) SetBSON(raw bson.Raw) error {
 	nir.Key = decoded.Key
 	nir.Value = &Item{
 		Keys: &KeyMeta{
-			Left:   []byte(decoded.Value.Keys.Left),
-			Right:  []byte(decoded.Value.Keys.Right),
-			Parent: []byte(decoded.Value.Keys.Parent),
+			Left:   common.Hex2Bytes(decoded.Value.Keys.Left),
+			Right:  common.Hex2Bytes(decoded.Value.Keys.Right),
+			Parent: common.Hex2Bytes(decoded.Value.Keys.Parent),
 		},
-		Value: []byte(decoded.Value.Value),
+		Value: common.Hex2Bytes(decoded.Value.Value),
 		Color: decoded.Value.Color,
 	}
 
@@ -157,6 +157,10 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 		TakeFee:         o.TakeFee.String(),
 		CreatedAt:       strconv.FormatUint(o.CreatedAt, 10),
 		UpdatedAt:       strconv.FormatUint(o.UpdatedAt, 10),
+		NextOrder:       common.Bytes2Hex(o.NextOrder),
+		PrevOrder:       common.Bytes2Hex(o.PrevOrder),
+		OrderList:       common.Bytes2Hex(o.OrderList),
+		Key:             o.Key,
 	}
 
 	if o.FilledAmount != nil {
@@ -195,6 +199,10 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		Signature       *SignatureRecord `json:"signature" bson:"signature"`
 		CreatedAt       time.Time        `json:"createdAt" bson:"createdAt"`
 		UpdatedAt       time.Time        `json:"updatedAt" bson:"updatedAt"`
+		NextOrder       string           `json:"-"`
+		PrevOrder       string           `json:"-"`
+		OrderList       string           `json:"-"`
+		Key             string           `json:"key" bson:"key"`
 	})
 
 	err := raw.Unmarshal(decoded)
@@ -238,6 +246,10 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 
 	o.CreatedAt = uint64(decoded.CreatedAt.Unix())
 	o.UpdatedAt = uint64(decoded.UpdatedAt.Unix())
+	o.NextOrder = common.Hex2Bytes(decoded.NextOrder)
+	o.PrevOrder = common.Hex2Bytes(decoded.PrevOrder)
+	o.OrderList = common.Hex2Bytes(decoded.OrderList)
+	o.Key = decoded.Key
 
 	return nil
 }
@@ -248,7 +260,7 @@ func (otir *OrderTreeItemRecord) GetBSON() (interface{}, error) {
 		Value: &OrderTreeItemBSON{
 			Volume:        otir.Value.Volume.String(),
 			NumOrders:     strconv.FormatUint(otir.Value.NumOrders, 10),
-			PriceTreeKey:  string(otir.Value.PriceTreeKey),
+			PriceTreeKey:  common.Bytes2Hex(otir.Value.PriceTreeKey),
 			PriceTreeSize: strconv.FormatUint(otir.Value.PriceTreeSize, 10),
 		},
 	}
@@ -275,7 +287,7 @@ func (otir *OrderTreeItemRecord) SetBSON(raw bson.Raw) error {
 		fmt.Printf("%d of type %T", numOrders, numOrders)
 	}
 	otir.Value.NumOrders = uint64(numOrders)
-	otir.Value.PriceTreeKey = []byte(decoded.Value.PriceTreeKey)
+	otir.Value.PriceTreeKey = common.Hex2Bytes(decoded.Value.PriceTreeKey)
 
 	priceTreeSize, err := strconv.ParseInt(decoded.Value.PriceTreeSize, 10, 64)
 	if err == nil {
@@ -290,8 +302,8 @@ func (olir *OrderListItemRecord) GetBSON() (interface{}, error) {
 	olirb := OrderListItemRecordBSON{
 		Key: olir.Key,
 		Value: &OrderListItemBSON{
-			HeadOrder: string(olir.Value.HeadOrder),
-			TailOrder: string(olir.Value.TailOrder),
+			HeadOrder: common.Bytes2Hex(olir.Value.HeadOrder),
+			TailOrder: common.Bytes2Hex(olir.Value.TailOrder),
 			Length:    string(olir.Value.Length),
 			Volume:    olir.Value.Volume.String(),
 			Price:     olir.Value.Price.String(),
@@ -314,8 +326,8 @@ func (olir *OrderListItemRecord) SetBSON(raw bson.Raw) error {
 
 	olir.Key = decoded.Key
 
-	olir.Value.HeadOrder = []byte(decoded.Value.HeadOrder)
-	olir.Value.TailOrder = []byte(decoded.Value.TailOrder)
+	olir.Value.HeadOrder = common.Hex2Bytes(decoded.Value.HeadOrder)
+	olir.Value.TailOrder = common.Hex2Bytes(decoded.Value.TailOrder)
 
 	length, err := strconv.ParseInt(decoded.Value.Length, 10, 64)
 	if err == nil {
