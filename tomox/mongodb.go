@@ -177,9 +177,11 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 		oi, ok := val.(*OrderItem)
 
 		if ok == false {
-			fmt.Println("val is not OrderItem type")
 			return errors.New("val is not OrderItem type")
 		}
+
+		// Store the key
+		oi.Key = cacheKey
 
 		query := bson.M{"key": cacheKey}
 
