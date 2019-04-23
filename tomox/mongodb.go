@@ -4,19 +4,22 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"fmt"
+
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 )
 
-type MongoDatabase struct {
-	Session *mgo.Session
-	dbName  string
+// MongoItem : currently we do not support deletion batch, so ignore it
+type MongoItem struct {
+	Value interface{}
 }
 
-type MongoRecord struct {
-	Key   string
-	Value interface{}
+type MongoDatabase struct {
+	Session        *mgo.Session
+	dbName         string
+	itemMaxPending int
+	pendingItems   map[string]*MongoItem
 }
 
 // Global instance of Database struct for singleton use
@@ -38,8 +41,11 @@ func NewMongoDatabase(session *mgo.Session, mongoURL string) (*MongoDatabase, er
 		}
 
 		db = &MongoDatabase{
-			Session: session,
-			dbName:  dbName,
+			Session:        session,
+			dbName:         dbName,
+			itemMaxPending: 1, // TODO: Check this later to see if we need to change the value
+			//itemMaxPending: defaultMaxPending,
+			pendingItems: make(map[string]*MongoItem),
 		}
 	}
 
@@ -55,12 +61,54 @@ func (m *MongoDatabase) getCacheKey(key []byte) string {
 }
 
 func (m *MongoDatabase) Has(key []byte) (bool, error) {
-	//TODO: put implementation here
+	if m.IsEmptyKey(key) {
+		return false, nil
+	}
+
+	cacheKey := m.getCacheKey(key)
+
+	// has in pending and is not deleted
+	if _, ok := db.pendingItems[cacheKey]; ok {
+		return true, nil
+	}
+
+	sc := m.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"key": cacheKey}
+
+	// Find key in "items" collection
+	numItems, err := sc.DB(m.dbName).C("items").Find(query).Limit(1).Count()
+
+	if err != nil {
+		return false, err
+	}
+
+	if numItems == 1 {
+		return true, nil
+	}
+
+	// Find key in "orders" collection
+	numOrders, err := sc.DB(m.dbName).C("orders").Find(query).Limit(1).Count()
+
+	if err != nil {
+		return false, err
+	}
+
+	if numOrders == 1 {
+		return true, nil
+	}
+
 	return false, nil
 }
 
 func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 	cacheKey := m.getCacheKey(key)
+
+	if pendingItem, ok := db.pendingItems[cacheKey]; ok {
+		// we get value from the pending item
+		return pendingItem.Value, nil
+	}
 
 	sc := db.Session.Copy()
 	defer sc.Close()
@@ -70,7 +118,7 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		var res *ItemRecord
 		query := bson.M{"key": cacheKey}
 
-		err := sc.DB(m.dbName).C("node_items").Find(query).One(&res)
+		err := sc.DB(m.dbName).C("items").Find(query).One(&res)
 
 		if err != nil {
 			return nil, err
@@ -83,7 +131,7 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		oi, ok := val.(*OrderItem)
 
 		if ok == false {
-			fmt.Println("val is not OrderItem type")
+			log.Error("val is not OrderItem type")
 			return nil, errors.New("val is not OrderItem type")
 		}
 
@@ -100,7 +148,7 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		var res *OrderListItemRecord
 		query := bson.M{"key": cacheKey}
 
-		err := sc.DB(m.dbName).C("order_list_items").Find(query).One(&res)
+		err := sc.DB(m.dbName).C("items").Find(query).One(&res)
 
 		if err != nil {
 			return nil, err
@@ -113,7 +161,7 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		var res *OrderTreeItemRecord
 		query := bson.M{"key": cacheKey}
 
-		err := sc.DB(m.dbName).C("order_tree_items").Find(query).One(&res)
+		err := sc.DB(m.dbName).C("items").Find(query).One(&res)
 
 		if err != nil {
 			return nil, err
@@ -126,7 +174,7 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		var res *OrderBookItemRecord
 		query := bson.M{"key": cacheKey}
 
-		err := sc.DB(m.dbName).C("order_book_items").Find(query).One(&res)
+		err := sc.DB(m.dbName).C("items").Find(query).One(&res)
 
 		if err != nil {
 			return nil, err
@@ -136,7 +184,7 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 		break
 	default:
-		fmt.Println("Can't recognize value")
+		log.Error("Can't recognize value")
 		break
 	}
 
@@ -146,132 +194,173 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 	cacheKey := m.getCacheKey(key)
 
-	fmt.Println("In Put function")
-	sc := db.Session.Copy()
-	defer sc.Close()
+	db.pendingItems[cacheKey] = &MongoItem{Value: val}
 
-	switch val.(type) {
-	case *Item:
-		i, ok := val.(*Item)
-
-		if ok == false {
-			fmt.Println("val is not OrderListItem type")
-			return errors.New("val is not OrderListItem type")
-		}
-
-		r := &ItemRecord{
-			Key:   cacheKey,
-			Value: i,
-		}
-
-		query := bson.M{"key": cacheKey}
-
-		_, err := sc.DB(m.dbName).C("node_items").Upsert(query, r)
-
-		if err != nil {
-			return err
-		}
-
-		break
-	case *OrderItem:
-		oi, ok := val.(*OrderItem)
-
-		if ok == false {
-			return errors.New("val is not OrderItem type")
-		}
-
-		// Store the key
-		oi.Key = cacheKey
-
-		query := bson.M{"key": cacheKey}
-
-		_, err := sc.DB(m.dbName).C("orders").Upsert(query, oi)
-
-		if err != nil {
-			return err
-		}
-
-		break
-	case *OrderListItem:
-		oli, ok := val.(*OrderListItem)
-
-		if ok == false {
-			fmt.Println("val is not OrderListItem type")
-			return errors.New("val is not OrderListItem type")
-		}
-
-		r := &OrderListItemRecord{
-			Key:   cacheKey,
-			Value: oli,
-		}
-
-		query := bson.M{"key": cacheKey}
-
-		_, err := sc.DB(m.dbName).C("order_list_items").Upsert(query, r)
-
-		if err != nil {
-			return err
-		}
-
-		break
-	case *OrderTreeItem:
-		oti, ok := val.(*OrderTreeItem)
-
-		if ok == false {
-			fmt.Println("val is not OrderTreeItem type")
-			return errors.New("val is not OrderTreeItem type")
-		}
-
-		r := &OrderTreeItemRecord{
-			Key:   cacheKey,
-			Value: oti,
-		}
-
-		query := bson.M{"key": cacheKey}
-
-		_, err := sc.DB(m.dbName).C("order_tree_items").Upsert(query, r)
-
-		if err != nil {
-			return err
-		}
-
-		break
-	case *OrderBookItem:
-		obi, ok := val.(*OrderBookItem)
-
-		if ok == false {
-			fmt.Println("val is not OrderBookItem type")
-			return errors.New("val is not OrderBookItem type")
-		}
-
-		r := &OrderBookItemRecord{
-			Key:   cacheKey,
-			Value: obi,
-		}
-
-		query := bson.M{"key": cacheKey}
-
-		_, err := sc.DB(m.dbName).C("order_book_items").Upsert(query, r)
-
-		if err != nil {
-			return err
-		}
-
-		break
-	default:
-		fmt.Println("Can't recognize value")
-		break
+	if len(db.pendingItems) >= db.itemMaxPending {
+		return db.Commit()
 	}
 
 	return nil
 }
 
 func (m *MongoDatabase) Delete(key []byte, force bool) error {
-	//TODO: put implementation here
+	cacheKey := m.getCacheKey(key)
+
+	// Delete from object db.pendingItems
+	delete(db.pendingItems, cacheKey)
+
+	sc := m.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"key": cacheKey}
+
+	found, err := m.Has(key)
+
+	if err != nil {
+		return err
+	}
+
+	if found {
+		err := sc.DB(m.dbName).C("items").Remove(query)
+		if err != nil && err != mgo.ErrNotFound {
+			log.Error("Error when deleting item", "error", err)
+			return err
+		}
+
+		err = sc.DB(m.dbName).C("orders").Remove(query)
+		if err != nil && err != mgo.ErrNotFound {
+			log.Error("Error when deleting order", "error", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (m *MongoDatabase) Commit() error {
-	//TODO: put implementation here
+
+	sc := m.Session.Copy()
+	defer sc.Close()
+
+	for cacheKey, item := range db.pendingItems {
+		switch item.Value.(type) {
+		case *Item:
+			i, ok := item.Value.(*Item)
+
+			if ok == false {
+				log.Error("val is not OrderListItem type")
+				return errors.New("val is not OrderListItem type")
+			}
+
+			r := &ItemRecord{
+				Key:   cacheKey,
+				Value: i,
+			}
+
+			query := bson.M{"key": cacheKey}
+
+			_, err := sc.DB(m.dbName).C("items").Upsert(query, r)
+
+			if err != nil {
+				return err
+			}
+
+			break
+		case *OrderItem:
+			oi, ok := item.Value.(*OrderItem)
+
+			if ok == false {
+				return errors.New("val is not OrderItem type")
+			}
+
+			// Store the key
+			oi.Key = cacheKey
+
+			query := bson.M{"key": cacheKey}
+
+			_, err := sc.DB(m.dbName).C("orders").Upsert(query, oi)
+
+			if err != nil {
+				return err
+			}
+
+			break
+		case *OrderListItem:
+			oli, ok := item.Value.(*OrderListItem)
+
+			if ok == false {
+				log.Error("val is not OrderListItem type")
+				return errors.New("val is not OrderListItem type")
+			}
+
+			r := &OrderListItemRecord{
+				Key:   cacheKey,
+				Value: oli,
+			}
+
+			query := bson.M{"key": cacheKey}
+
+			_, err := sc.DB(m.dbName).C("items").Upsert(query, r)
+
+			if err != nil {
+				return err
+			}
+
+			break
+		case *OrderTreeItem:
+			oti, ok := item.Value.(*OrderTreeItem)
+
+			if ok == false {
+				log.Error("val is not OrderTreeItem type")
+				return errors.New("val is not OrderTreeItem type")
+			}
+
+			r := &OrderTreeItemRecord{
+				Key:   cacheKey,
+				Value: oti,
+			}
+
+			query := bson.M{"key": cacheKey}
+
+			_, err := sc.DB(m.dbName).C("items").Upsert(query, r)
+
+			if err != nil {
+				return err
+			}
+
+			break
+		case *OrderBookItem:
+			obi, ok := item.Value.(*OrderBookItem)
+
+			if ok == false {
+				log.Error("val is not OrderBookItem type")
+				return errors.New("val is not OrderBookItem type")
+			}
+
+			r := &OrderBookItemRecord{
+				Key:   cacheKey,
+				Value: obi,
+			}
+
+			query := bson.M{"key": cacheKey}
+
+			_, err := sc.DB(m.dbName).C("items").Upsert(query, r)
+
+			if err != nil {
+				return err
+			}
+
+			break
+		default:
+			log.Error("Can't recognize value")
+			break
+		}
+
+		log.Debug("Save", "cacheKey", cacheKey, "value", ToJSON(item.Value))
+	}
+
+	// Reset the object db.pendingItems
+	db.pendingItems = make(map[string]*MongoItem)
+
 	return nil
 }
