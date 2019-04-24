@@ -50,7 +50,7 @@ type OrderBookItemRecordBSON struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db   OrderDao   // this is for orderBook
+	db   OrderDao // this is for orderBook
 	Bids *OrderTree `json:"bids"`
 	Asks *OrderTree `json:"asks"`
 	Item *OrderBookItem
@@ -353,7 +353,6 @@ func (orderBook *OrderBook) CancelOrder(side string, orderID uint64, price *big.
 			_, err = orderBook.Bids.RemoveOrder(order)
 		}
 	} else {
-
 		order := orderBook.Asks.GetOrder(key, price)
 		if order != nil {
 			_, err = orderBook.Asks.RemoveOrder(order)
