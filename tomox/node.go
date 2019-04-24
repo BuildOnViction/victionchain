@@ -6,6 +6,7 @@ package tomox
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -18,6 +19,12 @@ type KeyMeta struct {
 	Parent []byte
 }
 
+type KeyMetaBSON struct {
+	Left   string
+	Right  string
+	Parent string
+}
+
 func (keys *KeyMeta) String(tree *Tree) string {
 	return fmt.Sprintf("L: %v, P: %v, R: %v", tree.FormatBytes(keys.Left),
 		tree.FormatBytes(keys.Parent), tree.FormatBytes(keys.Right))
@@ -28,6 +35,23 @@ type Item struct {
 	Value []byte
 	// Deleted bool
 	Color bool
+}
+
+type ItemBSON struct {
+	Keys  *KeyMetaBSON
+	Value string
+	// Deleted bool
+	Color bool
+}
+
+type ItemRecord struct {
+	Key   string
+	Value *Item
+}
+
+type ItemRecordBSON struct {
+	Key   string
+	Value *ItemBSON
 }
 
 // Node is a single element within the tree
@@ -98,7 +122,7 @@ func (node *Node) Left(tree *Tree) *Node {
 
 	newNode, err := tree.GetNode(key)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("Error at left", "err", err)
 	}
 
 	return newNode
@@ -117,7 +141,7 @@ func (node *Node) Parent(tree *Tree) *Node {
 	key := node.ParentKey()
 	newNode, err := tree.GetNode(key)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("Error at parent", "err", err)
 	}
 	return newNode
 }

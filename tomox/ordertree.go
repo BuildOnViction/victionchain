@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 	// rbt "github.com/emirpasic/gods/trees/redblacktree"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type OrderTreeItem struct {
@@ -14,18 +15,35 @@ type OrderTreeItem struct {
 	PriceTreeSize uint64   `json:"priceTreeSize"` // Number of nodes, currently it is Depth
 }
 
+type OrderTreeItemBSON struct {
+	Volume        string `json:"volume" bson:"volume"`               // Contains total quantity from all Orders in tree
+	NumOrders     string `json:"numOrders" bson:"numOrders"`         // Contains count of Orders in tree
+	PriceTreeKey  string `json:"priceTreeKey"`                       // Root Key of price tree
+	PriceTreeSize string `json:"priceTreeSize" bson:"priceTreeSize"` // Number of nodes, currently it is Depth
+}
+
+type OrderTreeItemRecord struct {
+	Key   string
+	Value *OrderTreeItem
+}
+
+type OrderTreeItemRecordBSON struct {
+	Key   string
+	Value *OrderTreeItemBSON
+}
+
 // OrderTree : order tree structure for travelling
 type OrderTree struct {
 	PriceTree *RedBlackTreeExtended `json:"priceTree"`
 	orderBook *OrderBook
-	orderDB   *BatchDatabase // this is for order
+	orderDB   OrderDao // this is for order
 	slot      *big.Int
 	Key       []byte
 	Item      *OrderTreeItem
 }
 
 // NewOrderTree create new order tree
-func NewOrderTree(orderDB *BatchDatabase, key []byte, orderBook *OrderBook) *OrderTree {
+func NewOrderTree(orderDB OrderDao, key []byte, orderBook *OrderBook) *OrderTree {
 	priceTree := NewRedBlackTreeExtended(orderDB)
 	item := &OrderTreeItem{
 		Volume:    Zero(),
@@ -149,14 +167,10 @@ func (orderTree *OrderTree) CreatePrice(price *big.Int) *OrderList {
 }
 
 func (orderTree *OrderTree) SaveOrderList(orderList *OrderList) error {
-	value, err := orderTree.orderDB.EncodeToBytes(orderList.Item)
+	value, err := EncodeBytesItem(orderList.Item)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("Can't encode", "err", err)
 		return err
-	}
-	// we use orderlist db file seperated from order
-	if orderTree.orderDB.Debug {
-		fmt.Printf("Save orderlist key %x, value :%x\n", orderList.Key, value)
 	}
 	return orderTree.PriceTree.Put(orderList.Key, value)
 
@@ -206,7 +220,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem) error {
 
 	if !orderTree.PriceExist(price) {
 		// create and save
-		fmt.Println("CREATE price list", price.String())
+		log.Debug("CREATE price list", "price list", price.String())
 		orderList = orderTree.CreatePrice(price)
 	} else {
 		orderList = orderTree.PriceList(price)
@@ -313,7 +327,12 @@ func (orderTree *OrderTree) RemoveOrder(order *Order) (*OrderList, error) {
 func (orderTree *OrderTree) getOrderListItem(bytes []byte) *OrderListItem {
 	item := &OrderListItem{}
 	// rlp.DecodeBytes(bytes, item)
-	orderTree.orderDB.DecodeBytes(bytes, item)
+	//orderTree.orderDB.DecodeBytes(bytes, item)
+	err := DecodeBytesItem(bytes, item)
+	if err != nil {
+		log.Error("Can't decode", "bytes", bytes, "item", item)
+		return nil
+	}
 	return item
 }
 

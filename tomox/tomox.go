@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"runtime"
 	"strings"
 	"sync"
@@ -43,7 +42,9 @@ const (
 )
 
 type Config struct {
-	DataDir string `toml:",omitempty"`
+	DataDir       string `toml:",omitempty"`
+	DBEngine      string `toml:",omitempty"`
+	ConnectionUrl string `toml:",omitempty"`
 }
 
 // DefaultConfig represents (shocker!) the default configuration.
@@ -51,16 +52,10 @@ var DefaultConfig = Config{
 	DataDir: node.DefaultDataDir(),
 }
 
-var AllowedPairs = map[string]*big.Int{
-	"TOMO/WETH": big.NewInt(10e9),
-}
-
 type TomoX struct {
 	// Order related
 	Orderbooks map[string]*OrderBook
-	db         *BatchDatabase
-	// pair and max volume ...
-	//allowedPairs map[string]*big.Int
+	db         OrderDao
 
 	// P2P messaging related
 	protocol p2p.Protocol
@@ -85,20 +80,27 @@ type TomoX struct {
 	settings syncmap.Map // holds configuration settings that can be dynamically changed
 }
 
-func New(cfg *Config) *TomoX {
+func NewLDBEngine(cfg *Config) *BatchDatabase {
 	datadir := cfg.DataDir
 	batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0,
 		EncodeBytesItem, DecodeBytesItem)
+	return batchDB
+}
 
-	//fixAllowedPairs := make(map[string]*big.Int)
-	//for key, value := range AllowedPairs {
-	//	fixAllowedPairs[strings.ToLower(key)] = value
-	//}
+func NewMongoDBEngine(cfg *Config) *MongoDatabase {
+	mongoDB, err := NewMongoDatabase(nil, cfg.ConnectionUrl)
 
+	if err != nil {
+		log.Error(err.Error())
+		return &MongoDatabase{}
+	}
+
+	return mongoDB
+}
+
+func New(cfg *Config) *TomoX {
 	tomoX := &TomoX{
-		Orderbooks: make(map[string]*OrderBook),
-		db:         batchDB,
-		//allowedPairs: fixAllowedPairs,
+		Orderbooks:    make(map[string]*OrderBook),
 		peers:         make(map[*Peer]struct{}),
 		quit:          make(chan struct{}),
 		envelopes:     make(map[common.Hash]*Envelope),
@@ -107,6 +109,15 @@ func New(cfg *Config) *TomoX {
 		messageQueue:  make(chan *Envelope, messageQueueLimit),
 		p2pMsgQueue:   make(chan *Envelope, messageQueueLimit),
 	}
+	switch cfg.DBEngine {
+	case "leveldb":
+		tomoX.db = NewLDBEngine(cfg)
+	case "mongodb":
+		tomoX.db = NewMongoDBEngine(cfg)
+	default:
+		log.Crit("wrong database engine, only accept either leveldb or mongodb")
+	}
+
 	tomoX.filters = NewFilters(tomoX)
 
 	tomoX.settings.Store(overflowIdx, false)
@@ -579,11 +590,6 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 	name := strings.ToLower(pairName)
 
 	if !tomox.hasOrderBook(name) {
-		// check allow pair
-		//if _, ok := tomox.allowedPairs[name]; !ok {
-		//	return nil, fmt.Errorf("Orderbook not found for pair :%s", pairName)
-		//}
-
 		// then create one
 		ob := NewOrderBook(name, tomox.db)
 		if ob != nil {

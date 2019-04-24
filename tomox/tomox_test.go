@@ -1,19 +1,19 @@
 package tomox
 
 import (
-	"math/big"
-	"testing"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
-	"time"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"encoding/hex"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
+	"math/big"
+	"testing"
+	"time"
 )
 
 func buildOrder() *OrderItem {
 	price, _ := new(big.Int).SetString("250000000000000000000000000000000000000", 10)
-	v := []byte("123")
+	v := 27
 	order := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(1000000000000000000),
 		Price:           price,
@@ -26,7 +26,7 @@ func buildOrder() *OrderItem {
 		Type:            "LO",
 		Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Signature: &Signature{
-			V: v[0],
+			V: byte(v),
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
 		},

@@ -559,6 +559,11 @@ var (
 		Usage: "Data directory for the TomoX databases",
 		Value: DirectoryString{node.DefaultDataDir()},
 	}
+	TomoXDBEngineFlag = cli.StringFlag{
+		Name:  "tomox.dbengine",
+		Usage: "Database engine for TomoX (leveldb, mongodb)",
+		Value: "leveldb",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1043,6 +1048,9 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
 	if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
 		cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
+	}
+	if ctx.GlobalIsSet(TomoXDBEngineFlag.Name) {
+		cfg.DBEngine = ctx.GlobalString(TomoXDBEngineFlag.Name)
 	}
 }
 

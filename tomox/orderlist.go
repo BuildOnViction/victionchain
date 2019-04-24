@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -20,6 +21,24 @@ type OrderListItem struct {
 	Length    uint64   `json:"length"`
 	Volume    *big.Int `json:"volume"`
 	Price     *big.Int `json:"price"`
+}
+
+type OrderListItemBSON struct {
+	HeadOrder string `json:"headOrder" bson:"headOrder"`
+	TailOrder string `json:"tailOrder" bson:"tailOrder"`
+	Length    string `json:"length" bson:"length"`
+	Volume    string `json:"volume" bson:"volume"`
+	Price     string `json:"price" bson:"price"`
+}
+
+type OrderListItemRecord struct {
+	Key   string
+	Value *OrderListItem
+}
+
+type OrderListItemRecordBSON struct {
+	Key   string
+	Value *OrderListItemBSON
 }
 
 // OrderList : order list
@@ -177,10 +196,7 @@ func (orderList *OrderList) OrderExist(key []byte) bool {
 
 func (orderList *OrderList) SaveOrder(order *Order) error {
 	key := orderList.GetOrderID(order)
-	if orderList.orderTree.orderDB.Debug {
-		fmt.Printf("Save order key : %x, value :%s\n", key, ToJSON(order.Item))
-	}
-
+	log.Debug("Save order ", "key", key, "value", ToJSON(order.Item))
 	return orderList.orderTree.orderDB.Put(key, order.Item)
 
 }
