@@ -17,7 +17,7 @@ const (
 	Bid    = "BUY"
 	Market = "market"
 	Limit  = "limit"
-	Cancel = "CANCEL"
+	Cancel = "CANCELLED"
 
 	// we use a big number as segment for storing order, order list from order tree slot.
 	// as sequential id
@@ -50,7 +50,7 @@ type OrderBookItemRecordBSON struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db   OrderDao // this is for orderBook
+	db   OrderDao   // this is for orderBook
 	Bids *OrderTree `json:"bids"`
 	Asks *OrderTree `json:"asks"`
 	Item *OrderBookItem
@@ -343,23 +343,33 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 
 // CancelOrder : cancel the order, just need ID, side and price, of course order must belong
 // to a price point as well
-func (orderBook *OrderBook) CancelOrder(side string, orderID uint64, price *big.Int) error {
+func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 	orderBook.UpdateTime()
-	key := GetKeyFromBig(big.NewInt(int64(orderID)))
+	key := GetKeyFromBig(big.NewInt(int64(order.OrderID)))
 	var err error
-	if side == Bid {
-		order := orderBook.Bids.GetOrder(key, price)
-		if order != nil {
-			_, err = orderBook.Bids.RemoveOrder(order)
+	if order.Side == Bid {
+		orderInDB := orderBook.Bids.GetOrder(key, order.Price)
+		if orderInDB == nil || orderInDB.Item != order {
+			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
+		}
+		orderInDB.Item.Status = Cancel
+		_, err = orderBook.Bids.RemoveOrder(orderInDB)
+		if err != nil {
+			return err
 		}
 	} else {
-		order := orderBook.Asks.GetOrder(key, price)
-		if order != nil {
-			_, err = orderBook.Asks.RemoveOrder(order)
+		orderInDB := orderBook.Asks.GetOrder(key, order.Price)
+		if order == nil || orderInDB.Item != order {
+			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
+		}
+		orderInDB.Item.Status = Cancel
+		_, err = orderBook.Asks.RemoveOrder(orderInDB)
+		if err != nil {
+			return err
 		}
 	}
 
-	return err
+	return nil
 }
 
 func (orderBook *OrderBook) UpdateOrder(order *OrderItem) error {

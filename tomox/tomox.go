@@ -426,7 +426,7 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 		return err
 	}
 
-	if order.Type == Cancel {
+	if order.Status == Cancel {
 		err := tomox.CancelOrder(order)
 		if err != nil {
 			log.Error("Can't cancel order", "err", err)
@@ -643,7 +643,7 @@ func (tomox *TomoX) ProcessOrder(order *OrderItem) ([]map[string]string, *OrderI
 func (tomox *TomoX) CancelOrder(order *OrderItem) error {
 	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
 	if ob != nil && err == nil {
-		return ob.CancelOrder(order.Side, order.OrderID, order.Price)
+		return ob.CancelOrder(order)
 	}
 
 	return err
