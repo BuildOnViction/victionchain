@@ -268,9 +268,9 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[
 	var orderInBook *OrderItem
 	var trades []map[string]string
 
-	orderBook.UpdateTime()
-	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
-	orderBook.Item.NextOrderID++
+	//orderBook.UpdateTime()
+	//// if we do not use auto-increment orderid, we must set price slot to avoid conflict
+	//orderBook.Item.NextOrderID++
 
 	if orderType == Market {
 		trades = orderBook.processMarketOrder(order, verbose)
@@ -412,6 +412,10 @@ func (orderBook *OrderBook) SaveOrderPending(order *OrderItem) error {
 	quantityToTrade := order.Quantity
 	side := order.Side
 	zero := Zero()
+
+	orderBook.UpdateTime()
+	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
+	orderBook.Item.NextOrderID++
 
 	if side == Bid {
 		if quantityToTrade.Cmp(zero) > 0 {
