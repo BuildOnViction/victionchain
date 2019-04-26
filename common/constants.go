@@ -28,4 +28,6 @@ var TIPRandomize = big.NewInt(3464000)
 var IsTestnet bool = false
 var StoreRewardFolder string
 var RollbackHash Hash
-var MinGasPrice int64
+var MinGasPrice = big.NewInt(DefaultMinGasPrice)
+var TRC21IssuerSMC = HexToAddress("0xb8648De65C9e17a3EDF0Af82Dc2F410451D46EE2")
+var TRC21GasPrice = big.NewInt(DefaultMinGasPrice)

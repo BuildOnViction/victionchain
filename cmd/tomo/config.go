@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"gopkg.in/urfave/cli.v1"
 	"io"
+	"math/big"
 	"os"
 	"reflect"
 	"strings"
@@ -163,10 +164,10 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	}
 
 	// Check GasPrice
-	common.MinGasPrice = common.DefaultMinGasPrice
+	common.MinGasPrice = big.NewInt(common.DefaultMinGasPrice)
 	if ctx.GlobalIsSet(utils.GasPriceFlag.Name) {
 		if gasPrice := int64(ctx.GlobalInt(utils.GasPriceFlag.Name)); gasPrice > common.DefaultMinGasPrice {
-			common.MinGasPrice = gasPrice
+			common.MinGasPrice = big.NewInt(gasPrice)
 		}
 	}
 

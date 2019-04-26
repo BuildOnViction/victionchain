@@ -218,8 +218,9 @@ type TxPool struct {
 
 	wg sync.WaitGroup // for shutdown sync
 
-	homestead bool
-	IsSigner  func(address common.Address) bool
+	homestead        bool
+	IsSigner         func(address common.Address) bool
+	trc21FeeCapacity map[common.Address]*big.Int
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -230,16 +231,17 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
-		config:      config,
-		chainconfig: chainconfig,
-		chain:       chain,
-		signer:      types.NewEIP155Signer(chainconfig.ChainId),
-		pending:     make(map[common.Address]*txList),
-		queue:       make(map[common.Address]*txList),
-		beats:       make(map[common.Address]time.Time),
-		all:         make(map[common.Hash]*types.Transaction),
-		chainHeadCh: make(chan ChainHeadEvent, chainHeadChanSize),
-		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
+		config:           config,
+		chainconfig:      chainconfig,
+		chain:            chain,
+		signer:           types.NewEIP155Signer(chainconfig.ChainId),
+		pending:          make(map[common.Address]*txList),
+		queue:            make(map[common.Address]*txList),
+		beats:            make(map[common.Address]time.Time),
+		all:              make(map[common.Hash]*types.Transaction),
+		chainHeadCh:      make(chan ChainHeadEvent, chainHeadChanSize),
+		gasPrice:         new(big.Int).SetUint64(config.PriceLimit),
+		trc21FeeCapacity: map[common.Address]*big.Int{},
 	}
 	pool.locals = newAccountSet(pool.signer)
 	pool.priced = newTxPricedList(&pool.all)
@@ -417,6 +419,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 		return
 	}
 	pool.currentState = statedb
+	pool.trc21FeeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(newHead.Root, statedb)
 	pool.pendingState = state.ManageState(statedb)
 	pool.currentMaxGas = newHead.GasLimit
 
@@ -605,7 +608,20 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
+	balance := pool.currentState.GetBalance(from)
+	cost := tx.Cost()
+	minGasPrice := common.MinGasPrice
+	if tx.To() != nil {
+		if value, ok := pool.trc21FeeCapacity[*tx.To()]; ok {
+			balance = value
+			if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
+				return ErrInsufficientFunds
+			}
+			cost = tx.TRC21Cost()
+			minGasPrice = common.TRC21GasPrice
+		}
+	}
+	if balance.Cmp(cost) < 0 {
 		return ErrInsufficientFunds
 	}
 
@@ -625,7 +641,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 
 		// under min gas price
-		if tx.GasPrice().Cmp(new(big.Int).SetInt64(common.MinGasPrice)) < 0 {
+		if tx.GasPrice().Cmp(minGasPrice) < 0 {
 			return ErrUnderMinGasPrice
 		}
 	}
@@ -989,6 +1005,9 @@ func (pool *TxPool) removeTx(hash common.Hash) {
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
 func (pool *TxPool) promoteExecutables(accounts []common.Address) {
+	start := time.Now()
+	log.Debug("start promoteExecutables")
+	defer log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
 	// Gather all the accounts potentially needing updates
 	if accounts == nil {
 		accounts = make([]common.Address, 0, len(pool.queue))
@@ -1010,7 +1029,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -1168,7 +1187,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)

@@ -30,7 +30,7 @@ func GetCandidates(statedb *state.StateDB) []common.Address {
 	arrLength := statedb.GetState(common.HexToAddress(common.MasternodeVotingSMC), slotHash)
 	keys := []common.Hash{}
 	for i := uint64(0); i < arrLength.Big().Uint64(); i++ {
-		key := getLocDynamicArrAtElement(slotHash, i, 1)
+		key := state.GetLocDynamicArrAtElement(slotHash, i, 1)
 		keys = append(keys, key)
 	}
 	rets := []common.Address{}
@@ -44,7 +44,7 @@ func GetCandidates(statedb *state.StateDB) []common.Address {
 func GetCandidateOwner(statedb *state.StateDB, candidate common.Address) common.Address {
 	slot := slotValidatorMapping["validatorsState"]
 	// validatorsState[_candidate].owner;
-	locValidatorsState := getLocMappingAtKey(candidate.Hash(), slot)
+	locValidatorsState := state.GetLocMappingAtKey(candidate.Hash(), slot)
 	locCandidateOwner := locValidatorsState.Add(locValidatorsState, new(big.Int).SetUint64(uint64(0)))
 	ret := statedb.GetState(common.HexToAddress(common.MasternodeVotingSMC), common.BigToHash(locCandidateOwner))
 	return common.HexToAddress(ret.Hex())
@@ -53,7 +53,7 @@ func GetCandidateOwner(statedb *state.StateDB, candidate common.Address) common.
 func GetCandidateCap(statedb *state.StateDB, parsed abi.ABI, candidate common.Address) string {
 	slot := slotValidatorMapping["validatorsState"]
 	// validatorsState[_candidate].cap;
-	locValidatorsState := getLocMappingAtKey(candidate.Hash(), slot)
+	locValidatorsState := state.GetLocMappingAtKey(candidate.Hash(), slot)
 	locCandidateCap := locValidatorsState.Add(locValidatorsState, new(big.Int).SetUint64(uint64(1)))
 	ret := statedb.GetState(common.HexToAddress(common.MasternodeVotingSMC), common.BigToHash(locCandidateCap))
 	return ret.Hex()
@@ -62,11 +62,11 @@ func GetCandidateCap(statedb *state.StateDB, parsed abi.ABI, candidate common.Ad
 func GetVoters(statedb *state.StateDB, candidate common.Address) []common.Address {
 	//mapping(address => address[]) voters;
 	slot := slotValidatorMapping["voters"]
-	locVoters := getLocMappingAtKey(candidate.Hash(), slot)
+	locVoters := state.GetLocMappingAtKey(candidate.Hash(), slot)
 	arrLength := statedb.GetState(common.HexToAddress(common.MasternodeVotingSMC), common.BigToHash(locVoters))
 	keys := []common.Hash{}
 	for i := uint64(0); i < arrLength.Big().Uint64(); i++ {
-		key := getLocDynamicArrAtElement(common.BigToHash(locVoters), i, 1)
+		key := state.GetLocDynamicArrAtElement(common.BigToHash(locVoters), i, 1)
 		keys = append(keys, key)
 	}
 	rets := []common.Address{}
@@ -78,11 +78,11 @@ func GetVoters(statedb *state.StateDB, candidate common.Address) []common.Addres
 	return rets
 }
 
-func GetVoterCap(state *state.StateDB, candidate, voter common.Address) *big.Int {
+func GetVoterCap(statedb *state.StateDB, candidate, voter common.Address) *big.Int {
 	slot := slotValidatorMapping["validatorsState"]
-	locValidatorsState := getLocMappingAtKey(candidate.Hash(), slot)
+	locValidatorsState := state.GetLocMappingAtKey(candidate.Hash(), slot)
 	locCandidateVoters := locValidatorsState.Add(locValidatorsState, new(big.Int).SetUint64(uint64(2)))
 	retByte := crypto.Keccak256(voter.Hash().Bytes(), common.BigToHash(locCandidateVoters).Bytes())
-	ret := state.GetState(common.HexToAddress(common.MasternodeVotingSMC), common.BytesToHash(retByte))
+	ret := statedb.GetState(common.HexToAddress(common.MasternodeVotingSMC), common.BytesToHash(retByte))
 	return ret.Big()
 }

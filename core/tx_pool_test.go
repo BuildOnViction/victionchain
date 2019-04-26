@@ -859,6 +859,7 @@ func TestTransactionQueueTimeLimiting(t *testing.T)         { testTransactionQue
 func TestTransactionQueueTimeLimitingNoLocals(t *testing.T) { testTransactionQueueTimeLimiting(t, true) }
 
 func testTransactionQueueTimeLimiting(t *testing.T, nolocals bool) {
+	common.MinGasPrice = big.NewInt(0)
 	// Reduce the eviction interval to a testable amount
 	defer func(old time.Duration) { evictionInterval = old }(evictionInterval)
 	evictionInterval = time.Second
