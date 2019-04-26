@@ -157,6 +157,7 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 		TakeFee:         o.TakeFee.String(),
 		CreatedAt:       strconv.FormatUint(o.CreatedAt, 10),
 		UpdatedAt:       strconv.FormatUint(o.UpdatedAt, 10),
+		OrderID:         strconv.FormatUint(o.OrderID, 10),
 		NextOrder:       common.Bytes2Hex(o.NextOrder),
 		PrevOrder:       common.Bytes2Hex(o.PrevOrder),
 		OrderList:       common.Bytes2Hex(o.OrderList),
@@ -199,6 +200,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		Signature       *SignatureRecord `json:"signature" bson:"signature"`
 		CreatedAt       time.Time        `json:"createdAt" bson:"createdAt"`
 		UpdatedAt       time.Time        `json:"updatedAt" bson:"updatedAt"`
+		OrderID         string           `json:"orderID" bson:"orderID"`
 		NextOrder       string           `json:"-"`
 		PrevOrder       string           `json:"-"`
 		OrderList       string           `json:"-"`
@@ -246,6 +248,11 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 
 	o.CreatedAt = uint64(decoded.CreatedAt.Unix())
 	o.UpdatedAt = uint64(decoded.UpdatedAt.Unix())
+	orderID, err := strconv.ParseInt(decoded.OrderID, 10, 64)
+	if err == nil {
+		fmt.Printf("%d of type %T", orderID, orderID)
+	}
+	o.OrderID = uint64(orderID)
 	o.NextOrder = common.Hex2Bytes(decoded.NextOrder)
 	o.PrevOrder = common.Hex2Bytes(decoded.PrevOrder)
 	o.OrderList = common.Hex2Bytes(decoded.OrderList)
