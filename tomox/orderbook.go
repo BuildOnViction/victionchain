@@ -349,7 +349,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 	var err error
 	if order.Side == Bid {
 		orderInDB := orderBook.Bids.GetOrder(key, order.Price)
-		if orderInDB == nil || orderInDB.Item != order {
+		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
 			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
 		}
 		orderInDB.Item.Status = Cancel
@@ -359,7 +359,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 		}
 	} else {
 		orderInDB := orderBook.Asks.GetOrder(key, order.Price)
-		if order == nil || orderInDB.Item != order {
+		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
 			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
 		}
 		orderInDB.Item.Status = Cancel
