@@ -10,93 +10,6 @@ import (
 	"github.com/tomochain/tomodex/utils/math"
 )
 
-func EncodeNodeItem(item *Item) (interface{}, error) {
-	n := ItemBSON{
-		Keys: &KeyMetaBSON{
-			Left:   common.Bytes2Hex(item.Keys.Left),
-			Right:  common.Bytes2Hex(item.Keys.Right),
-			Parent: common.Bytes2Hex(item.Keys.Parent),
-		},
-		Value: common.Bytes2Hex(item.Value),
-		Color: item.Color,
-	}
-
-	return n, nil
-}
-
-func EncodeOrderItem(o *OrderItem) (interface{}, error) {
-	or := OrderItemBSON{
-		PairName:        o.PairName,
-		ExchangeAddress: o.ExchangeAddress.Hex(),
-		UserAddress:     o.UserAddress.Hex(),
-		BaseToken:       o.BaseToken.Hex(),
-		QuoteToken:      o.QuoteToken.Hex(),
-		Status:          o.Status,
-		Side:            o.Side,
-		Type:            o.Type,
-		Hash:            o.Hash.Hex(),
-		Quantity:        o.Quantity.String(),
-		Price:           o.Price.String(),
-		Nonce:           o.Nonce.String(),
-		MakeFee:         o.MakeFee.String(),
-		TakeFee:         o.TakeFee.String(),
-		CreatedAt:       strconv.FormatUint(o.CreatedAt, 10),
-		UpdatedAt:       strconv.FormatUint(o.UpdatedAt, 10),
-	}
-
-	if o.FilledAmount != nil {
-		or.FilledAmount = o.FilledAmount.String()
-	}
-
-	if o.Signature != nil {
-		or.Signature = &SignatureRecord{
-			V: o.Signature.V,
-			R: o.Signature.R.Hex(),
-			S: o.Signature.S.Hex(),
-		}
-	}
-
-	return or, nil
-}
-
-func EncodeOrderListItem(item *OrderListItem) (interface{}, error) {
-
-	return nil, nil
-}
-
-func EncodeOrderTreeItem(oti *OrderTreeItem) (interface{}, error) {
-	otib := OrderTreeItemBSON{
-		Volume:        oti.Volume.String(),
-		NumOrders:     strconv.FormatUint(oti.NumOrders, 10),
-		PriceTreeKey:  common.Bytes2Hex(oti.PriceTreeKey),
-		PriceTreeSize: strconv.FormatUint(oti.PriceTreeSize, 10),
-	}
-
-	return otib, nil
-}
-
-func EncodeOrderBookItem(item *OrderBookItem) (interface{}, error) {
-
-	return nil, nil
-}
-
-func EncodeItem(val interface{}) (interface{}, error) {
-	switch val.(type) {
-	case *Item:
-		return EncodeNodeItem(val.(*Item))
-	case *OrderItem:
-		return EncodeOrderItem(val.(*OrderItem))
-	case *OrderListItem:
-		return EncodeOrderListItem(val.(*OrderListItem))
-	case *OrderTreeItem:
-		return EncodeOrderTreeItem(val.(*OrderTreeItem))
-	case *OrderBookItem:
-		return EncodeOrderBookItem(val.(*OrderBookItem))
-	default:
-		return nil, nil
-	}
-}
-
 func (nir *ItemRecord) GetBSON() (interface{}, error) {
 	irb := ItemRecordBSON{
 		Key: nir.Key,
@@ -191,8 +104,8 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		Side            string           `json:"side" bson:"side"`
 		Type            string           `json:"type" bson:"type"`
 		Hash            string           `json:"hash" bson:"hash"`
-		PricePoint      string           `json:"pricepoint" bson:"pricepoint"`
-		Amount          string           `json:"amount" bson:"amount"`
+		Price           string           `json:"price" bson:"price"`
+		Quantity        string           `json:"quantity" bson:"quantity"`
 		FilledAmount    string           `json:"filledAmount" bson:"filledAmount"`
 		Nonce           string           `json:"nonce" bson:"nonce"`
 		MakeFee         string           `json:"makeFee" bson:"makeFee"`
@@ -226,16 +139,16 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	o.Type = decoded.Type
 	o.Hash = common.HexToHash(decoded.Hash)
 
-	if decoded.Amount != "" {
-		o.Quantity = math.ToBigInt(decoded.Amount)
+	if decoded.Quantity != "" {
+		o.Quantity = math.ToBigInt(decoded.Quantity)
 	}
 
 	if decoded.FilledAmount != "" {
 		o.FilledAmount = math.ToBigInt(decoded.FilledAmount)
 	}
 
-	if decoded.PricePoint != "" {
-		o.Price = math.ToBigInt(decoded.PricePoint)
+	if decoded.Price != "" {
+		o.Price = math.ToBigInt(decoded.Price)
 	}
 
 	if decoded.Signature != nil {

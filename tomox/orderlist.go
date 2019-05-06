@@ -247,7 +247,9 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 		return nil
 	}
 
-	err := orderList.DeleteOrder(order)
+	//err := orderList.DeleteOrder(order)
+	//FIXME: instead of delete, we save order with CANCEL state
+	err := orderList.SaveOrder(order)
 
 	if err != nil {
 		// stop other operations

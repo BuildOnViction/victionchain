@@ -159,7 +159,7 @@ func (api *PublicTomoXAPI) CancelOrder(ctx context.Context, req NewMessage) (boo
 		return false, err
 	}
 	//set cancel signature to the order payload
-	payload.Type = "CANCEL"
+	payload.Status = "CANCELLED"
 	//then encode it again
 	params.Payload, err = json.Marshal(payload)
 	if err != nil {
