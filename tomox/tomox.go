@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"runtime"
 	"strings"
 	"sync"
@@ -41,6 +42,7 @@ const (
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
 	pendingOrder         = "PENDING_ORDER"
+	orderCountKey        = "tomox_ordercount"
 	activePairsKey       = "ACTIVE_PAIRS"
 )
 
@@ -59,6 +61,7 @@ type TomoX struct {
 	// Order related
 	Orderbooks map[string]*OrderBook
 	db         OrderDao
+	orderCount map[common.Address] *big.Int
 
 	// P2P messaging related
 	protocol p2p.Protocol
@@ -105,6 +108,7 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 func New(cfg *Config) *TomoX {
 	tomoX := &TomoX{
 		Orderbooks:    make(map[string]*OrderBook),
+		orderCount:    make(map[common.Address]*big.Int),
 		peers:         make(map[*Peer]struct{}),
 		quit:          make(chan struct{}),
 		envelopes:     make(map[common.Hash]*Envelope),
@@ -649,10 +653,17 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 	if ob != nil {
 		// insert
 		if order.OrderID == 0 {
+			if err := tomox.verifyOrderNonce(order); err != nil {
+				return err
+			}
 			// Save order into orderbook tree.
 			if err := ob.SaveOrderPending(order); err != nil {
 				return err
 			}
+			log.Info("Process saved")
+			tomox.orderCount[order.UserAddress] = order.Nonce
+			tomox.updateOrderCount(tomox.orderCount)
+
 		} else {
 			log.Info("Update order")
 			if err := ob.UpdateOrder(order); err != nil {
@@ -664,6 +675,54 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 
 	return nil
 }
+
+func (tomox *TomoX) verifyOrderNonce(order *OrderItem) error {
+	var (
+		orderCount *big.Int
+		ok         bool
+	)
+
+	// in case of restarting nodes, data in memory has lost
+	// should load from persistent storage
+	if len(tomox.orderCount) == 0 {
+		if err := tomox.loadOrderCount(); err != nil {
+			// if a node has just started, its database doesn't have orderCount information
+			// Hence, we should not throw error here
+			log.Debug("orderCount is empty in leveldb", "err", err)
+		}
+	}
+	if orderCount, ok = tomox.orderCount[order.UserAddress]; !ok {
+		orderCount = big.NewInt(0)
+	}
+
+	if order.Nonce.Cmp(orderCount) <= 0 {
+		return ErrOrderNonceTooLow
+	}
+	distance := Sub(order.Nonce, orderCount)
+	if distance.Cmp(new(big.Int).SetUint64(LimitThresholdOrderNonceInQueue)) > 0 {
+		return ErrOrderNonceTooHigh
+	}
+	return nil
+}
+
+// load orderCount from persistent storage
+func (tomox *TomoX) loadOrderCount() error {
+	var orderCount map[common.Address]*big.Int
+	val, err := tomox.db.Get([]byte(orderCountKey), orderCount)
+	if err != nil {
+		return err
+	}
+	tomox.orderCount = val.(map[common.Address]*big.Int)
+	return nil
+}
+
+// update orderCount to persistent storage
+func (tomox *TomoX) updateOrderCount(orderCount map[common.Address]*big.Int) {
+	if err := tomox.db.Put([]byte(orderCountKey), orderCount); err != nil {
+		log.Error("Failed to save orderCount", "err", err)
+	}
+}
+
 
 func (tomox *TomoX) CancelOrder(order *OrderItem) error {
 	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
