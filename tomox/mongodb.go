@@ -10,7 +10,6 @@ import (
 	"github.com/globalsign/mgo/bson"
 )
 
-// MongoItem : currently we do not support deletion batch, so ignore it
 type MongoItem struct {
 	Value interface{}
 }
@@ -43,8 +42,7 @@ func NewMongoDatabase(session *mgo.Session, mongoURL string) (*MongoDatabase, er
 		db = &MongoDatabase{
 			Session:        session,
 			dbName:         dbName,
-			itemMaxPending: 1, // TODO: Check this later to see if we need to change the value
-			//itemMaxPending: defaultMaxPending,
+			itemMaxPending: defaultMaxPending,
 			pendingItems: make(map[string]*MongoItem),
 		}
 	}
@@ -198,6 +196,13 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 
 	if len(db.pendingItems) >= db.itemMaxPending {
 		return db.Commit()
+	} else {
+		switch val.(type) {
+		case *OrderItem:
+			return db.Commit()
+		default:
+			return nil
+		}
 	}
 
 	return nil
