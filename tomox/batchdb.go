@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -15,10 +14,8 @@ const (
 	defaultMaxPending = 1024
 )
 
-// BatchItem : currently we do not support deletion batch, so ignore it
 type BatchItem struct {
 	Value interface{}
-	// Deleted bool
 }
 
 type BatchDatabase struct {
@@ -29,18 +26,15 @@ type BatchDatabase struct {
 	pendingItems   map[string]*BatchItem
 	cacheItems     *lru.Cache // Cache for reading
 	Debug          bool
-
-	//EncodeToBytes EncodeToBytes
-	//DecodeBytes   DecodeBytes
 }
 
 // NewBatchDatabase use rlp as encoding
 func NewBatchDatabase(datadir string, cacheLimit, maxPending int) *BatchDatabase {
-	return NewBatchDatabaseWithEncode(datadir, cacheLimit, maxPending, rlp.EncodeToBytes, rlp.DecodeBytes)
+	return NewBatchDatabaseWithEncode(datadir, cacheLimit, maxPending)
 }
 
 // batchdatabase is a fast cache db to retrieve in-mem object
-func NewBatchDatabaseWithEncode(datadir string, cacheLimit, maxPending int, encode EncodeToBytes, decode DecodeBytes) *BatchDatabase {
+func NewBatchDatabaseWithEncode(datadir string, cacheLimit, maxPending int) *BatchDatabase {
 	db, err := ethdb.NewLDBDatabase(datadir, 128, 1024)
 	if err != nil {
 		log.Error("Can't create new DB", "error", err)
@@ -59,8 +53,6 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit, maxPending int, enco
 
 	batchDB := &BatchDatabase{
 		db: db,
-		//EncodeToBytes:  encode,
-		//DecodeBytes:    decode,
 		itemCacheLimit: itemCacheLimit,
 		itemMaxPending: itemMaxPending,
 		cacheItems:     cacheItems,

@@ -82,8 +82,7 @@ type TomoX struct {
 
 func NewLDBEngine(cfg *Config) *BatchDatabase {
 	datadir := cfg.DataDir
-	batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0,
-		EncodeBytesItem, DecodeBytesItem)
+	batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0)
 	return batchDB
 }
 
