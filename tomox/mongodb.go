@@ -43,7 +43,7 @@ func NewMongoDatabase(session *mgo.Session, mongoURL string) (*MongoDatabase, er
 			Session:        session,
 			dbName:         dbName,
 			itemMaxPending: defaultMaxPending,
-			pendingItems: make(map[string]*MongoItem),
+			pendingItems:   make(map[string]*MongoItem),
 		}
 	}
 
@@ -191,21 +191,16 @@ func (m *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 	cacheKey := m.getCacheKey(key)
-
-	db.pendingItems[cacheKey] = &MongoItem{Value: val}
-
-	if len(db.pendingItems) >= db.itemMaxPending {
-		return db.Commit()
-	} else {
-		switch val.(type) {
-		case *OrderItem:
+	switch val.(type) {
+	case *OrderItem:
+		return db.CommitOrderItem(cacheKey, &MongoItem{Value: val})
+	default:
+		db.pendingItems[cacheKey] = &MongoItem{Value: val}
+		if len(db.pendingItems) >= db.itemMaxPending {
 			return db.Commit()
-		default:
-			return nil
 		}
+		return nil
 	}
-
-	return nil
 }
 
 func (m *MongoDatabase) Delete(key []byte, force bool) error {
@@ -265,25 +260,6 @@ func (m *MongoDatabase) Commit() error {
 			query := bson.M{"key": cacheKey}
 
 			_, err := sc.DB(m.dbName).C("items").Upsert(query, r)
-
-			if err != nil {
-				return err
-			}
-
-			break
-		case *OrderItem:
-			oi, ok := item.Value.(*OrderItem)
-
-			if ok == false {
-				return errors.New("val is not OrderItem type")
-			}
-
-			// Store the key
-			oi.Key = cacheKey
-
-			query := bson.M{"key": cacheKey}
-
-			_, err := sc.DB(m.dbName).C("orders").Upsert(query, oi)
 
 			if err != nil {
 				return err
@@ -368,4 +344,34 @@ func (m *MongoDatabase) Commit() error {
 	db.pendingItems = make(map[string]*MongoItem)
 
 	return nil
+}
+
+func (m *MongoDatabase) CommitOrderItem(cacheKey string, item *MongoItem) error {
+
+	sc := m.Session.Copy()
+	defer sc.Close()
+
+	switch item.Value.(type) {
+	case *OrderItem:
+		oi, ok := item.Value.(*OrderItem)
+
+		if ok == false {
+			return errors.New("val is not OrderItem type")
+		}
+
+		// Store the key
+		oi.Key = cacheKey
+
+		query := bson.M{"key": cacheKey}
+
+		_, err := sc.DB(m.dbName).C("orders").Upsert(query, oi)
+
+		if err != nil {
+			return err
+		}
+		log.Debug("Save", "cacheKey", cacheKey, "value", ToJSON(item.Value))
+		return nil
+	default:
+		return errors.New("Can't recognize value")
+	}
 }
