@@ -269,7 +269,7 @@ func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem) error {
 
 	if !IsEqual(price, order.Item.Price) {
 		orderList.RemoveOrder(order)
-		if orderList.Item.Length == 0 {
+		if orderList.Item.Length == uint64(0) {
 			orderTree.RemovePrice(price)
 		}
 		orderTree.InsertOrder(orderItem)
@@ -295,7 +295,7 @@ func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *Or
 	}
 
 	// no items left than safety remove
-	if orderList.Item.Length == 0 {
+	if orderList.Item.Length == uint64(0) {
 		orderTree.RemovePrice(order.Item.Price)
 		fmt.Println("REMOVE price list", order.Item.Price.String())
 	}

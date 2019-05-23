@@ -97,7 +97,7 @@ type Ethereum struct {
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	lock  sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 	TomoX *tomox.TomoX
 }
 

@@ -55,7 +55,7 @@ func NewOrderList(price *big.Int, orderTree *OrderTree) *OrderList {
 	item := &OrderListItem{
 		HeadOrder: EmptyKey(),
 		TailOrder: EmptyKey(),
-		Length:    0,
+		Length:    uint64(0),
 		Volume:    Zero(),
 		Price:     CloneBigInt(price),
 	}
@@ -204,7 +204,7 @@ func (orderList *OrderList) SaveOrder(order *Order) error {
 // AppendOrder : append order into the order list
 func (orderList *OrderList) AppendOrder(order *Order) error {
 
-	if orderList.Item.Length == 0 {
+	if orderList.Item.Length == uint64(0) {
 		order.Item.NextOrder = EmptyKey()
 		order.Item.PrevOrder = EmptyKey()
 	} else {
@@ -218,7 +218,7 @@ func (orderList *OrderList) AppendOrder(order *Order) error {
 		return err
 	}
 
-	if orderList.Item.Length == 0 {
+	if orderList.Item.Length == uint64(0) {
 		orderList.Item.HeadOrder = order.Key
 		orderList.Item.TailOrder = order.Key
 	} else {
@@ -242,7 +242,7 @@ func (orderList *OrderList) DeleteOrder(order *Order) error {
 // RemoveOrder : remove order from the order list
 func (orderList *OrderList) RemoveOrder(order *Order) error {
 
-	if orderList.Item.Length == 0 {
+	if orderList.Item.Length == uint64(0) {
 		// empty mean nothing to delete
 		return nil
 	}

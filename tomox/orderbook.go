@@ -50,7 +50,7 @@ type OrderBookItemRecordBSON struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db   OrderDao // this is for orderBook
+	db   OrderDao   // this is for orderBook
 	Bids *OrderTree `json:"bids"`
 	Asks *OrderTree `json:"asks"`
 	Item *OrderBookItem
@@ -268,9 +268,9 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[
 	var orderInBook *OrderItem
 	var trades []map[string]string
 
-	//orderBook.UpdateTime()
-	//// if we do not use auto-increment orderid, we must set price slot to avoid conflict
-	//orderBook.Item.NextOrderID++
+	orderBook.UpdateTime()
+	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
+	orderBook.Item.NextOrderID++
 
 	if orderType == Market {
 		trades = orderBook.processMarketOrder(order, verbose)
@@ -290,7 +290,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 	var trades []map[string]string
 	// speedup the comparison, do not assign because it is pointer
 	zero := Zero()
-	for orderList.Item.Length > 0 && quantityToTrade.Cmp(zero) > 0 {
+	for orderList.Item.Length > uint64(0) && quantityToTrade.Cmp(zero) > 0 {
 
 		headOrder := orderList.GetOrder(orderList.Item.HeadOrder)
 		if headOrder == nil {
@@ -312,22 +312,18 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		} else if IsEqual(quantityToTrade, headOrder.Item.Quantity) {
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			if side == Bid {
-				orderList.orderTree.RemoveOrderFromOrderList(headOrder, orderList)
-				//orderBook.Bids.RemoveOrder(headOrder)
+				orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList)
 			} else {
-				orderList.orderTree.RemoveOrderFromOrderList(headOrder, orderList)
-				//orderBook.Asks.RemoveOrder(headOrder)
+				orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList)
 			}
 			quantityToTrade = Zero()
 
 		} else {
 			tradedQuantity = CloneBigInt(headOrder.Item.Quantity)
 			if side == Bid {
-				orderList.orderTree.RemoveOrderFromOrderList(headOrder, orderList)
-				//orderBook.Bids.RemoveOrder(headOrder)
+				orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList)
 			} else {
-				orderList.orderTree.RemoveOrderFromOrderList(headOrder, orderList)
-				//orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList)
+				orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList)
 			}
 		}
 
