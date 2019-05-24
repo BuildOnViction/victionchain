@@ -619,13 +619,13 @@ func (tomox *TomoX) ProcessOrder(order *OrderItem) ([]map[string]string, *OrderI
 		// insert
 		if order.OrderID == 0 {
 			// Save order into orderbook tree.
-			log.Info("Process saved")
-			err := ob.SaveOrderPending(order)
-			if err != nil {
-				log.Error("Error Save Order Pending", "error", err)
-			}
-			//log.Info("Process order")
-			//trades, orderInBook = ob.ProcessOrder(order, true)
+			//log.Info("Process saved")
+			//err := ob.SaveOrderPending(order)
+			//if err != nil {
+			//	log.Error("Error Save Order Pending", "error", err)
+			//}
+			log.Info("Process order")
+			trades, orderInBook = ob.ProcessOrder(order, true)
 		} else {
 			log.Info("Update order")
 			err := ob.UpdateOrder(order)

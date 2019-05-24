@@ -52,7 +52,7 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit, maxPending int) *Bat
 	cacheItems, _ := lru.New(defaultCacheLimit)
 
 	batchDB := &BatchDatabase{
-		db: db,
+		db:             db,
 		itemCacheLimit: itemCacheLimit,
 		itemMaxPending: itemMaxPending,
 		cacheItems:     cacheItems,
