@@ -39,6 +39,7 @@ const (
 	SizeMask             = byte(3) // mask used to extract the size of payload size field from the flags
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
+	pendingOrder         = "PENDING_ORDER"
 )
 
 type Config struct {
@@ -619,13 +620,13 @@ func (tomox *TomoX) ProcessOrder(order *OrderItem) ([]map[string]string, *OrderI
 		// insert
 		if order.OrderID == 0 {
 			// Save order into orderbook tree.
-			//log.Info("Process saved")
-			//err := ob.SaveOrderPending(order)
-			//if err != nil {
-			//	log.Error("Error Save Order Pending", "error", err)
-			//}
-			log.Info("Process order")
-			trades, orderInBook = ob.ProcessOrder(order, true)
+			log.Info("Process saved")
+			err := ob.SaveOrderPending(order)
+			if err != nil {
+				log.Error("Error Save Order Pending", "error", err)
+			}
+			//log.Info("Process order")
+			//trades, orderInBook = ob.ProcessOrder(order, true)
 		} else {
 			log.Info("Update order")
 			err := ob.UpdateOrder(order)
@@ -662,4 +663,38 @@ func (tomox *TomoX) GetAsksTree(pairName string) (*OrderTree, error) {
 		return nil, err
 	}
 	return ob.Asks, nil
+}
+
+func (tomox *TomoX) ProcessOrderPending() {
+	// Get best max bids.
+	ob, _ := tomox.getAndCreateIfNotExisted(pendingOrder)
+	maxBidList := ob.PendingBids.MaxPriceList()
+	minAskList := ob.PendingAsks.MinPriceList()
+	zero := Zero()
+	var orderPendings []*Order
+	if maxBidList != nil {
+		if od := maxBidList.Head(); od != nil {
+			orderPendings = append(orderPendings, od)
+		}
+		if od := maxBidList.Tail(); od != nil {
+			orderPendings = append(orderPendings, od)
+		}
+	}
+
+	if minAskList != nil {
+		if od := minAskList.Head(); od != nil {
+			orderPendings = append(orderPendings, od)
+		}
+		if od := minAskList.Tail(); od != nil {
+			orderPendings = append(orderPendings, od)
+		}
+	}
+
+	for _, order := range orderPendings {
+		if order != nil {
+			order.Item.OrderID = zero.Uint64()
+			log.Info("Process order pending", "orderPending", order.Item)
+			tomox.ProcessOrder(order.Item)
+		}
+	}
 }

@@ -50,10 +50,12 @@ type OrderBookItemRecordBSON struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db   OrderDao   // this is for orderBook
-	Bids *OrderTree `json:"bids"`
-	Asks *OrderTree `json:"asks"`
-	Item *OrderBookItem
+	db          OrderDao   // this is for orderBook
+	Bids        *OrderTree `json:"bids"`
+	Asks        *OrderTree `json:"asks"`
+	PendingBids *OrderTree `json:"pendingBids"`
+	PendingAsks *OrderTree `json:"pendingAsks"`
+	Item        *OrderBookItem
 
 	Key  []byte
 	slot *big.Int
@@ -80,6 +82,8 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 	// the price of order tree start at order tree slot
 	bidsKey := GetSegmentHash(key, 1, SlotSegment)
 	asksKey := GetSegmentHash(key, 2, SlotSegment)
+	pendingBidsKey := GetSegmentHash(key, 3, SlotSegment)
+	pendingAsksKey := GetSegmentHash(key, 4, SlotSegment)
 
 	orderBook := &OrderBook{
 		db:   db,
@@ -90,10 +94,14 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 
 	bids := NewOrderTree(db, bidsKey, orderBook)
 	asks := NewOrderTree(db, asksKey, orderBook)
+	pendingBids := NewOrderTree(db, pendingBidsKey, orderBook)
+	pendingAsks := NewOrderTree(db, pendingAsksKey, orderBook)
 
 	// set asks and bids
 	orderBook.Bids = bids
 	orderBook.Asks = asks
+	orderBook.PendingBids = pendingBids
+	orderBook.PendingAsks = pendingAsks
 
 	// no need to update when there is no operation yet
 	orderBook.UpdateTime()
@@ -430,13 +438,13 @@ func (orderBook *OrderBook) SaveOrderPending(order *OrderItem) error {
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
-			return orderBook.Bids.InsertOrder(order)
+			return orderBook.PendingBids.InsertOrder(order)
 		}
 	} else {
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
-			return orderBook.Asks.InsertOrder(order)
+			return orderBook.PendingAsks.InsertOrder(order)
 		}
 	}
 
