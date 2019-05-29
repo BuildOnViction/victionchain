@@ -15,8 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
+	"math/big"
 )
 
 const (
@@ -427,20 +429,17 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 	}
 
 	if order.Status == Cancel {
-		err := tomox.CancelOrder(order)
-		if err != nil {
-			log.Error("Can't cancel order", "err", err)
+		if err := tomox.CancelOrder(order); err != nil {
+			log.Error("Can't cancel order", "order", order, "err", err)
 			return err
 		}
-		log.Debug("Cancelled order", "detail", order)
+		log.Debug("Cancelled order", "order", order)
 	} else {
-		log.Info("Save order", "detail", order)
-		trades, orderInBook, err := tomox.ProcessOrder(order)
-		if err != nil {
-			log.Error("Can't process order", "err", err)
+		if err := tomox.InsertOrder(order); err != nil {
+			log.Error("Can't insert order", "order", order, "err", err)
 			return err
 		}
-		log.Info("Orderbook result", "Trade", trades, "OrderInBook", orderInBook)
+		log.Debug("Inserted order", "order", order)
 	}
 	return nil
 }
@@ -592,10 +591,18 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 	if !tomox.hasOrderBook(name) {
 		// then create one
 		ob := NewOrderBook(name, tomox.db)
-		if ob != nil {
-			ob.Restore()
-			tomox.Orderbooks[name] = ob
+		tomox.Orderbooks[name] = ob
+	} else {
+		key := crypto.Keccak256([]byte(strings.ToLower(pairName)))
+		slot := new(big.Int).SetBytes(key)
+		ob := &OrderBook{
+			Key:  key,
+			Slot: slot,
 		}
+		if err := ob.Restore(); err != nil {
+			return nil, err
+		}
+		tomox.Orderbooks[name] = ob
 	}
 
 	// return from map
@@ -611,33 +618,29 @@ func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
 	return ob.GetOrder(key)
 }
 
-func (tomox *TomoX) ProcessOrder(order *OrderItem) ([]map[string]string, *OrderItem, error) {
-	ob, _ := tomox.getAndCreateIfNotExisted(order.PairName)
-	var trades []map[string]string
-	var orderInBook *OrderItem
+func (tomox *TomoX) InsertOrder(order *OrderItem) (error) {
+	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
+	if err != nil {
+		return err
+	}
 
 	if ob != nil {
 		// insert
 		if order.OrderID == 0 {
 			// Save order into orderbook tree.
-			log.Info("Process saved")
-			err := ob.SaveOrderPending(order)
-			if err != nil {
-				log.Error("Error Save Order Pending", "error", err)
+			if err := ob.SaveOrderPending(order); err != nil {
+				return err
 			}
-			//log.Info("Process order")
-			//trades, orderInBook = ob.ProcessOrder(order, true)
 		} else {
 			log.Info("Update order")
-			err := ob.UpdateOrder(order)
-			if err != nil {
+			if err := ob.UpdateOrder(order); err != nil {
 				log.Error("Update order failed", "order", order, "err", err)
-				return trades, orderInBook, err
+				return err
 			}
 		}
 	}
 
-	return trades, orderInBook, nil
+	return nil
 }
 
 func (tomox *TomoX) CancelOrder(order *OrderItem) error {
@@ -694,7 +697,7 @@ func (tomox *TomoX) ProcessOrderPending() {
 		if order != nil {
 			order.Item.OrderID = zero.Uint64()
 			log.Info("Process order pending", "orderPending", order.Item)
-			tomox.ProcessOrder(order.Item)
+			ob.ProcessOrder(order.Item, true)
 		}
 	}
 }

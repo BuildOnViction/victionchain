@@ -211,7 +211,6 @@ func (orderTree *OrderTree) OrderExist(key []byte, price *big.Int) bool {
 	return orderList.OrderExist(key)
 }
 
-// InsertOrder : insert new order using quote data as map
 func (orderTree *OrderTree) InsertOrder(order *OrderItem) error {
 
 	price := order.Price
@@ -220,30 +219,41 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem) error {
 
 	if !orderTree.PriceExist(price) {
 		// create and save
-		log.Debug("CREATE price list", "price list", price.String())
+		log.Debug("create price list", "detail", price.String())
 		orderList = orderTree.CreatePrice(price)
 	} else {
 		orderList = orderTree.PriceList(price)
 	}
 
-	// order will be insert if there is a follow orderList key
+	// order will be inserted to order list
 	if orderList != nil {
 
 		order := NewOrder(order, orderList.Key)
 
 		if orderList.OrderExist(order.Key) {
-			orderTree.RemoveOrder(order)
+			if err := orderTree.RemoveOrder(order); err != nil {
+				return err
+			}
 		}
 
-		orderList.AppendOrder(order)
-		orderList.Save()
-		orderList.SaveOrder(order)
+		// append order to order list
+		if err := orderList.AppendOrder(order); err != nil {
+			return err
+		}
+
+		// snapshot order list
+		if err := orderList.Save(); err != nil {
+			return err
+		}
 		orderTree.Item.Volume = Add(orderTree.Item.Volume, order.Item.Quantity)
 
-		// increase num of orders, should be big.Int ?
+		// increase num of orders. FIXME: should be big.Int ?
 		orderTree.Item.NumOrders++
 
-		return orderTree.Save()
+		// finally, snapshot order tree
+		if err := orderTree.Save(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -310,18 +320,16 @@ func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *Or
 	return orderTree.Save()
 }
 
-func (orderTree *OrderTree) RemoveOrder(order *Order) (*OrderList, error) {
-	var err error
-	// get orderList by price, if there is orderlist, we will update it
+func (orderTree *OrderTree) RemoveOrder(order *Order) (error) {
+	// get orderList by price. If there is orderlist existed, update it
 	orderList := orderTree.PriceList(order.Item.Price)
 	if orderList != nil {
-
-		err = orderTree.RemoveOrderFromOrderList(order, orderList)
-
+		if err := orderTree.RemoveOrderFromOrderList(order, orderList); err != nil {
+			return err
+		}
 	}
 
-	return orderList, err
-
+	return nil
 }
 
 func (orderTree *OrderTree) getOrderListItem(bytes []byte) *OrderListItem {

@@ -58,7 +58,7 @@ type OrderBook struct {
 	Item        *OrderBookItem
 
 	Key  []byte
-	slot *big.Int
+	Slot *big.Int
 }
 
 // NewOrderBook : return new order book
@@ -88,7 +88,7 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 	orderBook := &OrderBook{
 		db:   db,
 		Item: item,
-		slot: slot,
+		Slot: slot,
 		Key:  key,
 	}
 
@@ -111,8 +111,14 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 
 func (orderBook *OrderBook) Save() error {
 
-	orderBook.Asks.Save()
-	orderBook.Bids.Save()
+	if err := orderBook.Asks.Save(); err != nil {
+		log.Error("can't save orderbook asks", "err", err)
+		return err
+	}
+	if err := orderBook.Bids.Save(); err != nil {
+		log.Error("can't save orderbook bids", "err", err)
+		return err
+	}
 
 	return orderBook.db.Put(orderBook.Key, orderBook.Item)
 }
@@ -123,8 +129,22 @@ func (orderBook *OrderBook) Commit() error {
 }
 
 func (orderBook *OrderBook) Restore() error {
-	orderBook.Asks.Restore()
-	orderBook.Bids.Restore()
+	if err := orderBook.Asks.Restore(); err != nil {
+		log.Error("can't restore orderbook asks", "err", err)
+		return err
+	}
+	if err := orderBook.Bids.Restore(); err != nil {
+		log.Error("can't restore orderbook bids", "err", err)
+		return err
+	}
+	if err := orderBook.PendingAsks.Restore(); err != nil {
+		log.Error("can't restore orderbook pending asks", "err", err)
+		return err
+	}
+	if err := orderBook.PendingBids.Restore(); err != nil {
+		log.Error("can't restore orderbook pending bids", "err", err)
+		return err
+	}
 
 	val, err := orderBook.db.Get(orderBook.Key, orderBook.Item)
 	if err == nil {
@@ -136,12 +156,12 @@ func (orderBook *OrderBook) Restore() error {
 
 func (orderBook *OrderBook) GetOrderIDFromBook(key []byte) uint64 {
 	orderSlot := new(big.Int).SetBytes(key)
-	return Sub(orderSlot, orderBook.slot).Uint64()
+	return Sub(orderSlot, orderBook.Slot).Uint64()
 }
 
 func (orderBook *OrderBook) GetOrderIDFromKey(key []byte) []byte {
 	orderSlot := new(big.Int).SetBytes(key)
-	return common.BigToHash(Add(orderBook.slot, orderSlot)).Bytes()
+	return common.BigToHash(Add(orderBook.Slot, orderSlot)).Bytes()
 }
 
 func (orderBook *OrderBook) GetOrder(key []byte) *Order {
@@ -361,8 +381,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
 		}
 		orderInDB.Item.Status = Cancel
-		_, err = orderBook.Bids.RemoveOrder(orderInDB)
-		if err != nil {
+		if err := orderBook.Bids.RemoveOrder(orderInDB); err != nil {
 			return err
 		}
 	} else {
@@ -371,8 +390,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
 		}
 		orderInDB.Item.Status = Cancel
-		_, err = orderBook.Asks.RemoveOrder(orderInDB)
-		if err != nil {
+		if err = orderBook.Asks.RemoveOrder(orderInDB); err != nil {
 			return err
 		}
 	}
@@ -426,26 +444,25 @@ func (orderBook *OrderBook) VolumeAtPrice(side string, price *big.Int) *big.Int 
 
 // Save order pending into orderbook tree.
 func (orderBook *OrderBook) SaveOrderPending(order *OrderItem) error {
-	quantityToTrade := order.Quantity
-	side := order.Side
 	zero := Zero()
-
 	orderBook.UpdateTime()
 	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
 	orderBook.Item.NextOrderID++
 
-	if side == Bid {
-		if quantityToTrade.Cmp(zero) > 0 {
+	if order.Side == Bid {
+		if order.Quantity.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
-			order.Quantity = quantityToTrade
 			return orderBook.PendingBids.InsertOrder(order)
 		}
 	} else {
-		if quantityToTrade.Cmp(zero) > 0 {
+		if order.Quantity.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
-			order.Quantity = quantityToTrade
 			return orderBook.PendingAsks.InsertOrder(order)
 		}
+	}
+	// save changes to orderbook
+	if err := orderBook.Save(); err != nil {
+		return err
 	}
 
 	return nil
