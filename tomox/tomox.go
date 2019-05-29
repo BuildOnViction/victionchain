@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
-	"math/big"
 )
 
 const (
@@ -575,8 +574,15 @@ func (tomox *TomoX) GetOrderBook(pairName string) (*OrderBook, error) {
 }
 
 func (tomox *TomoX) hasOrderBook(name string) bool {
-	_, ok := tomox.Orderbooks[name]
-	return ok
+	key := crypto.Keccak256([]byte(strings.ToLower(name)))
+	val, err := tomox.db.Get(key, &OrderBookItem{})
+	if err != nil || val == nil {
+		return false
+	}
+	if val.(*OrderBookItem) == nil {
+		return false
+	}
+	return true
 }
 
 // commit for all orderbooks
@@ -591,22 +597,14 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 	if !tomox.hasOrderBook(name) {
 		// then create one
 		ob := NewOrderBook(name, tomox.db)
-		tomox.Orderbooks[name] = ob
+		return ob, nil
 	} else {
-		key := crypto.Keccak256([]byte(strings.ToLower(pairName)))
-		slot := new(big.Int).SetBytes(key)
-		ob := &OrderBook{
-			Key:  key,
-			Slot: slot,
-		}
+		ob := NewOrderBook(name, tomox.db)
 		if err := ob.Restore(); err != nil {
 			return nil, err
 		}
-		tomox.Orderbooks[name] = ob
+		return ob, nil
 	}
-
-	// return from map
-	return tomox.Orderbooks[name], nil
 }
 
 func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {

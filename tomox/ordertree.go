@@ -169,7 +169,7 @@ func (orderTree *OrderTree) CreatePrice(price *big.Int) *OrderList {
 func (orderTree *OrderTree) SaveOrderList(orderList *OrderList) error {
 	value, err := EncodeBytesItem(orderList.Item)
 	if err != nil {
-		log.Error("Can't encode", "err", err)
+		log.Error("Can't encode", "orderList.Item", orderList.Item, "err", err)
 		return err
 	}
 	return orderTree.PriceTree.Put(orderList.Key, value)
@@ -237,10 +237,12 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem) error {
 		}
 
 		// append order to order list
+		log.Debug("debug orderlist", "before", orderList.Item)
 		if err := orderList.AppendOrder(order); err != nil {
 			return err
 		}
 
+		log.Debug("debug orderlist", "after", orderList.Item)
 		// snapshot order list
 		if err := orderList.Save(); err != nil {
 			return err

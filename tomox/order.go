@@ -100,11 +100,11 @@ func (order *Order) GetPrevOrder(orderList *OrderList) *Order {
 }
 
 // NewOrder : create new order with quote ( can be ethereum address )
-func NewOrder(orderItem *OrderItem, orderList []byte) *Order {
+func NewOrder(orderItem *OrderItem, orderListKey []byte) *Order {
 	key := GetKeyFromBig(new(big.Int).SetUint64(orderItem.OrderID))
 	orderItem.NextOrder = EmptyKey()
 	orderItem.PrevOrder = EmptyKey()
-	orderItem.OrderList = orderList
+	orderItem.OrderList = orderListKey
 	// key should be Hash for compatible with smart contract
 	order := &Order{
 		Key:  key,
