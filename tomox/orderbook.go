@@ -363,9 +363,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 // CancelOrder : cancel the order, just need ID, side and price, of course order must belong
 // to a price point as well
 func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
-	orderBook.UpdateTime()
 	key := GetKeyFromBig(big.NewInt(int64(order.OrderID)))
-	var err error
 	if order.Side == Bid {
 		orderInDB := orderBook.Bids.GetOrder(key, order.Price)
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
@@ -381,9 +379,15 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
 		}
 		orderInDB.Item.Status = Cancel
-		if err = orderBook.Asks.RemoveOrder(orderInDB); err != nil {
+		if err := orderBook.Asks.RemoveOrder(orderInDB); err != nil {
 			return err
 		}
+	}
+
+	// snapshot orderbook
+	orderBook.UpdateTime()
+	if err := orderBook.Save(); err != nil {
+		return err
 	}
 
 	return nil

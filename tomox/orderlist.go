@@ -286,7 +286,7 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 		orderList.Item.TailOrder = EmptyKey()
 	}
 
-	return orderList.Save()
+	return nil
 }
 
 // MoveToTail : move order to the end of the order list
