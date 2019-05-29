@@ -76,7 +76,7 @@ func NewOrderListWithItem(item *OrderListItem, orderTree *OrderTree) *OrderList 
 	// priceKey will be slot of order tree + plus price key
 	// we can use orderList slot as orderbook slot to store sequential of orders
 	if orderTree.orderBook != nil {
-		orderList.slot = orderTree.orderBook.slot
+		orderList.slot = orderTree.orderBook.Slot
 	} else {
 		orderList.slot = new(big.Int).SetBytes(crypto.Keccak256(key))
 	}
@@ -213,8 +213,7 @@ func (orderList *OrderList) AppendOrder(order *Order) error {
 	}
 
 	// save into database first
-	err := orderList.SaveOrder(order)
-	if err != nil {
+	if err := orderList.SaveOrder(order); err != nil {
 		return err
 	}
 
@@ -226,12 +225,14 @@ func (orderList *OrderList) AppendOrder(order *Order) error {
 		if tailOrder != nil {
 			tailOrder.Item.NextOrder = order.Key
 			orderList.Item.TailOrder = order.Key
-			orderList.SaveOrder(tailOrder)
+			if err := orderList.SaveOrder(tailOrder); err != nil {
+				return err
+			}
 		}
 	}
 	orderList.Item.Length++
 	orderList.Item.Volume = Add(orderList.Item.Volume, order.Item.Quantity)
-	return orderList.Save()
+	return nil
 }
 
 func (orderList *OrderList) DeleteOrder(order *Order) error {
