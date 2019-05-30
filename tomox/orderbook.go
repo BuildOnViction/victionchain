@@ -111,12 +111,27 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 
 func (orderBook *OrderBook) Save() error {
 
+	log.Debug("save orderbook asks")
 	if err := orderBook.Asks.Save(); err != nil {
 		log.Error("can't save orderbook asks", "err", err)
 		return err
 	}
+
+	log.Debug("save orderbook bids")
 	if err := orderBook.Bids.Save(); err != nil {
 		log.Error("can't save orderbook bids", "err", err)
+		return err
+	}
+
+	log.Debug("save orderbook pending asks")
+	if err := orderBook.PendingAsks.Save(); err != nil {
+		log.Error("can't save orderbook pending asks", "err", err)
+		return err
+	}
+
+	log.Debug("save orderbook pending bids")
+	if err := orderBook.PendingBids.Save(); err != nil {
+		log.Error("can't save orderbook pending bids", "err", err)
 		return err
 	}
 
@@ -129,18 +144,25 @@ func (orderBook *OrderBook) Commit() error {
 }
 
 func (orderBook *OrderBook) Restore() error {
+	log.Debug("restore orderbook asks")
 	if err := orderBook.Asks.Restore(); err != nil {
 		log.Error("can't restore orderbook asks", "err", err)
 		return err
 	}
+
+	log.Debug("restore orderbook bids")
 	if err := orderBook.Bids.Restore(); err != nil {
 		log.Error("can't restore orderbook bids", "err", err)
 		return err
 	}
+
+	log.Debug("restore orderbook pending asks")
 	if err := orderBook.PendingAsks.Restore(); err != nil {
 		log.Error("can't restore orderbook pending asks", "err", err)
 		return err
 	}
+
+	log.Debug("restore orderbook pending bids")
 	if err := orderBook.PendingBids.Restore(); err != nil {
 		log.Error("can't restore orderbook pending bids", "err", err)
 		return err
@@ -149,6 +171,7 @@ func (orderBook *OrderBook) Restore() error {
 	val, err := orderBook.db.Get(orderBook.Key, orderBook.Item)
 	if err == nil {
 		orderBook.Item = val.(*OrderBookItem)
+		log.Debug("orderbook restored", "orderBook.Item", orderBook.Item)
 	}
 
 	return err
@@ -452,12 +475,16 @@ func (orderBook *OrderBook) SaveOrderPending(order *OrderItem) error {
 	if order.Side == Bid {
 		if order.Quantity.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
-			return orderBook.PendingBids.InsertOrder(order)
+			if err := orderBook.PendingBids.InsertOrder(order); err != nil {
+				return err
+			}
 		}
 	} else {
 		if order.Quantity.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
-			return orderBook.PendingAsks.InsertOrder(order)
+			if err := orderBook.PendingAsks.InsertOrder(order); err != nil {
+				return err
+			}
 		}
 	}
 	// save changes to orderbook

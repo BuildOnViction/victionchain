@@ -6,6 +6,7 @@ import (
 	"strings"
 	// rbt "github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/ethereum/go-ethereum/log"
+	"encoding/hex"
 )
 
 type OrderTreeItem struct {
@@ -76,6 +77,7 @@ func (orderTree *OrderTree) Save() error {
 		orderTree.Item.PriceTreeSize = orderTree.Depth()
 	}
 
+	log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.Key))
 	return orderTree.orderDB.Put(orderTree.Key, orderTree.Item)
 }
 

@@ -98,6 +98,11 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 	cacheKey := db.getCacheKey(key)
 
+	switch val.(type) {
+	case *OrderBookItem:
+		log.Debug("orderbook get", "cacheKey", cacheKey)
+	}
+
 	if pendingItem, ok := db.pendingItems[cacheKey]; ok {
 		// we get value from the pending item
 		return pendingItem.Value, nil
@@ -111,7 +116,7 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		// but it is raw bytes
 		bytes, err := db.db.Get(key)
 		if err != nil {
-			log.Debug("Key not found", "key", key)
+			log.Debug("Key not found", "key", hex.EncodeToString(key), "err", err)
 			return nil, err
 		}
 
@@ -134,7 +139,13 @@ func (db *BatchDatabase) Put(key []byte, val interface{}) error {
 
 	cacheKey := db.getCacheKey(key)
 
+	switch val.(type) {
+	case *OrderBookItem:
+		log.Debug("orderbook put", "cacheKey", cacheKey)
+	}
+
 	db.pendingItems[cacheKey] = &BatchItem{Value: val}
+	log.Debug("db pending put", " db.pendingItems",  db.pendingItems)
 
 	if len(db.pendingItems) >= db.itemMaxPending {
 		return db.Commit()

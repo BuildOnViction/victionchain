@@ -576,7 +576,10 @@ func (tomox *TomoX) GetOrderBook(pairName string) (*OrderBook, error) {
 func (tomox *TomoX) hasOrderBook(name string) bool {
 	key := crypto.Keccak256([]byte(strings.ToLower(name)))
 	val, err := tomox.db.Get(key, &OrderBookItem{})
-	if err != nil || val == nil {
+	if val == nil {
+		if err != nil {
+			log.Error("Can't get orderbook in DB", "err", err)
+		}
 		return false
 	}
 	if val.(*OrderBookItem) == nil {
@@ -597,10 +600,12 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 	if !tomox.hasOrderBook(name) {
 		// then create one
 		ob := NewOrderBook(name, tomox.db)
+		log.Debug("Create new orderbook", "ob", ob)
 		return ob, nil
 	} else {
 		ob := NewOrderBook(name, tomox.db)
 		if err := ob.Restore(); err != nil {
+			log.Debug("Can't restore orderbook", "err", err)
 			return nil, err
 		}
 		return ob, nil
