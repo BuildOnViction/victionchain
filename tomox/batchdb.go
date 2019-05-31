@@ -102,7 +102,7 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		// we get value from the pending item
 		return pendingItem.Value, nil
 	}
-
+	log.Debug("Debug DB get", "pending map", db.pendingItems, "cacheKey", cacheKey)
 	if cached, ok := db.cacheItems.Get(cacheKey); ok {
 		val = cached
 	} else {
@@ -111,7 +111,7 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		// but it is raw bytes
 		bytes, err := db.db.Get(key)
 		if err != nil {
-			log.Debug("Key not found", "key", key)
+			log.Debug("Key not found", "key", hex.EncodeToString(key), "err", err)
 			return nil, err
 		}
 
@@ -135,6 +135,7 @@ func (db *BatchDatabase) Put(key []byte, val interface{}) error {
 	cacheKey := db.getCacheKey(key)
 
 	db.pendingItems[cacheKey] = &BatchItem{Value: val}
+	log.Debug("Debug DB put", "pending map", db.pendingItems, "cacheKey", cacheKey)
 
 	if len(db.pendingItems) >= db.itemMaxPending {
 		return db.Commit()
@@ -182,7 +183,7 @@ func (db *BatchDatabase) Commit() error {
 		}
 
 		batch.Put(key, value)
-		log.Debug("Save", "key", key, "value", ToJSON(item.Value))
+		log.Debug("Save", "key", cacheKey, "value", ToJSON(item.Value))
 	}
 	// commit pending items does not affect the cache
 	db.pendingItems = make(map[string]*BatchItem)
