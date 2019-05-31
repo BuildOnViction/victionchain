@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 )
@@ -113,5 +114,62 @@ func TestCancelOrder(t *testing.T) {
 	err = rpcClient.Call(&result, "tomoX_cancelOrder", params)
 	if err != nil {
 		t.Error("rpcClient.Call tomoX_createOrder failed", "err", err)
+	}
+}
+
+func TestTomoX_GetActivePairs(t *testing.T) {
+	testDir := "TestTomoX_GetActivePairs"
+
+	tomox := &TomoX{
+		Orderbooks:  map[string]*OrderBook{},
+		activePairs: make(map[string]bool),
+		db: NewLDBEngine(&Config{
+			DataDir:  testDir,
+			DBEngine: "leveldb",
+		}),
+	}
+	defer os.RemoveAll(testDir)
+
+	if pairs := tomox.listTokenPairs(); len(pairs) != 0 {
+		t.Error("Expected: no active pair", "Actual:", len(pairs))
+	}
+
+	savedPairs := map[string]bool{}
+	savedPairs["xxx/tomo"] = true
+	savedPairs["aaa/tomo"] = true
+	tomox.updatePairs(savedPairs)
+
+	// a node has just been restarted, haven't inserted any order yet
+	// in memory: there is no activePairsKey
+	// in db: there are 2 active pairs
+	// expected: tomox.listTokenPairs return 2
+	tomox.activePairs = map[string]bool{} // reset tomox.activePairs to simulate the case: a node was restarted
+	if pairs := tomox.listTokenPairs(); len(pairs) != 2 {
+		t.Error("Expected: 2 active pairs", "Actual:", len(pairs))
+	}
+
+	// a node has just been restarted, then insert an order of "aaa/tomo"
+	// in db: there are 2 active pairs
+	// expected: tomox.listTokenPairs return 2
+	tomox.activePairs = map[string]bool{} // reset tomox.activePairsKey to simulate the case: a node was restarted
+	tomox.GetOrderBook("aaa/tomo")
+	if pairs := tomox.listTokenPairs(); len(pairs) != 2 {
+		t.Error("Expected: 2 active pairs", "Actual:", len(pairs))
+	}
+
+	// insert an order of existing pair: xxx/tomo
+	// expected: tomox.listTokenPairs return 2 pairs
+	tomox.GetOrderBook("xxx/tomo")
+	if pairs := tomox.listTokenPairs(); len(pairs) != 2 {
+		t.Error("Expected: 2 active pairs", "Actual:", len(pairs))
+	}
+
+	// now, activePairsKey in tomox.activePairsKey and db are same
+	// try to add one more pair to orderbook
+	tomox.GetOrderBook("xxx/tomo")
+	tomox.GetOrderBook("yyy/tomo")
+
+	if pairs := tomox.listTokenPairs(); len(pairs) != 3 {
+		t.Error("Expected: 3 active pairs", "Actual:", len(pairs))
 	}
 }
