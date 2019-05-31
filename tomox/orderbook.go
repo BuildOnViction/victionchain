@@ -66,7 +66,7 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 
 	item := &OrderBookItem{
 		NextOrderID: 0,
-		Name:        strings.ToLower(name),
+		Name:        name, //name is already in lower format
 	}
 
 	// do slot with hash to prevent collision

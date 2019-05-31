@@ -18,7 +18,7 @@ func buildOrder() *OrderItem {
 	v := []byte(string(rand.Intn(999)))
 	lstBuySell := []string{"BUY", "SELL"}
 	order := &OrderItem{
-		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(100)) * 1000000000000000000),
+		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(10)) * 1000000000000000000),
 		Price:           price,
 		ExchangeAddress: common.StringToAddress("0x0000000000000000000000000000000000000000"),
 		UserAddress:     common.StringToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
@@ -81,7 +81,7 @@ func TestCreateOrder(t *testing.T) {
 }
 
 func TestCreate10Orders(t *testing.T) {
-	for i := 0; i <= 20; i++ {
+	for i := 0; i <= 10; i++ {
 		TestCreateOrder(t)
 		time.Sleep(1 * time.Second)
 	}

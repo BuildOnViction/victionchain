@@ -98,16 +98,11 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 	cacheKey := db.getCacheKey(key)
 
-	switch val.(type) {
-	case *OrderBookItem:
-		log.Debug("orderbook get", "cacheKey", cacheKey)
-	}
-
 	if pendingItem, ok := db.pendingItems[cacheKey]; ok {
 		// we get value from the pending item
 		return pendingItem.Value, nil
 	}
-
+	log.Debug("Debug DB get", "pending map", db.pendingItems, "cacheKey", cacheKey)
 	if cached, ok := db.cacheItems.Get(cacheKey); ok {
 		val = cached
 	} else {
@@ -139,13 +134,8 @@ func (db *BatchDatabase) Put(key []byte, val interface{}) error {
 
 	cacheKey := db.getCacheKey(key)
 
-	switch val.(type) {
-	case *OrderBookItem:
-		log.Debug("orderbook put", "cacheKey", cacheKey)
-	}
-
 	db.pendingItems[cacheKey] = &BatchItem{Value: val}
-	log.Debug("db pending put", " db.pendingItems",  db.pendingItems)
+	log.Debug("Debug DB put", "pending map", db.pendingItems, "cacheKey", cacheKey)
 
 	if len(db.pendingItems) >= db.itemMaxPending {
 		return db.Commit()
@@ -193,7 +183,7 @@ func (db *BatchDatabase) Commit() error {
 		}
 
 		batch.Put(key, value)
-		log.Debug("Save", "key", key, "value", ToJSON(item.Value))
+		log.Debug("Save", "key", cacheKey, "value", ToJSON(item.Value))
 	}
 	// commit pending items does not affect the cache
 	db.pendingItems = make(map[string]*BatchItem)

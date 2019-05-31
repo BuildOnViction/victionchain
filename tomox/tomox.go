@@ -574,7 +574,7 @@ func (tomox *TomoX) GetOrderBook(pairName string) (*OrderBook, error) {
 }
 
 func (tomox *TomoX) hasOrderBook(name string) bool {
-	key := crypto.Keccak256([]byte(strings.ToLower(name)))
+	key := crypto.Keccak256([]byte(name))  //name is already in lower format
 	val, err := tomox.db.Get(key, &OrderBookItem{})
 	if val == nil {
 		if err != nil {
