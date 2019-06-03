@@ -613,7 +613,7 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 			}
 		}
 
-		if p, ok := tomox.activePairs[name]; !ok || !p {
+		if _, ok := tomox.activePairs[name]; !ok {
 			tomox.activePairs[name] = true
 			tomox.updatePairs(tomox.activePairs)
 		}
