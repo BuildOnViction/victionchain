@@ -137,7 +137,9 @@ func TestTomoX_GetActivePairs(t *testing.T) {
 	savedPairs := map[string]bool{}
 	savedPairs["xxx/tomo"] = true
 	savedPairs["aaa/tomo"] = true
-	tomox.updatePairs(savedPairs)
+	if err := tomox.updatePairs(savedPairs); err != nil {
+		t.Error("Failed to save active pairs", err)
+	}
 
 	// a node has just been restarted, haven't inserted any order yet
 	// in memory: there is no activePairsKey

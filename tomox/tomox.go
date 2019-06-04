@@ -615,7 +615,9 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 
 		if _, ok := tomox.activePairs[name]; !ok {
 			tomox.activePairs[name] = true
-			tomox.updatePairs(tomox.activePairs)
+			if err := tomox.updatePairs(tomox.activePairs); err != nil {
+				log.Error("Failed to save active pairs", "err", err)
+			}
 		}
 
 		return ob, nil
@@ -722,10 +724,11 @@ func (tomox *TomoX) ProcessOrderPending() {
 	}
 }
 
-func (tomox *TomoX) updatePairs(pairs map[string]bool) {
+func (tomox *TomoX) updatePairs(pairs map[string]bool) error {
 	if err := tomox.db.Put([]byte(activePairsKey), pairs); err != nil {
-		log.Error("Failed to save active pairs:", "err", err)
+		return err
 	}
+	return nil
 }
 
 func (tomox *TomoX) loadPairs() (map[string]bool, error) {
