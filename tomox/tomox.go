@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
 )
@@ -41,6 +41,7 @@ const (
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
 	pendingOrder         = "PENDING_ORDER"
+	activePairsKey       = "ACTIVE_PAIRS"
 )
 
 type Config struct {
@@ -80,6 +81,8 @@ type TomoX struct {
 	statsMu sync.Mutex // guard stats
 
 	settings syncmap.Map // holds configuration settings that can be dynamically changed
+
+	activePairs map[string]bool // hold active pairs
 }
 
 func NewLDBEngine(cfg *Config) *BatchDatabase {
@@ -109,6 +112,7 @@ func New(cfg *Config) *TomoX {
 		expirations:   make(map[uint32]*set.SetNonTS),
 		messageQueue:  make(chan *Envelope, messageQueueLimit),
 		p2pMsgQueue:   make(chan *Envelope, messageQueueLimit),
+		activePairs:   make(map[string]bool),
 	}
 	switch cfg.DBEngine {
 	case "leveldb":
@@ -574,7 +578,7 @@ func (tomox *TomoX) GetOrderBook(pairName string) (*OrderBook, error) {
 }
 
 func (tomox *TomoX) hasOrderBook(name string) bool {
-	key := crypto.Keccak256([]byte(name))  //name is already in lower format
+	key := crypto.Keccak256([]byte(name)) //name is already in lower format
 	val, err := tomox.db.Get(key, &OrderBookItem{})
 	if val == nil {
 		if err != nil {
@@ -601,6 +605,21 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 		// then create one
 		ob := NewOrderBook(name, tomox.db)
 		log.Debug("Create new orderbook", "ob", ob)
+
+		// updating new pairs
+		if len(tomox.activePairs) == 0 {
+			if pairs, err := tomox.loadPairs(); err == nil {
+				tomox.activePairs = pairs
+			}
+		}
+
+		if _, ok := tomox.activePairs[name]; !ok {
+			tomox.activePairs[name] = true
+			if err := tomox.updatePairs(tomox.activePairs); err != nil {
+				log.Error("Failed to save active pairs", "err", err)
+			}
+		}
+
 		return ob, nil
 	} else {
 		ob := NewOrderBook(name, tomox.db)
@@ -621,7 +640,7 @@ func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
 	return ob.GetOrder(key)
 }
 
-func (tomox *TomoX) InsertOrder(order *OrderItem) (error) {
+func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
 	if err != nil {
 		return err
@@ -703,4 +722,43 @@ func (tomox *TomoX) ProcessOrderPending() {
 			ob.ProcessOrder(order.Item, true)
 		}
 	}
+}
+
+func (tomox *TomoX) updatePairs(pairs map[string]bool) error {
+	if err := tomox.db.Put([]byte(activePairsKey), pairs); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (tomox *TomoX) loadPairs() (map[string]bool, error) {
+	var (
+		val interface{}
+		err error
+	)
+	if val, err = tomox.db.Get([]byte(activePairsKey), val); err != nil {
+		log.Error("Failed to load active pairs:", "err", err)
+		return map[string]bool{}, err
+	}
+	pairs := val.(map[string]bool)
+	activePairs := map[string]bool{}
+	for pairName := range pairs {
+		if pairs[pairName] {
+			activePairs[pairName] = pairs[pairName]
+		}
+	}
+	return activePairs, nil
+}
+
+func (tomox *TomoX) listTokenPairs() []string {
+	var activePairs []string
+	if len(tomox.activePairs) == 0 {
+		if pairs, err := tomox.loadPairs(); err == nil {
+			tomox.activePairs = pairs
+		}
+	}
+	for p := range tomox.activePairs {
+		activePairs = append(activePairs, p)
+	}
+	return activePairs
 }
