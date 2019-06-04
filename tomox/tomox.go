@@ -40,7 +40,6 @@ const (
 	SizeMask             = byte(3) // mask used to extract the size of payload size field from the flags
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
-	pendingOrder         = "PENDING_ORDER"
 	activePairsKey       = "ACTIVE_PAIRS"
 )
 
@@ -691,35 +690,40 @@ func (tomox *TomoX) GetAsksTree(pairName string) (*OrderTree, error) {
 }
 
 func (tomox *TomoX) ProcessOrderPending() {
-	// Get best max bids.
-	ob, _ := tomox.getAndCreateIfNotExisted(pendingOrder)
-	maxBidList := ob.PendingBids.MaxPriceList()
-	minAskList := ob.PendingAsks.MinPriceList()
-	zero := Zero()
-	var orderPendings []*Order
-	if maxBidList != nil {
-		if od := maxBidList.Head(); od != nil {
-			orderPendings = append(orderPendings, od)
-		}
-		if od := maxBidList.Tail(); od != nil {
-			orderPendings = append(orderPendings, od)
-		}
-	}
+	pairNames := tomox.listTokenPairs()
+	if len(pairNames) > 0 {
+		for _, pairName := range pairNames {
+			// Get best max bids.
+			ob, _ := tomox.getAndCreateIfNotExisted(pairName)
+			maxBidList := ob.PendingBids.MaxPriceList()
+			minAskList := ob.PendingAsks.MinPriceList()
+			zero := Zero()
+			var orderPendings []*Order
+			if maxBidList != nil {
+				if od := maxBidList.Head(); od != nil {
+					orderPendings = append(orderPendings, od)
+				}
+				if od := maxBidList.Tail(); od != nil {
+					orderPendings = append(orderPendings, od)
+				}
+			}
 
-	if minAskList != nil {
-		if od := minAskList.Head(); od != nil {
-			orderPendings = append(orderPendings, od)
-		}
-		if od := minAskList.Tail(); od != nil {
-			orderPendings = append(orderPendings, od)
-		}
-	}
+			if minAskList != nil {
+				if od := minAskList.Head(); od != nil {
+					orderPendings = append(orderPendings, od)
+				}
+				if od := minAskList.Tail(); od != nil {
+					orderPendings = append(orderPendings, od)
+				}
+			}
 
-	for _, order := range orderPendings {
-		if order != nil {
-			order.Item.OrderID = zero.Uint64()
-			log.Info("Process order pending", "orderPending", order.Item)
-			ob.ProcessOrder(order.Item, true)
+			for _, order := range orderPendings {
+				if order != nil {
+					order.Item.OrderID = zero.Uint64()
+					log.Info("Process order pending", "orderPending", order.Item)
+					ob.ProcessOrder(order.Item, true)
+				}
+			}
 		}
 	}
 }
