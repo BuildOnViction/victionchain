@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"strings"
 	// rbt "github.com/emirpasic/gods/trees/redblacktree"
-	"github.com/ethereum/go-ethereum/log"
 	"encoding/hex"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type OrderTreeItem struct {
@@ -324,7 +324,7 @@ func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *Or
 	return orderTree.Save()
 }
 
-func (orderTree *OrderTree) RemoveOrder(order *Order) (error) {
+func (orderTree *OrderTree) RemoveOrder(order *Order) error {
 	// get orderList by price. If there is orderlist existed, update it
 	orderList := orderTree.PriceList(order.Item.Price)
 	if orderList != nil {

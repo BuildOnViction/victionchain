@@ -117,6 +117,49 @@ func TestCancelOrder(t *testing.T) {
 	}
 }
 
+func TestDBPending(t *testing.T) {
+	testDir := "TestDBPending"
+
+	tomox := &TomoX{
+		Orderbooks:  map[string]*OrderBook{},
+		activePairs: make(map[string]bool),
+		db: NewLDBEngine(&Config{
+			DataDir:  testDir,
+			DBEngine: "leveldb",
+		}),
+	}
+	defer os.RemoveAll(testDir)
+
+	if pHashes := tomox.getPendingHashes(); len(pHashes) != 0 {
+		t.Error("Expected: no pending hash", "Actual:", len(pHashes))
+	}
+
+	var hash common.Hash
+	hash = common.StringToHash("0x0000000000000000000000000000000000000000")
+	tomox.addPendingHash(hash)
+	hash = common.StringToHash("0x0000000000000000000000000000000000000001")
+	tomox.addPendingHash(hash)
+	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
+	tomox.addPendingHash(hash)
+	if pHashes := tomox.getPendingHashes(); len(pHashes) != 3 {
+		t.Error("Expected: 3 pending hash", "Actual:", len(pHashes))
+	}
+
+	// Test remove hash
+	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
+	tomox.removePendingHash(hash)
+	if pHashes := tomox.getPendingHashes(); len(pHashes) != 2 {
+		t.Error("Expected: 2 pending hash", "Actual:", len(pHashes))
+	}
+
+	order := buildOrder()
+	tomox.addOrderPending(order)
+	od := tomox.getOrderPending(order.Hash)
+	if order.Hash.String() != od.Hash.String() {
+		t.Error("Fail to add order pending", "orderOld", order, "orderNew", od)
+	}
+}
+
 func TestTomoX_GetActivePairs(t *testing.T) {
 	testDir := "TestTomoX_GetActivePairs"
 

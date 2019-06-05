@@ -41,6 +41,9 @@ const (
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
 	activePairsKey       = "ACTIVE_PAIRS"
+	pendingHash          = "PENDING_HASH"
+	pendingPrefix        = "XP"
+	orderProcessLimit    = 5
 )
 
 type Config struct {
@@ -640,26 +643,8 @@ func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
 }
 
 func (tomox *TomoX) InsertOrder(order *OrderItem) error {
-	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
-	if err != nil {
-		return err
-	}
-
-	if ob != nil {
-		// insert
-		if order.OrderID == 0 {
-			// Save order into orderbook tree.
-			if err := ob.SaveOrderPending(order); err != nil {
-				return err
-			}
-		} else {
-			log.Info("Update order")
-			if err := ob.UpdateOrder(order); err != nil {
-				log.Error("Update order failed", "order", order, "err", err)
-				return err
-			}
-		}
-	}
+	tomox.addPendingHash(order.Hash)
+	tomox.addOrderPending(order)
 
 	return nil
 }
@@ -690,42 +675,99 @@ func (tomox *TomoX) GetAsksTree(pairName string) (*OrderTree, error) {
 }
 
 func (tomox *TomoX) ProcessOrderPending() {
-	pairNames := tomox.listTokenPairs()
-	if len(pairNames) > 0 {
-		for _, pairName := range pairNames {
-			// Get best max bids.
-			ob, _ := tomox.getAndCreateIfNotExisted(pairName)
-			maxBidList := ob.PendingBids.MaxPriceList()
-			minAskList := ob.PendingAsks.MinPriceList()
-			zero := Zero()
-			var orderPendings []*Order
-			if maxBidList != nil {
-				if od := maxBidList.Head(); od != nil {
-					orderPendings = append(orderPendings, od)
-				}
-				if od := maxBidList.Tail(); od != nil {
-					orderPendings = append(orderPendings, od)
-				}
-			}
-
-			if minAskList != nil {
-				if od := minAskList.Head(); od != nil {
-					orderPendings = append(orderPendings, od)
-				}
-				if od := minAskList.Tail(); od != nil {
-					orderPendings = append(orderPendings, od)
-				}
-			}
-
-			for _, order := range orderPendings {
-				if order != nil {
-					order.Item.OrderID = zero.Uint64()
-					log.Info("Process order pending", "orderPending", order.Item)
-					ob.ProcessOrder(order.Item, true)
-				}
+	pendingHashes := tomox.getPendingHashes()
+	i := 0
+	for hash, ok := range pendingHashes {
+		if ok && i <= orderProcessLimit {
+			order := tomox.getOrderPending(common.StringToHash(hash))
+			if order != nil {
+				ob, _ := tomox.getAndCreateIfNotExisted(order.PairName)
+				log.Info("Process order pending", "orderPending", order)
+				ob.ProcessOrder(order, true)
 			}
 		}
+		i++
 	}
+}
+
+func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
+	var (
+		val interface{}
+		err error
+	)
+	prefix := []byte(pendingPrefix)
+	key := append(prefix, orderHash.Bytes()...)
+	val, err = tomox.db.Get(key, val)
+	if err != nil {
+		log.Error("Fail to get order pending", "err", err)
+
+		return nil
+	}
+
+	return val.(*OrderItem)
+}
+
+func (tomox *TomoX) addOrderPending(order *OrderItem) error {
+	prefix := []byte(pendingPrefix)
+	key := append(prefix, order.Hash.Bytes()...)
+	// Insert new order pending.
+	tomox.db.Put(key, order)
+
+	return nil
+}
+
+func (tomox *TomoX) removeOrderPending(orderHash common.Hash) error {
+	prefix := []byte(pendingPrefix)
+	key := append(prefix, orderHash.Bytes()...)
+	tomox.db.Delete(key, true)
+
+	return nil
+}
+
+func (tomox *TomoX) addPendingHash(orderHash common.Hash) map[string]bool {
+	pendingHashes := tomox.getPendingHashes()
+	if pendingHashes == nil {
+		return nil
+	}
+	hash := strings.ToLower(orderHash.String())
+	if _, ok := pendingHashes[hash]; !ok {
+		pendingHashes[hash] = true
+	}
+	// Store pending hash.
+	tomox.db.Put([]byte(pendingHash), pendingHashes)
+
+	return pendingHashes
+}
+
+func (tomox *TomoX) removePendingHash(orderHash common.Hash) map[string]bool {
+	pendingHashes := tomox.getPendingHashes()
+	if pendingHashes == nil {
+		return nil
+	}
+	hash := strings.ToLower(orderHash.String())
+	if _, ok := pendingHashes[hash]; ok {
+		delete(pendingHashes, hash)
+	}
+	// Store pending hash.
+	tomox.db.Put([]byte(pendingHash), pendingHashes)
+
+	return pendingHashes
+}
+
+func (tomox *TomoX) getPendingHashes() map[string]bool {
+	var (
+		val interface{}
+		err error
+	)
+	if val, err = tomox.db.Get([]byte(pendingHash), val); err != nil {
+		log.Error("Fail to get pending hash", "err", err)
+
+		return map[string]bool{}
+	}
+
+	pendingHashes := val.(map[string]bool)
+
+	return pendingHashes
 }
 
 func (tomox *TomoX) updatePairs(pairs map[string]bool) error {

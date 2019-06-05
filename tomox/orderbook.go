@@ -50,12 +50,10 @@ type OrderBookItemRecordBSON struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db          OrderDao   // this is for orderBook
-	Bids        *OrderTree `json:"bids"`
-	Asks        *OrderTree `json:"asks"`
-	PendingBids *OrderTree `json:"pendingBids"`
-	PendingAsks *OrderTree `json:"pendingAsks"`
-	Item        *OrderBookItem
+	db   OrderDao   // this is for orderBook
+	Bids *OrderTree `json:"bids"`
+	Asks *OrderTree `json:"asks"`
+	Item *OrderBookItem
 
 	Key  []byte
 	Slot *big.Int
@@ -82,8 +80,6 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 	// the price of order tree start at order tree slot
 	bidsKey := GetSegmentHash(key, 1, SlotSegment)
 	asksKey := GetSegmentHash(key, 2, SlotSegment)
-	pendingBidsKey := GetSegmentHash(key, 3, SlotSegment)
-	pendingAsksKey := GetSegmentHash(key, 4, SlotSegment)
 
 	orderBook := &OrderBook{
 		db:   db,
@@ -94,14 +90,10 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 
 	bids := NewOrderTree(db, bidsKey, orderBook)
 	asks := NewOrderTree(db, asksKey, orderBook)
-	pendingBids := NewOrderTree(db, pendingBidsKey, orderBook)
-	pendingAsks := NewOrderTree(db, pendingAsksKey, orderBook)
 
 	// set asks and bids
 	orderBook.Bids = bids
 	orderBook.Asks = asks
-	orderBook.PendingBids = pendingBids
-	orderBook.PendingAsks = pendingAsks
 
 	// no need to update when there is no operation yet
 	orderBook.UpdateTime()
@@ -123,18 +115,6 @@ func (orderBook *OrderBook) Save() error {
 		return err
 	}
 
-	log.Debug("save orderbook pending asks")
-	if err := orderBook.PendingAsks.Save(); err != nil {
-		log.Error("can't save orderbook pending asks", "err", err)
-		return err
-	}
-
-	log.Debug("save orderbook pending bids")
-	if err := orderBook.PendingBids.Save(); err != nil {
-		log.Error("can't save orderbook pending bids", "err", err)
-		return err
-	}
-
 	return orderBook.db.Put(orderBook.Key, orderBook.Item)
 }
 
@@ -153,18 +133,6 @@ func (orderBook *OrderBook) Restore() error {
 	log.Debug("restore orderbook bids")
 	if err := orderBook.Bids.Restore(); err != nil {
 		log.Error("can't restore orderbook bids", "err", err)
-		return err
-	}
-
-	log.Debug("restore orderbook pending asks")
-	if err := orderBook.PendingAsks.Restore(); err != nil {
-		log.Error("can't restore orderbook pending asks", "err", err)
-		return err
-	}
-
-	log.Debug("restore orderbook pending bids")
-	if err := orderBook.PendingBids.Restore(); err != nil {
-		log.Error("can't restore orderbook pending bids", "err", err)
 		return err
 	}
 
@@ -463,34 +431,4 @@ func (orderBook *OrderBook) VolumeAtPrice(side string, price *big.Int) *big.Int 
 	}
 
 	return volume
-}
-
-// Save order pending into orderbook tree.
-func (orderBook *OrderBook) SaveOrderPending(order *OrderItem) error {
-	zero := Zero()
-	orderBook.UpdateTime()
-	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
-	orderBook.Item.NextOrderID++
-
-	if order.Side == Bid {
-		if order.Quantity.Cmp(zero) > 0 {
-			order.OrderID = orderBook.Item.NextOrderID
-			if err := orderBook.PendingBids.InsertOrder(order); err != nil {
-				return err
-			}
-		}
-	} else {
-		if order.Quantity.Cmp(zero) > 0 {
-			order.OrderID = orderBook.Item.NextOrderID
-			if err := orderBook.PendingAsks.InsertOrder(order); err != nil {
-				return err
-			}
-		}
-	}
-	// save changes to orderbook
-	if err := orderBook.Save(); err != nil {
-		return err
-	}
-
-	return nil
 }
