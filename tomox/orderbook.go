@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"encoding/hex"
 )
 
 const (
@@ -115,6 +116,7 @@ func (orderBook *OrderBook) Save() error {
 		return err
 	}
 
+	log.Debug("save orderbook", "key", hex.EncodeToString(orderBook.Key))
 	return orderBook.db.Put(orderBook.Key, orderBook.Item)
 }
 
@@ -282,7 +284,7 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 }
 
 // ProcessOrder : process the order
-func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem) {
+func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem, error) {
 	orderType := order.Type
 	var orderInBook *OrderItem
 	var trades []map[string]string
@@ -298,9 +300,11 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[
 	}
 
 	// update orderBook
-	orderBook.Save()
+	if err := orderBook.Save(); err != nil {
+		return nil, nil, err
+	}
 
-	return trades, orderInBook
+	return trades, orderInBook, nil
 }
 
 // processOrderList : process the order list
@@ -367,7 +371,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 	if order.Side == Bid {
 		orderInDB := orderBook.Bids.GetOrder(key, order.Price)
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
-			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
+			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v, orderInDB.Item: %v", order, orderInDB.Item)
 		}
 		orderInDB.Item.Status = Cancel
 		if err := orderBook.Bids.RemoveOrder(orderInDB); err != nil {
@@ -376,7 +380,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 	} else {
 		orderInDB := orderBook.Asks.GetOrder(key, order.Price)
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
-			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v", order)
+			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v, orderInDB.Item: %v", order, orderInDB.Item)
 		}
 		orderInDB.Item.Status = Cancel
 		if err := orderBook.Asks.RemoveOrder(orderInDB); err != nil {

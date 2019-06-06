@@ -175,9 +175,8 @@ func (orderTree *OrderTree) SaveOrderList(orderList *OrderList) error {
 		log.Error("Can't encode", "orderList.Item", orderList.Item, "err", err)
 		return err
 	}
-	log.Debug("orderList.Key, value", "orderList.Key", orderList.Key, "value", value)
+	log.Debug("Save orderlist", "key", hex.EncodeToString(orderList.Key), "value", value)
 	return orderTree.PriceTree.Put(orderList.Key, value)
-
 }
 
 func (orderTree *OrderTree) Depth() uint64 {
