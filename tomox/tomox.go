@@ -649,15 +649,6 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 	}
 }
 
-func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
-	ob, _ := tomox.getAndCreateIfNotExisted(pairName)
-	if ob == nil {
-		return nil
-	}
-	key := GetKeyFromString(orderID)
-	return ob.GetOrder(key)
-}
-
 func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
 	if err != nil {

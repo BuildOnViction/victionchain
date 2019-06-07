@@ -157,11 +157,10 @@ func (orderBook *OrderBook) GetOrderIDFromKey(key []byte) []byte {
 	return common.BigToHash(Add(orderBook.Slot, orderSlot)).Bytes()
 }
 
-func (orderBook *OrderBook) GetOrder(key []byte) *Order {
-	if orderBook.db.IsEmptyKey(key) {
+func (orderBook *OrderBook) GetOrder(storedKey, key []byte) *Order {
+	if orderBook.db.IsEmptyKey(key) || orderBook.db.IsEmptyKey(storedKey){
 		return nil
 	}
-	storedKey := orderBook.GetOrderIDFromKey(key)
 	orderItem := &OrderItem{}
 	val, err := orderBook.db.Get(storedKey, orderItem)
 	if err != nil {
