@@ -679,11 +679,17 @@ func (tomox *TomoX) ProcessOrderPending() {
 	i := 0
 	for hash, ok := range pendingHashes {
 		if ok && i <= orderProcessLimit {
-			order := tomox.getOrderPending(common.StringToHash(hash))
+			orderHash := common.HexToHash(hash)
+			order := tomox.getOrderPending(orderHash)
 			if order != nil {
 				ob, _ := tomox.getAndCreateIfNotExisted(order.PairName)
 				log.Info("Process order pending", "orderPending", order)
 				ob.ProcessOrder(order, true)
+				// Remove order from db pending.
+				tomox.removePendingHash(orderHash)
+				tomox.removeOrderPending(orderHash)
+			} else {
+				log.Error("Fail to get order pending from db", "hash", orderHash)
 			}
 		}
 		i++
@@ -697,10 +703,16 @@ func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
 	)
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
-	val, err = tomox.db.Get(key, val)
-	if err != nil {
-		log.Error("Fail to get order pending", "err", err)
+	if ok, _ := tomox.db.Has(key); ok {
+		val, err = tomox.db.Get(key, val)
+		if err != nil {
+			log.Error("Fail to get order pending", "err", err)
 
+			return nil
+		}
+	}
+
+	if val == nil {
 		return nil
 	}
 
@@ -710,8 +722,12 @@ func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
 func (tomox *TomoX) addOrderPending(order *OrderItem) error {
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, order.Hash.Bytes()...)
+	log.Debug("Save order pending", "key", order.Hash.String(), "value", ToJSON(order))
 	// Insert new order pending.
-	tomox.db.Put(key, order)
+	if err := tomox.db.Put(key, order); err != nil {
+		log.Error("Fail to save order pending", "err", err)
+		return err
+	}
 
 	return nil
 }
@@ -719,7 +735,11 @@ func (tomox *TomoX) addOrderPending(order *OrderItem) error {
 func (tomox *TomoX) removeOrderPending(orderHash common.Hash) error {
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
-	tomox.db.Delete(key, true)
+
+	if err := tomox.db.Delete(key, true); err != nil {
+		log.Error("Fail to delete order pending", "err", err)
+		return err
+	}
 
 	return nil
 }
@@ -734,7 +754,12 @@ func (tomox *TomoX) addPendingHash(orderHash common.Hash) map[string]bool {
 		pendingHashes[hash] = true
 	}
 	// Store pending hash.
-	tomox.db.Put([]byte(pendingHash), pendingHashes)
+	key := []byte(pendingHash)
+	log.Debug("Save order hash pending", "key", key, "value", ToJSON(pendingHashes))
+	if err := tomox.db.Put(key, pendingHashes); err != nil {
+		log.Error("Fail to save order hash pending", "err", err)
+		return nil
+	}
 
 	return pendingHashes
 }
@@ -749,7 +774,10 @@ func (tomox *TomoX) removePendingHash(orderHash common.Hash) map[string]bool {
 		delete(pendingHashes, hash)
 	}
 	// Store pending hash.
-	tomox.db.Put([]byte(pendingHash), pendingHashes)
+	if err := tomox.db.Put([]byte(pendingHash), pendingHashes); err != nil {
+		log.Error("Fail to delete order hash pending", "err", err)
+		return nil
+	}
 
 	return pendingHashes
 }
@@ -759,12 +787,18 @@ func (tomox *TomoX) getPendingHashes() map[string]bool {
 		val interface{}
 		err error
 	)
-	if val, err = tomox.db.Get([]byte(pendingHash), val); err != nil {
-		log.Error("Fail to get pending hash", "err", err)
+	key := []byte(pendingHash)
+	if ok, _ := tomox.db.Has(key); ok {
+		if val, err = tomox.db.Get(key, val); err != nil {
+			log.Error("Fail to get pending hash", "err", err)
 
-		return map[string]bool{}
+			return map[string]bool{}
+		}
 	}
 
+	if val == nil {
+		return map[string]bool{}
+	}
 	pendingHashes := val.(map[string]bool)
 
 	return pendingHashes
