@@ -145,10 +145,11 @@ func (orderTree *OrderTree) PriceList(price *big.Int) *OrderList {
 
 	key := orderTree.getKeyFromPrice(price)
 	bytes, found := orderTree.PriceTree.Get(key)
+	log.Debug("Got orderlist by price", "key", hex.EncodeToString(key), "found", found)
 
 	if found {
-
 		orderList := orderTree.decodeOrderList(bytes)
+		log.Debug("Decoded orderlist", "orderlist", orderList)
 		return orderList
 	}
 

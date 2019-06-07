@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"encoding/hex"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -24,6 +25,8 @@ const (
 	// as sequential id
 	SlotSegment = common.AddressLength
 )
+
+var ErrDoesNotExist = errors.New("order doesn't exist in ordertree")
 
 type OrderBookItem struct {
 	Timestamp     uint64 `json:"time"`
@@ -370,7 +373,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 	if order.Side == Bid {
 		orderInDB := orderBook.Bids.GetOrder(key, order.Price)
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
-			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v, orderInDB.Item: %v", order, orderInDB.Item)
+			return ErrDoesNotExist
 		}
 		orderInDB.Item.Status = Cancel
 		if err := orderBook.Bids.RemoveOrder(orderInDB); err != nil {
@@ -379,7 +382,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 	} else {
 		orderInDB := orderBook.Asks.GetOrder(key, order.Price)
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
-			return fmt.Errorf("Can't cancel order as it doesn't exist - order: %v, orderInDB.Item: %v", order, orderInDB.Item)
+			return ErrDoesNotExist
 		}
 		orderInDB.Item.Status = Cancel
 		if err := orderBook.Asks.RemoveOrder(orderInDB); err != nil {
