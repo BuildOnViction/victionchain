@@ -15,12 +15,11 @@ import (
 
 func buildOrder() *OrderItem {
 	rand.Seed(time.Now().UTC().UnixNano())
-	price, _ := new(big.Int).SetString("250000000000000000000000000000000000000", 10)
 	v := []byte(string(rand.Intn(999)))
 	lstBuySell := []string{"BUY", "SELL"}
 	order := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(10)) * 1000000000000000000),
-		Price:           price,
+		Price:           new(big.Int).SetUint64(uint64(rand.Intn(10)) * 100000000000000000),
 		ExchangeAddress: common.StringToAddress("0x0000000000000000000000000000000000000000"),
 		UserAddress:     common.StringToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
 		BaseToken:       common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
@@ -82,7 +81,7 @@ func TestCreateOrder(t *testing.T) {
 }
 
 func TestCreate10Orders(t *testing.T) {
-	for i := 0; i <= 10; i++ {
+	for i := 0; i <= 20; i++ {
 		TestCreateOrder(t)
 		time.Sleep(1 * time.Second)
 	}
@@ -216,5 +215,38 @@ func TestTomoX_GetActivePairs(t *testing.T) {
 
 	if pairs := tomox.listTokenPairs(); len(pairs) != 3 {
 		t.Error("Expected: 3 active pairs", "Actual:", len(pairs))
+	}
+}
+
+func TestEncodeDecodeTXMatch(t *testing.T) {
+	var trades []map[string]string
+	var txMatches map[common.Hash][]map[string]string
+	var decodeMatches map[common.Hash][]map[string]string
+
+	transactionRecord := make(map[string]string)
+	transactionRecord["price"] = new(big.Int).SetUint64(uint64(25) * 100000000000000000).String()
+	transactionRecord["quantity"] = new(big.Int).SetUint64(uint64(12) * 1000000000000000000).String()
+	trades = append(trades, transactionRecord)
+
+	transactionRecord = make(map[string]string)
+	transactionRecord["price"] = new(big.Int).SetUint64(uint64(14) * 1000000000000000000).String()
+	transactionRecord["quantity"] = new(big.Int).SetUint64(uint64(15) * 1000000000000000000).String()
+	trades = append(trades, transactionRecord)
+
+	txMatches = make(map[common.Hash][]map[string]string)
+	hash := common.StringToHash(string(rand.Intn(1000)))
+	txMatches[hash] = trades
+	encode, err := json.Marshal(txMatches)
+	if err != nil {
+		t.Error("Fail to marshal txMatches", "err", err)
+	}
+
+	err = json.Unmarshal(encode, &decodeMatches)
+	if err != nil {
+		t.Error("Fail to unmarshal txMatches", "err", err)
+	}
+
+	if _, ok := decodeMatches[hash]; ! ok {
+		t.Error("marshal and unmarshal txMatches not valid", "mashal", txMatches[hash], "unmarshal", decodeMatches[hash])
 	}
 }
