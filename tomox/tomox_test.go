@@ -220,8 +220,8 @@ func TestTomoX_GetActivePairs(t *testing.T) {
 
 func TestEncodeDecodeTXMatch(t *testing.T) {
 	var trades []map[string]string
-	var txMatches map[common.Hash][]map[string]string
-	var decodeMatches map[common.Hash][]map[string]string
+	var txMatches map[common.Hash]TxDataMatch
+	var decodeMatches map[common.Hash]TxDataMatch
 
 	transactionRecord := make(map[string]string)
 	transactionRecord["price"] = new(big.Int).SetUint64(uint64(25) * 100000000000000000).String()
@@ -233,9 +233,16 @@ func TestEncodeDecodeTXMatch(t *testing.T) {
 	transactionRecord["quantity"] = new(big.Int).SetUint64(uint64(15) * 1000000000000000000).String()
 	trades = append(trades, transactionRecord)
 
-	txMatches = make(map[common.Hash][]map[string]string)
-	hash := common.StringToHash(string(rand.Intn(1000)))
-	txMatches[hash] = trades
+	order := buildOrder()
+	value, err := EncodeBytesItem(order)
+	if err != nil {
+		t.Error("Can't encode", "order", order, "err", err)
+	}
+	txMatches = make(map[common.Hash]TxDataMatch)
+	txMatches[order.Hash] = TxDataMatch{
+		order:  value,
+		trades: trades,
+	}
 	encode, err := json.Marshal(txMatches)
 	if err != nil {
 		t.Error("Fail to marshal txMatches", "err", err)
@@ -246,7 +253,7 @@ func TestEncodeDecodeTXMatch(t *testing.T) {
 		t.Error("Fail to unmarshal txMatches", "err", err)
 	}
 
-	if _, ok := decodeMatches[hash]; ! ok {
-		t.Error("marshal and unmarshal txMatches not valid", "mashal", txMatches[hash], "unmarshal", decodeMatches[hash])
+	if _, ok := decodeMatches[order.Hash]; !ok {
+		t.Error("marshal and unmarshal txMatches not valid", "mashal", txMatches[order.Hash], "unmarshal", decodeMatches[order.Hash])
 	}
 }

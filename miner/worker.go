@@ -595,7 +595,10 @@ func (self *worker) commitNewWork() {
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		tomoX := self.eth.GetTomoX()
 		if tomoX != nil {
-			tomoX.ProcessOrderPending()
+			txMatches := tomoX.ProcessOrderPending()
+			if len(txMatches) > 0 {
+				log.Error("txMatches", "txMatches", txMatches)
+			}
 		}
 
 		pending, err := self.eth.TxPool().Pending()

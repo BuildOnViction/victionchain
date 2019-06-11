@@ -52,6 +52,11 @@ type Config struct {
 	ConnectionUrl string `toml:",omitempty"`
 }
 
+type TxDataMatch struct {
+	order  []byte
+	trades []map[string]string
+}
+
 // DefaultConfig represents (shocker!) the default configuration.
 var DefaultConfig = Config{
 	DataDir: node.DefaultDataDir(),
@@ -674,7 +679,8 @@ func (tomox *TomoX) GetAsksTree(pairName string) (*OrderTree, error) {
 	return ob.Asks, nil
 }
 
-func (tomox *TomoX) ProcessOrderPending() {
+func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
+	txMatches := make(map[common.Hash]TxDataMatch)
 	pendingHashes := tomox.getPendingHashes()
 	i := 0
 	for hash, ok := range pendingHashes {
@@ -684,8 +690,17 @@ func (tomox *TomoX) ProcessOrderPending() {
 			if order != nil {
 				ob, _ := tomox.getAndCreateIfNotExisted(order.PairName)
 				log.Info("Process order pending", "orderPending", order)
-				trades, orderInBook := ob.ProcessOrder(order, true)
-				log.Info("TRADE Result", "trades", trades, "orderInBook", orderInBook)
+				trades, _ := ob.ProcessOrder(order, true)
+
+				value, err := EncodeBytesItem(order)
+				if err != nil {
+					log.Error("Can't encode", "order", order, "err", err)
+				} else {
+					txMatches[order.Hash] = TxDataMatch{
+						order:  value,
+						trades: trades,
+					}
+				}
 				// Remove order from db pending.
 				tomox.removePendingHash(orderHash)
 				tomox.removeOrderPending(orderHash)
@@ -695,6 +710,8 @@ func (tomox *TomoX) ProcessOrderPending() {
 		}
 		i++
 	}
+
+	return txMatches
 }
 
 func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
