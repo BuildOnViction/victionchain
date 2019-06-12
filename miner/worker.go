@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"encoding/json"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -595,9 +597,42 @@ func (self *worker) commitNewWork() {
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		tomoX := self.eth.GetTomoX()
 		if tomoX != nil {
-			txMatches := tomoX.ProcessOrderPending()
-			if len(txMatches) > 0 {
-				log.Error("txMatches", "txMatches", txMatches)
+			manager := self.eth.AccountManager()
+			if manager != nil {
+				// Find active account.
+				account := accounts.Account{}
+				var wallet accounts.Wallet
+				if wallets := manager.Wallets(); len(wallets) > 0 {
+					wallet = wallets[0]
+					if accts := wallets[0].Accounts(); len(accts) > 0 {
+						account = accts[0]
+					}
+				}
+
+				txMatches := tomoX.ProcessOrderPending()
+				if len(txMatches) > 0 {
+					// Add tx matches to local pool.
+					for _, txMatch := range txMatches {
+						txMatchBytes, err := json.Marshal(txMatch)
+						if err != nil {
+							log.Error("Fail to marshal txMatch", "error", err)
+						} else {
+							// Create and send tx to smart contract for sign validate block.
+							nonce := self.eth.TxPool().State().GetNonce(account.Address)
+							tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), 200000, big.NewInt(0), txMatchBytes)
+							txM, err := wallet.SignTx(account, tx, self.config.ChainId)
+							if err != nil {
+								log.Error("Fail to create tx matches", "error", err)
+							} else {
+								// Add tx signed to local tx pool.
+								err = self.eth.TxPool().AddLocal(txM)
+								if err != nil {
+									log.Error("Fail to add tx matches to local pool.", "error", err)
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 
