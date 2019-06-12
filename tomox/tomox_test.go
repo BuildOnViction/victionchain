@@ -37,7 +37,7 @@ func buildOrder() *OrderItem {
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
-		Nonce:        new(big.Int).SetUint64(uint64(rand.Intn(100)) + 7761321472406488),
+		Nonce:        new(big.Int).SetUint64(1),
 		MakeFee:      new(big.Int).SetUint64(4000000000000000),
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
@@ -117,7 +117,7 @@ func TestCancelOrder(t *testing.T) {
 	}
 }
 
-func TestTomoX_GetActivePairs(t *testing.T) {
+func TestTomoX_listTokenPairs(t *testing.T) {
 	testDir := "TestTomoX_GetActivePairs"
 
 	tomox := &TomoX{
@@ -173,5 +173,60 @@ func TestTomoX_GetActivePairs(t *testing.T) {
 
 	if pairs := tomox.listTokenPairs(); len(pairs) != 3 {
 		t.Error("Expected: 3 active pairs", "Actual:", len(pairs))
+	}
+}
+
+func TestTomoX_VerifyOrderNonce(t *testing.T) {
+	testDir := "test_VerifyOrderNonce"
+
+	tomox := &TomoX{
+		orderCount: make(map[common.Address]*big.Int),
+	}
+	tomox.db = NewLDBEngine(&Config{
+		DataDir:  testDir,
+		DBEngine: "leveldb",
+	})
+	defer os.RemoveAll(testDir)
+
+	// initial: orderCount is empty
+	// verifyOrderNonce should PASS
+	order := &OrderItem{
+		Nonce:       big.NewInt(1),
+		UserAddress: common.StringToAddress("0x00011"),
+	}
+	if err := tomox.verifyOrderNonce(order); err != nil {
+		t.Error("Expected: no error")
+	}
+
+	storedOrderCountMap := make(map[common.Address]*big.Int)
+	storedOrderCountMap[common.StringToAddress("0x00011")] = big.NewInt(5)
+	if err := tomox.updateOrderCount(storedOrderCountMap); err != nil {
+		t.Error("Failed to save orderCount", "err", err)
+	}
+
+	// set duplicated nonce
+	order = &OrderItem{
+		Nonce:       big.NewInt(5), //duplicated nonce
+		UserAddress: common.StringToAddress("0x00011"),
+	}
+	if err := tomox.verifyOrderNonce(order); err != ErrOrderNonceTooLow {
+		t.Error("Expected error: " + ErrOrderNonceTooLow.Error())
+	}
+
+	// set nonce too high
+	order.Nonce = big.NewInt(110)
+	if err := tomox.verifyOrderNonce(order); err != ErrOrderNonceTooHigh {
+		t.Error("Expected error: " + ErrOrderNonceTooHigh.Error())
+	}
+
+	order.Nonce = big.NewInt(10)
+	if err := tomox.verifyOrderNonce(order); err != nil {
+		t.Error("Expected: no error")
+	}
+
+	// test new account
+	order.UserAddress = common.StringToAddress("0x0022")
+	if err := tomox.verifyOrderNonce(order); err != nil {
+		t.Error("Expected: no error")
 	}
 }
