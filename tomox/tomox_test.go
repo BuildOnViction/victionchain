@@ -117,7 +117,7 @@ func TestCancelOrder(t *testing.T) {
 	}
 }
 
-func TestTomoX_GetActivePairs(t *testing.T) {
+func TestTomoX_listTokenPairs(t *testing.T) {
 	testDir := "TestTomoX_GetActivePairs"
 
 	tomox := &TomoX{
@@ -200,7 +200,9 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 
 	storedOrderCountMap := make(map[common.Address]*big.Int)
 	storedOrderCountMap[common.StringToAddress("0x00011")] = big.NewInt(5)
-	tomox.updateOrderCount(storedOrderCountMap)
+	if err := tomox.updateOrderCount(storedOrderCountMap); err != nil {
+		t.Error("Failed to save orderCount", "err", err)
+	}
 
 	// set duplicated nonce
 	order = &OrderItem{

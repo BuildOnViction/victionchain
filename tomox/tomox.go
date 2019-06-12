@@ -42,7 +42,7 @@ const (
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
 	pendingOrder         = "PENDING_ORDER"
-	orderCountKey        = "tomox_ordercount"
+	orderCountKey        = "ORDER_COUNT"
 	activePairsKey       = "ACTIVE_PAIRS"
 )
 
@@ -662,7 +662,9 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 			}
 			log.Info("Process saved")
 			tomox.orderCount[order.UserAddress] = order.Nonce
-			tomox.updateOrderCount(tomox.orderCount)
+			if err := tomox.updateOrderCount(tomox.orderCount); err != nil {
+				log.Error("Failed to save orderCount", "err", err)
+			}
 
 		} else {
 			log.Info("Update order")
@@ -717,10 +719,11 @@ func (tomox *TomoX) loadOrderCount() error {
 }
 
 // update orderCount to persistent storage
-func (tomox *TomoX) updateOrderCount(orderCount map[common.Address]*big.Int) {
+func (tomox *TomoX) updateOrderCount(orderCount map[common.Address]*big.Int) error {
 	if err := tomox.db.Put([]byte(orderCountKey), orderCount); err != nil {
-		log.Error("Failed to save orderCount", "err", err)
+		return err
 	}
+	return nil
 }
 
 
