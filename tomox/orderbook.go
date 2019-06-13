@@ -494,3 +494,11 @@ func (orderBook *OrderBook) SaveOrderPending(order *OrderItem) error {
 
 	return nil
 }
+
+func (orderBook *OrderBook) Hash() (common.Hash, error) {
+	obEncoded, err := EncodeBytesItem(orderBook.Item)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.BytesToHash(obEncoded), nil
+}
