@@ -257,3 +257,42 @@ func TestEncodeDecodeTXMatch(t *testing.T) {
 		t.Error("marshal and unmarshal txMatches not valid", "mashal", txMatches[order.Hash], "unmarshal", decodeMatches[order.Hash])
 	}
 }
+
+func TestProcessedHash(t *testing.T) {
+	testDir := "TestProcessedHash"
+
+	tomox := &TomoX{
+		Orderbooks:  map[string]*OrderBook{},
+		activePairs: make(map[string]bool),
+		db: NewLDBEngine(&Config{
+			DataDir:  testDir,
+			DBEngine: "leveldb",
+		}),
+	}
+	defer os.RemoveAll(testDir)
+
+	if pHashes := tomox.getPendingHashes(); len(pHashes) != 0 {
+		t.Error("Expected: no pending hash", "Actual:", len(pHashes))
+	}
+
+	var hash common.Hash
+	hash = common.StringToHash("0x0000000000000000000000000000000000000000")
+	tomox.addProcessedOrderHash(hash, 3)
+	hash = common.StringToHash("0x0000000000000000000000000000000000000001")
+	tomox.addProcessedOrderHash(hash, 3)
+	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
+	tomox.addProcessedOrderHash(hash, 3)
+	hash = common.StringToHash("0x0000000000000000000000000000000000000003")
+	tomox.addProcessedOrderHash(hash, 3)
+	hash = common.StringToHash("0x0000000000000000000000000000000000000004")
+	tomox.addProcessedOrderHash(hash, 3)
+	hash = common.StringToHash("0x0000000000000000000000000000000000000005")
+	tomox.addProcessedOrderHash(hash, 3)
+	pHashes := tomox.getProcessedOrderHash()
+	if len(pHashes) != 3 {
+		t.Error("Expected: 3 processed hash", "Actual:", len(pHashes), "pHashes", pHashes)
+	}
+	if ! tomox.existProcessedOrderHash(common.StringToHash("0x0000000000000000000000000000000000000004")) {
+		t.Error("Processed hash not exist")
+	}
+}
