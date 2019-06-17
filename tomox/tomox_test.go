@@ -29,7 +29,7 @@ func buildOrder(nonce *big.Int) *OrderItem {
 		Type:            "LO",
 		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
-		Hash: common.StringToHash(string(rand.Intn(1000))),
+		Hash: common.StringToHash(nonce.String()),
 		Signature: &Signature{
 			V: v[0],
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
