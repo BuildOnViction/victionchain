@@ -6,6 +6,7 @@ import (
 	"strings"
 	// rbt "github.com/emirpasic/gods/trees/redblacktree"
 	"encoding/hex"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -400,4 +401,12 @@ func (orderTree *OrderTree) MinPriceList() *OrderList {
 		}
 	}
 	return nil
+}
+
+func (orderTree *OrderTree) Hash() (common.Hash, error) {
+	olEncoded, err := EncodeBytesItem(orderTree.Item)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.BytesToHash(olEncoded), nil
 }

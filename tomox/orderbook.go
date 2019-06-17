@@ -432,3 +432,11 @@ func (orderBook *OrderBook) VolumeAtPrice(side string, price *big.Int) *big.Int 
 
 	return volume
 }
+
+func (orderBook *OrderBook) Hash() (common.Hash, error) {
+	obEncoded, err := EncodeBytesItem(orderBook.Item)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.BytesToHash(obEncoded), nil
+}

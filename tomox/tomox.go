@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"runtime"
 	"strings"
 	"sync"
@@ -40,6 +41,7 @@ const (
 	SizeMask             = byte(3) // mask used to extract the size of payload size field from the flags
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
+	orderCountKey        = "ORDER_COUNT"
 	activePairsKey       = "ACTIVE_PAIRS"
 	pendingHash          = "PENDING_HASH"
 	pendingPrefix        = "XP"
@@ -67,6 +69,7 @@ type TomoX struct {
 	// Order related
 	Orderbooks map[string]*OrderBook
 	db         OrderDao
+	orderCount map[common.Address]*big.Int
 
 	// P2P messaging related
 	protocol p2p.Protocol
@@ -113,6 +116,7 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 func New(cfg *Config) *TomoX {
 	tomoX := &TomoX{
 		Orderbooks:    make(map[string]*OrderBook),
+		orderCount:    make(map[common.Address]*big.Int),
 		peers:         make(map[*Peer]struct{}),
 		quit:          make(chan struct{}),
 		envelopes:     make(map[common.Hash]*Envelope),
@@ -649,9 +653,84 @@ func (tomox *TomoX) GetOrder(pairName, orderID string) *Order {
 }
 
 func (tomox *TomoX) InsertOrder(order *OrderItem) error {
-	tomox.addPendingHash(order.Hash)
-	tomox.addOrderPending(order)
+	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
+	if err != nil {
+		return err
+	}
 
+	if ob != nil {
+		// insert
+		if order.OrderID == 0 {
+			if err := tomox.verifyOrderNonce(order); err != nil {
+				return err
+			}
+			// Save order into orderbook tree.
+			tomox.addPendingHash(order.Hash)
+			tomox.addOrderPending(order)
+
+			log.Info("Process saved")
+			tomox.orderCount[order.UserAddress] = order.Nonce
+			if err := tomox.updateOrderCount(tomox.orderCount); err != nil {
+				log.Error("Failed to save orderCount", "err", err)
+			}
+
+		} else {
+			log.Info("Update order")
+			if err := ob.UpdateOrder(order); err != nil {
+				log.Error("Update order failed", "order", order, "err", err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (tomox *TomoX) verifyOrderNonce(order *OrderItem) error {
+	var (
+		orderCount *big.Int
+		ok         bool
+	)
+
+	// in case of restarting nodes, data in memory has lost
+	// should load from persistent storage
+	if len(tomox.orderCount) == 0 {
+		if err := tomox.loadOrderCount(); err != nil {
+			// if a node has just started, its database doesn't have orderCount information
+			// Hence, we should not throw error here
+			log.Debug("orderCount is empty in leveldb", "err", err)
+		}
+	}
+	if orderCount, ok = tomox.orderCount[order.UserAddress]; !ok {
+		orderCount = big.NewInt(0)
+	}
+
+	if order.Nonce.Cmp(orderCount) <= 0 {
+		return ErrOrderNonceTooLow
+	}
+	distance := Sub(order.Nonce, orderCount)
+	if distance.Cmp(new(big.Int).SetUint64(LimitThresholdOrderNonceInQueue)) > 0 {
+		return ErrOrderNonceTooHigh
+	}
+	return nil
+}
+
+// load orderCount from persistent storage
+func (tomox *TomoX) loadOrderCount() error {
+	var orderCount map[common.Address]*big.Int
+	val, err := tomox.db.Get([]byte(orderCountKey), orderCount)
+	if err != nil {
+		return err
+	}
+	tomox.orderCount = val.(map[common.Address]*big.Int)
+	return nil
+}
+
+// update orderCount to persistent storage
+func (tomox *TomoX) updateOrderCount(orderCount map[common.Address]*big.Int) error {
+	if err := tomox.db.Put([]byte(orderCountKey), orderCount); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -687,7 +766,7 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 		if i <= orderProcessLimit {
 			order := tomox.getOrderPending(orderHash)
 			if order != nil {
-				if ! tomox.existProcessedOrderHash(orderHash) {
+				if !tomox.existProcessedOrderHash(orderHash) {
 					ob, _ := tomox.getAndCreateIfNotExisted(order.PairName)
 					log.Info("Process order pending", "orderPending", order)
 					trades, _ := ob.ProcessOrder(order, true)
@@ -774,7 +853,7 @@ func (tomox *TomoX) addPendingHash(orderHash common.Hash) []common.Hash {
 			find = true
 		}
 	}
-	if ! find {
+	if !find {
 		pendingHashes = append(pendingHashes, orderHash)
 	}
 	// Store pending hash.
@@ -867,8 +946,7 @@ func (tomox *TomoX) getProcessedOrderHash() []common.Hash {
 
 	key := []byte(processedHash)
 	if ok, _ := tomox.db.Has(key); ok {
-		if val, err = tomox.db.Get(key, val);
-			err != nil {
+		if val, err = tomox.db.Get(key, val); err != nil {
 			log.Error("Failed to load processed order hashes", "err", err)
 			return nil
 		}

@@ -16,12 +16,15 @@ import (
 )
 
 const (
-	filterTimeout = 300 // filters are considered timeout out after filterTimeout seconds
+	filterTimeout                   = 300 // filters are considered timeout out after filterTimeout seconds
+	LimitThresholdOrderNonceInQueue = 100
 )
 
 // List of errors
 var (
-	ErrNoTopics = errors.New("missing topic(s)")
+	ErrNoTopics          = errors.New("missing topic(s)")
+	ErrOrderNonceTooLow  = errors.New("OrderNonce too low")
+	ErrOrderNonceTooHigh = errors.New("OrderNonce too high")
 )
 
 // PublicTomoXAPI provides the tomoX RPC service that can be

@@ -318,3 +318,11 @@ func (orderList *OrderList) MoveToTail(order *Order) {
 	orderList.Item.TailOrder = order.Key
 	orderList.Save()
 }
+
+func (orderList *OrderList) Hash() (common.Hash, error) {
+	olEncoded, err := EncodeBytesItem(orderList.Item)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.BytesToHash(olEncoded), nil
+}

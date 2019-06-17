@@ -19,6 +19,7 @@ package console
 import (
 	"bytes"
 	"errors"
+	"github.com/ethereum/go-ethereum/tomox"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -104,7 +105,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 	if confOverride != nil {
 		confOverride(ethConf)
 	}
-	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return eth.New(ctx, ethConf) }); err != nil {
+	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return eth.New(ctx, ethConf, &tomox.TomoX{}) }); err != nil {
 		t.Fatalf("failed to register Ethereum protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it
