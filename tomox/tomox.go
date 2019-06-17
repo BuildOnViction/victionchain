@@ -1017,3 +1017,17 @@ func (tomox *TomoX) listTokenPairs() []string {
 	}
 	return activePairs
 }
+
+func (tomox *TomoX) snapshot(blockHash common.Hash) error {
+	var (
+		snap *Snapshot
+		err  error
+	)
+	if snap, err = newSnapshot(tomox, blockHash); err != nil {
+		return nil
+	}
+	if err = snap.store(tomox.db); err != nil {
+		return err
+	}
+	return nil
+}
