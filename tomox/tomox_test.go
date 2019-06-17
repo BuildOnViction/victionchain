@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func buildOrder() *OrderItem {
+func buildOrder(nonce *big.Int) *OrderItem {
 	rand.Seed(time.Now().UTC().UnixNano())
 	v := []byte(string(rand.Intn(999)))
 	lstBuySell := []string{"BUY", "SELL"}
@@ -36,7 +36,7 @@ func buildOrder() *OrderItem {
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
-		Nonce:        new(big.Int).SetUint64(1),
+		Nonce:        nonce,
 		MakeFee:      new(big.Int).SetUint64(4000000000000000),
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
@@ -45,8 +45,8 @@ func buildOrder() *OrderItem {
 	return order
 }
 
-func TestCreateOrder(t *testing.T) {
-	order := buildOrder()
+func testCreateOrder(t *testing.T, nonce *big.Int) {
+	order := buildOrder(nonce)
 	topic := order.BaseToken.Hex() + "::" + order.QuoteToken.Hex()
 	encodedTopic := fmt.Sprintf("0x%s", hex.EncodeToString([]byte(topic)))
 	fmt.Println("topic: ", encodedTopic)
@@ -81,14 +81,14 @@ func TestCreateOrder(t *testing.T) {
 }
 
 func TestCreate10Orders(t *testing.T) {
-	for i := 0; i <= 20; i++ {
-		TestCreateOrder(t)
+	for i := 1; i <= 20; i++ {
+		testCreateOrder(t, new(big.Int).SetUint64(uint64(i)))
 		time.Sleep(1 * time.Second)
 	}
 }
 
 func TestCancelOrder(t *testing.T) {
-	order := buildOrder()
+	order := buildOrder(new(big.Int).SetInt64(1))
 	topic := order.BaseToken.Hex() + "::" + order.QuoteToken.Hex()
 	encodedTopic := fmt.Sprintf("0x%s", hex.EncodeToString([]byte(topic)))
 	fmt.Println("topic: ", encodedTopic)
@@ -151,7 +151,7 @@ func TestDBPending(t *testing.T) {
 		t.Error("Expected: 2 pending hash", "Actual:", len(pHashes))
 	}
 
-	order := buildOrder()
+	order := buildOrder(new(big.Int).SetInt64(1))
 	tomox.addOrderPending(order)
 	od := tomox.getOrderPending(order.Hash)
 	if order.Hash.String() != od.Hash.String() {
@@ -233,7 +233,7 @@ func TestEncodeDecodeTXMatch(t *testing.T) {
 	transactionRecord["quantity"] = new(big.Int).SetUint64(uint64(15) * 1000000000000000000).String()
 	trades = append(trades, transactionRecord)
 
-	order := buildOrder()
+	order := buildOrder(new(big.Int).SetInt64(1))
 	value, err := EncodeBytesItem(order)
 	if err != nil {
 		t.Error("Can't encode", "order", order, "err", err)
