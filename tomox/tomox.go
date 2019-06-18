@@ -784,8 +784,12 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 				}
 
 				// Remove order from db pending.
-				tomox.removePendingHash(orderHash)
-				tomox.removeOrderPending(orderHash)
+				if err := tomox.removePendingHash(orderHash); err != nil {
+					log.Error("Fail to remove pending hash", "err", err)
+				}
+				if err := tomox.removeOrderPending(orderHash); err != nil {
+					log.Error("Fail to remove order pending", "err", err)
+				}
 			} else {
 				log.Error("Fail to get order pending from db", "hash", orderHash)
 			}
@@ -866,7 +870,7 @@ func (tomox *TomoX) addPendingHash(orderHash common.Hash) []common.Hash {
 	return pendingHashes
 }
 
-func (tomox *TomoX) removePendingHash(orderHash common.Hash) []common.Hash {
+func (tomox *TomoX) removePendingHash(orderHash common.Hash) error {
 	pendingHashes := tomox.getPendingHashes()
 	if pendingHashes == nil {
 		return nil
@@ -879,10 +883,10 @@ func (tomox *TomoX) removePendingHash(orderHash common.Hash) []common.Hash {
 	// Store pending hash.
 	if err := tomox.db.Put([]byte(pendingHash), pendingHashes); err != nil {
 		log.Error("Fail to delete order hash pending", "err", err)
-		return nil
+		return err
 	}
 
-	return pendingHashes
+	return nil
 }
 
 func (tomox *TomoX) getPendingHashes() []common.Hash {
