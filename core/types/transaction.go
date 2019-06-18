@@ -284,7 +284,7 @@ func (tx *Transaction) IsSpecialTransaction() bool {
 	if tx.To() == nil {
 		return false
 	}
-	return tx.To().String() == common.RandomizeSMC || tx.To().String() == common.BlockSigners
+	return tx.To().String() == common.RandomizeSMC || tx.To().String() == common.BlockSigners || tx.To().String() == common.TomoXAddr
 }
 
 func (tx *Transaction) IsSigningTransaction() bool {
