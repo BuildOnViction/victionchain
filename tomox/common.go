@@ -2,8 +2,8 @@ package tomox
 
 import (
 	"encoding/json"
+	"errors"
 	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -16,6 +16,12 @@ const (
 	TrueByte  = byte(1)
 	FalseByte = byte(0)
 	decimals  = 18
+)
+
+var (
+	// errors
+	ErrUnsupportedEngine    = errors.New("only POSV supports matching orders")
+	ErrTomoXServiceNotFound = errors.New("can't attach tomoX service")
 )
 
 // use alloc to prevent reference manipulation

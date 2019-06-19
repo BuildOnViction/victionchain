@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	prefix = "tomox-snap-"
+	prefix            = "tomox-snap-"
+	latestSnapshotKey = "tomox-snap-latest"
 )
 
 var (
-	 // errors
+	// errors
 	errOrderBooKSnapshotNotFound = errors.New("orderBook snapshot not found")
 	errInvalidTreeHash           = errors.New("orderTree: invalid hash")
 	errInvalidOrderBookHash      = errors.New("orderBook: invalid hash")
@@ -134,7 +135,6 @@ func loadSnapshot(db OrderDao, blockHash common.Hash) (*Snapshot, error) {
 	snap = blob.(*Snapshot)
 	return snap, nil
 }
-
 
 // import all orderbooks from snapshot
 func (s *Snapshot) RestoreOrderBookFromSnapshot(db OrderDao, pairName string) (*OrderBook, error) {
