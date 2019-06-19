@@ -58,6 +58,12 @@ type Config struct {
 type TxDataMatch struct {
 	order  []byte
 	trades []map[string]string
+	obOld  common.Hash
+	obNew  common.Hash
+	askOld common.Hash
+	askNew common.Hash
+	bidOld common.Hash
+	bidNew common.Hash
 }
 
 // DefaultConfig represents (shocker!) the default configuration.
@@ -777,8 +783,36 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 							log.Error("Fail to get/create orderbook", "order.PairName", order.PairName)
 							continue
 						}
+
 						log.Info("Process order pending", "orderPending", order)
+						obOld, err := ob.Hash()
+						if err != nil {
+							log.Error("Fail to get orderbook hash old", "err", err)
+						}
+						askOld, err := ob.Asks.Hash()
+						if err != nil {
+							log.Error("Fail to get ask tree hash old", "err", err)
+						}
+						bidOld, err := ob.Bids.Hash()
+						if err != nil {
+							log.Error("Fail to get bid tree hash old", "err", err)
+						}
+
+						// Process ME.
 						trades, _ := ob.ProcessOrder(order, true)
+
+						obNew, err := ob.Hash()
+						if err != nil {
+							log.Error("Fail to get orderbook hash new", "err", err)
+						}
+						askNew, err := ob.Asks.Hash()
+						if err != nil {
+							log.Error("Fail to get ask tree hash new", "err", err)
+						}
+						bidNew, err := ob.Bids.Hash()
+						if err != nil {
+							log.Error("Fail to get bid tree hash new", "err", err)
+						}
 
 						value, err := EncodeBytesItem(order)
 						if err != nil {
@@ -788,6 +822,12 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 							txMatches[order.Hash] = TxDataMatch{
 								order:  value,
 								trades: trades,
+								obOld:  obOld,
+								obNew:  obNew,
+								askOld: askOld,
+								askNew: askNew,
+								bidOld: bidOld,
+								bidNew: bidNew,
 							}
 						}
 						if err := tomox.addProcessedOrderHash(orderHash, 1000); err != nil {
