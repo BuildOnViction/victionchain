@@ -31,13 +31,11 @@ type OrderBookSnapshot struct {
 	Bids *OrderTreeSnapshot
 	Asks *OrderTreeSnapshot
 	Data []byte
-	Hash common.Hash
 }
 
 // snapshot of OrderTree
 type OrderTreeSnapshot struct {
 	Data      []byte
-	Hash      common.Hash
 	OrderList map[common.Hash]*OrderListSnapshot // common.BytesToHash(getKeyFromPrice(price)) => orderlist
 }
 
@@ -55,7 +53,6 @@ func (s *Snapshot) store(db OrderDao) error {
 // take a snapshot of data of tomox
 func newSnapshot(tomox *TomoX, blockHash common.Hash) (*Snapshot, error) {
 	var (
-		orderBookHash            common.Hash
 		bidTreeSnap, askTreeSnap *OrderTreeSnapshot
 		encodedBytes             []byte
 		err                      error
@@ -70,12 +67,6 @@ func newSnapshot(tomox *TomoX, blockHash common.Hash) (*Snapshot, error) {
 			return snap, err
 		}
 		obSnap.Data = encodedBytes
-
-		orderBookHash, err = ob.Hash()
-		if err != nil {
-			return snap, err
-		}
-		obSnap.Hash = orderBookHash
 		if bidTreeSnap, err = prepareOrderTreeData(ob.Bids); err != nil {
 			return snap, err
 		}
@@ -92,15 +83,10 @@ func newSnapshot(tomox *TomoX, blockHash common.Hash) (*Snapshot, error) {
 // take a snapshot of orderTree
 func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 	var (
-		orderTreeHash  common.Hash
 		serializedTree []byte
 		err            error
 	)
 	snap := new(OrderTreeSnapshot)
-	if orderTreeHash, err = tree.Hash(); err != nil {
-		return &OrderTreeSnapshot{}, err
-	}
-	snap.Hash = orderTreeHash
 	serializedTree, err = EncodeBytesItem(tree.Item)
 	if err != nil {
 		return &OrderTreeSnapshot{}, err
@@ -174,7 +160,7 @@ func (s *Snapshot) RestoreOrderBookFromSnapshot(db OrderDao, pairName string) (*
 	ob.Asks = asks
 
 	// verify hash
-	if err = verifyHash(ob, obSnap.Hash); err != nil {
+	if err = verifyHash(ob, common.BytesToHash(obSnap.Data)); err != nil {
 		return &OrderBook{}, err
 	}
 	return ob, nil
@@ -237,7 +223,7 @@ func (s *Snapshot) RestoreOrderTree(treeSnap *OrderTreeSnapshot, tree *OrderTree
 			return tree, err
 		}
 	}
-	if err = verifyHash(tree, treeSnap.Hash); err != nil {
+	if err = verifyHash(tree, common.BytesToHash(treeSnap.Data)); err != nil {
 		return tree, err
 	}
 	return tree, nil

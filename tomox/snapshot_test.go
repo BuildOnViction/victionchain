@@ -195,22 +195,31 @@ func TestTomoX_Snapshot(t *testing.T) {
 
 	// verify orderbook hash
 	hash, err := ob.Hash()
-	if err != nil || newSnap.OrderBooks[pair].Hash != hash {
-		t.Error("Wrong orderbook hash", "expected", hash, "actual", newSnap.OrderBooks[pair].Hash)
+	if err != nil {
+		t.Error(err)
+	}
+	var newOb *OrderBook
+	newOb, err = newSnap.RestoreOrderBookFromSnapshot(tomox.db, pair)
+	if err != nil {
+		t.Error("Failed to restore orderbook from snapshot", err)
+	}
+
+	newHash, err := newOb.Hash()
+	if err != nil {
+		t.Error(err)
+	}
+	if err != nil || newHash != hash {
+		t.Error("Wrong orderbook hash", "expected", hash, "actual", newHash)
 	}
 
 	var (
-		newOb            *OrderBook
 		bidTree, askTree *OrderTree
 		treeHash         common.Hash
 	)
 
 	// verify bid tree
 	hash, err = ob.Bids.Hash()
-	newOb, err = newSnap.RestoreOrderBookFromSnapshot(tomox.db, pair)
-	if err != nil {
-		t.Error("Failed to restore orderbook from snapshot", err)
-	}
+
 	bidTree = newOb.Bids
 	treeHash, err = bidTree.Hash()
 	if err != nil || treeHash != hash {
