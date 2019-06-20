@@ -50,7 +50,7 @@ type OrderBookItemRecordBSON struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db   OrderDao   // this is for orderBook
+	db   OrderDao // this is for orderBook
 	Bids *OrderTree `json:"bids"`
 	Asks *OrderTree `json:"asks"`
 	Item *OrderBookItem
@@ -327,7 +327,6 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 			newBookQuantity = Sub(headOrder.Item.Quantity, quantityToTrade)
 			headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt)
 			quantityToTrade = Zero()
-
 		} else if IsEqual(quantityToTrade, headOrder.Item.Quantity) {
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			if side == Bid {
@@ -352,8 +351,11 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 
 		transactionRecord := make(map[string]string)
 		transactionRecord["timestamp"] = strconv.FormatUint(orderBook.Item.Timestamp, 10)
-		transactionRecord["price"] = tradedPrice.String()
 		transactionRecord["quantity"] = tradedQuantity.String()
+		transactionRecord["exAddr"] = headOrder.Item.ExchangeAddress.String()
+		transactionRecord["uAddr"] = headOrder.Item.UserAddress.String()
+		transactionRecord["bToken"] = headOrder.Item.BaseToken.String()
+		transactionRecord["qToken"] = headOrder.Item.QuoteToken.String()
 
 		trades = append(trades, transactionRecord)
 	}
