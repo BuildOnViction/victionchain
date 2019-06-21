@@ -115,15 +115,22 @@ func NewOrder(orderItem *OrderItem, orderListKey []byte) *Order {
 }
 
 // UpdateQuantity : update quantity of the order
-func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, newTimestamp uint64) {
+func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, newTimestamp uint64) error {
 	if newQuantity.Cmp(order.Item.Quantity) > 0 && !bytes.Equal(orderList.Item.TailOrder, order.Key) {
-		orderList.MoveToTail(order)
+		if err := orderList.MoveToTail(order); err != nil {
+			return err
+		}
 	}
 	// update volume and modified timestamp
 	orderList.Item.Volume = Sub(orderList.Item.Volume, Sub(order.Item.Quantity, newQuantity))
 	order.Item.UpdatedAt = newTimestamp
 	order.Item.Quantity = CloneBigInt(newQuantity)
 	log.Debug("QUANTITY", order.Item.Quantity.String())
-	orderList.SaveOrder(order)
-	orderList.Save()
+	if err := orderList.SaveOrder(order); err != nil {
+		return err
+	}
+	if err := orderList.Save(); err != nil {
+		return err
+	}
+	return nil
 }

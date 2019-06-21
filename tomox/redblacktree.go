@@ -63,6 +63,9 @@ func (tree *Tree) Put(key []byte, value []byte) error {
 		insertedNode = &Node{Key: key, Item: item}
 	} else {
 		node := tree.Root()
+		if node == nil {
+			return fmt.Errorf("Error on inserting node into the tree. tree.Root() is nil")
+		}
 		loop := true
 
 		for loop {
