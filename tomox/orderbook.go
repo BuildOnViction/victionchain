@@ -214,39 +214,51 @@ func (orderBook *OrderBook) WorstAsk() (value *big.Int) {
 }
 
 // processMarketOrder : process the market order
-func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool) []map[string]string {
-	var trades []map[string]string
+func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool) ([]map[string]string, error) {
+	var (
+		trades []map[string]string
+		newTrades []map[string]string
+		err error
+	)
 	quantityToTrade := order.Quantity
 	side := order.Side
-	var newTrades []map[string]string
 	// speedup the comparison, do not assign because it is pointer
 	zero := Zero()
 	if side == Bid {
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() {
 			bestPriceAsks := orderBook.Asks.MinPriceList()
-			quantityToTrade, newTrades = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose)
+			quantityToTrade, newTrades, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose)
+			if err != nil {
+				return nil, err
+			}
 			trades = append(trades, newTrades...)
 		}
 	} else {
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() {
 			bestPriceBids := orderBook.Bids.MaxPriceList()
-			quantityToTrade, newTrades = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose)
+			quantityToTrade, newTrades, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose)
+			if err != nil {
+				return nil, err
+			}
 			trades = append(trades, newTrades...)
 		}
 	}
-	return trades
+	return trades, nil
 }
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem) {
-	var trades []map[string]string
+func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem, error) {
+	var (
+		trades []map[string]string
+		newTrades []map[string]string
+		orderInBook *OrderItem
+		err error
+	)
 	quantityToTrade := order.Quantity
 	side := order.Side
 	price := order.Price
 
-	var newTrades []map[string]string
-	var orderInBook *OrderItem
 	// speedup the comparison, do not assign because it is pointer
 	zero := Zero()
 
@@ -254,7 +266,10 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 		minPrice := orderBook.Asks.MinPrice()
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() && price.Cmp(minPrice) >= 0 {
 			bestPriceAsks := orderBook.Asks.MinPriceList()
-			quantityToTrade, newTrades = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose)
+			quantityToTrade, newTrades, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose)
+			if err != nil {
+				return nil, nil, err
+			}
 			trades = append(trades, newTrades...)
 			minPrice = orderBook.Asks.MinPrice()
 		}
@@ -270,7 +285,10 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 		maxPrice := orderBook.Bids.MaxPrice()
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() && price.Cmp(maxPrice) <= 0 {
 			bestPriceBids := orderBook.Bids.MaxPriceList()
-			quantityToTrade, newTrades = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose)
+			quantityToTrade, newTrades, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose)
+			if err != nil {
+				return nil, nil, err
+			}
 			trades = append(trades, newTrades...)
 			maxPrice = orderBook.Bids.MaxPrice()
 		}
@@ -282,23 +300,31 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 			orderInBook = order
 		}
 	}
-	return trades, orderInBook
+	return trades, orderInBook, nil
 }
 
 // ProcessOrder : process the order
 func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem, error) {
+	var (
+		orderInBook *OrderItem
+		trades []map[string]string
+		err error
+	)
 	orderType := order.Type
-	var orderInBook *OrderItem
-	var trades []map[string]string
-
 	orderBook.UpdateTime()
 	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
 	orderBook.Item.NextOrderID++
 
 	if orderType == Market {
-		trades = orderBook.processMarketOrder(order, verbose)
+		trades, err = orderBook.processMarketOrder(order, verbose)
+		if err != nil {
+			return nil, nil, err
+		}
 	} else {
-		trades, orderInBook = orderBook.processLimitOrder(order, verbose)
+		trades, orderInBook, err = orderBook.processLimitOrder(order, verbose)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// update orderBook
@@ -310,7 +336,7 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[
 }
 
 // processOrderList : process the order list
-func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool) (*big.Int, []map[string]string) {
+func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool) (*big.Int, []map[string]string, error) {
 	quantityToTrade := CloneBigInt(quantityStillToTrade)
 	var trades []map[string]string
 	// speedup the comparison, do not assign because it is pointer
@@ -319,7 +345,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 
 		headOrder := orderList.GetOrder(orderList.Item.HeadOrder)
 		if headOrder == nil {
-			panic("headOrder is null")
+			return nil, nil, fmt.Errorf("headOrder is null")
 		}
 
 		tradedPrice := CloneBigInt(headOrder.Item.Price)
@@ -331,24 +357,34 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			// Do the transaction
 			newBookQuantity = Sub(headOrder.Item.Quantity, quantityToTrade)
-			headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt)
+			if err := headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt); err != nil {
+				return nil, nil, err
+			}
 			quantityToTrade = Zero()
 
 		} else if IsEqual(quantityToTrade, headOrder.Item.Quantity) {
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			if side == Bid {
-				orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList)
+				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList); err != nil {
+					return nil, nil, err
+				}
 			} else {
-				orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList)
+				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList); err != nil {
+					return nil, nil, err
+				}
 			}
 			quantityToTrade = Zero()
 
 		} else {
 			tradedQuantity = CloneBigInt(headOrder.Item.Quantity)
 			if side == Bid {
-				orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList)
+				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList); err != nil {
+					return nil, nil, err
+				}
 			} else {
-				orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList)
+				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList); err != nil {
+					return nil, nil, err
+				}
 			}
 		}
 
@@ -363,7 +399,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 
 		trades = append(trades, transactionRecord)
 	}
-	return quantityToTrade, trades
+	return quantityToTrade, trades, nil
 }
 
 // CancelOrder : cancel the order, just need ID, side and price, of course order must belong

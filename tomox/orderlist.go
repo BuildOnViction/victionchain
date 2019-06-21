@@ -253,9 +253,7 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 
 	//err := orderList.DeleteOrder(order)
 	//FIXME: instead of delete, we save order with CANCEL state
-	err := orderList.SaveOrder(order)
-
-	if err != nil {
+	if err := orderList.SaveOrder(order); err != nil {
 		// stop other operations
 		return err
 	}
@@ -270,19 +268,27 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 		nextOrder.Item.PrevOrder = prevOrder.Key
 		prevOrder.Item.NextOrder = nextOrder.Key
 
-		orderList.SaveOrder(nextOrder)
-		orderList.SaveOrder(prevOrder)
+		if err := orderList.SaveOrder(nextOrder); err != nil {
+			return err
+		}
+		if err := orderList.SaveOrder(prevOrder); err != nil {
+			return err
+		}
 	} else if nextOrder != nil {
 		// this might be wrong
 		nextOrder.Item.PrevOrder = EmptyKey()
 		orderList.Item.HeadOrder = nextOrder.Key
 
-		orderList.SaveOrder(nextOrder)
+		if err := orderList.SaveOrder(nextOrder); err != nil {
+			return err
+		}
 	} else if prevOrder != nil {
 		prevOrder.Item.NextOrder = EmptyKey()
 		orderList.Item.TailOrder = prevOrder.Key
 
-		orderList.SaveOrder(prevOrder)
+		if err := orderList.SaveOrder(prevOrder); err != nil {
+			return err
+		}
 	} else {
 		// empty
 		orderList.Item.HeadOrder = EmptyKey()
@@ -293,12 +299,14 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 }
 
 // MoveToTail : move order to the end of the order list
-func (orderList *OrderList) MoveToTail(order *Order) {
+func (orderList *OrderList) MoveToTail(order *Order) error {
 	if !orderList.isEmptyKey(order.Item.PrevOrder) { // This Order is not the first Order in the OrderList
 		prevOrder := orderList.GetOrder(order.Item.PrevOrder)
 		if prevOrder != nil {
 			prevOrder.Item.NextOrder = order.Item.NextOrder // Link the previous Order to the next Order, then move the Order to tail
-			orderList.SaveOrder(prevOrder)
+			if err := orderList.SaveOrder(prevOrder); err != nil {
+				return err
+			}
 		}
 
 	} else { // This Order is the first Order in the OrderList
@@ -308,18 +316,22 @@ func (orderList *OrderList) MoveToTail(order *Order) {
 	nextOrder := orderList.GetOrder(order.Item.NextOrder)
 	if nextOrder != nil {
 		nextOrder.Item.PrevOrder = order.Item.PrevOrder
-		orderList.SaveOrder(nextOrder)
+		if err := orderList.SaveOrder(nextOrder); err != nil {
+			return err
+		}
 	}
 
 	// Move Order to the last position. Link up the previous last position Order.
 	tailOrder := orderList.GetOrder(orderList.Item.TailOrder)
 	if tailOrder != nil {
 		tailOrder.Item.NextOrder = order.Key
-		orderList.SaveOrder(tailOrder)
+		if err := orderList.SaveOrder(tailOrder); err != nil {
+			return err
+		}
 	}
 
 	orderList.Item.TailOrder = order.Key
-	orderList.Save()
+	return orderList.Save()
 }
 
 func (orderList *OrderList) Hash() (common.Hash, error) {
