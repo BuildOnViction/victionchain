@@ -55,81 +55,58 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
-func (v *BlockValidator) ValidateBody(block *types.Block) error {
+func (v *BlockValidator) ValidateBody(block *types.Block) (error, []common.Hash) {
 	// Check whether the block's known, and if not, that it's linkable
 	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
-		return ErrKnownBlock
+		return ErrKnownBlock, []common.Hash{}
 	}
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
-			return consensus.ErrUnknownAncestor
+			return consensus.ErrUnknownAncestor, []common.Hash{}
 		}
-		return consensus.ErrPrunedAncestor
+		return consensus.ErrPrunedAncestor, []common.Hash{}
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
 	if err := v.engine.VerifyUncles(v.bc, block); err != nil {
-		return err
+		return err, []common.Hash{}
 	}
 	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
-		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
+		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash), []common.Hash{}
 	}
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
-		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
+		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash), []common.Hash{}
 	}
 
 	engine, _ := v.engine.(*posv.Posv)
 	tomoXService := engine.GetTomoXService()
 
+	currentState, err := v.bc.State()
+	if err != nil {
+		return err, []common.Hash{}
+	}
+
+	// validate matchedOrder txs
+	processedHashes :=  []common.Hash{}
+	// clear the previous dry-run cache
+	if tomoXService != nil {
+		tomoXService.GetDB().InitDryRunMode()
+	}
 	for _, tx := range block.Transactions() {
 		if tx.IsMatchingTransaction() {
 			if tomoXService == nil {
 				log.Error("tomox not found")
-				return tomox.ErrTomoXServiceNotFound
+				return tomox.ErrTomoXServiceNotFound, []common.Hash{}
 			}
 			log.Debug("process tx match")
-			txMatch := &tomox.TxDataMatch{}
-			if err := json.Unmarshal(tx.Data(), txMatch); err != nil {
-				return fmt.Errorf("transaction match is corrupted. Failed unmarshal. Error: ", err)
-			}
-			log.Debug("tx unmarshal", "txMatch", txMatch, "tx.Data()", tx.Data())
-			order, err := txMatch.DecodeOrder()
+			hash, err := v.validateMatchedOrder(tomoXService, currentState, tx)
 			if err != nil {
-				return fmt.Errorf("transaction match is corrupted. Failed decode order. Error: ", err)
+				return err, []common.Hash{}
 			}
-			trades := txMatch.GetTrades()
-			log.Debug("Got trades", "number", len(trades), "trades", trades)
-			for _, trade := range trades {
-				tradeSDK := &sdktypes.Trade{}
-				if q, ok := trade["quantity"]; ok {
-					tradeSDK.Amount = new(big.Int)
-					tradeSDK.Amount.SetString(q, 10)
-				}
-				tradeSDK.PricePoint = order.Price
-				tradeSDK.PairName = order.PairName
-				tradeSDK.BaseToken = order.BaseToken
-				tradeSDK.QuoteToken = order.QuoteToken
-				tradeSDK.Status = sdktypes.TradeStatusSuccess
-				tradeSDK.Maker = order.UserAddress
-				tradeSDK.MakerOrderHash = order.Hash
-				if u, ok := trade["uAddr"]; ok {
-					tradeSDK.Taker = common.Address{}
-					tradeSDK.Taker.SetString(u)
-				}
-				tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
-				tradeSDK.TxHash = tx.Hash()
-				tradeSDK.Hash = tradeSDK.ComputeHash()
-				log.Debug("TRADE history", "order", order, "trade", tradeSDK)
-				// put tradeSDK to mongodb on SDK node
-				if tomoXService.IsSDKNode() {
-					db := tomoXService.GetDB()
-					return db.Put(tomox.EmptyKey(), tradeSDK, true)
-				}
-			}
+			processedHashes = append(processedHashes, hash)
 		}
 	}
-
-	return nil
+	return nil, processedHashes
 }
 
 // ValidateState validates the various changes that happen after a state
@@ -158,6 +135,53 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 		return fmt.Errorf("invalid merkle root (remote: %x local: %x)", header.Root, root)
 	}
 	return nil
+}
+
+// return values
+// hash: for removing from pending list and add to processed list
+// orderbook according to the order
+func (v *BlockValidator) validateMatchedOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, tx *types.Transaction) (common.Hash, error) {
+	txMatch := &tomox.TxDataMatch{}
+	if err := json.Unmarshal(tx.Data(), txMatch); err != nil {
+		return common.Hash{}, fmt.Errorf("transaction match is corrupted. Failed unmarshal. Error: %s", err.Error())
+	}
+
+	// verify orderItem
+	order, err := txMatch.DecodeOrder()
+	if err != nil {
+		return common.Hash{},fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err.Error())
+	}
+	if err := order.VerifyMatchedOrder(currentState); err != nil {
+		return common.Hash{},err
+	}
+
+	ob, err := tomoXService.GetOrderBook(order.PairName, true)
+	// if orderbook of this pairName has been updated by previous tx in this block, use it
+
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	// verify old state: orderbook hash, bidTree hash, askTree hash
+	if err := txMatch.VerifyOldTomoXState(ob); err != nil {
+		return common.Hash{}, err
+	}
+
+	// process Matching Engine
+	if _, _, err := ob.ProcessOrder(order, true, true); err != nil {
+		return common.Hash{}, err
+	}
+
+	// verify new state
+	if err := txMatch.VerifyNewTomoXState(ob); err != nil {
+		return common.Hash{}, err
+	}
+
+	trades := txMatch.GetTrades()
+	if err := logTrades(tomoXService, tx.Hash(), order, trades); err != nil {
+		return common.Hash{}, err
+	}
+	return order.Hash, nil
 }
 
 // CalcGasLimit computes the gas limit of the next block after parent.
@@ -189,4 +213,38 @@ func CalcGasLimit(parent *types.Block) uint64 {
 		}
 	}
 	return limit
+}
+
+func logTrades(tomoXService *tomox.TomoX, txHash common.Hash, order *tomox.OrderItem, trades []map[string]string) error {
+	log.Debug("Got trades", "number", len(trades), "trades", trades)
+	for _, trade := range trades {
+		tradeSDK := &sdktypes.Trade{}
+		if q, ok := trade["quantity"]; ok {
+			tradeSDK.Amount = new(big.Int)
+			tradeSDK.Amount.SetString(q, 10)
+		}
+		tradeSDK.PricePoint = order.Price
+		tradeSDK.PairName = order.PairName
+		tradeSDK.BaseToken = order.BaseToken
+		tradeSDK.QuoteToken = order.QuoteToken
+		tradeSDK.Status = sdktypes.TradeStatusSuccess
+		tradeSDK.Maker = order.UserAddress
+		tradeSDK.MakerOrderHash = order.Hash
+		if u, ok := trade["uAddr"]; ok {
+			tradeSDK.Taker = common.Address{}
+			tradeSDK.Taker.SetString(u)
+		}
+		tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
+		tradeSDK.TxHash = txHash
+		tradeSDK.Hash = tradeSDK.ComputeHash()
+		log.Debug("TRADE history", "order", order, "trade", tradeSDK)
+		// put tradeSDK to mongodb on SDK node
+		if tomoXService.IsSDKNode() {
+			db := tomoXService.GetDB()
+			if err := db.Put(tomox.EmptyKey(), tradeSDK, true); err != nil {
+				return fmt.Errorf("failed to store tradeSDK %s", err.Error())
+			}
+		}
+	}
+	return nil
 }

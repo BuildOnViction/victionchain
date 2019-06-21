@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -28,7 +29,7 @@ import (
 //
 type Validator interface {
 	// ValidateBody validates the given block's content.
-	ValidateBody(block *types.Block) error
+	ValidateBody(block *types.Block) (error, []common.Hash)
 
 	// ValidateState validates the given statedb and optionally the receipts and
 	// gas used.
