@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	prefix            = "tomox-snap-"
+	snapshotPrefix    = "tomox-snap-"
 	latestSnapshotKey = "tomox-snap-latest"
 )
 
@@ -47,8 +47,7 @@ type OrderListSnapshot struct {
 
 // put tomox snapshot to db
 func (s *Snapshot) store(db OrderDao) error {
-	// TODO: need to clean up this kind of data later
-	return db.Put(append([]byte(prefix), s.Hash[:]...), s)
+	return db.Put(append([]byte(snapshotPrefix), s.Hash[:]...), s)
 }
 
 // take a snapshot of data of tomox
@@ -133,7 +132,7 @@ func loadSnapshot(db OrderDao, blockHash common.Hash) (*Snapshot, error) {
 		blob interface{}
 		err  error
 	)
-	blob, err = db.Get(append([]byte(prefix), blockHash[:]...), blob)
+	blob, err = db.Get(append([]byte(snapshotPrefix), blockHash[:]...), blob)
 	if err != nil {
 		return nil, err
 	}

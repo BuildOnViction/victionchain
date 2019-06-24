@@ -1025,6 +1025,7 @@ func (tomox *TomoX) Snapshot(blockHash common.Hash) error {
 	var (
 		snap *Snapshot
 		err  error
+		blob interface{}
 	)
 	if snap, err = newSnapshot(tomox, blockHash); err != nil {
 		return nil
@@ -1032,8 +1033,20 @@ func (tomox *TomoX) Snapshot(blockHash common.Hash) error {
 	if err = snap.store(tomox.db); err != nil {
 		return err
 	}
+	// get current snapshot hash in database
+	oldHash := common.Hash{}
+	if blob, err = tomox.db.Get([]byte(latestSnapshotKey), blob); err == nil && blob != nil {
+		oldHash = blob.(common.Hash)
+	}
 	if err = tomox.db.Put([]byte(latestSnapshotKey), blockHash); err != nil {
 		return err
+	}
+
+	// remove old snapshot
+	if oldHash != (common.Hash{}) {
+		if err = tomox.db.Delete(append([]byte(snapshotPrefix), oldHash[:]...), false); err != nil {
+			return err
+		}
 	}
 	return nil
 }
