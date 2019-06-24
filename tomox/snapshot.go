@@ -42,6 +42,7 @@ type OrderTreeSnapshot struct {
 // snapshot of OrderList
 type OrderListSnapshot struct {
 	OrderListItem []byte
+	OrderItem     [][]byte // slice of orderItems, encode each orderItem to []byte
 }
 
 // put tomox snapshot to db
@@ -89,7 +90,7 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 	snap := new(OrderTreeSnapshot)
 	serializedTree, err = EncodeBytesItem(tree.Item)
 	if err != nil {
-		return &OrderTreeSnapshot{}, err
+		return snap, err
 	}
 	snap.OrderTreeItem = serializedTree
 
@@ -99,9 +100,28 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 		priceKeyHash := common.BytesToHash(key)
 		bytes, found := tree.PriceTree.Get(key)
 		if found {
+			ol := tree.decodeOrderList(bytes)
+			// snapshot orderItems
+			var (
+				items [][]byte
+				byteItem []byte
+			)
+			for ol != nil && ol.Item != nil && ol.Item.Length > 0 {
+				headOrder := ol.GetOrder(ol.Item.HeadOrder)
+				if byteItem, err = EncodeBytesItem(headOrder.Item); err != nil {
+					return snap, err
+				}
+				items = append(items, byteItem)
+				if err = ol.RemoveOrder(headOrder); err != nil {
+					return snap, err
+				}
+			}
+
 			snap.OrderList[priceKeyHash] = &OrderListSnapshot{
 				OrderListItem: bytes,
+				OrderItem:     items,
 			}
+
 		}
 	}
 	return snap, nil
@@ -118,7 +138,9 @@ func loadSnapshot(db OrderDao, blockHash common.Hash) (*Snapshot, error) {
 		return nil, err
 	}
 	snap := new(Snapshot)
-	snap = blob.(*Snapshot)
+	if blob != nil {
+		snap = blob.(*Snapshot)
+	}
 	return snap, nil
 }
 
@@ -222,6 +244,19 @@ func (s *Snapshot) RestoreOrderTree(treeSnap *OrderTreeSnapshot, tree *OrderTree
 		if err = tree.SaveOrderList(ol); err != nil {
 			return tree, err
 		}
+
+		// try to update order from snapshot to db in case of missing order in db
+		for _, item := range olSnap.OrderItem {
+			orderItem := &OrderItem{}
+			if err = DecodeBytesItem(item, orderItem); err != nil {
+				return tree, err
+			}
+			order := NewOrder(orderItem, ol.Key)
+			if err = ol.SaveOrder(order); err != nil {
+				return tree, err
+			}
+		}
+
 	}
 	if err = verifyHash(tree, common.BytesToHash(treeSnap.OrderTreeItem)); err != nil {
 		return tree, err

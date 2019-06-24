@@ -139,9 +139,16 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 
 /**
 *	Test scenario:
+*	- insert some orders to fill data to orderbook
 *	- create a new snapshot
 *	- store snapshot
-*	- load snapshot from disk and compare
+*	- delete some orders from database:
+*			to simulate the case that some orders has been disappear from database
+*			since it has been processed a few block later but we haven't taken a snapshot at that point yet
+*			in this case, we expect these orders should be restore in database
+*	- load snapshot
+*	- verify tomoX state (orderbook, bid ordertree, ask ordertree, orderlist) before creating snapshot and after RestoreOrderBookFromSnapshot
+*	- verify orderItems which have been inserted at the first step
 **/
 func TestTomoX_Snapshot(t *testing.T) {
 	testDir := "TestTomoX_Snapshot"
@@ -170,6 +177,27 @@ func TestTomoX_Snapshot(t *testing.T) {
 
 	if err := tomox.Snapshot(blockHash); err != nil {
 		t.Error("Failed to store snapshot", "err", err, "blockHash", blockHash)
+	}
+
+
+	// after taking a snapshot
+	// delete some orders from database
+	// we expect that snapshot loading process should put them back
+	// remove order whose OrderId = 1 (bid order)
+	key := GetKeyFromBig(new(big.Int).SetUint64(1))
+	price := CloneBigInt(ether)
+	price = price.Mul(price, big.NewInt(99))
+	ol := ob.Bids.PriceList(price)
+	if err = ob.Bids.orderDB.Delete(common.BigToHash(Add(ol.slot, new(big.Int).SetBytes(key))).Bytes(), true); err != nil {
+		t.Error("Failed to delete order", "price", price)
+	}
+	// remove order whose OrderId = 4 (ask order)
+	key = GetKeyFromBig(new(big.Int).SetUint64(4))
+	price = CloneBigInt(ether)
+	price = price.Mul(price, big.NewInt(102))
+	ol = ob.Asks.PriceList(price)
+	if err = ob.Asks.orderDB.Delete(common.BigToHash(Add(ol.slot, new(big.Int).SetBytes(key))).Bytes(), true); err != nil {
+		t.Error("Failed to delete order", "price", price)
 	}
 
 	// load snapshot with invalid hash
@@ -231,14 +259,18 @@ func TestTomoX_Snapshot(t *testing.T) {
 	askTree = newOb.Asks
 	treeHash, err = askTree.Hash()
 	if err != nil || treeHash != hash {
-		t.Error("Wrong bid tree hash", "expected", hash, "actual", treeHash)
+		t.Error("Wrong ask tree hash", "expected", hash, "actual", treeHash)
 	}
 
 	// verify bid order, orderId = 1, price = 99
-	price := CloneBigInt(ether)
+	// even though we removed this order from database tomox/snapshot_test.go:179
+	// loading snapshot process should put it back
+	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(99))
 	order := bidTree.GetOrder(GetKeyFromBig(big.NewInt(1)), price)
-	if order.Item.Quantity.Cmp(big.NewInt(100)) != 0 {
+	if order == nil {
+		t.Error("Can not find order", "price", price)
+	} else if order.Item.Quantity.Cmp(big.NewInt(100)) != 0 {
 		t.Error("Wrong order item", "expected quantity", 100, "actual quantity", order.Item.Quantity.Uint64())
 	}
 
@@ -246,7 +278,9 @@ func TestTomoX_Snapshot(t *testing.T) {
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(98))
 	order = bidTree.GetOrder(GetKeyFromBig(big.NewInt(2)), price)
-	if order.Item.Quantity.Cmp(big.NewInt(50)) != 0 {
+	if order == nil {
+		t.Error("Can not find order", "price", price)
+	} else if order.Item.Quantity.Cmp(big.NewInt(50)) != 0 {
 		t.Error("Wrong order item", "expected quantity", 50, "actual quantity", order.Item.Quantity.Uint64())
 	}
 
@@ -254,15 +288,21 @@ func TestTomoX_Snapshot(t *testing.T) {
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(101))
 	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(3)), price)
-	if order.Item.Quantity.Cmp(big.NewInt(200)) != 0 {
+	if order == nil {
+		t.Error("Can not find order", "price", price)
+	} else if order.Item.Quantity.Cmp(big.NewInt(200)) != 0 {
 		t.Error("Wrong order item", "expected quantity", 200, "actual quantity", order.Item.Quantity.Uint64())
 	}
 
 	// verify ask order, orderId = 4, price = 102
+	// even though we removed this order from database tomox/snapshot_test.go:187
+	// loading snapshot should put it back
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(102))
 	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(4)), price)
-	if order.Item.Quantity.Cmp(big.NewInt(300)) != 0 {
+	if order == nil {
+		t.Error("Can not find order", "price", price)
+	} else if order.Item.Quantity.Cmp(big.NewInt(300)) != 0 {
 		t.Error("Wrong order item", "expected quantity", 300, "actual quantity", order.Item.Quantity.Uint64())
 	}
 }
