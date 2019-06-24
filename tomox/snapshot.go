@@ -28,20 +28,20 @@ type Snapshot struct {
 
 // snapshot of OrderBook
 type OrderBookSnapshot struct {
-	Bids *OrderTreeSnapshot
-	Asks *OrderTreeSnapshot
-	Data []byte
+	Bids          *OrderTreeSnapshot
+	Asks          *OrderTreeSnapshot
+	OrderBookItem []byte
 }
 
 // snapshot of OrderTree
 type OrderTreeSnapshot struct {
-	Data      []byte
-	OrderList map[common.Hash]*OrderListSnapshot // common.BytesToHash(getKeyFromPrice(price)) => orderlist
+	OrderTreeItem []byte
+	OrderList     map[common.Hash]*OrderListSnapshot // common.BytesToHash(getKeyFromPrice(price)) => orderlist
 }
 
 // snapshot of OrderList
 type OrderListSnapshot struct {
-	Data []byte
+	OrderListItem []byte
 }
 
 // put tomox snapshot to db
@@ -66,7 +66,7 @@ func newSnapshot(tomox *TomoX, blockHash common.Hash) (*Snapshot, error) {
 		if err != nil {
 			return snap, err
 		}
-		obSnap.Data = encodedBytes
+		obSnap.OrderBookItem = encodedBytes
 		if bidTreeSnap, err = prepareOrderTreeData(ob.Bids); err != nil {
 			return snap, err
 		}
@@ -91,7 +91,7 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 	if err != nil {
 		return &OrderTreeSnapshot{}, err
 	}
-	snap.Data = serializedTree
+	snap.OrderTreeItem = serializedTree
 
 	snap.OrderList = make(map[common.Hash]*OrderListSnapshot)
 	// foreach each price, snapshot its orderlist
@@ -100,7 +100,7 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 		bytes, found := tree.PriceTree.Get(key)
 		if found {
 			snap.OrderList[priceKeyHash] = &OrderListSnapshot{
-				Data: bytes,
+				OrderListItem: bytes,
 			}
 		}
 	}
@@ -135,7 +135,7 @@ func (s *Snapshot) RestoreOrderBookFromSnapshot(db OrderDao, pairName string) (*
 		return &OrderBook{}, errOrderBooKSnapshotNotFound
 	}
 	orderBookItem := &OrderBookItem{}
-	if err = DecodeBytesItem(obSnap.Data, orderBookItem); err != nil {
+	if err = DecodeBytesItem(obSnap.OrderBookItem, orderBookItem); err != nil {
 		return &OrderBook{}, err
 	}
 	key := crypto.Keccak256([]byte(orderBookItem.Name))
@@ -160,7 +160,7 @@ func (s *Snapshot) RestoreOrderBookFromSnapshot(db OrderDao, pairName string) (*
 	ob.Asks = asks
 
 	// verify hash
-	if err = verifyHash(ob, common.BytesToHash(obSnap.Data)); err != nil {
+	if err = verifyHash(ob, common.BytesToHash(obSnap.OrderBookItem)); err != nil {
 		return &OrderBook{}, err
 	}
 	return ob, nil
@@ -204,18 +204,18 @@ func (s *Snapshot) RestoreOrderTree(treeSnap *OrderTreeSnapshot, tree *OrderTree
 	orderListItem := &OrderListItem{}
 
 	// restore bids tree
-	if err = DecodeBytesItem(treeSnap.Data, orderTreeItem); err != nil {
+	if err = DecodeBytesItem(treeSnap.OrderTreeItem, orderTreeItem); err != nil {
 		return tree, err
 	}
 	tree.Item = orderTreeItem
 	for _, olSnap := range treeSnap.OrderList {
-		err = DecodeBytesItem(olSnap.Data, orderListItem)
+		err = DecodeBytesItem(olSnap.OrderListItem, orderListItem)
 		if err != nil {
 			return tree, err
 		}
 		ol := NewOrderListWithItem(orderListItem, tree)
 		// orderlist hash from snapshot
-		orderListSnapHash := common.BytesToHash(treeSnap.OrderList[common.BytesToHash(ol.Key)].Data)
+		orderListSnapHash := common.BytesToHash(treeSnap.OrderList[common.BytesToHash(ol.Key)].OrderListItem)
 		if err = verifyHash(ol, orderListSnapHash); err != nil {
 			return tree, err
 		}
@@ -223,7 +223,7 @@ func (s *Snapshot) RestoreOrderTree(treeSnap *OrderTreeSnapshot, tree *OrderTree
 			return tree, err
 		}
 	}
-	if err = verifyHash(tree, common.BytesToHash(treeSnap.Data)); err != nil {
+	if err = verifyHash(tree, common.BytesToHash(treeSnap.OrderTreeItem)); err != nil {
 		return tree, err
 	}
 	return tree, nil

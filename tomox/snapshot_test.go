@@ -11,14 +11,14 @@ import (
 
 var ether = big.NewInt(1000000000000000000)
 
-func prepareOrderbookData(db OrderDao) (*OrderBook, error) {
+func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 	var (
 		ob  *OrderBook
 		err error
 	)
 	v := []byte(string(rand.Intn(999)))
 
-	ob = NewOrderBook("aaa/tomo", db)
+	ob = NewOrderBook(pair, db)
 
 	// insert order to bid tree: price 99
 	price := CloneBigInt(ether)
@@ -162,7 +162,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	//- order 2: buy 50 aaa, price 98 tomo
 	//- order 3: sell 200 aaa, price 101 tomo
 	//- order 4: sell 300 aaa, price 102 tomo
-	ob, err := prepareOrderbookData(tomox.db)
+	ob, err := prepareOrderbookData(pair, tomox.db)
 	if err != nil {
 		t.Error("Failed to create orderbook", err)
 	}
