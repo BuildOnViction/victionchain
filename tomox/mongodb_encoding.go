@@ -10,48 +10,6 @@ import (
 	"github.com/tomochain/tomodex/utils/math"
 )
 
-func (nir *ItemRecord) GetBSON() (interface{}, error) {
-	irb := ItemRecordBSON{
-		Key: nir.Key,
-		Value: &ItemBSON{
-			Keys: &KeyMetaBSON{
-				Left:   common.Bytes2Hex(nir.Value.Keys.Left),
-				Right:  common.Bytes2Hex(nir.Value.Keys.Right),
-				Parent: common.Bytes2Hex(nir.Value.Keys.Parent),
-			},
-			Value: common.Bytes2Hex(nir.Value.Value),
-			Color: nir.Value.Color,
-		},
-	}
-
-	return irb, nil
-}
-
-func (nir *ItemRecord) SetBSON(raw bson.Raw) error {
-	decoded := new(struct {
-		Key   string
-		Value ItemBSON
-	})
-
-	err := raw.Unmarshal(decoded)
-	if err != nil {
-		return err
-	}
-
-	nir.Key = decoded.Key
-	nir.Value = &Item{
-		Keys: &KeyMeta{
-			Left:   common.Hex2Bytes(decoded.Value.Keys.Left),
-			Right:  common.Hex2Bytes(decoded.Value.Keys.Right),
-			Parent: common.Hex2Bytes(decoded.Value.Keys.Parent),
-		},
-		Value: common.Hex2Bytes(decoded.Value.Value),
-		Color: decoded.Value.Color,
-	}
-
-	return nil
-}
-
 func (o *OrderItem) GetBSON() (interface{}, error) {
 	or := OrderItemBSON{
 		PairName:        o.PairName,
@@ -71,9 +29,6 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 		CreatedAt:       strconv.FormatUint(o.CreatedAt, 10),
 		UpdatedAt:       strconv.FormatUint(o.UpdatedAt, 10),
 		OrderID:         strconv.FormatUint(o.OrderID, 10),
-		NextOrder:       common.Bytes2Hex(o.NextOrder),
-		PrevOrder:       common.Bytes2Hex(o.PrevOrder),
-		OrderList:       common.Bytes2Hex(o.OrderList),
 		Key:             o.Key,
 	}
 
@@ -114,9 +69,6 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		CreatedAt       time.Time        `json:"createdAt" bson:"createdAt"`
 		UpdatedAt       time.Time        `json:"updatedAt" bson:"updatedAt"`
 		OrderID         string           `json:"orderID" bson:"orderID"`
-		NextOrder       string           `json:"-"`
-		PrevOrder       string           `json:"-"`
-		OrderList       string           `json:"-"`
 		Key             string           `json:"key" bson:"key"`
 	})
 
@@ -166,147 +118,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		fmt.Printf("%d of type %T", orderID, orderID)
 	}
 	o.OrderID = uint64(orderID)
-	o.NextOrder = common.Hex2Bytes(decoded.NextOrder)
-	o.PrevOrder = common.Hex2Bytes(decoded.PrevOrder)
-	o.OrderList = common.Hex2Bytes(decoded.OrderList)
 	o.Key = decoded.Key
-
-	return nil
-}
-
-func (otir *OrderTreeItemRecord) GetBSON() (interface{}, error) {
-	otirb := OrderTreeItemRecordBSON{
-		Key: otir.Key,
-		Value: &OrderTreeItemBSON{
-			Volume:        otir.Value.Volume.String(),
-			NumOrders:     strconv.FormatUint(otir.Value.NumOrders, 10),
-			PriceTreeKey:  common.Bytes2Hex(otir.Value.PriceTreeKey),
-			PriceTreeSize: strconv.FormatUint(otir.Value.PriceTreeSize, 10),
-		},
-	}
-
-	return otirb, nil
-}
-
-func (otir *OrderTreeItemRecord) SetBSON(raw bson.Raw) error {
-	decoded := new(struct {
-		Key   string
-		Value OrderTreeItemBSON
-	})
-
-	err := raw.Unmarshal(decoded)
-	if err != nil {
-		return err
-	}
-
-	otir.Key = decoded.Key
-
-	otir.Value.Volume = math.ToBigInt(decoded.Value.Volume)
-	numOrders, err := strconv.ParseInt(decoded.Value.NumOrders, 10, 64)
-	if err == nil {
-		fmt.Printf("%d of type %T", numOrders, numOrders)
-	}
-	otir.Value.NumOrders = uint64(numOrders)
-	otir.Value.PriceTreeKey = common.Hex2Bytes(decoded.Value.PriceTreeKey)
-
-	priceTreeSize, err := strconv.ParseInt(decoded.Value.PriceTreeSize, 10, 64)
-	if err == nil {
-		fmt.Printf("%d of type %T", priceTreeSize, priceTreeSize)
-	}
-	otir.Value.PriceTreeSize = uint64(priceTreeSize)
-
-	return nil
-}
-
-func (olir *OrderListItemRecord) GetBSON() (interface{}, error) {
-	olirb := OrderListItemRecordBSON{
-		Key: olir.Key,
-		Value: &OrderListItemBSON{
-			HeadOrder: common.Bytes2Hex(olir.Value.HeadOrder),
-			TailOrder: common.Bytes2Hex(olir.Value.TailOrder),
-			Length:    string(olir.Value.Length),
-			Volume:    olir.Value.Volume.String(),
-			Price:     olir.Value.Price.String(),
-		},
-	}
-
-	return olirb, nil
-}
-
-func (olir *OrderListItemRecord) SetBSON(raw bson.Raw) error {
-	decoded := new(struct {
-		Key   string
-		Value OrderListItemBSON
-	})
-
-	err := raw.Unmarshal(decoded)
-	if err != nil {
-		return err
-	}
-
-	olir.Key = decoded.Key
-
-	olir.Value.HeadOrder = common.Hex2Bytes(decoded.Value.HeadOrder)
-	olir.Value.TailOrder = common.Hex2Bytes(decoded.Value.TailOrder)
-
-	length, err := strconv.ParseInt(decoded.Value.Length, 10, 64)
-	if err == nil {
-		fmt.Printf("%d of type %T", length, length)
-	}
-	olir.Value.Length = uint64(length)
-
-	olir.Value.Volume = math.ToBigInt(decoded.Value.Volume)
-	olir.Value.Price = math.ToBigInt(decoded.Value.Price)
-
-	return nil
-}
-
-func (obir *OrderBookItemRecord) GetBSON() (interface{}, error) {
-	obirb := OrderBookItemRecordBSON{
-		Key: obir.Key,
-		Value: &OrderBookItemBSON{
-			Timestamp:     string(obir.Value.Timestamp),
-			NextOrderID:   string(obir.Value.NextOrderID),
-			MaxPricePoint: string(obir.Value.MaxPricePoint),
-			Name:          obir.Value.Name,
-		},
-	}
-
-	return obirb, nil
-}
-
-func (obir *OrderBookItemRecord) SetBSON(raw bson.Raw) error {
-	decoded := new(struct {
-		Key   string
-		Value OrderBookItemBSON
-	})
-
-	err := raw.Unmarshal(decoded)
-	if err != nil {
-		return err
-	}
-
-	obir.Key = decoded.Key
-
-	timestamp, err := strconv.ParseInt(decoded.Value.Timestamp, 10, 64)
-	if err == nil {
-		fmt.Printf("%d of type %T", timestamp, timestamp)
-	}
-	obir.Value.Timestamp = uint64(timestamp)
-
-	nextOrderID, err := strconv.ParseInt(decoded.Value.NextOrderID, 10, 64)
-	if err == nil {
-		fmt.Printf("%d of type %T", nextOrderID, nextOrderID)
-	}
-	obir.Value.NextOrderID = uint64(nextOrderID)
-
-	maxPricePoint, err := strconv.ParseInt(decoded.Value.MaxPricePoint, 10, 64)
-	if err == nil {
-		fmt.Printf("%d of type %T", maxPricePoint, maxPricePoint)
-	}
-	obir.Value.MaxPricePoint = uint64(maxPricePoint)
-
-	obir.Value.Name = decoded.Value.Name
 
 	return nil
 }
