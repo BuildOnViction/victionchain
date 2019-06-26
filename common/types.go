@@ -36,7 +36,7 @@ const (
 	FoudationAddr          = "0x0000000000000000000000000000000000000068"
 	TeamAddr               = "0x0000000000000000000000000000000000000099"
 	TomoXAddr              = "0x0000000000000000000000000000000000000091"
-	RelayerRegistrationSMC = "0x00000000000000000000000000000000000000xx"
+	RelayerRegistrationSMC = "0x82c41f368c6df8ac52fd2ab159b5860a89a85fe3"
 	VoteMethod             = "0x6dd7d8ea"
 	UnvoteMethod           = "0x02aa9be2"
 	ProposeMethod          = "0x01267951"
