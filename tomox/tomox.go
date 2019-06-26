@@ -718,18 +718,30 @@ func (tomox *TomoX) verifyOrderNonce(order *OrderItem) error {
 
 // load orderCount from persistent storage
 func (tomox *TomoX) loadOrderCount() error {
-	var orderCount map[common.Address]*big.Int
-	val, err := tomox.db.Get([]byte(orderCountKey), orderCount)
+	var (
+		orderCount map[common.Address]*big.Int
+		err error
+		val interface{}
+	)
+	val, err = tomox.db.Get([]byte(orderCountKey), &[]byte{})
 	if err != nil {
 		return err
 	}
-	tomox.orderCount = val.(map[common.Address]*big.Int)
+	b := *val.(*[]byte)
+	if err = json.Unmarshal(b, &orderCount); err != nil {
+		return err
+	}
+	tomox.orderCount = orderCount
 	return nil
 }
 
 // update orderCount to persistent storage
 func (tomox *TomoX) updateOrderCount(orderCount map[common.Address]*big.Int) error {
-	if err := tomox.db.Put([]byte(orderCountKey), orderCount); err != nil {
+	blob, err := json.Marshal(orderCount)
+	if err != nil {
+		return err
+	}
+	if err := tomox.db.Put([]byte(orderCountKey), &blob); err != nil {
 		return err
 	}
 	return nil
@@ -1035,7 +1047,11 @@ func (tomox *TomoX) getProcessedOrderHash() []common.Hash {
 }
 
 func (tomox *TomoX) updatePairs(pairs map[string]bool) error {
-	if err := tomox.db.Put([]byte(activePairsKey), pairs); err != nil {
+	blob, err := json.Marshal(pairs)
+	if err != nil {
+		return err
+	}
+	if err := tomox.db.Put([]byte(activePairsKey), &blob); err != nil {
 		return err
 	}
 	return nil
@@ -1043,14 +1059,18 @@ func (tomox *TomoX) updatePairs(pairs map[string]bool) error {
 
 func (tomox *TomoX) loadPairs() (map[string]bool, error) {
 	var (
+		pairs map[string]bool
 		val interface{}
 		err error
 	)
-	if val, err = tomox.db.Get([]byte(activePairsKey), val); err != nil {
-		log.Error("Failed to load active pairs:", "err", err)
+	val, err = tomox.db.Get([]byte(activePairsKey), &[]byte{})
+	if err != nil {
 		return map[string]bool{}, err
 	}
-	pairs := val.(map[string]bool)
+	b := *val.(*[]byte)
+	if err = json.Unmarshal(b, &pairs); err != nil {
+		return map[string]bool{}, err
+	}
 	activePairs := map[string]bool{}
 	for pairName := range pairs {
 		if pairs[pairName] {
