@@ -183,6 +183,12 @@ func TestTomoX_GetActivePairs(t *testing.T) {
 		t.Error("Failed to save active pairs", err)
 	}
 
+
+	// try to commit to see if there is any error with rlp encode
+	if err := tomox.db.Commit(); err != nil {
+		t.Errorf(err.Error())
+	}
+
 	// a node has just been restarted, haven't inserted any order yet
 	// in memory: there is no activePairsKey
 	// in db: there are 2 active pairs
@@ -323,6 +329,11 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	storedOrderCountMap[common.StringToAddress("0x00011")] = big.NewInt(5)
 	if err := tomox.updateOrderCount(storedOrderCountMap); err != nil {
 		t.Error("Failed to save orderCount", "err", err)
+	}
+
+	// try to commit to see if there is any error with rlp encode
+	if err := tomox.db.Commit(); err != nil {
+		t.Error(err)
 	}
 
 	// set duplicated nonce
