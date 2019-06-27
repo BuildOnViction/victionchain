@@ -1,6 +1,7 @@
 package tomox
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -47,7 +48,11 @@ type OrderListSnapshot struct {
 
 // put tomox snapshot to db
 func (s *Snapshot) store(db OrderDao) error {
-	return db.Put(append([]byte(snapshotPrefix), s.Hash[:]...), s)
+	blob, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	return db.Put(append([]byte(snapshotPrefix), s.Hash[:]...), &blob)
 }
 
 // take a snapshot of data of tomox
@@ -132,13 +137,15 @@ func loadSnapshot(db OrderDao, blockHash common.Hash) (*Snapshot, error) {
 		blob interface{}
 		err  error
 	)
-	blob, err = db.Get(append([]byte(snapshotPrefix), blockHash[:]...), blob)
+	blob, err = db.Get(append([]byte(snapshotPrefix), blockHash[:]...), &[]byte{})
 	if err != nil {
 		return nil, err
 	}
 	snap := new(Snapshot)
 	if blob != nil {
-		snap = blob.(*Snapshot)
+		if err = json.Unmarshal(*blob.(*[]byte), snap); err != nil {
+			return nil, err
+		}
 	}
 	return snap, nil
 }

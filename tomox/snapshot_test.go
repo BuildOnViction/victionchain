@@ -179,6 +179,10 @@ func TestTomoX_Snapshot(t *testing.T) {
 		t.Error("Failed to store snapshot", "err", err, "blockHash", blockHash)
 	}
 
+	// try to commit to see if there is any error with rlp encode
+	if err := tomox.db.Commit(); err != nil {
+		t.Error(err)
+	}
 
 	// after taking a snapshot
 	// delete some orders from database
