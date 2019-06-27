@@ -155,6 +155,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 
 	tomox := &TomoX{
 		Orderbooks: map[string]*OrderBook{},
+		activePairs: map[string]bool{},
 		db: NewLDBEngine(&Config{
 			DataDir:  testDir,
 			DBEngine: "leveldb",
@@ -173,8 +174,10 @@ func TestTomoX_Snapshot(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to create orderbook", err)
 	}
-	tomox.Orderbooks[pair] = ob
-
+	if err := ob.Save(); err != nil {
+		t.Error(err)
+	}
+	tomox.activePairs[pair] = true
 	if err := tomox.Snapshot(blockHash); err != nil {
 		t.Error("Failed to store snapshot", "err", err, "blockHash", blockHash)
 	}
@@ -201,12 +204,12 @@ func TestTomoX_Snapshot(t *testing.T) {
 	}
 
 	// load snapshot with invalid hash
-	newSnap, err := loadSnapshot(tomox.db, common.StringToHash("xxx"))
+	newSnap, err := getSnapshot(tomox.db, common.StringToHash("xxx"))
 	if err == nil {
 		t.Error("Expected an error due to wrong hash")
 	}
 
-	newSnap, err = loadSnapshot(tomox.db, blockHash)
+	newSnap, err = getSnapshot(tomox.db, blockHash)
 	if err != nil {
 		t.Error("Failed to load snapshot", err)
 	}

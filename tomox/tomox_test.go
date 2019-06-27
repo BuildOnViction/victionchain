@@ -26,7 +26,7 @@ func buildOrder(nonce *big.Int) *OrderItem {
 		QuoteToken:      common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
 		Status:          "New",
 		Side:            lstBuySell[rand.Int()%len(lstBuySell)],
-		Type:            "LO",
+		Type:            Limit,
 		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash(nonce.String()),
@@ -246,8 +246,8 @@ func TestEncodeDecodeTXMatch(t *testing.T) {
 	}
 	txMatches = make(map[common.Hash]TxDataMatch)
 	txMatches[order.Hash] = TxDataMatch{
-		order:  value,
-		trades: trades,
+		Order:  value,
+		Trades: trades,
 	}
 	encode, err := json.Marshal(txMatches)
 	if err != nil {

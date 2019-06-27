@@ -58,6 +58,7 @@ func (s *Snapshot) store(db OrderDao) error {
 // take a snapshot of data of tomox
 func newSnapshot(tomox *TomoX, blockHash common.Hash) (*Snapshot, error) {
 	var (
+		ob                       *OrderBook
 		bidTreeSnap, askTreeSnap *OrderTreeSnapshot
 		encodedBytes             []byte
 		err                      error
@@ -65,7 +66,11 @@ func newSnapshot(tomox *TomoX, blockHash common.Hash) (*Snapshot, error) {
 	snap := new(Snapshot)
 	snap.Hash = blockHash
 	snap.OrderBooks = make(map[string]*OrderBookSnapshot)
-	for pair, ob := range tomox.Orderbooks {
+	for _, pair := range tomox.listTokenPairs() {
+		ob, err = tomox.GetOrderBook(pair)
+		if err != nil {
+			return nil, err
+		}
 		obSnap := new(OrderBookSnapshot)
 		encodedBytes, err = EncodeBytesItem(ob.Item)
 		if err != nil {
@@ -99,6 +104,9 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 	snap.OrderTreeItem = serializedTree
 
 	snap.OrderList = make(map[common.Hash]*OrderListSnapshot)
+	if !tree.NotEmpty() {
+		return snap, nil
+	}
 	// foreach each price, snapshot its orderlist
 	for _, key := range tree.PriceTree.Keys() {
 		priceKeyHash := common.BytesToHash(key)
@@ -111,7 +119,7 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 			}
 			// snapshot orderItems
 			var (
-				items [][]byte
+				items    [][]byte
 				byteItem []byte
 			)
 			for ol != nil && ol.Item != nil && ol.Item.Length > 0 {
@@ -129,14 +137,13 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 				OrderListItem: bytes,
 				OrderItem:     items,
 			}
-
 		}
 	}
 	return snap, nil
 }
 
 // load snapshot from database when nodes restart
-func loadSnapshot(db OrderDao, blockHash common.Hash) (*Snapshot, error) {
+func getSnapshot(db OrderDao, blockHash common.Hash) (*Snapshot, error) {
 	var (
 		blob interface{}
 		err  error
