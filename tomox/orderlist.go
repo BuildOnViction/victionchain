@@ -341,3 +341,7 @@ func (orderList *OrderList) Hash() (common.Hash, error) {
 	}
 	return common.BytesToHash(olEncoded), nil
 }
+
+func (orderList *OrderList) GetCommonKey() []byte {
+	return append([]byte("OL"), orderList.Key...)
+}

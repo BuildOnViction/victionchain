@@ -78,8 +78,8 @@ func (orderTree *OrderTree) Save() error {
 		orderTree.Item.PriceTreeSize = orderTree.Depth()
 	}
 
-	log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.Key))
-	return orderTree.orderDB.Put(orderTree.Key, orderTree.Item)
+	log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.GetCommonKey()))
+	return orderTree.orderDB.Put(orderTree.GetCommonKey(), orderTree.Item)
 }
 
 // save this tree information then do database commit
@@ -92,7 +92,7 @@ func (orderTree *OrderTree) Commit() error {
 }
 
 func (orderTree *OrderTree) Restore() error {
-	val, err := orderTree.orderDB.Get(orderTree.Key, orderTree.Item)
+	val, err := orderTree.orderDB.Get(orderTree.GetCommonKey(), orderTree.Item)
 
 	if err == nil {
 		orderTree.Item = val.(*OrderTreeItem)
@@ -180,8 +180,8 @@ func (orderTree *OrderTree) SaveOrderList(orderList *OrderList) error {
 		log.Error("Can't encode", "orderList.Item", orderList.Item, "err", err)
 		return err
 	}
-	log.Debug("Save orderlist", "key", hex.EncodeToString(orderList.Key), "value", value)
-	return orderTree.PriceTree.Put(orderList.Key, value)
+	log.Debug("Save orderlist", "key", hex.EncodeToString(orderList.GetCommonKey()), "value", value)
+	return orderTree.PriceTree.Put(orderList.GetCommonKey(), value)
 }
 
 func (orderTree *OrderTree) Depth() uint64 {
@@ -239,7 +239,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem) error {
 	// order will be inserted to order list
 	if orderList != nil {
 
-		order := NewOrder(order, orderList.Key)
+		order := NewOrder(order, orderList.GetCommonKey())
 
 		if orderList.OrderExist(order.Key) {
 			if err := orderTree.RemoveOrder(order); err != nil {
@@ -444,4 +444,8 @@ func (orderTree *OrderTree) Hash() (common.Hash, error) {
 		return common.Hash{}, err
 	}
 	return common.BytesToHash(olEncoded), nil
+}
+
+func (orderTree *OrderTree) GetCommonKey() []byte {
+	return append([]byte("OT"), orderTree.Key...)
 }
