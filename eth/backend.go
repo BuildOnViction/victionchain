@@ -508,6 +508,10 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 			return nil
 		}
 
+		c.GetTomoXService = func() *tomox.TomoX {
+			return eth.TomoX
+		}
+
 		eth.txPool.IsSigner = func(address common.Address) bool {
 			currentHeader := eth.blockchain.CurrentHeader()
 			header := currentHeader
