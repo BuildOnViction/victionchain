@@ -3,11 +3,13 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"github.com/tomochain/tomox-sdk/types"
 )
 
 type MongoItem struct {
@@ -146,6 +148,15 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 	cacheKey := m.getCacheKey(key)
 
 	switch val.(type) {
+	case *types.Trade:
+		err := db.CommitTrade(val.(*types.Trade)) // Put order into "orders" collection
+
+		if err != nil {
+			log.Error(err.Error())
+			return err
+		}
+
+		break
 	case *OrderItem:
 		err := db.CommitOrder(cacheKey, val.(*OrderItem)) // Put order into "orders" collection
 
@@ -153,12 +164,13 @@ func (m *MongoDatabase) Put(key []byte, val interface{}) error {
 			log.Error(err.Error())
 			return err
 		}
+		// There is no break here
 	default:
+		db.pendingItems[cacheKey] = &MongoItem{Value: val}
 		break
 	}
 
 	// Put everything (includes order) into "items" collection
-	db.pendingItems[cacheKey] = &MongoItem{Value: val}
 	if len(db.pendingItems) >= db.itemMaxPending {
 		return db.Commit()
 	}
@@ -253,6 +265,28 @@ func (m *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 	}
 
 	log.Debug("Save", "cacheKey", cacheKey, "value", ToJSON(o))
+
+	return nil
+}
+
+func (m *MongoDatabase) CommitTrade(t *types.Trade) error {
+
+	sc := m.Session.Copy()
+	defer sc.Close()
+
+	t.CreatedAt = time.Now()
+	t.UpdatedAt = time.Now()
+
+	query := bson.M{"hash": t.Hash}
+
+	_, err := sc.DB(m.dbName).C("trades").Upsert(query, t)
+
+	if err != nil {
+		log.Error(err.Error())
+		return err
+	}
+
+	log.Debug("Saved trade", "trade", ToJSON(t))
 
 	return nil
 }

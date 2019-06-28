@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/globalsign/mgo/bson"
-	"github.com/tomochain/tomodex/utils/math"
+	"github.com/tomochain/tomox-sdk/utils/math"
 )
 
 func (o *OrderItem) GetBSON() (interface{}, error) {
