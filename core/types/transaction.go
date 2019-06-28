@@ -347,6 +347,20 @@ func (tx *Transaction) IsVotingTransaction() (bool, *common.Address) {
 	return b, nil
 }
 
+func (tx *Transaction) IsMatchingTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+
+	if tx.To().String() != common.StringToAddress(common.TomoXAddr).String() {
+		return false
+	}
+	if len(tx.Data()) == 0 {
+		return false
+	}
+	return true
+}
+
 func (tx *Transaction) String() string {
 	var from, to string
 	if tx.data.V != nil {
