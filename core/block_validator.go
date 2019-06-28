@@ -76,7 +76,8 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	}
 
 	engine, _ := v.engine.(*posv.Posv)
-	if tomoXService := engine.GetTomoXService(); tomoXService == nil {
+	tomoXService := engine.GetTomoXService()
+	if tomoXService == nil {
 		return tomox.ErrTomoXServiceNotFound
 	}
 
@@ -110,6 +111,12 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 				tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
 				tradeSDK.TxHash = tx.Hash()
 				log.Debug("TRADE history", "order", order, "trade", tradeSDK)
+
+				// put tradeSDK to mongodb on SDK node
+				if tomoXService.IsSDKNode() {
+					db := tomoXService.GetDB()
+					return db.Put(tomox.EmptyKey(), tradeSDK)
+				}
 			}
 		}
 	}
