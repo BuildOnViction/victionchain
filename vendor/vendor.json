@@ -45,6 +45,18 @@
 			"revisionTime": "2017-02-15T19:58:14Z"
 		},
 		{
+			"checksumSHA1": "YXZT9rEDsTaAYhKwt4In2yeHXkY=",
+			"path": "github.com/FactomProject/basen",
+			"revision": "fe3947df716ebfda9847eb1b9a48f9592e06478c",
+			"revisionTime": "2015-06-13T23:30:07Z"
+		},
+		{
+			"checksumSHA1": "cGa+usDuYD0ku4POrBZtlteUEtM=",
+			"path": "github.com/FactomProject/btcutilecc",
+			"revision": "d3a63a5752ecf3fbc06bd97365da752111c263df",
+			"revisionTime": "2013-05-27T21:36:04Z"
+		},
+		{
 			"checksumSHA1": "QC55lHNOv1+UAL2xtIHw17MJ8J8=",
 			"path": "github.com/StackExchange/wmi",
 			"revision": "5d049714c4a64225c3c79a7cf7d02f7fb5b96338",
@@ -61,6 +73,78 @@
 			"path": "github.com/btcsuite/btcd/btcec",
 			"revision": "2e60448ffcc6bf78332d1fe590260095f554dd78",
 			"revisionTime": "2017-11-28T15:02:46Z"
+		},
+		{
+			"checksumSHA1": "2HWfhnrbJxwfJjNBFpEVb4Nyopg=",
+			"path": "github.com/btcsuite/btcd/btcjson",
+			"revision": "962a206e94e9151fe41bbd6d6464af4ba7168f50",
+			"revisionTime": "2019-06-14T01:37:41Z"
+		},
+		{
+			"checksumSHA1": "/DeuRNTl9zO2HSIA37IqGeyqEXM=",
+			"path": "github.com/btcsuite/btcd/chaincfg",
+			"revision": "962a206e94e9151fe41bbd6d6464af4ba7168f50",
+			"revisionTime": "2019-06-14T01:37:41Z"
+		},
+		{
+			"checksumSHA1": "hI5NhyOyOaazvlK8vWFFsPVEPiM=",
+			"path": "github.com/btcsuite/btcd/chaincfg/chainhash",
+			"revision": "962a206e94e9151fe41bbd6d6464af4ba7168f50",
+			"revisionTime": "2019-06-14T01:37:41Z"
+		},
+		{
+			"checksumSHA1": "FMrgsb4CWpLDHryzmaI9+CE6pC0=",
+			"path": "github.com/btcsuite/btcd/rpcclient",
+			"revision": "962a206e94e9151fe41bbd6d6464af4ba7168f50",
+			"revisionTime": "2019-06-14T01:37:41Z"
+		},
+		{
+			"checksumSHA1": "aN9ztmaTSTaVXTnJdCRQEXIC4ig=",
+			"path": "github.com/btcsuite/btcd/txscript",
+			"revision": "962a206e94e9151fe41bbd6d6464af4ba7168f50",
+			"revisionTime": "2019-06-14T01:37:41Z"
+		},
+		{
+			"checksumSHA1": "ruKchP41kPZFFUS940weplW73I8=",
+			"path": "github.com/btcsuite/btcd/wire",
+			"revision": "962a206e94e9151fe41bbd6d6464af4ba7168f50",
+			"revisionTime": "2019-06-14T01:37:41Z"
+		},
+		{
+			"checksumSHA1": "J6VwqSZwsPkigujNZo4vyYIFPWU=",
+			"path": "github.com/btcsuite/btclog",
+			"revision": "84c8d2346e9fc8c7b947e243b9c24e6df9fd206a",
+			"revisionTime": "2017-06-28T15:40:31Z"
+		},
+		{
+			"checksumSHA1": "gZHfOHB+zlaNWUjdlu1nFD7VBX0=",
+			"path": "github.com/btcsuite/btcutil",
+			"revision": "9e5f4b9a998d263e3ce9c56664a7816001ac8000",
+			"revisionTime": "2019-04-25T00:47:09Z"
+		},
+		{
+			"checksumSHA1": "oQgLy8KmIOVov04WXH7KgU1bszc=",
+			"path": "github.com/btcsuite/btcutil/base58",
+			"revision": "9e5f4b9a998d263e3ce9c56664a7816001ac8000",
+			"revisionTime": "2019-04-25T00:47:09Z"
+		},
+		{
+			"checksumSHA1": "BBnsAiKyNfocRwmEav5EJpVCwzk=",
+			"path": "github.com/btcsuite/btcutil/bech32",
+			"revision": "9e5f4b9a998d263e3ce9c56664a7816001ac8000",
+			"revisionTime": "2019-04-25T00:47:09Z"
+		},
+		{
+			"checksumSHA1": "j3yRnuia1i5Wb7C9Tc5g0d6gdpM=",
+			"path": "github.com/btcsuite/go-socks/socks",
+			"revision": "4720035b7bfd2a9bb130b1c184f8bbe41b6f0d0f",
+			"revisionTime": "2016-12-14T21:12:04Z"
+		},
+		{
+			"checksumSHA1": "Uf5l11rLPQGlCJsRbgX9CI2wbuA=",
+			"path": "github.com/btcsuite/websocket",
+			"revision": "31079b6807923eb23992c421b114992b95131b55",
+			"revisionTime": "2015-01-19T17:41:27Z"
 		},
 		{
 			"checksumSHA1": "cDMtzKmdTx4CcIpP4broa+16X9g=",
@@ -205,6 +289,24 @@
 			"path": "github.com/golang/snappy",
 			"revision": "553a641470496b2327abcac10b36396bd98e45c9",
 			"revisionTime": "2017-02-15T23:32:05Z"
+		},
+		{
+			"checksumSHA1": "KgyRZMy3mYE35l8yGSdJ+CUL7MU=",
+			"path": "github.com/gorilla/handlers",
+			"revision": "ac6d24f88de4584385a0cb3a88f953d08a2f7a05",
+			"revisionTime": "2019-02-27T19:34:32Z"
+		},
+		{
+			"checksumSHA1": "VTqrNjHE7v3Bisuo0NHGS1r+6I0=",
+			"path": "github.com/gorilla/mux",
+			"revision": "212aa90d7cec051ab29930d5c56f758f6f69a789",
+			"revisionTime": "2019-06-24T16:05:39Z"
+		},
+		{
+			"checksumSHA1": "3ORLCzeT6ci2RkN0jo1bY6bmE8A=",
+			"path": "github.com/gorilla/websocket",
+			"revision": "80c2d40e9b91f2ef7a9c1a403aeec64d1b89a9a6",
+			"revisionTime": "2019-04-27T04:03:06Z"
 		},
 		{
 			"checksumSHA1": "d9PxF1XQGLMJZRct2R8qVM/eYlE=",
@@ -357,11 +459,29 @@
 			"revisionTime": "2017-04-30T22:20:11Z"
 		},
 		{
+			"checksumSHA1": "OBvAHqWjdI4NQVAqTkcQAdTuCFY=",
+			"path": "github.com/justinas/alice",
+			"revision": "03f45bd4b7dad4734bc4620e46a35789349abb20",
+			"revisionTime": "2017-10-23T06:44:55Z"
+		},
+		{
 			"checksumSHA1": "UpjhOUZ1+0zNt+iIvdtECSHXmTs=",
 			"path": "github.com/karalabe/hid",
 			"revision": "f00545f9f3748e591590be3732d913c77525b10f",
 			"revisionTime": "2017-08-21T10:38:37Z",
 			"tree": true
+		},
+		{
+			"checksumSHA1": "R6DzcBLEP0BONPpsyr+11N7xh5w=",
+			"path": "github.com/labstack/gommon/color",
+			"revision": "d700b06ce5f78800a08e16a7288a4cca389a6e83",
+			"revisionTime": "2019-06-10T06:34:36Z"
+		},
+		{
+			"checksumSHA1": "NRXvF1Wn6fF9wcPOOv9MNSdDRaE=",
+			"path": "github.com/labstack/gommon/log",
+			"revision": "d700b06ce5f78800a08e16a7288a4cca389a6e83",
+			"revisionTime": "2019-06-10T06:34:36Z"
 		},
 		{
 			"checksumSHA1": "9CxtAyVNPsScpfghpxfapxMPniU=",
@@ -520,6 +640,12 @@
 			"revisionTime": "2017-02-05T01:36:59Z"
 		},
 		{
+			"checksumSHA1": "c4K+xR8x9M38CsC64jmFptMjN4g=",
+			"path": "github.com/robfig/cron",
+			"revision": "61d93e07d1be270591d43ede700aa3ae69a2326f",
+			"revisionTime": "2019-06-16T12:43:56Z"
+		},
+		{
 			"checksumSHA1": "LjPdvMphElL0GOVNQCsmZMVgWIw=",
 			"path": "github.com/rs/cors",
 			"revision": "a62a804a8a009876ca59105f7899938a1349f4b3",
@@ -568,10 +694,28 @@
 			"revisionTime": "2019-01-25T09:00:48Z"
 		},
 		{
+			"checksumSHA1": "M9Vpq0g1nLqfEjll3PNZ/yz8gZY=",
+			"path": "github.com/streadway/amqp",
+			"revision": "75d898a42a940fbc854dfd1a4199eabdc00cf024",
+			"revisionTime": "2019-04-04T07:53:20Z"
+		},
+		{
+			"checksumSHA1": "tLHFmMOC2eMcXYaPXfifUVj3wX4=",
+			"path": "github.com/stretchr/objx",
+			"revision": "35313a95ee26395aa17d366c71a2ccf788fa69b6",
+			"revisionTime": "2019-04-15T11:18:23Z"
+		},
+		{
 			"checksumSHA1": "mGbTYZ8dHVTiPTTJu3ktp+84pPI=",
 			"path": "github.com/stretchr/testify/assert",
 			"revision": "890a5c3458b43e6104ff5da8dfa139d013d77544",
 			"revisionTime": "2017-07-05T02:17:15Z"
+		},
+		{
+			"checksumSHA1": "lsdl3fgOiM4Iuy7xjTQxiBtAwB0=",
+			"path": "github.com/stretchr/testify/mock",
+			"revision": "34c6fa2dc70986bccbbffcc6130f6920a924b075",
+			"revisionTime": "2019-03-04T09:57:49Z"
 		},
 		{
 			"checksumSHA1": "7vs6dSc1PPGBKyzb/SCIyeMJPLQ=",
@@ -652,6 +796,24 @@
 			"revisionTime": "2018-05-02T07:23:49Z"
 		},
 		{
+			"checksumSHA1": "s5hEz853u5ix0eEMX677PhdiJ4E=",
+			"path": "github.com/tidwall/gjson",
+			"revision": "6eb62ca33ffdb8c05df31962e5667609b812fdae",
+			"revisionTime": "2019-06-28T01:37:09Z"
+		},
+		{
+			"checksumSHA1": "8jl+NYRKijAXkUwjpy89Q60q00A=",
+			"path": "github.com/tidwall/match",
+			"revision": "33827db735fff6510490d69a8622612558a557ed",
+			"revisionTime": "2018-12-10T10:08:38Z"
+		},
+		{
+			"checksumSHA1": "ijmGS83faLA6LVpdeGkyRhqvQgM=",
+			"path": "github.com/tidwall/pretty",
+			"revision": "1166b9ac2b65e46a43d8618d30d1554f4652d49b",
+			"revisionTime": "2019-03-25T15:38:08Z"
+		},
+		{
 			"checksumSHA1": "VcMkvUeh02qX/5qTCkTg9xQHCks=",
 			"path": "github.com/tomochain/dex-server/app",
 			"revision": "a4237e1b84b4693365061074958f06bfc2db3ad5",
@@ -688,6 +850,10 @@
 			"revisionTime": "2019-02-27T07:05:27Z"
 		},
 		{
+			"path": "github.com/tomochain/tomochain/tomox",
+			"revision": ""
+		},
+		{
 			"checksumSHA1": "7M+3qGxXsH1/bjAUGMsFhiOAPWw=",
 			"path": "github.com/tomochain/tomodex/utils",
 			"revision": "2bb6b91e6d11573260c79a639bf92290dbec43a6",
@@ -698,6 +864,256 @@
 			"path": "github.com/tomochain/tomodex/utils/math",
 			"revision": "2bb6b91e6d11573260c79a639bf92290dbec43a6",
 			"revisionTime": "2019-04-16T09:43:51Z"
+		},
+		{
+			"checksumSHA1": "d1qnLem/QrCjrrITUDN2zWZVSOY=",
+			"path": "github.com/tomochain/tomox-sdk",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "P45e+6mMozqZqJ+GtD9Lq61dppM=",
+			"path": "github.com/tomochain/tomox-sdk/app",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "0gAaTiS9Ib5NorYHsstB1SamSsA=",
+			"path": "github.com/tomochain/tomox-sdk/contracts",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "cjIRX24cKNL8OMBb1wfvOs5M3I4=",
+			"path": "github.com/tomochain/tomox-sdk/contracts/contractsinterfaces",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "k80Cb/b/4wcIgTfRBDuc1X5/11A=",
+			"path": "github.com/tomochain/tomox-sdk/crons",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "snnNxPao9l8lYhBaPImAeHEYWLU=",
+			"path": "github.com/tomochain/tomox-sdk/daos",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "yvG5g6XsbCb/M2Ip7e1IFC76C24=",
+			"path": "github.com/tomochain/tomox-sdk/endpoints",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "7AH76R/4hoZOpiGAK69dcvHDkl4=",
+			"path": "github.com/tomochain/tomox-sdk/engine",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "n17PLku2ERMns9YDGOjVHM93Iug=",
+			"path": "github.com/tomochain/tomox-sdk/errors",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "9MSdQ9exi9GWn64znFBaj5ULQes=",
+			"path": "github.com/tomochain/tomox-sdk/ethereum",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "YWhYpxlvG5QCTGwjPqF8B+nYXKA=",
+			"path": "github.com/tomochain/tomox-sdk/interfaces",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "hpZ6h1CX7K+/ya9io0a4WnU2xiA=",
+			"path": "github.com/tomochain/tomox-sdk/middlewares",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "bTVtuB1zeHRZ4fiUJxSn1OveGV0=",
+			"path": "github.com/tomochain/tomox-sdk/operator",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "nQrz56H9EcMq8KGPQ6x91bzZpZU=",
+			"path": "github.com/tomochain/tomox-sdk/rabbitmq",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "ReTkZLXUdMCYzOjZ3AvdqiZgl1o=",
+			"path": "github.com/tomochain/tomox-sdk/server",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "3Uh7Gs5ssTZyuQOWbaSUvjjAx1o=",
+			"path": "github.com/tomochain/tomox-sdk/services",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "fjho7OSx7GjymCedB0hqZXA/Lt4=",
+			"path": "github.com/tomochain/tomox-sdk/swap",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "/S27azy+1IHCfbdhZx8H5//yJis=",
+			"path": "github.com/tomochain/tomox-sdk/swap/bitcoin",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "HBiLuPfMl5BulJ5KIyvNALxc6ck=",
+			"path": "github.com/tomochain/tomox-sdk/swap/config",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "lq34IzvBGIMWnnu5xrWKQp+ZuBM=",
+			"path": "github.com/tomochain/tomox-sdk/swap/ethereum",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "co3DShQbGikPgZijPySSYhPLung=",
+			"path": "github.com/tomochain/tomox-sdk/swap/queue",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "g3M2RGG7jD+5Kq4Lh0oNF0oJcQs=",
+			"path": "github.com/tomochain/tomox-sdk/swap/storage",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "CR3C/W7Q91B8j9T7NJpsuePnkCI=",
+			"path": "github.com/tomochain/tomox-sdk/swap/tomochain",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "85ZlHlDT4u4sZYBOT0A4dWS4kZc=",
+			"path": "github.com/tomochain/tomox-sdk/types",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "XaGVZ2wDwsqQOKVvLAR+u8YhW4k=",
+			"path": "github.com/tomochain/tomox-sdk/utils",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "W42MsZ7R/EJqiMEgf8O8kRqhQwQ=",
+			"path": "github.com/tomochain/tomox-sdk/utils/binance",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "xXa9VLNkYVQxccGcWZSK1rRywAo=",
+			"path": "github.com/tomochain/tomox-sdk/utils/httputils",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "dDS1eIhHsV1nCPrwmBgh0PMIx8o=",
+			"path": "github.com/tomochain/tomox-sdk/utils/math",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "m1cmPEJ4ClQ+UXsLprXZjVpOzU0=",
+			"path": "github.com/tomochain/tomox-sdk/ws",
+			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
+			"revisionTime": "2019-06-28T07:30:16Z",
+			"version": "features/tomox-integration",
+			"versionExact": "features/tomox-integration"
+		},
+		{
+			"checksumSHA1": "PqI+XZ2zOVjL/m2tzdKmoZA+uhQ=",
+			"path": "github.com/tyler-smith/go-bip32",
+			"revision": "2c9cfd17756470a0b7c3e4b7954bae7d11035504",
+			"revisionTime": "2017-09-22T07:41:01Z"
+		},
+		{
+			"checksumSHA1": "ua2PK6PDbNCyzxOmakS3BJoF8Co=",
+			"path": "github.com/valyala/bytebufferpool",
+			"revision": "cdfbe9377474227bb42120c1e22fd4433e7f69bf",
+			"revisionTime": "2018-09-05T18:22:47Z"
+		},
+		{
+			"checksumSHA1": "2seEGCjQ/1dNc4E9g5+X0zA8w0I=",
+			"path": "github.com/valyala/fasttemplate",
+			"revision": "8b5e4e491ab636663841c42ea3c5a9adebabaf36",
+			"revisionTime": "2019-03-15T20:00:27Z"
 		},
 		{
 			"checksumSHA1": "TT1rac6kpQp2vz24m5yDGUNQ/QQ=",
@@ -1030,5 +1446,5 @@
 			"revisionTime": "2018-11-15T11:05:04Z"
 		}
 	],
-	"rootPath": "github.com/ngtuna/tomochain"
+	"rootPath": "github.com/ethereum/go-ethereum"
 }
