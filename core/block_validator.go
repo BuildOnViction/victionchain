@@ -18,11 +18,15 @@ package core
 
 import (
 	"fmt"
-
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/consensus/posv"
+	"github.com/ethereum/go-ethereum/tomox"
+	sdktypes "github.com/tomochain/tomox-sdk/types"
+	"encoding/json"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -70,6 +74,46 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
+
+	engine, _ := v.engine.(*posv.Posv)
+	if tomoXService := engine.GetTomoXService(); tomoXService == nil {
+		return tomox.ErrTomoXServiceNotFound
+	}
+
+	for _, tx := range block.Transactions() {
+		if tx.IsMatchingTransaction() {
+			var txMatch *tomox.TxDataMatch
+			if err := json.Unmarshal(tx.Data(), &txMatch); err != nil {
+				return fmt.Errorf("transaction match is corrupted", "err", err)
+			}
+			order, err := txMatch.DecodeOrder()
+			if err != nil {
+				return fmt.Errorf("transaction match is corrupted", "err", err)
+			}
+			trades := txMatch.GetTrades()
+			for _, trade := range trades {
+				tradeSDK := &sdktypes.Trade{}
+				if q, ok := trade["quantity"]; ok {
+					tradeSDK.Amount.SetString(q, 10)
+				}
+				tradeSDK.PricePoint = order.Price
+				tradeSDK.PairName = order.PairName
+				tradeSDK.BaseToken = order.BaseToken
+				tradeSDK.QuoteToken = order.QuoteToken
+				tradeSDK.Status = sdktypes.TradeStatusSuccess
+				tradeSDK.Hash = tradeSDK.ComputeHash()
+				tradeSDK.Maker = order.UserAddress
+				tradeSDK.MakerOrderHash = order.Hash
+				if u, ok := trade["uAddr"]; ok {
+					tradeSDK.Taker.SetString(u)
+				}
+				tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
+				tradeSDK.TxHash = tx.Hash()
+				log.Debug("TRADE history", "order", order, "trade", tradeSDK)
+			}
+		}
+	}
+
 	return nil
 }
 

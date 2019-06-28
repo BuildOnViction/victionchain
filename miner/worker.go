@@ -611,6 +611,7 @@ func (self *worker) commitNewWork() {
 
 				txMatches := tomoX.ProcessOrderPending()
 				if len(txMatches) > 0 {
+					log.Debug("transaction matches found", "txMatches", txMatches)
 					// Add tx matches to local pool.
 					for _, txMatch := range txMatches {
 						txMatchBytes, err := json.Marshal(txMatch)
