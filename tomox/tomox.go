@@ -56,14 +56,14 @@ type Config struct {
 }
 
 type TxDataMatch struct {
-	order  []byte
-	trades []map[string]string
-	obOld  common.Hash
-	obNew  common.Hash
-	askOld common.Hash
-	askNew common.Hash
-	bidOld common.Hash
-	bidNew common.Hash
+	Order  []byte
+	Trades []map[string]string
+	ObOld  common.Hash
+	ObNew  common.Hash
+	AskOld common.Hash
+	AskNew common.Hash
+	BidOld common.Hash
+	BidNew common.Hash
 }
 
 // DefaultConfig represents (shocker!) the default configuration.
@@ -861,14 +861,14 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 							continue
 						} else {
 							txMatches[order.Hash] = TxDataMatch{
-								order:  value,
-								trades: trades,
-								obOld:  obOld,
-								obNew:  obNew,
-								askOld: askOld,
-								askNew: askNew,
-								bidOld: bidOld,
-								bidNew: bidNew,
+								Order:  value,
+								Trades: trades,
+								ObOld:  obOld,
+								ObNew:  obNew,
+								AskOld: askOld,
+								AskNew: askNew,
+								BidOld: bidOld,
+								BidNew: bidNew,
 							}
 						}
 						if err := tomox.addProcessedOrderHash(orderHash, 1000); err != nil {
