@@ -110,7 +110,6 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 				tradeSDK.BaseToken = order.BaseToken
 				tradeSDK.QuoteToken = order.QuoteToken
 				tradeSDK.Status = sdktypes.TradeStatusSuccess
-				tradeSDK.Hash = tradeSDK.ComputeHash()
 				tradeSDK.Maker = order.UserAddress
 				tradeSDK.MakerOrderHash = order.Hash
 				if u, ok := trade["uAddr"]; ok {
@@ -119,8 +118,8 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 				}
 				tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
 				tradeSDK.TxHash = tx.Hash()
+				tradeSDK.Hash = tradeSDK.ComputeHash()
 				log.Debug("TRADE history", "order", order, "trade", tradeSDK)
-
 				// put tradeSDK to mongodb on SDK node
 				if tomoXService.IsSDKNode() {
 					db := tomoXService.GetDB()
