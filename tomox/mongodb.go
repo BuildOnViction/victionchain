@@ -274,6 +274,7 @@ func (m *MongoDatabase) CommitTrade(t *types.Trade) error {
 	sc := m.Session.Copy()
 	defer sc.Close()
 
+	t.ID = bson.NewObjectId()
 	t.CreatedAt = time.Now()
 	t.UpdatedAt = time.Now()
 
