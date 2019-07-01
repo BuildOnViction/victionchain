@@ -144,6 +144,8 @@ func (orderTree *OrderTree) getKeyFromPrice(price *big.Int) []byte {
 func (orderTree *OrderTree) PriceList(price *big.Int) *OrderList {
 
 	key := orderTree.getKeyFromPrice(price)
+	// append orderlistKey prefix
+	key = append([]byte("OL"), key...)
 	bytes, found := orderTree.PriceTree.Get(key)
 	log.Debug("Got orderlist by price", "key", hex.EncodeToString(key), "found", found)
 
@@ -192,6 +194,8 @@ func (orderTree *OrderTree) Depth() uint64 {
 func (orderTree *OrderTree) RemovePrice(price *big.Int) error {
 	if orderTree.Depth() > 0 {
 		orderListKey := orderTree.getKeyFromPrice(price)
+		// append orderlistKey prefix
+		orderListKey = append([]byte("OL"), orderListKey...)
 		orderTree.PriceTree.Remove(orderListKey)
 
 		// should use batch to optimize the performance
@@ -206,7 +210,8 @@ func (orderTree *OrderTree) RemovePrice(price *big.Int) error {
 func (orderTree *OrderTree) PriceExist(price *big.Int) bool {
 
 	orderListKey := orderTree.getKeyFromPrice(price)
-
+	// append orderlistKey prefix
+	orderListKey = append([]byte("OL"), orderListKey...)
 	found, _ := orderTree.PriceTree.Has(orderListKey)
 
 	return found
