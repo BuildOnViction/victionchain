@@ -18,6 +18,9 @@ package core
 
 import (
 	"fmt"
+	"encoding/json"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -25,8 +28,8 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/posv"
 	"github.com/ethereum/go-ethereum/tomox"
 	sdktypes "github.com/tomochain/tomox-sdk/types"
-	"encoding/json"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -78,23 +81,28 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	engine, _ := v.engine.(*posv.Posv)
 	tomoXService := engine.GetTomoXService()
 	if tomoXService == nil {
+		log.Error("tomox not found")
 		return tomox.ErrTomoXServiceNotFound
 	}
 
 	for _, tx := range block.Transactions() {
 		if tx.IsMatchingTransaction() {
-			var txMatch *tomox.TxDataMatch
-			if err := json.Unmarshal(tx.Data(), &txMatch); err != nil {
-				return fmt.Errorf("transaction match is corrupted", "err", err)
+			log.Debug("process tx match")
+			txMatch := &tomox.TxDataMatch{}
+			if err := json.Unmarshal(tx.Data(), txMatch); err != nil {
+				return fmt.Errorf("transaction match is corrupted. Failed unmarshal. Error: ", err)
 			}
+			log.Debug("tx unmarshal", "txMatch", txMatch, "tx.Data()", tx.Data())
 			order, err := txMatch.DecodeOrder()
 			if err != nil {
-				return fmt.Errorf("transaction match is corrupted", "err", err)
+				return fmt.Errorf("transaction match is corrupted. Failed decode order. Error: ", err)
 			}
 			trades := txMatch.GetTrades()
+			log.Debug("Got trades", "number", len(trades), "trades", trades)
 			for _, trade := range trades {
 				tradeSDK := &sdktypes.Trade{}
 				if q, ok := trade["quantity"]; ok {
+					tradeSDK.Amount = new(big.Int)
 					tradeSDK.Amount.SetString(q, 10)
 				}
 				tradeSDK.PricePoint = order.Price
@@ -106,6 +114,7 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 				tradeSDK.Maker = order.UserAddress
 				tradeSDK.MakerOrderHash = order.Hash
 				if u, ok := trade["uAddr"]; ok {
+					tradeSDK.Taker = common.Address{}
 					tradeSDK.Taker.SetString(u)
 				}
 				tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
