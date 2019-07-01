@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru"
+	"sync"
 )
 
 const (
@@ -20,6 +21,7 @@ type BatchItem struct {
 
 type BatchDatabase struct {
 	db             *ethdb.LDBDatabase
+	lock sync.RWMutex
 	itemCacheLimit int
 	itemMaxPending int
 	emptyKey       []byte
@@ -79,9 +81,12 @@ func (db *BatchDatabase) Has(key []byte) (bool, error) {
 	cacheKey := db.getCacheKey(key)
 
 	// has in pending and is not deleted
+	db.lock.Lock()
 	if _, ok := db.pendingItems[cacheKey]; ok {
+		db.lock.Unlock()
 		return true, nil
 	}
+	db.lock.Unlock()
 
 	if db.cacheItems.Contains(cacheKey) {
 		return true, nil
@@ -98,11 +103,15 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 	cacheKey := db.getCacheKey(key)
 
+	db.lock.Lock()
 	if pendingItem, ok := db.pendingItems[cacheKey]; ok {
 		// we get value from the pending item
+		db.lock.Unlock()
 		return pendingItem.Value, nil
 	}
 	log.Debug("Debug DB get", "pending map", db.pendingItems, "cacheKey", cacheKey)
+	db.lock.Unlock()
+
 	if cached, ok := db.cacheItems.Get(cacheKey); ok {
 		val = cached
 	} else {
@@ -134,8 +143,10 @@ func (db *BatchDatabase) Put(key []byte, val interface{}) error {
 
 	cacheKey := db.getCacheKey(key)
 
+	db.lock.Lock()
 	db.pendingItems[cacheKey] = &BatchItem{Value: val}
 	log.Debug("Debug DB put", "pending map", db.pendingItems, "cacheKey", cacheKey)
+	db.lock.Unlock()
 
 	if len(db.pendingItems) >= db.itemMaxPending {
 		return db.Commit()
@@ -145,11 +156,11 @@ func (db *BatchDatabase) Put(key []byte, val interface{}) error {
 }
 
 func (db *BatchDatabase) Delete(key []byte, force bool) error {
-
 	// by default, we force delete both db and cache,
 	// for better performance, we can mark a Deleted flag, to do batch delete
 	cacheKey := db.getCacheKey(key)
-
+	db.lock.Lock()
+	defer db.lock.Unlock()
 	// force delete everything
 	if force {
 		delete(db.pendingItems, cacheKey)
@@ -174,11 +185,13 @@ func (db *BatchDatabase) Delete(key []byte, force bool) error {
 func (db *BatchDatabase) Commit() error {
 
 	batch := db.db.NewBatch()
+	db.lock.Lock()
 	for cacheKey, item := range db.pendingItems {
 		key, _ := hex.DecodeString(cacheKey)
 		value, err := EncodeBytesItem(item.Value)
 		if err != nil {
 			log.Error("Can't commit", "err", err)
+			db.lock.Unlock()
 			return err
 		}
 
@@ -187,5 +200,6 @@ func (db *BatchDatabase) Commit() error {
 	}
 	// commit pending items does not affect the cache
 	db.pendingItems = make(map[string]*BatchItem)
+	db.lock.Unlock()
 	return batch.Write()
 }
