@@ -80,13 +80,13 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 
 	engine, _ := v.engine.(*posv.Posv)
 	tomoXService := engine.GetTomoXService()
-	if tomoXService == nil {
-		log.Error("tomox not found")
-		return tomox.ErrTomoXServiceNotFound
-	}
 
 	for _, tx := range block.Transactions() {
 		if tx.IsMatchingTransaction() {
+			if tomoXService == nil {
+				log.Error("tomox not found")
+				return tomox.ErrTomoXServiceNotFound
+			}
 			log.Debug("process tx match")
 			txMatch := &tomox.TxDataMatch{}
 			if err := json.Unmarshal(tx.Data(), txMatch); err != nil {
