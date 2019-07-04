@@ -934,10 +934,30 @@ func (tomox *TomoX) removeOrderPending(orderHash common.Hash) error {
 	log.Debug("Remove order pending", "orderHash", orderHash)
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
-
-	if err := tomox.db.Delete(key, true); err != nil {
-		log.Error("Fail to delete order pending", "err", err)
-		return err
+	if tomox.IsSDKNode() {
+		log.Debug("Update order status to CANCELLED", "orderHash", orderHash)
+		data, err := tomox.db.Get(key, &OrderItem{})
+		if err != nil || data == nil {
+			log.Error("Order doesn't exist in pending", "orderHash", orderHash, "err", err)
+			return err
+		}
+		switch data.(type) {
+		case *OrderItem:
+			o := data.(*OrderItem)
+			//change status to CANCELLED then put it back to DB
+			o.Status = Cancel
+			if err = tomox.db.Put(key, o); err != nil {
+				log.Error("Can't update order status in mongo", "err", err)
+				return err
+			}
+		default:
+			return fmt.Errorf("Order is corrupted")
+		}
+	} else {
+		if err := tomox.db.Delete(key, true); err != nil {
+			log.Error("Fail to delete order pending", "err", err)
+			return err
+		}
 	}
 
 	return nil
