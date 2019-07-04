@@ -46,7 +46,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
-	})
+	}, true)
 
 	// insert order to bid tree: price 98
 	price = CloneBigInt(ether)
@@ -74,7 +74,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
-	})
+	}, true)
 	if err != nil {
 		return ob, err
 	}
@@ -105,7 +105,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
-	})
+	}, true)
 
 	// insert order to ask tree: price 102
 	price = CloneBigInt(ether)
@@ -133,7 +133,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
-	})
+	}, true)
 	return ob, nil
 }
 
