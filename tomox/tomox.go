@@ -931,6 +931,7 @@ func (tomox *TomoX) addOrderPending(order *OrderItem) error {
 }
 
 func (tomox *TomoX) removeOrderPending(orderHash common.Hash) error {
+	log.Debug("Remove order pending", "orderHash", orderHash)
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
 
@@ -967,6 +968,7 @@ func (tomox *TomoX) addPendingHash(orderHash common.Hash) error {
 }
 
 func (tomox *TomoX) removePendingHash(orderHash common.Hash) error {
+	log.Debug("Remove pending hash", "orderHash", orderHash)
 	pendingHashes := tomox.getPendingHashes()
 	if pendingHashes == nil {
 		return nil
