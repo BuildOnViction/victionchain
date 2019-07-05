@@ -129,14 +129,25 @@ func (db *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	err = DecodeBytesItem(common.Hex2Bytes(i.Value), val)
+	if i != nil {
+		err = DecodeBytesItem(common.Hex2Bytes(i.Value), val)
 
-	// has problem here
-	if err != nil {
-		return nil, err
+		// has problem here
+		if err != nil {
+			return nil, err
+		}
+
+		return val, nil
+	} else {
+		var oi *OrderItem
+		err := sc.DB(db.dbName).C("orders").Find(query).One(&oi)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return oi, nil
 	}
-
-	return val, nil
 }
 
 func (db *MongoDatabase) Put(key []byte, val interface{}) error {
