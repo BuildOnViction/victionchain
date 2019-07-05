@@ -664,38 +664,26 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 }
 
 func (tomox *TomoX) InsertOrder(order *OrderItem) error {
-	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
-	if err != nil {
-		return err
-	}
-
-	if ob != nil {
-		// insert
-		if order.OrderID == 0 {
-			if err := tomox.verifyOrderNonce(order); err != nil {
-				return err
-			}
-			// Save order into orderbook tree.
-			if err := tomox.addPendingHash(order.Hash); err != nil {
-				return err
-			}
-			if err := tomox.addOrderPending(order); err != nil {
-				return err
-			}
-
-			log.Info("Process saved")
-			tomox.orderCount[order.UserAddress] = order.Nonce
-			if err := tomox.updateOrderCount(tomox.orderCount); err != nil {
-				log.Error("Failed to save orderCount", "err", err)
-			}
-
-		} else {
-			log.Info("Update order")
-			if err := ob.UpdateOrder(order); err != nil {
-				log.Error("Update order failed", "order", order, "err", err)
-				return err
-			}
+	if order.OrderID == 0 {
+		if err := tomox.verifyOrderNonce(order); err != nil {
+			return err
 		}
+		// Save order into orderbook tree.
+		if err := tomox.addPendingHash(order.Hash); err != nil {
+			return err
+		}
+		if err := tomox.addOrderPending(order); err != nil {
+			return err
+		}
+
+		log.Info("Process saved")
+		tomox.orderCount[order.UserAddress] = order.Nonce
+		if err := tomox.updateOrderCount(tomox.orderCount); err != nil {
+			log.Error("Failed to save orderCount", "err", err)
+		}
+
+	} else {
+		log.Warn("Order already exists", "orderhash", order.Hash)
 	}
 
 	return nil
