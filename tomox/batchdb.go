@@ -196,7 +196,7 @@ func (db *BatchDatabase) Commit() error {
 		}
 
 		batch.Put(key, value)
-		log.Debug("Save", "key", cacheKey, "value", ToJSON(item.Value))
+		log.Debug("Committed to DB", "key", cacheKey, "value", ToJSON(item.Value))
 	}
 	// commit pending items does not affect the cache
 	db.pendingItems = make(map[string]*BatchItem)

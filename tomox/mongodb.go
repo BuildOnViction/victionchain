@@ -126,27 +126,20 @@ func (db *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 	case *OrderItem:
 		var oi *OrderItem
 		err := sc.DB(db.dbName).C("orders").Find(query).One(&oi)
-
 		if err != nil {
 			return nil, err
 		}
-
 		return oi, nil
 	default:
 		var i *MongoItemRecord
 		err := sc.DB(db.dbName).C("items").Find(query).One(&i)
-
 		if err != nil {
 			return nil, err
 		}
-
 		err = DecodeBytesItem(common.Hex2Bytes(i.Value), val)
-
-		// has problem here
 		if err != nil {
 			return nil, err
 		}
-
 		return val, nil
 	}
 }
@@ -168,7 +161,6 @@ func (db *MongoDatabase) Put(key []byte, val interface{}) error {
 			log.Error(err.Error())
 			return err
 		}
-
 		db.pendingItems[cacheKey] = &MongoItem{Value: val}
 	default:
 		db.pendingItems[cacheKey] = &MongoItem{Value: val}
