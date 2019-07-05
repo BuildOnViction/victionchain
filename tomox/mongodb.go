@@ -119,17 +119,10 @@ func (db *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 	sc := db.Session.Copy()
 	defer sc.Close()
 
-	var i *MongoItemRecord
-
 	query := bson.M{"key": cacheKey}
 
-	err := sc.DB(db.dbName).C("items").Find(query).One(&i)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if i == nil {
+	switch val.(type) {
+	case *OrderItem:
 		var oi *OrderItem
 		err := sc.DB(db.dbName).C("orders").Find(query).One(&oi)
 
@@ -138,7 +131,14 @@ func (db *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		}
 
 		return oi, nil
-	} else {
+	default:
+		var i *MongoItemRecord
+		err := sc.DB(db.dbName).C("items").Find(query).One(&i)
+
+		if err != nil {
+			return nil, err
+		}
+
 		err = DecodeBytesItem(common.Hex2Bytes(i.Value), val)
 
 		// has problem here
