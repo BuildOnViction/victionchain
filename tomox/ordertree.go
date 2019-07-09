@@ -144,9 +144,7 @@ func (orderTree *OrderTree) getKeyFromPrice(price *big.Int) []byte {
 func (orderTree *OrderTree) PriceList(price *big.Int) *OrderList {
 
 	key := orderTree.getKeyFromPrice(price)
-	// append orderlistKey prefix
-	key = append([]byte("OL"), key...)
-	bytes, found := orderTree.PriceTree.Get(key)
+	bytes, found := orderTree.PriceTree.Get(GetOrderListCommonKey(key))
 	log.Debug("Got orderlist by price", "key", hex.EncodeToString(key), "found", found)
 
 	if found {
@@ -182,8 +180,9 @@ func (orderTree *OrderTree) SaveOrderList(orderList *OrderList) error {
 		log.Error("Can't encode", "orderList.Item", orderList.Item, "err", err)
 		return err
 	}
-	log.Debug("Save orderlist", "key", hex.EncodeToString(orderList.GetCommonKey()), "value", value)
-	return orderTree.PriceTree.Put(orderList.GetCommonKey(), value)
+	olKey := GetOrderListCommonKey(orderList.Key)
+	log.Debug("Save orderlist", "key", hex.EncodeToString(olKey), "value", value)
+	return orderTree.PriceTree.Put(olKey, value)
 }
 
 func (orderTree *OrderTree) Depth() uint64 {
@@ -193,9 +192,8 @@ func (orderTree *OrderTree) Depth() uint64 {
 // RemovePrice : delete a list by price
 func (orderTree *OrderTree) RemovePrice(price *big.Int) error {
 	if orderTree.Depth() > 0 {
-		orderListKey := orderTree.getKeyFromPrice(price)
-		// append orderlistKey prefix
-		orderListKey = append([]byte("OL"), orderListKey...)
+		priceKey := orderTree.getKeyFromPrice(price)
+		orderListKey := GetOrderListCommonKey(priceKey)
 		orderTree.PriceTree.Remove(orderListKey)
 
 		// should use batch to optimize the performance
@@ -209,9 +207,8 @@ func (orderTree *OrderTree) RemovePrice(price *big.Int) error {
 // PriceExist : check price existed
 func (orderTree *OrderTree) PriceExist(price *big.Int) bool {
 
-	orderListKey := orderTree.getKeyFromPrice(price)
-	// append orderlistKey prefix
-	orderListKey = append([]byte("OL"), orderListKey...)
+	priceKey := orderTree.getKeyFromPrice(price)
+	orderListKey := GetOrderListCommonKey(priceKey)
 	found, _ := orderTree.PriceTree.Has(orderListKey)
 
 	return found
@@ -244,7 +241,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem) error {
 	// order will be inserted to order list
 	if orderList != nil {
 
-		order := NewOrder(order, orderList.GetCommonKey())
+		order := NewOrder(order, GetOrderListCommonKey(orderList.Key))
 
 		if orderList.OrderExist(order.Key) {
 			if err := orderTree.RemoveOrder(order); err != nil {
