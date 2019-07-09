@@ -188,19 +188,15 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// delete some orders from database
 	// we expect that snapshot loading process should put them back
 	// remove order whose OrderId = 1 (bid order)
-	key := GetKeyFromBig(new(big.Int).SetUint64(1))
 	price := CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(99))
-	ol := ob.Bids.PriceList(price)
-	if err = ob.Bids.orderDB.Delete(common.BigToHash(Add(ol.slot, new(big.Int).SetBytes(key))).Bytes(), true); err != nil {
+	if err = ob.Bids.orderDB.Delete(ob.Bids.getKeyFromPrice(price), true); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 	// remove order whose OrderId = 4 (ask order)
-	key = GetKeyFromBig(new(big.Int).SetUint64(4))
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(102))
-	ol = ob.Asks.PriceList(price)
-	if err = ob.Asks.orderDB.Delete(common.BigToHash(Add(ol.slot, new(big.Int).SetBytes(key))).Bytes(), true); err != nil {
+	if err = ob.Asks.orderDB.Delete(ob.Asks.getKeyFromPrice(price), true); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 
