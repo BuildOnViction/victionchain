@@ -122,8 +122,8 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 				items    [][]byte
 				byteItem []byte
 			)
-			for ol != nil && ol.Item != nil && ol.Item.Length > 0 {
-				headOrder := ol.GetOrder(ol.Item.HeadOrder)
+			headOrder := ol.GetOrder(ol.Item.HeadOrder)
+			for headOrder != nil {
 				if byteItem, err = EncodeBytesItem(headOrder.Item); err != nil {
 					return nil, err
 				}
@@ -131,6 +131,7 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 				if err = ol.RemoveOrder(headOrder); err != nil {
 					return nil, err
 				}
+				headOrder = ol.GetOrder(ol.Item.HeadOrder)
 			}
 
 			snap.OrderList[priceKeyHash] = &OrderListSnapshot{

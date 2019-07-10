@@ -38,16 +38,25 @@ func (iterator *Iterator) Next() bool {
 		iterator.node = left
 		goto between
 	}
-	if iterator.node.Item.Keys.Right != nil {
+	if len(iterator.node.Item.Keys.Right) > 0 {
 		iterator.node = iterator.node.Right(iterator.tree)
-		for iterator.node.Item.Keys.Left != nil {
+		if iterator.node == nil {
+			goto end
+		}
+		for len(iterator.node.Item.Keys.Left) > 0 {
 			iterator.node = iterator.node.Left(iterator.tree)
+			if iterator.node == nil {
+				goto end
+			}
 		}
 		goto between
 	}
-	if iterator.node.Item.Keys.Parent != nil {
+	if len(iterator.node.Item.Keys.Parent) > 0 {
 		node := iterator.node
-		for iterator.node.Item.Keys.Parent != nil {
+		for len(iterator.node.Item.Keys.Parent) > 0 {
+			if iterator.node == nil {
+				goto end
+			}
 			iterator.node = iterator.node.Parent(iterator.tree)
 			if iterator.tree.Comparator(node.Key, iterator.node.Key) <= 0 {
 				goto between
