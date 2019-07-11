@@ -14,11 +14,11 @@ var (
 
 func GetSecret(statedb *state.StateDB, address common.Address) [][32]byte {
 	slot := slotRandomizeMapping["randomSecret"]
-	locSecret := getLocMappingAtKey(address.Hash(), slot)
+	locSecret := state.GetLocMappingAtKey(address.Hash(), slot)
 	arrLength := statedb.GetState(common.HexToAddress(common.RandomizeSMC), common.BigToHash(locSecret))
 	keys := []common.Hash{}
 	for i := uint64(0); i < arrLength.Big().Uint64(); i++ {
-		key := getLocDynamicArrAtElement(common.BigToHash(locSecret), i, 1)
+		key := state.GetLocDynamicArrAtElement(common.BigToHash(locSecret), i, 1)
 		keys = append(keys, key)
 	}
 	rets := [][32]byte{}
@@ -31,7 +31,7 @@ func GetSecret(statedb *state.StateDB, address common.Address) [][32]byte {
 
 func GetOpening(statedb *state.StateDB, address common.Address) [32]byte {
 	slot := slotRandomizeMapping["randomOpening"]
-	locOpening := getLocMappingAtKey(address.Hash(), slot)
+	locOpening := state.GetLocMappingAtKey(address.Hash(), slot)
 	ret := statedb.GetState(common.HexToAddress(common.RandomizeSMC), common.BigToHash(locOpening))
 	return ret
 }
