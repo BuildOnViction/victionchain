@@ -140,6 +140,7 @@ func TestDBPending(t *testing.T) {
 	tomox.addPendingHash(hash)
 	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
 	tomox.addPendingHash(hash)
+	// getPendingHashes from cache
 	if pHashes := tomox.getPendingHashes(); len(pHashes) != 3 {
 		t.Error("Expected: 3 pending hash", "Actual:", len(pHashes))
 	}
@@ -147,6 +148,10 @@ func TestDBPending(t *testing.T) {
 	// Test remove hash
 	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
 	tomox.removePendingHash(hash)
+	// commit to force getPendingHashes from db
+	if err := tomox.db.Commit(); err != nil {
+		t.Error(err)
+	}
 	if pHashes := tomox.getPendingHashes(); len(pHashes) != 2 {
 		t.Error("Expected: 2 pending hash", "Actual:", len(pHashes))
 	}
@@ -297,6 +302,10 @@ func TestProcessedHash(t *testing.T) {
 	pHashes := tomox.getProcessedOrderHash()
 	if len(pHashes) != 3 {
 		t.Error("Expected: 3 processed hash", "Actual:", len(pHashes), "pHashes", pHashes)
+	}
+	// commit to force checking existProcessedOrderHash from db
+	if err := tomox.db.Commit(); err != nil {
+		t.Error(err)
 	}
 	if !tomox.existProcessedOrderHash(common.StringToHash("0x0000000000000000000000000000000000000004")) {
 		t.Error("Processed hash not exist")

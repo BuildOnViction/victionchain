@@ -903,7 +903,7 @@ func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
 	if ok, _ := tomox.db.Has(key); ok {
-		val, err = tomox.db.Get(key, val)
+		val, err = tomox.db.Get(key, &OrderItem{})
 		if err != nil {
 			log.Error("Fail to get order pending", "err", err)
 
@@ -958,7 +958,7 @@ func (tomox *TomoX) addPendingHash(orderHash common.Hash) error {
 	}
 	// Store pending hash.
 	key := []byte(pendingHash)
-	if err := tomox.db.Put(key, pendingHashes); err != nil {
+	if err := tomox.db.Put(key, &pendingHashes); err != nil {
 		log.Error("Fail to save order hash pending", "err", err)
 		return err
 	}
@@ -978,7 +978,7 @@ func (tomox *TomoX) removePendingHash(orderHash common.Hash) error {
 		}
 	}
 	// Store pending hash.
-	if err := tomox.db.Put([]byte(pendingHash), pendingHashes); err != nil {
+	if err := tomox.db.Put([]byte(pendingHash), &pendingHashes); err != nil {
 		log.Error("Fail to delete order hash pending", "err", err)
 		return err
 	}
@@ -993,7 +993,7 @@ func (tomox *TomoX) getPendingHashes() []common.Hash {
 	)
 	key := []byte(pendingHash)
 	if ok, _ := tomox.db.Has(key); ok {
-		if val, err = tomox.db.Get(key, val); err != nil {
+		if val, err = tomox.db.Get(key, &[]common.Hash{}); err != nil {
 			log.Error("Fail to get pending hash", "err", err)
 			return []common.Hash{}
 		}
@@ -1002,7 +1002,7 @@ func (tomox *TomoX) getPendingHashes() []common.Hash {
 	if val == nil {
 		return []common.Hash{}
 	}
-	pendingHashes := val.([]common.Hash)
+	pendingHashes := *val.(*[]common.Hash)
 
 	return pendingHashes
 }
@@ -1017,7 +1017,7 @@ func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash, limit int) erro
 	}
 	processedHashes = append(processedHashes, orderHash)
 
-	if err := tomox.db.Put(key, processedHashes); err != nil {
+	if err := tomox.db.Put(key, &processedHashes); err != nil {
 		log.Error("Fail to save processed order hashes", "err", err)
 		return err
 	}
@@ -1031,7 +1031,6 @@ func (tomox *TomoX) existProcessedOrderHash(orderHash common.Hash) bool {
 	for _, k := range processedHashes {
 		if k == orderHash {
 			return true
-			break
 		}
 	}
 
@@ -1046,7 +1045,7 @@ func (tomox *TomoX) getProcessedOrderHash() []common.Hash {
 
 	key := []byte(processedHash)
 	if ok, _ := tomox.db.Has(key); ok {
-		if val, err = tomox.db.Get(key, val); err != nil {
+		if val, err = tomox.db.Get(key, &[]common.Hash{}); err != nil {
 			log.Error("Failed to load processed order hashes", "err", err)
 			return nil
 		}
@@ -1054,7 +1053,7 @@ func (tomox *TomoX) getProcessedOrderHash() []common.Hash {
 
 	var processedHashes []common.Hash
 	if val != nil {
-		processedHashes = val.([]common.Hash)
+		processedHashes = *val.(*[]common.Hash)
 	}
 
 	return processedHashes
