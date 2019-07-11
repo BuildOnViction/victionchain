@@ -251,11 +251,15 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 		return nil
 	}
 
-	//err := orderList.DeleteOrder(order)
-	//FIXME: instead of delete, we save order with CANCEL state
-	if err := orderList.SaveOrder(order); err != nil {
-		// stop other operations
-		return err
+	if order.Item.Status == Cancel {
+		// only CANCELLED order will be put back to DB
+		if err := orderList.SaveOrder(order); err != nil {
+			return err
+		}
+	} else {
+		if err := orderList.DeleteOrder(order); err != nil {
+			return err
+		}
 	}
 
 	nextOrder := orderList.GetOrder(order.Item.NextOrder)

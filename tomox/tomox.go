@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
+	"encoding/hex"
 )
 
 const (
@@ -664,38 +665,26 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string) (*OrderBook, error
 }
 
 func (tomox *TomoX) InsertOrder(order *OrderItem) error {
-	ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
-	if err != nil {
-		return err
-	}
-
-	if ob != nil {
-		// insert
-		if order.OrderID == 0 {
-			if err := tomox.verifyOrderNonce(order); err != nil {
-				return err
-			}
-			// Save order into orderbook tree.
-			if err := tomox.addPendingHash(order.Hash); err != nil {
-				return err
-			}
-			if err := tomox.addOrderPending(order); err != nil {
-				return err
-			}
-
-			log.Info("Process saved")
-			tomox.orderCount[order.UserAddress] = order.Nonce
-			if err := tomox.updateOrderCount(tomox.orderCount); err != nil {
-				log.Error("Failed to save orderCount", "err", err)
-			}
-
-		} else {
-			log.Info("Update order")
-			if err := ob.UpdateOrder(order); err != nil {
-				log.Error("Update order failed", "order", order, "err", err)
-				return err
-			}
+	if order.OrderID == 0 {
+		if err := tomox.verifyOrderNonce(order); err != nil {
+			return err
 		}
+		// Save order into orderbook tree.
+		if err := tomox.addPendingHash(order.Hash); err != nil {
+			return err
+		}
+		if err := tomox.addOrderPending(order); err != nil {
+			return err
+		}
+
+		log.Info("Process saved")
+		tomox.orderCount[order.UserAddress] = order.Nonce
+		if err := tomox.updateOrderCount(tomox.orderCount); err != nil {
+			log.Error("Failed to save orderCount", "err", err)
+		}
+
+	} else {
+		log.Warn("Order already exists", "orderhash", order.Hash)
 	}
 
 	return nil
@@ -902,8 +891,9 @@ func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
 	)
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
+	log.Debug("Get order pending", "order", orderHash, "key", hex.EncodeToString(key))
 	if ok, _ := tomox.db.Has(key); ok {
-		val, err = tomox.db.Get(key, val)
+		val, err = tomox.db.Get(key, &OrderItem{})
 		if err != nil {
 			log.Error("Fail to get order pending", "err", err)
 
@@ -922,6 +912,7 @@ func (tomox *TomoX) addOrderPending(order *OrderItem) error {
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, order.Hash.Bytes()...)
 	// Insert new order pending.
+	log.Debug("Add order pending", "order", order, "key", hex.EncodeToString(key))
 	if err := tomox.db.Put(key, order); err != nil {
 		log.Error("Fail to save order pending", "err", err)
 		return err
@@ -933,16 +924,38 @@ func (tomox *TomoX) addOrderPending(order *OrderItem) error {
 func (tomox *TomoX) removeOrderPending(orderHash common.Hash) error {
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
-
-	if err := tomox.db.Delete(key, true); err != nil {
-		log.Error("Fail to delete order pending", "err", err)
-		return err
+	log.Debug("Remove order pending", "orderHash", orderHash, "key", hex.EncodeToString(key))
+	if tomox.IsSDKNode() {
+		log.Debug("Update order status to CANCELLED", "orderHash", orderHash)
+		data, err := tomox.db.Get(key, &OrderItem{})
+		if err != nil || data == nil {
+			log.Error("Order doesn't exist in pending", "orderHash", orderHash, "err", err)
+			return err
+		}
+		switch data.(type) {
+		case *OrderItem:
+			o := data.(*OrderItem)
+			//change status to CANCELLED then put it back to DB
+			o.Status = Cancel
+			if err = tomox.db.Put(key, o); err != nil {
+				log.Error("Can't update order status in mongo", "err", err)
+				return err
+			}
+		default:
+			return fmt.Errorf("Order is corrupted")
+		}
+	} else {
+		if err := tomox.db.Delete(key, true); err != nil {
+			log.Error("Fail to delete order pending", "err", err)
+			return err
+		}
 	}
 
 	return nil
 }
 
 func (tomox *TomoX) addPendingHash(orderHash common.Hash) error {
+	log.Debug("Add pending hash", "orderHash", orderHash)
 	pendingHashes := tomox.getPendingHashes()
 	if pendingHashes == nil {
 		return nil
@@ -967,6 +980,7 @@ func (tomox *TomoX) addPendingHash(orderHash common.Hash) error {
 }
 
 func (tomox *TomoX) removePendingHash(orderHash common.Hash) error {
+	log.Debug("Remove pending hash", "orderHash", orderHash)
 	pendingHashes := tomox.getPendingHashes()
 	if pendingHashes == nil {
 		return nil

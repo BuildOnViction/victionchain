@@ -349,6 +349,9 @@ func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *Or
 func (orderTree *OrderTree) RemoveOrder(order *Order) error {
 	// get orderList by price. If there is orderlist existed, update it
 	orderList := orderTree.PriceList(order.Item.Price)
+	if orderList == nil {
+		return fmt.Errorf("Orderlist not found")
+	}
 	if orderList != nil {
 		if err := orderTree.RemoveOrderFromOrderList(order, orderList); err != nil {
 			return err

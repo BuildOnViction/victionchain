@@ -115,6 +115,7 @@ func (db *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 		// we get value from the pending item
 		return pendingItem.Value, nil
 	}
+	log.Debug("Cache info (DB get)", "pending map", db.pendingItems, "cacheKey", cacheKey)
 
 	sc := db.Session.Copy()
 	defer sc.Close()
@@ -125,37 +126,29 @@ func (db *MongoDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 	case *OrderItem:
 		var oi *OrderItem
 		err := sc.DB(db.dbName).C("orders").Find(query).One(&oi)
-
 		if err != nil {
 			return nil, err
 		}
-
 		return oi, nil
 	default:
 		var i *MongoItemRecord
 		err := sc.DB(db.dbName).C("items").Find(query).One(&i)
-
 		if err != nil {
 			return nil, err
 		}
-
 		err = DecodeBytesItem(common.Hex2Bytes(i.Value), val)
-
-		// has problem here
 		if err != nil {
 			return nil, err
 		}
-
 		return val, nil
 	}
 }
 
 func (db *MongoDatabase) Put(key []byte, val interface{}) error {
 	cacheKey := db.getCacheKey(key)
-
 	switch val.(type) {
 	case *types.Trade:
-		err := db.CommitTrade(val.(*types.Trade)) // Put order into "orders" collection
+		err := db.CommitTrade(val.(*types.Trade)) // Put trade into "trades" collection
 
 		if err != nil {
 			log.Error(err.Error())
@@ -168,10 +161,10 @@ func (db *MongoDatabase) Put(key []byte, val interface{}) error {
 			log.Error(err.Error())
 			return err
 		}
-
 		db.pendingItems[cacheKey] = &MongoItem{Value: val}
 	default:
 		db.pendingItems[cacheKey] = &MongoItem{Value: val}
+		log.Debug("Cache info (DB put - trades & orders committed directly)", "pending map", db.pendingItems, "cacheKey", cacheKey)
 	}
 
 	// Put everything (includes order) into "items" collection
@@ -185,7 +178,7 @@ func (db *MongoDatabase) Put(key []byte, val interface{}) error {
 func (db *MongoDatabase) Delete(key []byte, force bool) error {
 	cacheKey := db.getCacheKey(key)
 
-	// Delete from object db.pendingItems
+	// Delete from object m.pendingItems
 	delete(db.pendingItems, cacheKey)
 
 	sc := db.Session.Copy()
