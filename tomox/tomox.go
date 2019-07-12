@@ -971,7 +971,7 @@ func (tomox *TomoX) addPendingHash(orderHash common.Hash) error {
 	}
 	// Store pending hash.
 	key := []byte(pendingHash)
-	if err := tomox.db.Put(key, pendingHashes); err != nil {
+	if err := tomox.db.Put(key, &pendingHashes); err != nil {
 		log.Error("Fail to save order hash pending", "err", err)
 		return err
 	}
@@ -992,7 +992,7 @@ func (tomox *TomoX) removePendingHash(orderHash common.Hash) error {
 		}
 	}
 	// Store pending hash.
-	if err := tomox.db.Put([]byte(pendingHash), pendingHashes); err != nil {
+	if err := tomox.db.Put([]byte(pendingHash), &pendingHashes); err != nil {
 		log.Error("Fail to delete order hash pending", "err", err)
 		return err
 	}
@@ -1007,7 +1007,7 @@ func (tomox *TomoX) getPendingHashes() []common.Hash {
 	)
 	key := []byte(pendingHash)
 	if ok, _ := tomox.db.Has(key); ok {
-		if val, err = tomox.db.Get(key, val); err != nil {
+		if val, err = tomox.db.Get(key, &[]common.Hash{}); err != nil {
 			log.Error("Fail to get pending hash", "err", err)
 			return []common.Hash{}
 		}
@@ -1016,7 +1016,7 @@ func (tomox *TomoX) getPendingHashes() []common.Hash {
 	if val == nil {
 		return []common.Hash{}
 	}
-	pendingHashes := val.([]common.Hash)
+	pendingHashes := *val.(*[]common.Hash)
 
 	return pendingHashes
 }
@@ -1031,7 +1031,7 @@ func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash, limit int) erro
 	}
 	processedHashes = append(processedHashes, orderHash)
 
-	if err := tomox.db.Put(key, processedHashes); err != nil {
+	if err := tomox.db.Put(key, &processedHashes); err != nil {
 		log.Error("Fail to save processed order hashes", "err", err)
 		return err
 	}
@@ -1045,7 +1045,6 @@ func (tomox *TomoX) existProcessedOrderHash(orderHash common.Hash) bool {
 	for _, k := range processedHashes {
 		if k == orderHash {
 			return true
-			break
 		}
 	}
 
@@ -1060,7 +1059,7 @@ func (tomox *TomoX) getProcessedOrderHash() []common.Hash {
 
 	key := []byte(processedHash)
 	if ok, _ := tomox.db.Has(key); ok {
-		if val, err = tomox.db.Get(key, val); err != nil {
+		if val, err = tomox.db.Get(key, &[]common.Hash{}); err != nil {
 			log.Error("Failed to load processed order hashes", "err", err)
 			return nil
 		}
@@ -1068,7 +1067,7 @@ func (tomox *TomoX) getProcessedOrderHash() []common.Hash {
 
 	var processedHashes []common.Hash
 	if val != nil {
-		processedHashes = val.([]common.Hash)
+		processedHashes = *val.(*[]common.Hash)
 	}
 
 	return processedHashes
@@ -1127,6 +1126,14 @@ func (tomox *TomoX) Snapshot(blockHash common.Hash) error {
 		err  error
 		blob interface{}
 	)
+	defer func(start time.Time) {
+		if err != nil {
+			log.Error("Failed to snapshot ", "err", err, "time", common.PrettyDuration(time.Since(start)), "hash", blockHash)
+		} else {
+			log.Debug("Snapshot process takes ", "time", common.PrettyDuration(time.Since(start)), "hash", blockHash)
+		}
+	}(time.Now())
+
 	if snap, err = newSnapshot(tomox, blockHash); err != nil {
 		return nil
 	}
@@ -1135,13 +1142,15 @@ func (tomox *TomoX) Snapshot(blockHash common.Hash) error {
 	}
 	// get current snapshot hash in database
 	oldHash := common.Hash{}
-	if blob, err = tomox.db.Get([]byte(latestSnapshotKey), blob); err == nil && blob != nil {
-		oldHash = blob.(common.Hash)
+	if blob, err = tomox.db.Get([]byte(latestSnapshotKey), &common.Hash{}); err == nil && blob != nil {
+		oldHash = *blob.(*common.Hash)
 	}
-	if err = tomox.db.Put([]byte(latestSnapshotKey), blockHash); err != nil {
+	if err = tomox.db.Put([]byte(latestSnapshotKey), &blockHash); err != nil {
 		return err
 	}
-
+	if err = tomox.db.Commit(); err != nil {
+		return err
+	}
 	// remove old snapshot
 	if oldHash != (common.Hash{}) {
 		if err = tomox.db.Delete(append([]byte(snapshotPrefix), oldHash[:]...), false); err != nil {
@@ -1155,25 +1164,35 @@ func (tomox *TomoX) loadSnapshot(hash common.Hash) error {
 	// load orderbook from snapshot
 	var (
 		snap *Snapshot
-		val interface{}
-		ob *OrderBook
-		err error
+		val  interface{}
+		ob   *OrderBook
+		err  error
 	)
+
+	defer func(start time.Time) {
+		if err != nil {
+			log.Error("Failed to load snapshot", "err", err, "time", common.PrettyDuration(time.Since(start)), "hash", hash)
+		} else {
+			log.Debug("Successfully load snapshot", "time", common.PrettyDuration(time.Since(start)), "hash", hash)
+		}
+	}(time.Now())
+
 	if hash == (common.Hash{}) {
-		if val, err = tomox.db.Get([]byte(latestSnapshotKey), val); err != nil {
+		if val, err = tomox.db.Get([]byte(latestSnapshotKey), &common.Hash{}); err != nil {
 			// no snapshot found
 			return err
 		}
-		hash = val.(common.Hash)
+		hash = *val.(*common.Hash)
 	}
-	log.Debug("Loading snapshot at block", "hash", hash)
-	if snap, err = loadSnapshot(tomox.db, hash); err != nil || len(snap.OrderBooks) == 0 {
+	if snap, err = getSnapshot(tomox.db, hash); err != nil || len(snap.OrderBooks) == 0 {
 		return err
 	}
 	for pair := range snap.OrderBooks {
 		ob, err = snap.RestoreOrderBookFromSnapshot(tomox.db, pair)
 		if err == nil {
-			tomox.Orderbooks[pair] = ob
+			if err := ob.Save(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -26,7 +26,7 @@ func buildOrder(nonce *big.Int) *OrderItem {
 		QuoteToken:      common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
 		Status:          "New",
 		Side:            lstBuySell[rand.Int()%len(lstBuySell)],
-		Type:            "LO",
+		Type:            Limit,
 		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash(nonce.String()),
@@ -140,6 +140,7 @@ func TestDBPending(t *testing.T) {
 	tomox.addPendingHash(hash)
 	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
 	tomox.addPendingHash(hash)
+	// getPendingHashes from cache
 	if pHashes := tomox.getPendingHashes(); len(pHashes) != 3 {
 		t.Error("Expected: 3 pending hash", "Actual:", len(pHashes))
 	}
@@ -147,6 +148,10 @@ func TestDBPending(t *testing.T) {
 	// Test remove hash
 	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
 	tomox.removePendingHash(hash)
+	// commit to force getPendingHashes from db
+	if err := tomox.db.Commit(); err != nil {
+		t.Error(err)
+	}
 	if pHashes := tomox.getPendingHashes(); len(pHashes) != 2 {
 		t.Error("Expected: 2 pending hash", "Actual:", len(pHashes))
 	}
@@ -246,8 +251,8 @@ func TestEncodeDecodeTXMatch(t *testing.T) {
 	}
 	txMatches = make(map[common.Hash]TxDataMatch)
 	txMatches[order.Hash] = TxDataMatch{
-		order:  value,
-		trades: trades,
+		Order:  value,
+		Trades: trades,
 	}
 	encode, err := json.Marshal(txMatches)
 	if err != nil {
@@ -297,6 +302,10 @@ func TestProcessedHash(t *testing.T) {
 	pHashes := tomox.getProcessedOrderHash()
 	if len(pHashes) != 3 {
 		t.Error("Expected: 3 processed hash", "Actual:", len(pHashes), "pHashes", pHashes)
+	}
+	// commit to force checking existProcessedOrderHash from db
+	if err := tomox.db.Commit(); err != nil {
+		t.Error(err)
 	}
 	if !tomox.existProcessedOrderHash(common.StringToHash("0x0000000000000000000000000000000000000004")) {
 		t.Error("Processed hash not exist")
