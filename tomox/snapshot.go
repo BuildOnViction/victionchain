@@ -117,23 +117,22 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 			if err != nil {
 				return nil, err
 			}
+			if ol.Item.Length == 0 {
+				return snap, nil
+			}
 			// snapshot orderItems
 			var (
 				items    [][]byte
 				byteItem []byte
 			)
-			headOrder := ol.GetOrder(ol.Item.HeadOrder)
-			for headOrder != nil {
-				if byteItem, err = EncodeBytesItem(headOrder.Item); err != nil {
+			order := ol.GetOrder(ol.Item.HeadOrder)
+			for order != nil {
+				if byteItem, err = EncodeBytesItem(order.Item); err != nil {
 					return nil, err
 				}
 				items = append(items, byteItem)
-				if err = ol.RemoveOrder(headOrder); err != nil {
-					return nil, err
-				}
-				headOrder = ol.GetOrder(ol.Item.HeadOrder)
+				order = order.GetNextOrder(ol)
 			}
-
 			snap.OrderList[priceKeyHash] = &OrderListSnapshot{
 				OrderListItem: bytes,
 				OrderItem:     items,
@@ -198,7 +197,6 @@ func (s *Snapshot) RestoreOrderBookFromSnapshot(db OrderDao, pairName string) (*
 	}
 	ob.Bids = bids
 	ob.Asks = asks
-
 	// verify hash
 	if err = verifyHash(ob, common.BytesToHash(obSnap.OrderBookItem)); err != nil {
 		return &OrderBook{}, err
