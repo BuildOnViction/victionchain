@@ -1209,12 +1209,15 @@ func (tomox *TomoX) loadSnapshot(hash common.Hash) error {
 // save orderbook after matching orders
 // update order pending list, processed list
 func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash) error {
-	tomox.db.SaveDryRunResult()
+	if err := tomox.db.SaveDryRunResult(); err != nil {
+		log.Error("Failed to save dry-run result")
+		return err
+	}
 	for _, hash := range orderHashes {
 		if err := tomox.MarkOrderAsProcessed(hash); err != nil {
 			log.Error("Failed to mark order as processed", "err", err)
 		}
 	}
-	tomox.InitDryRunMode()
+	tomox.db.InitDryRunMode()
 	return nil
 }
