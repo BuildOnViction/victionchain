@@ -3,8 +3,8 @@ package tomox
 import (
 	"encoding/json"
 	"errors"
-	"math/big"
 	"github.com/ethereum/go-ethereum/common"
+	"math/big"
 )
 
 type Comparator func(a, b []byte) int

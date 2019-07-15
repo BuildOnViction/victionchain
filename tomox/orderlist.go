@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"strings"
 
+	"encoding/hex"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"encoding/hex"
 )
 
 const (
@@ -166,8 +166,12 @@ func (orderList *OrderList) Less(than *OrderList) bool {
 	return IsStrictlySmallerThan(orderList.Item.Price, than.Item.Price)
 }
 
-func (orderList *OrderList) Save() error {
-	return orderList.orderTree.SaveOrderList(orderList)
+func (orderList *OrderList) Save(dryrun bool) error {
+	if !dryrun {
+		return orderList.orderTree.SaveOrderList(orderList, dryrun)
+	} else {
+		return nil
+	}
 }
 
 // return the input orderID
@@ -197,15 +201,19 @@ func (orderList *OrderList) OrderExist(key []byte) bool {
 	return found
 }
 
-func (orderList *OrderList) SaveOrder(order *Order) error {
+func (orderList *OrderList) SaveOrder(order *Order, dryrun bool) error {
 	key := orderList.GetOrderID(order)
 	log.Debug("Save order ", "key", hex.EncodeToString(key), "value", ToJSON(order.Item))
-	return orderList.orderTree.orderDB.Put(key, order.Item)
 
+	if !dryrun {
+		return orderList.orderTree.orderDB.Put(key, order.Item)
+	}
+
+	return nil
 }
 
 // AppendOrder : append order into the order list
-func (orderList *OrderList) AppendOrder(order *Order) error {
+func (orderList *OrderList) AppendOrder(order *Order, dryrun bool) error {
 
 	if orderList.Item.Length == uint64(0) {
 		order.Item.NextOrder = EmptyKey()
@@ -216,7 +224,7 @@ func (orderList *OrderList) AppendOrder(order *Order) error {
 	}
 
 	// save into database first
-	if err := orderList.SaveOrder(order); err != nil {
+	if err := orderList.SaveOrder(order, dryrun); err != nil {
 		return err
 	}
 
@@ -228,7 +236,7 @@ func (orderList *OrderList) AppendOrder(order *Order) error {
 		if tailOrder != nil {
 			tailOrder.Item.NextOrder = order.Key
 			orderList.Item.TailOrder = order.Key
-			if err := orderList.SaveOrder(tailOrder); err != nil {
+			if err := orderList.SaveOrder(tailOrder, dryrun); err != nil {
 				return err
 			}
 		}
@@ -244,7 +252,7 @@ func (orderList *OrderList) DeleteOrder(order *Order) error {
 }
 
 // RemoveOrder : remove order from the order list
-func (orderList *OrderList) RemoveOrder(order *Order) error {
+func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 
 	if orderList.Item.Length == uint64(0) {
 		// empty mean nothing to delete
@@ -253,7 +261,7 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 
 	if order.Item.Status == Cancel {
 		// only CANCELLED order will be put back to DB
-		if err := orderList.SaveOrder(order); err != nil {
+		if err := orderList.SaveOrder(order, dryrun); err != nil {
 			return err
 		}
 	} else {
@@ -272,10 +280,10 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 		nextOrder.Item.PrevOrder = prevOrder.Key
 		prevOrder.Item.NextOrder = nextOrder.Key
 
-		if err := orderList.SaveOrder(nextOrder); err != nil {
+		if err := orderList.SaveOrder(nextOrder, dryrun); err != nil {
 			return err
 		}
-		if err := orderList.SaveOrder(prevOrder); err != nil {
+		if err := orderList.SaveOrder(prevOrder, dryrun); err != nil {
 			return err
 		}
 	} else if nextOrder != nil {
@@ -283,14 +291,14 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 		nextOrder.Item.PrevOrder = EmptyKey()
 		orderList.Item.HeadOrder = nextOrder.Key
 
-		if err := orderList.SaveOrder(nextOrder); err != nil {
+		if err := orderList.SaveOrder(nextOrder, dryrun); err != nil {
 			return err
 		}
 	} else if prevOrder != nil {
 		prevOrder.Item.NextOrder = EmptyKey()
 		orderList.Item.TailOrder = prevOrder.Key
 
-		if err := orderList.SaveOrder(prevOrder); err != nil {
+		if err := orderList.SaveOrder(prevOrder, dryrun); err != nil {
 			return err
 		}
 	} else {
@@ -303,12 +311,12 @@ func (orderList *OrderList) RemoveOrder(order *Order) error {
 }
 
 // MoveToTail : move order to the end of the order list
-func (orderList *OrderList) MoveToTail(order *Order) error {
+func (orderList *OrderList) MoveToTail(order *Order, dryrun bool) error {
 	if !orderList.isEmptyKey(order.Item.PrevOrder) { // This Order is not the first Order in the OrderList
 		prevOrder := orderList.GetOrder(order.Item.PrevOrder)
 		if prevOrder != nil {
 			prevOrder.Item.NextOrder = order.Item.NextOrder // Link the previous Order to the next Order, then move the Order to tail
-			if err := orderList.SaveOrder(prevOrder); err != nil {
+			if err := orderList.SaveOrder(prevOrder, dryrun); err != nil {
 				return err
 			}
 		}
@@ -320,7 +328,7 @@ func (orderList *OrderList) MoveToTail(order *Order) error {
 	nextOrder := orderList.GetOrder(order.Item.NextOrder)
 	if nextOrder != nil {
 		nextOrder.Item.PrevOrder = order.Item.PrevOrder
-		if err := orderList.SaveOrder(nextOrder); err != nil {
+		if err := orderList.SaveOrder(nextOrder, dryrun); err != nil {
 			return err
 		}
 	}
@@ -329,13 +337,13 @@ func (orderList *OrderList) MoveToTail(order *Order) error {
 	tailOrder := orderList.GetOrder(orderList.Item.TailOrder)
 	if tailOrder != nil {
 		tailOrder.Item.NextOrder = order.Key
-		if err := orderList.SaveOrder(tailOrder); err != nil {
+		if err := orderList.SaveOrder(tailOrder, dryrun); err != nil {
 			return err
 		}
 	}
 
 	orderList.Item.TailOrder = order.Key
-	return orderList.Save()
+	return orderList.Save(dryrun)
 }
 
 func (orderList *OrderList) Hash() (common.Hash, error) {

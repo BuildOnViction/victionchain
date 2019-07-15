@@ -1191,7 +1191,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			return i, events, coalescedLogs, err
 		}
 
-		if bc.CurrentHeader().Number.Uint64() % common.TomoXSnapshotInterval == 0 {
+		if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 {
 			if err := bc.snapshotTomoX(); err != nil {
 				log.Error("Failed to snapshot tomox", "err", err)
 			}
@@ -1402,12 +1402,11 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		return events, coalescedLogs, nil
 	}
 
-	if bc.CurrentHeader().Number.Uint64() % common.TomoXSnapshotInterval == 0 {
+	if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 {
 		if err := bc.snapshotTomoX(); err != nil {
 			log.Error("Failed to snapshot tomox", "err", err)
 		}
 	}
-
 
 	status, err := bc.WriteBlockWithState(block, result.receipts, result.state)
 

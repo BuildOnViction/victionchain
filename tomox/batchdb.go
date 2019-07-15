@@ -21,7 +21,7 @@ type BatchItem struct {
 
 type BatchDatabase struct {
 	db             *ethdb.LDBDatabase
-	lock sync.RWMutex
+	lock           sync.RWMutex
 	itemCacheLimit int
 	itemMaxPending int
 	emptyKey       []byte

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"encoding/hex"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"encoding/hex"
 	"github.com/pkg/errors"
 )
 
@@ -54,7 +54,7 @@ type OrderBookItemRecordBSON struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db   OrderDao // this is for orderBook
+	db   OrderDao   // this is for orderBook
 	Bids *OrderTree `json:"bids"`
 	Asks *OrderTree `json:"asks"`
 	Item *OrderBookItem
@@ -105,22 +105,26 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 	return orderBook
 }
 
-func (orderBook *OrderBook) Save() error {
+func (orderBook *OrderBook) Save(dryrun bool) error {
 
 	log.Debug("save orderbook asks")
-	if err := orderBook.Asks.Save(); err != nil {
+	if err := orderBook.Asks.Save(dryrun); err != nil {
 		log.Error("can't save orderbook asks", "err", err)
 		return err
 	}
 
 	log.Debug("save orderbook bids")
-	if err := orderBook.Bids.Save(); err != nil {
+	if err := orderBook.Bids.Save(dryrun); err != nil {
 		log.Error("can't save orderbook bids", "err", err)
 		return err
 	}
 
-	log.Debug("save orderbook", "key", hex.EncodeToString(orderBook.Key))
-	return orderBook.db.Put(orderBook.Key, orderBook.Item)
+	if !dryrun {
+		log.Debug("save orderbook", "key", hex.EncodeToString(orderBook.Key))
+		return orderBook.db.Put(orderBook.Key, orderBook.Item)
+	} else {
+		return nil
+	}
 }
 
 // commit everything by trigger db.Commit, later we can map custom encode and decode based on item
@@ -161,7 +165,7 @@ func (orderBook *OrderBook) GetOrderIDFromKey(key []byte) []byte {
 }
 
 func (orderBook *OrderBook) GetOrder(storedKey, key []byte) *Order {
-	if orderBook.db.IsEmptyKey(key) || orderBook.db.IsEmptyKey(storedKey){
+	if orderBook.db.IsEmptyKey(key) || orderBook.db.IsEmptyKey(storedKey) {
 		return nil
 	}
 	orderItem := &OrderItem{}
@@ -214,11 +218,11 @@ func (orderBook *OrderBook) WorstAsk() (value *big.Int) {
 }
 
 // processMarketOrder : process the market order
-func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool) ([]map[string]string, error) {
+func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, dryrun bool) ([]map[string]string, error) {
 	var (
-		trades []map[string]string
+		trades    []map[string]string
 		newTrades []map[string]string
-		err error
+		err       error
 	)
 	quantityToTrade := order.Quantity
 	side := order.Side
@@ -227,7 +231,7 @@ func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool) (
 	if side == Bid {
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() {
 			bestPriceAsks := orderBook.Asks.MinPriceList()
-			quantityToTrade, newTrades, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose)
+			quantityToTrade, newTrades, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose, dryrun)
 			if err != nil {
 				return nil, err
 			}
@@ -236,7 +240,7 @@ func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool) (
 	} else {
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() {
 			bestPriceBids := orderBook.Bids.MaxPriceList()
-			quantityToTrade, newTrades, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose)
+			quantityToTrade, newTrades, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose, dryrun)
 			if err != nil {
 				return nil, err
 			}
@@ -248,12 +252,12 @@ func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool) (
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dryrun bool) ([]map[string]string, *OrderItem, error) {
 	var (
-		trades []map[string]string
-		newTrades []map[string]string
+		trades      []map[string]string
+		newTrades   []map[string]string
 		orderInBook *OrderItem
-		err error
+		err         error
 	)
 	quantityToTrade := order.Quantity
 	side := order.Side
@@ -266,7 +270,7 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 		minPrice := orderBook.Asks.MinPrice()
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() && price.Cmp(minPrice) >= 0 {
 			bestPriceAsks := orderBook.Asks.MinPriceList()
-			quantityToTrade, newTrades, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose)
+			quantityToTrade, newTrades, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose, dryrun)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -277,7 +281,7 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
-			orderBook.Bids.InsertOrder(order)
+			orderBook.Bids.InsertOrder(order, dryrun)
 			orderInBook = order
 		}
 
@@ -285,7 +289,7 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 		maxPrice := orderBook.Bids.MaxPrice()
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() && price.Cmp(maxPrice) <= 0 {
 			bestPriceBids := orderBook.Bids.MaxPriceList()
-			quantityToTrade, newTrades, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose)
+			quantityToTrade, newTrades, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose, dryrun)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -296,7 +300,7 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
-			orderBook.Asks.InsertOrder(order)
+			orderBook.Asks.InsertOrder(order, dryrun)
 			orderInBook = order
 		}
 	}
@@ -304,11 +308,11 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool) ([
 }
 
 // ProcessOrder : process the order
-func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun bool) ([]map[string]string, *OrderItem, error) {
 	var (
 		orderInBook *OrderItem
-		trades []map[string]string
-		err error
+		trades      []map[string]string
+		err         error
 	)
 	orderType := order.Type
 	orderBook.UpdateTime()
@@ -316,19 +320,19 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[
 	orderBook.Item.NextOrderID++
 
 	if orderType == Market {
-		trades, err = orderBook.processMarketOrder(order, verbose)
+		trades, err = orderBook.processMarketOrder(order, verbose, dryrun)
 		if err != nil {
 			return nil, nil, err
 		}
 	} else {
-		trades, orderInBook, err = orderBook.processLimitOrder(order, verbose)
+		trades, orderInBook, err = orderBook.processLimitOrder(order, verbose, dryrun)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
 	// update orderBook
-	if err := orderBook.Save(); err != nil {
+	if err := orderBook.Save(dryrun); err != nil {
 		return nil, nil, err
 	}
 
@@ -336,7 +340,7 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool) ([]map[
 }
 
 // processOrderList : process the order list
-func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool) (*big.Int, []map[string]string, error) {
+func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool, dryrun bool) (*big.Int, []map[string]string, error) {
 	quantityToTrade := CloneBigInt(quantityStillToTrade)
 	var trades []map[string]string
 	// speedup the comparison, do not assign because it is pointer
@@ -357,18 +361,18 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			// Do the transaction
 			newBookQuantity = Sub(headOrder.Item.Quantity, quantityToTrade)
-			if err := headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt); err != nil {
+			if err := headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt, dryrun); err != nil {
 				return nil, nil, err
 			}
 			quantityToTrade = Zero()
 		} else if IsEqual(quantityToTrade, headOrder.Item.Quantity) {
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			if side == Bid {
-				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList); err != nil {
+				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
 					return nil, nil, err
 				}
 			} else {
-				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList); err != nil {
+				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
 					return nil, nil, err
 				}
 			}
@@ -377,11 +381,11 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		} else {
 			tradedQuantity = CloneBigInt(headOrder.Item.Quantity)
 			if side == Bid {
-				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList); err != nil {
+				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
 					return nil, nil, err
 				}
 			} else {
-				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList); err != nil {
+				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
 					return nil, nil, err
 				}
 			}
@@ -406,7 +410,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 
 // CancelOrder : cancel the order, just need ID, side and price, of course order must belong
 // to a price point as well
-func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
+func (orderBook *OrderBook) CancelOrder(order *OrderItem, dryrun bool) error {
 	key := GetKeyFromBig(big.NewInt(int64(order.OrderID)))
 	if order.Side == Bid {
 		orderInDB := orderBook.Bids.GetOrder(key, order.Price)
@@ -414,7 +418,7 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 			return ErrDoesNotExist
 		}
 		orderInDB.Item.Status = Cancel
-		if err := orderBook.Bids.RemoveOrder(orderInDB); err != nil {
+		if err := orderBook.Bids.RemoveOrder(orderInDB, dryrun); err != nil {
 			return err
 		}
 	} else {
@@ -423,38 +427,38 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem) error {
 			return ErrDoesNotExist
 		}
 		orderInDB.Item.Status = Cancel
-		if err := orderBook.Asks.RemoveOrder(orderInDB); err != nil {
+		if err := orderBook.Asks.RemoveOrder(orderInDB, dryrun); err != nil {
 			return err
 		}
 	}
 
 	// snapshot orderbook
 	orderBook.UpdateTime()
-	if err := orderBook.Save(); err != nil {
+	if err := orderBook.Save(dryrun); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (orderBook *OrderBook) UpdateOrder(order *OrderItem) error {
-	return orderBook.ModifyOrder(order, order.OrderID, order.Price)
+func (orderBook *OrderBook) UpdateOrder(order *OrderItem, dryrun bool) error {
+	return orderBook.ModifyOrder(order, order.OrderID, order.Price, dryrun)
 }
 
 // ModifyOrder : modify the order
-func (orderBook *OrderBook) ModifyOrder(order *OrderItem, orderID uint64, price *big.Int) error {
+func (orderBook *OrderBook) ModifyOrder(order *OrderItem, orderID uint64, price *big.Int, dryrun bool) error {
 	orderBook.UpdateTime()
 
 	key := GetKeyFromBig(new(big.Int).SetUint64(order.OrderID))
 	if order.Side == Bid {
 
 		if orderBook.Bids.OrderExist(key, price) {
-			return orderBook.Bids.UpdateOrder(order)
+			return orderBook.Bids.UpdateOrder(order, dryrun)
 		}
 	} else {
 
 		if orderBook.Asks.OrderExist(key, price) {
-			return orderBook.Asks.UpdateOrder(order)
+			return orderBook.Asks.UpdateOrder(order, dryrun)
 		}
 	}
 
