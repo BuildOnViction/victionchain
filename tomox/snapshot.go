@@ -257,7 +257,7 @@ func (s *Snapshot) RestoreOrderTree(treeSnap *OrderTreeSnapshot, tree *OrderTree
 		if err = verifyHash(ol, orderListSnapHash); err != nil {
 			return tree, err
 		}
-		if err = tree.SaveOrderList(ol, true); err != nil {
+		if err = tree.SaveOrderList(ol, false); err != nil {
 			return tree, err
 		}
 
@@ -268,7 +268,7 @@ func (s *Snapshot) RestoreOrderTree(treeSnap *OrderTreeSnapshot, tree *OrderTree
 				return tree, err
 			}
 			order := NewOrder(orderItem, ol.Key)
-			if err = ol.SaveOrder(order, true); err != nil {
+			if err = ol.SaveOrder(order, false); err != nil {
 				return tree, err
 			}
 		}

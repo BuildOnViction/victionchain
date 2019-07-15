@@ -69,7 +69,7 @@ func NewOrderTree(orderDB OrderDao, key []byte, orderBook *OrderBook) *OrderTree
 	return orderTree
 }
 
-func (orderTree *OrderTree) Save(allowSave bool) error {
+func (orderTree *OrderTree) Save(dryrun bool) error {
 
 	// update tree meta information, make sure item existed instead of checking rootKey
 	priceTreeRoot := orderTree.PriceTree.Root()
@@ -78,7 +78,7 @@ func (orderTree *OrderTree) Save(allowSave bool) error {
 		orderTree.Item.PriceTreeSize = orderTree.Depth()
 	}
 
-	if allowSave {
+	if !dryrun {
 		log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.GetCommonKey()))
 		return orderTree.orderDB.Put(orderTree.GetCommonKey(), orderTree.Item)
 	} else {
@@ -88,7 +88,7 @@ func (orderTree *OrderTree) Save(allowSave bool) error {
 
 // save this tree information then do database commit
 func (orderTree *OrderTree) Commit() error {
-	err := orderTree.Save(true)
+	err := orderTree.Save(false)
 	if err == nil {
 		err = orderTree.orderDB.Commit()
 	}
@@ -165,20 +165,20 @@ func (orderTree *OrderTree) PriceList(price *big.Int) *OrderList {
 }
 
 // CreatePrice : create new price list into PriceTree and PriceMap
-func (orderTree *OrderTree) CreatePrice(price *big.Int, allowSave bool) *OrderList {
+func (orderTree *OrderTree) CreatePrice(price *big.Int, dryrun bool) *OrderList {
 
 	// orderTree.Item.Depth++
 	newList := NewOrderList(price, orderTree)
 	// put new price list into tree
-	newList.Save(allowSave)
+	newList.Save(dryrun)
 
 	// should use batch to optimize the performance
-	orderTree.Save(allowSave)
+	orderTree.Save(dryrun)
 
 	return newList
 }
 
-func (orderTree *OrderTree) SaveOrderList(orderList *OrderList, allowSave bool) error {
+func (orderTree *OrderTree) SaveOrderList(orderList *OrderList, dryrun bool) error {
 	value, err := EncodeBytesItem(orderList.Item)
 	if err != nil {
 		log.Error("Can't encode", "orderList.Item", orderList.Item, "err", err)
@@ -194,14 +194,14 @@ func (orderTree *OrderTree) Depth() uint64 {
 }
 
 // RemovePrice : delete a list by price
-func (orderTree *OrderTree) RemovePrice(price *big.Int, allowSave bool) error {
+func (orderTree *OrderTree) RemovePrice(price *big.Int, dryrun bool) error {
 	if orderTree.Depth() > 0 {
 		priceKey := orderTree.getKeyFromPrice(price)
 		orderListKey := GetOrderListCommonKey(priceKey)
 		orderTree.PriceTree.Remove(orderListKey)
 
 		// should use batch to optimize the performance
-		if err := orderTree.Save(allowSave); err != nil {
+		if err := orderTree.Save(dryrun); err != nil {
 			return err
 		}
 	}
@@ -228,7 +228,7 @@ func (orderTree *OrderTree) OrderExist(key []byte, price *big.Int) bool {
 	return orderList.OrderExist(key)
 }
 
-func (orderTree *OrderTree) InsertOrder(order *OrderItem, allowSave bool) error {
+func (orderTree *OrderTree) InsertOrder(order *OrderItem, dryrun bool) error {
 
 	price := order.Price
 
@@ -237,7 +237,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, allowSave bool) error 
 	if !orderTree.PriceExist(price) {
 		// create and save
 		log.Debug("create price list", "detail", price.String())
-		orderList = orderTree.CreatePrice(price, allowSave)
+		orderList = orderTree.CreatePrice(price, dryrun)
 	} else {
 		orderList = orderTree.PriceList(price)
 	}
@@ -248,20 +248,20 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, allowSave bool) error 
 		order := NewOrder(order, GetOrderListCommonKey(orderList.Key))
 
 		if orderList.OrderExist(order.Key) {
-			if err := orderTree.RemoveOrder(order, allowSave); err != nil {
+			if err := orderTree.RemoveOrder(order, dryrun); err != nil {
 				return err
 			}
 		}
 
 		// append order to order list
 		log.Debug("debug orderlist", "before", orderList.Item)
-		if err := orderList.AppendOrder(order, allowSave); err != nil {
+		if err := orderList.AppendOrder(order, dryrun); err != nil {
 			return err
 		}
 
 		log.Debug("debug orderlist", "after", orderList.Item)
 		// snapshot order list
-		if err := orderList.Save(allowSave); err != nil {
+		if err := orderList.Save(dryrun); err != nil {
 			return err
 		}
 		orderTree.Item.Volume = Add(orderTree.Item.Volume, order.Item.Quantity)
@@ -270,7 +270,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, allowSave bool) error 
 		orderTree.Item.NumOrders++
 
 		// finally, snapshot order tree
-		if err := orderTree.Save(allowSave); err != nil {
+		if err := orderTree.Save(dryrun); err != nil {
 			return err
 		}
 	}
@@ -279,14 +279,14 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, allowSave bool) error 
 }
 
 // UpdateOrder : update an order
-func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem, allowSave bool) error {
+func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem, dryrun bool) error {
 
 	price := orderItem.Price
 	orderList := orderTree.PriceList(price)
 
 	if orderList == nil {
 		// create a price list for this price
-		orderList = orderTree.CreatePrice(price, allowSave)
+		orderList = orderTree.CreatePrice(price, dryrun)
 	}
 
 	orderID := new(big.Int).SetUint64(orderItem.OrderID)
@@ -297,20 +297,20 @@ func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem, allowSave bool) er
 	originalQuantity := CloneBigInt(order.Item.Quantity)
 
 	if !IsEqual(price, order.Item.Price) {
-		if err := orderList.RemoveOrder(order, allowSave); err != nil {
+		if err := orderList.RemoveOrder(order, dryrun); err != nil {
 			return err
 		}
 		if orderList.Item.Length == uint64(0) {
-			if err := orderTree.RemovePrice(price, allowSave); err != nil {
+			if err := orderTree.RemovePrice(price, dryrun); err != nil {
 				return err
 			}
 		}
-		orderTree.InsertOrder(orderItem, allowSave)
+		orderTree.InsertOrder(orderItem, dryrun)
 	} else {
 		quantity := orderItem.Quantity
 		//timestamp, _ := strconv.ParseInt(quote["timestamp"], 10, 64)
 		timestamp := orderItem.CreatedAt
-		if err := order.UpdateQuantity(orderList, quantity, timestamp, allowSave); err != nil {
+		if err := order.UpdateQuantity(orderList, quantity, timestamp, dryrun); err != nil {
 			return err
 		}
 	}
@@ -318,23 +318,23 @@ func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem, allowSave bool) er
 	orderTree.Item.Volume = Add(orderTree.Item.Volume, Sub(order.Item.Quantity, originalQuantity))
 
 	// should use batch to optimize the performance
-	return orderTree.Save(allowSave)
+	return orderTree.Save(dryrun)
 }
 
-func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *OrderList, allowSave bool) error {
+func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *OrderList, dryrun bool) error {
 	// next update orderList
-	if err := orderList.RemoveOrder(order, allowSave); err != nil {
+	if err := orderList.RemoveOrder(order, dryrun); err != nil {
 		return err
 	}
 
 	// snapshot order list
-	if err := orderList.Save(allowSave); err != nil {
+	if err := orderList.Save(dryrun); err != nil {
 		return err
 	}
 
 	// no items left than safety remove
 	if orderList.Item.Length == uint64(0) {
-		if err := orderTree.RemovePrice(order.Item.Price, allowSave); err != nil {
+		if err := orderTree.RemovePrice(order.Item.Price, dryrun); err != nil {
 			return err
 		}
 		log.Debug("remove price list", "price", order.Item.Price.String())
@@ -350,19 +350,19 @@ func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *Or
 	return nil
 }
 
-func (orderTree *OrderTree) RemoveOrder(order *Order, allowSave bool) error {
+func (orderTree *OrderTree) RemoveOrder(order *Order, dryrun bool) error {
 	// get orderList by price. If there is orderlist existed, update it
 	orderList := orderTree.PriceList(order.Item.Price)
 	if orderList == nil {
 		return fmt.Errorf("Orderlist not found")
 	}
 	if orderList != nil {
-		if err := orderTree.RemoveOrderFromOrderList(order, orderList, allowSave); err != nil {
+		if err := orderTree.RemoveOrderFromOrderList(order, orderList, dryrun); err != nil {
 			return err
 		}
 
 		// snapshot ordertree
-		if err := orderTree.Save(allowSave); err != nil {
+		if err := orderTree.Save(dryrun); err != nil {
 			return err
 		}
 	}
