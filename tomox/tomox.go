@@ -793,6 +793,8 @@ func (tomox *TomoX) GetAsksTree(pairName string) (*OrderTree, error) {
 
 func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 	txMatches := make(map[common.Hash]TxDataMatch)
+	dryRunOrderbooks := map[string]*OrderBook{} // key: pairName, value: *Orderbook
+
 	pendingHashes := tomox.getPendingHashes()
 	if len(pendingHashes) > 0 {
 		for i, orderHash := range pendingHashes {
@@ -800,7 +802,14 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 				order := tomox.getOrderPending(orderHash)
 				if order != nil {
 					if !tomox.existProcessedOrderHash(orderHash) {
-						ob, err := tomox.getAndCreateIfNotExisted(order.PairName)
+						var (
+							ob *OrderBook
+							err error
+							ok bool
+						)
+						if ob, ok = dryRunOrderbooks[order.PairName]; !ok {
+							ob, err = tomox.getAndCreateIfNotExisted(order.PairName)
+						}
 						if err != nil || ob == nil {
 							log.Error("Fail to get/create orderbook", "order.PairName", order.PairName)
 							continue
@@ -860,6 +869,7 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 								BidNew: bidNew,
 							}
 						}
+						dryRunOrderbooks[order.PairName] = ob
 						if err := tomox.addProcessedOrderHash(orderHash, 1000); err != nil {
 							log.Error("Fail to save processed order hash", "err", err)
 							continue
