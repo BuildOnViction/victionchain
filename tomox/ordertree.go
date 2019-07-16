@@ -186,7 +186,7 @@ func (orderTree *OrderTree) SaveOrderList(orderList *OrderList, dryrun bool) err
 	}
 	olKey := GetOrderListCommonKey(orderList.Key)
 	log.Debug("Save orderlist", "key", hex.EncodeToString(olKey), "value", value)
-	return orderTree.PriceTree.Put(olKey, value)
+	return orderTree.PriceTree.Put(olKey, value, dryrun)
 }
 
 func (orderTree *OrderTree) Depth() uint64 {
@@ -198,7 +198,7 @@ func (orderTree *OrderTree) RemovePrice(price *big.Int, dryrun bool) error {
 	if orderTree.Depth() > 0 {
 		priceKey := orderTree.getKeyFromPrice(price)
 		orderListKey := GetOrderListCommonKey(priceKey)
-		orderTree.PriceTree.Remove(orderListKey)
+		orderTree.PriceTree.Remove(orderListKey, dryrun)
 
 		// should use batch to optimize the performance
 		if err := orderTree.Save(dryrun); err != nil {

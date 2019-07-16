@@ -167,11 +167,7 @@ func (orderList *OrderList) Less(than *OrderList) bool {
 }
 
 func (orderList *OrderList) Save(dryrun bool) error {
-	if !dryrun {
-		return orderList.orderTree.SaveOrderList(orderList, dryrun)
-	} else {
-		return nil
-	}
+	return orderList.orderTree.SaveOrderList(orderList, dryrun)
 }
 
 // return the input orderID
