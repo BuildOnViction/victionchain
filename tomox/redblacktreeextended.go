@@ -49,7 +49,7 @@ func (tree *RedBlackTreeExtended) RemoveMin() (value []byte, deleted bool) {
 	node, found := tree.getMinFromNode(tree.Root())
 	// fmt.Println("found min", node)
 	if found {
-		tree.Remove(node.Key)
+		tree.Remove(node.Key, false)
 		// fmt.Printf("%x\n", node.Key)
 		return node.Value(), found
 	}
@@ -62,7 +62,7 @@ func (tree *RedBlackTreeExtended) RemoveMax() (value []byte, deleted bool) {
 	node, found := tree.getMaxFromNode(tree.Root())
 	// fmt.Println("found max", node)
 	if found {
-		tree.Remove(node.Key)
+		tree.Remove(node.Key, false)
 		return node.Value(), found
 	}
 	return nil, false

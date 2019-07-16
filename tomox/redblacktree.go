@@ -54,7 +54,7 @@ func (tree *Tree) SetRootKey(key []byte, size uint64) {
 
 // Put inserts node into the tree.
 // Key should adhere to the comparator's type assertion, otherwise method panics.
-func (tree *Tree) Put(key []byte, value []byte) error {
+func (tree *Tree) Put(key []byte, value []byte, dryrun bool) error {
 	var insertedNode *Node
 	if tree.IsEmptyKey(tree.rootKey) {
 		// Assert key is of comparator's type for initial tree
@@ -74,12 +74,12 @@ func (tree *Tree) Put(key []byte, value []byte) error {
 			case compare == 0:
 
 				node.Item.Value = value
-				tree.Save(node)
+				tree.Save(node, dryrun)
 				return nil
 			case compare < 0:
 				if tree.IsEmptyKey(node.LeftKey()) {
 					node.LeftKey(key)
-					tree.Save(node)
+					tree.Save(node, dryrun)
 					item := &Item{Value: value, Color: red, Keys: &KeyMeta{}}
 					nodeLeft := &Node{Key: key, Item: item}
 					insertedNode = nodeLeft
@@ -91,7 +91,7 @@ func (tree *Tree) Put(key []byte, value []byte) error {
 
 				if tree.IsEmptyKey(node.RightKey()) {
 					node.RightKey(key)
-					tree.Save(node)
+					tree.Save(node, dryrun)
 					item := &Item{Value: value, Color: red, Keys: &KeyMeta{}}
 					nodeRight := &Node{Key: key, Item: item}
 					insertedNode = nodeRight
@@ -104,11 +104,11 @@ func (tree *Tree) Put(key []byte, value []byte) error {
 		}
 
 		insertedNode.ParentKey(node.Key)
-		tree.Save(insertedNode)
+		tree.Save(insertedNode, dryrun)
 	}
 
-	tree.insertCase1(insertedNode)
-	tree.Save(insertedNode)
+	tree.insertCase1(insertedNode, dryrun)
+	tree.Save(insertedNode, dryrun)
 
 	tree.size++
 	return nil
@@ -147,7 +147,7 @@ func (tree *Tree) Get(key []byte) (value []byte, found bool) {
 
 // Remove remove the node from the tree by key.
 // Key should adhere to the comparator's type assertion, otherwise method panics.
-func (tree *Tree) Remove(key []byte) {
+func (tree *Tree) Remove(key []byte, dryrun bool) {
 	var child *Node
 	node, err := tree.GetNode(key)
 
@@ -176,16 +176,16 @@ func (tree *Tree) Remove(key []byte) {
 
 		if node.Item.Color == black {
 			node.Item.Color = nodeColor(child)
-			tree.Save(node)
+			tree.Save(node, dryrun)
 
-			tree.deleteCase1(node)
+			tree.deleteCase1(node, dryrun)
 		}
 
-		tree.replaceNode(node, child)
+		tree.replaceNode(node, child, dryrun)
 
 		if tree.IsEmptyKey(node.ParentKey()) && child != nil {
 			child.Item.Color = black
-			tree.Save(child)
+			tree.Save(child, dryrun)
 		}
 	}
 
@@ -358,37 +358,37 @@ func output(tree *Tree, node *Node, prefix string, isTail bool, str *string) {
 	}
 }
 
-func (tree *Tree) rotateLeft(node *Node) {
+func (tree *Tree) rotateLeft(node *Node, dryrun bool) {
 	right := node.Right(tree)
-	tree.replaceNode(node, right)
+	tree.replaceNode(node, right, dryrun)
 	node.RightKey(right.LeftKey())
 	if !tree.IsEmptyKey(right.LeftKey()) {
 		rightLeft := right.Left(tree)
 		rightLeft.ParentKey(node.Key)
-		tree.Save(rightLeft)
+		tree.Save(rightLeft, dryrun)
 	}
 	right.LeftKey(node.Key)
 	node.ParentKey(right.Key)
-	tree.Save(node)
-	tree.Save(right)
+	tree.Save(node, dryrun)
+	tree.Save(right, dryrun)
 }
 
-func (tree *Tree) rotateRight(node *Node) {
+func (tree *Tree) rotateRight(node *Node, dryrun bool) {
 	left := node.Left(tree)
-	tree.replaceNode(node, left)
+	tree.replaceNode(node, left, dryrun)
 	node.LeftKey(left.RightKey())
 	if !tree.IsEmptyKey(left.RightKey()) {
 		leftRight := left.Right(tree)
 		leftRight.ParentKey(node.Key)
-		tree.Save(leftRight)
+		tree.Save(leftRight, dryrun)
 	}
 	left.RightKey(node.Key)
 	node.ParentKey(left.Key)
-	tree.Save(node)
-	tree.Save(left)
+	tree.Save(node, dryrun)
+	tree.Save(left, dryrun)
 }
 
-func (tree *Tree) replaceNode(old *Node, new *Node) {
+func (tree *Tree) replaceNode(old *Node, new *Node, dryrun bool) {
 
 	// we do not change any byte of Key so we can copy the reference to save directly to db
 	var newKey []byte
@@ -410,70 +410,70 @@ func (tree *Tree) replaceNode(old *Node, new *Node) {
 			oldParent.RightKey(newKey)
 		}
 		// we can have case like: remove a node, then add it again
-		tree.Save(oldParent)
+		tree.Save(oldParent, dryrun)
 		// }
 	}
 	if new != nil {
 		// here is the swap, not update key
 		// new.Parent = old.Parent
 		new.ParentKey(old.ParentKey())
-		tree.Save(new)
+		tree.Save(new, dryrun)
 	}
 
 }
 
-func (tree *Tree) insertCase1(node *Node) {
+func (tree *Tree) insertCase1(node *Node, dryrun bool) {
 
 	if tree.IsEmptyKey(node.ParentKey()) {
 		node.Item.Color = black
 	} else {
-		tree.insertCase2(node)
+		tree.insertCase2(node, dryrun)
 	}
 }
 
-func (tree *Tree) insertCase2(node *Node) {
+func (tree *Tree) insertCase2(node *Node, dryrun bool) {
 	parent := node.Parent(tree)
 	if nodeColor(parent) == black {
 		return
 	}
 
-	tree.insertCase3(node)
+	tree.insertCase3(node, dryrun)
 }
 
-func (tree *Tree) insertCase3(node *Node) {
+func (tree *Tree) insertCase3(node *Node, dryrun bool) {
 	parent := node.Parent(tree)
 	uncle := node.uncle(tree)
 	if nodeColor(uncle) == red {
 		parent.Item.Color = black
 		uncle.Item.Color = black
-		tree.Save(uncle)
-		tree.Save(parent)
+		tree.Save(uncle, dryrun)
+		tree.Save(parent, dryrun)
 		grandparent := parent.Parent(tree)
 		tree.assertNotNull(grandparent, "grant parent")
 
 		grandparent.Item.Color = red
-		tree.insertCase1(grandparent)
-		tree.Save(grandparent)
+		tree.insertCase1(grandparent, dryrun)
+		tree.Save(grandparent, dryrun)
 	} else {
-		tree.insertCase4(node)
+		tree.insertCase4(node, dryrun)
 	}
 }
 
-func (tree *Tree) insertCase4(node *Node) {
+func (tree *Tree) insertCase4(node *Node, dryrun bool) {
 	parent := node.Parent(tree)
 	grandparent := parent.Parent(tree)
 	tree.assertNotNull(grandparent, "grant parent")
 	if tree.Comparator(node.Key, parent.RightKey()) == 0 &&
 		tree.Comparator(parent.Key, grandparent.LeftKey()) == 0 {
-		tree.rotateLeft(parent)
+		tree.rotateLeft(parent, dryrun)
 		node = node.Left(tree)
 	} else if tree.Comparator(node.Key, parent.LeftKey()) == 0 &&
 		tree.Comparator(parent.Key, grandparent.RightKey()) == 0 {
-		tree.rotateRight(parent)
+		tree.rotateRight(parent, dryrun)
 		node = node.Right(tree)
 	}
 
-	tree.insertCase5(node)
+	tree.insertCase5(node, dryrun)
 }
 
 func (tree *Tree) assertNotNull(node *Node, name string) {
@@ -482,63 +482,66 @@ func (tree *Tree) assertNotNull(node *Node, name string) {
 	}
 }
 
-func (tree *Tree) insertCase5(node *Node) {
+func (tree *Tree) insertCase5(node *Node, dryrun bool) {
 	parent := node.Parent(tree)
 	parent.Item.Color = black
-	tree.Save(parent)
+	tree.Save(parent, dryrun)
 
 	grandparent := parent.Parent(tree)
 	tree.assertNotNull(grandparent, "grant parent")
 	grandparent.Item.Color = red
-	tree.Save(grandparent)
+	tree.Save(grandparent, dryrun)
 
 	if tree.Comparator(node.Key, parent.LeftKey()) == 0 &&
 		tree.Comparator(parent.Key, grandparent.LeftKey()) == 0 {
-		tree.rotateRight(grandparent)
+		tree.rotateRight(grandparent, dryrun)
 	} else if tree.Comparator(node.Key, parent.RightKey()) == 0 &&
 		tree.Comparator(parent.Key, grandparent.RightKey()) == 0 {
-		tree.rotateLeft(grandparent)
+		tree.rotateLeft(grandparent, dryrun)
 	}
 
 }
 
-func (tree *Tree) Save(node *Node) error {
-	return tree.db.Put(node.Key, node.Item)
+func (tree *Tree) Save(node *Node, dryrun bool) error {
+	if !dryrun {
+		return tree.db.Put(node.Key, node.Item)
+	}
+	return nil
 }
 
 func (tree *Tree) Commit() error {
 	return tree.db.Commit()
 }
 
-func (tree *Tree) deleteCase1(node *Node) {
+func (tree *Tree) deleteCase1(node *Node, dryrun bool) {
 	if tree.IsEmptyKey(node.ParentKey()) {
-		tree.deleteNode(node, false)
+		tree.deleteNode(node, false, dryrun)
 		return
 	}
 
-	tree.deleteCase2(node)
+	tree.deleteCase2(node, dryrun)
 }
 
-func (tree *Tree) deleteCase2(node *Node) {
+func (tree *Tree) deleteCase2(node *Node, dryrun bool) {
 	parent := node.Parent(tree)
 	sibling := node.sibling(tree)
 
 	if nodeColor(sibling) == red {
 		parent.Item.Color = red
 		sibling.Item.Color = black
-		tree.Save(parent)
-		tree.Save(sibling)
+		tree.Save(parent, dryrun)
+		tree.Save(sibling, dryrun)
 		if tree.Comparator(node.Key, parent.LeftKey()) == 0 {
-			tree.rotateLeft(parent)
+			tree.rotateLeft(parent, dryrun)
 		} else {
-			tree.rotateRight(parent)
+			tree.rotateRight(parent, dryrun)
 		}
 	}
 
-	tree.deleteCase3(node)
+	tree.deleteCase3(node, dryrun)
 }
 
-func (tree *Tree) deleteCase3(node *Node) {
+func (tree *Tree) deleteCase3(node *Node, dryrun bool) {
 
 	parent := node.Parent(tree)
 	sibling := node.sibling(tree)
@@ -550,18 +553,18 @@ func (tree *Tree) deleteCase3(node *Node) {
 		nodeColor(siblingLeft) == black &&
 		nodeColor(siblingRight) == black {
 		sibling.Item.Color = red
-		tree.Save(sibling)
-		tree.deleteCase1(parent)
+		tree.Save(sibling, dryrun)
+		tree.deleteCase1(parent, dryrun)
 		log.Debug("delete node,  key: %x, parentKey :%x\n", node.Key, parent.Key)
-		tree.deleteNode(node, false)
+		tree.deleteNode(node, false, dryrun)
 
 	} else {
-		tree.deleteCase4(node)
+		tree.deleteCase4(node, dryrun)
 	}
 
 }
 
-func (tree *Tree) deleteCase4(node *Node) {
+func (tree *Tree) deleteCase4(node *Node, dryrun bool) {
 	parent := node.Parent(tree)
 	sibling := node.sibling(tree)
 	siblingLeft := sibling.Left(tree)
@@ -573,14 +576,14 @@ func (tree *Tree) deleteCase4(node *Node) {
 		nodeColor(siblingRight) == black {
 		sibling.Item.Color = red
 		parent.Item.Color = black
-		tree.Save(sibling)
-		tree.Save(parent)
+		tree.Save(sibling, dryrun)
+		tree.Save(parent, dryrun)
 	} else {
-		tree.deleteCase5(node)
+		tree.deleteCase5(node, dryrun)
 	}
 }
 
-func (tree *Tree) deleteCase5(node *Node) {
+func (tree *Tree) deleteCase5(node *Node, dryrun bool) {
 	parent := node.Parent(tree)
 	sibling := node.sibling(tree)
 	siblingLeft := sibling.Left(tree)
@@ -593,10 +596,10 @@ func (tree *Tree) deleteCase5(node *Node) {
 		sibling.Item.Color = red
 		siblingLeft.Item.Color = black
 
-		tree.Save(sibling)
-		tree.Save(siblingLeft)
+		tree.Save(sibling, dryrun)
+		tree.Save(siblingLeft, dryrun)
 
-		tree.rotateRight(sibling)
+		tree.rotateRight(sibling, dryrun)
 
 	} else if tree.Comparator(node.Key, parent.RightKey()) == 0 &&
 		nodeColor(sibling) == black &&
@@ -605,17 +608,17 @@ func (tree *Tree) deleteCase5(node *Node) {
 		sibling.Item.Color = red
 		siblingRight.Item.Color = black
 
-		tree.Save(sibling)
-		tree.Save(siblingRight)
+		tree.Save(sibling, dryrun)
+		tree.Save(siblingRight, dryrun)
 
-		tree.rotateLeft(sibling)
+		tree.rotateLeft(sibling, dryrun)
 
 	}
 
-	tree.deleteCase6(node)
+	tree.deleteCase6(node, dryrun)
 }
 
-func (tree *Tree) deleteCase6(node *Node) {
+func (tree *Tree) deleteCase6(node *Node, dryrun bool) {
 	parent := node.Parent(tree)
 	sibling := node.sibling(tree)
 	siblingLeft := sibling.Left(tree)
@@ -624,21 +627,21 @@ func (tree *Tree) deleteCase6(node *Node) {
 	sibling.Item.Color = nodeColor(parent)
 	parent.Item.Color = black
 
-	tree.Save(sibling)
-	tree.Save(parent)
+	tree.Save(sibling, dryrun)
+	tree.Save(parent, dryrun)
 
 	if tree.Comparator(node.Key, parent.LeftKey()) == 0 && nodeColor(siblingRight) == red {
 		siblingRight.Item.Color = black
-		tree.Save(siblingRight)
-		tree.rotateLeft(parent)
+		tree.Save(siblingRight, dryrun)
+		tree.rotateLeft(parent, dryrun)
 	} else if nodeColor(siblingLeft) == red {
 		siblingLeft.Item.Color = black
-		tree.Save(siblingLeft)
-		tree.rotateRight(parent)
+		tree.Save(siblingLeft, dryrun)
+		tree.rotateRight(parent, dryrun)
 	}
 
 	// update the parent meta then delete the current node from db
-	tree.deleteNode(node, false)
+	tree.deleteNode(node, false, dryrun)
 }
 
 func nodeColor(node *Node) bool {
@@ -648,6 +651,8 @@ func nodeColor(node *Node) bool {
 	return node.Item.Color
 }
 
-func (tree *Tree) deleteNode(node *Node, force bool) {
-	tree.db.Delete(node.Key, force)
+func (tree *Tree) deleteNode(node *Node, force bool, dryrun bool) {
+	if !dryrun {
+		tree.db.Delete(node.Key, force)
+	}
 }
