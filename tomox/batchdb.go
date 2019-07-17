@@ -84,8 +84,8 @@ func (db *BatchDatabase) Has(key []byte, dryrun bool) (bool, error) {
 	cacheKey := db.getCacheKey(key)
 
 	if dryrun {
-		if item, ok := db.dryRunCache.Get(cacheKey); ok {
-			if item == nil {
+		if val, ok := db.dryRunCache.Get(cacheKey); ok {
+			if val == nil {
 				return false, nil
 			}
 			return true, nil
@@ -116,12 +116,12 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 	cacheKey := db.getCacheKey(key)
 
 	if dryrun {
-		if item, ok := db.dryRunCache.Get(cacheKey); ok {
-			log.Debug("Debug DB get from dry-run cache", "cacheKey", cacheKey, "item", item)
-			if item == nil {
+		if value, ok := db.dryRunCache.Get(cacheKey); ok {
+			log.Debug("Debug DB get from dry-run cache", "cacheKey", cacheKey, "val", value)
+			if value == nil {
 				return nil, nil
 			}
-			return item.(*BatchItem).Value, nil
+			return value, nil
 		}
 	}
 
@@ -165,7 +165,7 @@ func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 	cacheKey := db.getCacheKey(key)
 	if dryrun {
 		log.Debug("Debug DB put to dry-run cache", "cacheKey", cacheKey, "val", val)
-		db.dryRunCache.Add(cacheKey, &BatchItem{Value: val})
+		db.dryRunCache.Add(cacheKey, val)
 		return nil
 	}
 
@@ -253,16 +253,16 @@ func (db *BatchDatabase) SaveDryRunResult() error {
 			db.lock.Unlock()
 			return err
 		}
-		item, ok := db.dryRunCache.Get(cacheKey)
+		val, ok := db.dryRunCache.Get(cacheKey)
 		if !ok {
 			continue
 		}
-		if item == nil {
+		if val == nil {
 			db.db.Delete(key)
 			continue
 		}
-		batchItem := item.(*BatchItem)
-		value, err := EncodeBytesItem(batchItem.Value)
+
+		value, err := EncodeBytesItem(val)
 		if err != nil {
 			log.Error("Can't save dry-run result", "err", err)
 			db.lock.Unlock()
@@ -270,7 +270,7 @@ func (db *BatchDatabase) SaveDryRunResult() error {
 		}
 
 		batch.Put(key, value)
-		log.Debug("Saved dry-run result to DB", "cacheKey", hex.EncodeToString(key), "value", ToJSON(batchItem.Value))
+		log.Debug("Saved dry-run result to DB", "cacheKey", hex.EncodeToString(key), "value", ToJSON(val))
 	}
 	db.lock.Unlock()
 	return batch.Write()

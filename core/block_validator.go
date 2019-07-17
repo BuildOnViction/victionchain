@@ -123,7 +123,7 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 				// put tradeSDK to mongodb on SDK node
 				if tomoXService.IsSDKNode() {
 					db := tomoXService.GetDB()
-					return db.Put(tomox.EmptyKey(), tradeSDK)
+					return db.Put(tomox.EmptyKey(), tradeSDK, true)
 				}
 			}
 		}
