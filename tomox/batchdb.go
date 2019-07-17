@@ -117,6 +117,7 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 
 	if dryrun {
 		if item, ok := db.dryRunCache.Get(cacheKey); ok {
+			log.Debug("Debug DB get from dry-run cache", "cacheKey", cacheKey, "item", item)
 			if item == nil {
 				return nil, nil
 			}
@@ -163,6 +164,7 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 	cacheKey := db.getCacheKey(key)
 	if dryrun {
+		log.Debug("Debug DB put to dry-run cache", "cacheKey", cacheKey, "val", val)
 		db.dryRunCache.Add(cacheKey, &BatchItem{Value: val})
 		return nil
 	}
@@ -185,6 +187,7 @@ func (db *BatchDatabase) Delete(key []byte, force bool, dryrun bool) error {
 	cacheKey := db.getCacheKey(key)
 
 	if dryrun {
+		log.Debug("Debug DB delete from dry-run cache", "cacheKey", cacheKey)
 		db.dryRunCache.Add(cacheKey, nil)
 		return nil
 	}
