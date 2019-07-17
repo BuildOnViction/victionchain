@@ -87,14 +87,14 @@ func (order *Order) String() string {
 		new(big.Int).SetBytes(order.Key), order.Item.Price, order.Item.Quantity, order.Item.ExchangeAddress.Hex())
 }
 
-func (order *Order) GetNextOrder(orderList *OrderList) *Order {
-	nextOrder := orderList.GetOrder(order.Item.NextOrder)
+func (order *Order) GetNextOrder(orderList *OrderList, dryrun bool) *Order {
+	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)
 
 	return nextOrder
 }
 
-func (order *Order) GetPrevOrder(orderList *OrderList) *Order {
-	prevOrder := orderList.GetOrder(order.Item.PrevOrder)
+func (order *Order) GetPrevOrder(orderList *OrderList, dryrun bool) *Order {
+	prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun)
 
 	return prevOrder
 }

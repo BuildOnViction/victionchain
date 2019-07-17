@@ -52,7 +52,7 @@ func (s *Snapshot) store(db OrderDao) error {
 	if err != nil {
 		return err
 	}
-	return db.Put(append([]byte(snapshotPrefix), s.Hash[:]...), &blob)
+	return db.Put(append([]byte(snapshotPrefix), s.Hash[:]...), &blob, false)
 }
 
 // take a snapshot of data of tomox
@@ -67,7 +67,7 @@ func newSnapshot(tomox *TomoX, blockHash common.Hash) (*Snapshot, error) {
 	snap.Hash = blockHash
 	snap.OrderBooks = make(map[string]*OrderBookSnapshot)
 	for _, pair := range tomox.listTokenPairs() {
-		ob, err = tomox.GetOrderBook(pair)
+		ob, err = tomox.GetOrderBook(pair, false)
 		if err != nil {
 			return nil, err
 		}
@@ -108,9 +108,9 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 		return snap, nil
 	}
 	// foreach each price, snapshot its orderlist
-	for _, key := range tree.PriceTree.Keys() {
+	for _, key := range tree.PriceTree.Keys(false) {
 		priceKeyHash := common.BytesToHash(key)
-		bytes, found := tree.PriceTree.Get(key)
+		bytes, found := tree.PriceTree.Get(key, false)
 		if found {
 			var ol *OrderList
 			ol, err = tree.decodeOrderList(bytes)
@@ -125,13 +125,13 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 				items    [][]byte
 				byteItem []byte
 			)
-			order := ol.GetOrder(ol.Item.HeadOrder)
+			order := ol.GetOrder(ol.Item.HeadOrder, false)
 			for order != nil {
 				if byteItem, err = EncodeBytesItem(order.Item); err != nil {
 					return nil, err
 				}
 				items = append(items, byteItem)
-				order = order.GetNextOrder(ol)
+				order = order.GetNextOrder(ol, false)
 			}
 			snap.OrderList[priceKeyHash] = &OrderListSnapshot{
 				OrderListItem: bytes,
@@ -148,7 +148,7 @@ func getSnapshot(db OrderDao, blockHash common.Hash) (*Snapshot, error) {
 		blob interface{}
 		err  error
 	)
-	blob, err = db.Get(append([]byte(snapshotPrefix), blockHash[:]...), &[]byte{})
+	blob, err = db.Get(append([]byte(snapshotPrefix), blockHash[:]...), &[]byte{}, false)
 	if err != nil {
 		return nil, err
 	}

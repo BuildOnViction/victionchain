@@ -72,18 +72,14 @@ func NewOrderTree(orderDB OrderDao, key []byte, orderBook *OrderBook) *OrderTree
 func (orderTree *OrderTree) Save(dryrun bool) error {
 
 	// update tree meta information, make sure item existed instead of checking rootKey
-	priceTreeRoot := orderTree.PriceTree.Root()
+	priceTreeRoot := orderTree.PriceTree.Root(dryrun)
 	if priceTreeRoot != nil {
 		orderTree.Item.PriceTreeKey = priceTreeRoot.Key
 		orderTree.Item.PriceTreeSize = orderTree.Depth()
 	}
 
-	if !dryrun {
-		log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.GetCommonKey()))
-		return orderTree.orderDB.Put(orderTree.GetCommonKey(), orderTree.Item)
-	} else {
-		return nil
-	}
+	log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.GetCommonKey()))
+	return orderTree.orderDB.Put(orderTree.GetCommonKey(), orderTree.Item, dryrun)
 }
 
 // save this tree information then do database commit
@@ -95,8 +91,8 @@ func (orderTree *OrderTree) Commit() error {
 	return err
 }
 
-func (orderTree *OrderTree) Restore() error {
-	val, err := orderTree.orderDB.Get(orderTree.GetCommonKey(), orderTree.Item)
+func (orderTree *OrderTree) Restore(dryrun bool) error {
+	val, err := orderTree.orderDB.Get(orderTree.GetCommonKey(), orderTree.Item, dryrun)
 
 	if err == nil {
 		orderTree.Item = val.(*OrderTreeItem)
@@ -108,10 +104,10 @@ func (orderTree *OrderTree) Restore() error {
 	return err
 }
 
-func (orderTree *OrderTree) String(startDepth int) string {
+func (orderTree *OrderTree) String(startDepth int, dryrun bool) string {
 	tabs := strings.Repeat("\t", startDepth)
 	return fmt.Sprintf("{\n\t%sMinPriceList: %s\n\t%sMaxPriceList: %s\n\t%sVolume: %v\n\t%sNumOrders: %d\n\t%sDepth: %d\n%s}",
-		tabs, orderTree.MinPriceList().String(startDepth+1), tabs, orderTree.MaxPriceList().String(startDepth+1), tabs,
+		tabs, orderTree.MinPriceList(dryrun).String(startDepth+1, dryrun), tabs, orderTree.MaxPriceList(dryrun).String(startDepth+1, dryrun), tabs,
 		orderTree.Item.Volume, tabs, orderTree.Item.NumOrders, tabs, orderTree.Depth(), tabs)
 }
 
@@ -124,14 +120,14 @@ func (orderTree *OrderTree) NotEmpty() bool {
 	return orderTree.Item.NumOrders > 0
 }
 
-func (orderTree *OrderTree) GetOrder(key []byte, price *big.Int) *Order {
-	orderList := orderTree.PriceList(price)
+func (orderTree *OrderTree) GetOrder(key []byte, price *big.Int, dryrun bool) *Order {
+	orderList := orderTree.PriceList(price, dryrun)
 	if orderList == nil {
 		return nil
 	}
 
 	// we can use orderID incremental way, so we just need a big slot from price of order tree
-	return orderList.GetOrder(key)
+	return orderList.GetOrder(key, dryrun)
 }
 
 func (orderTree *OrderTree) getSlotFromPrice(price *big.Int) *big.Int {
@@ -145,10 +141,10 @@ func (orderTree *OrderTree) getKeyFromPrice(price *big.Int) []byte {
 }
 
 // PriceList : get the price list from the price map using price as key
-func (orderTree *OrderTree) PriceList(price *big.Int) *OrderList {
+func (orderTree *OrderTree) PriceList(price *big.Int, dryrun bool) *OrderList {
 
 	key := orderTree.getKeyFromPrice(price)
-	bytes, found := orderTree.PriceTree.Get(GetOrderListCommonKey(key))
+	bytes, found := orderTree.PriceTree.Get(GetOrderListCommonKey(key), dryrun)
 	log.Debug("Got orderlist by price", "key", hex.EncodeToString(key), "found", found)
 
 	if found {
@@ -209,23 +205,23 @@ func (orderTree *OrderTree) RemovePrice(price *big.Int, dryrun bool) error {
 }
 
 // PriceExist : check price existed
-func (orderTree *OrderTree) PriceExist(price *big.Int) bool {
+func (orderTree *OrderTree) PriceExist(price *big.Int, dryrun bool) bool {
 
 	priceKey := orderTree.getKeyFromPrice(price)
 	orderListKey := GetOrderListCommonKey(priceKey)
-	found, _ := orderTree.PriceTree.Has(orderListKey)
+	found, _ := orderTree.PriceTree.Has(orderListKey, dryrun)
 
 	return found
 }
 
 // OrderExist : check order existed, only support for a specific price
-func (orderTree *OrderTree) OrderExist(key []byte, price *big.Int) bool {
-	orderList := orderTree.PriceList(price)
+func (orderTree *OrderTree) OrderExist(key []byte, price *big.Int, dryrun bool) bool {
+	orderList := orderTree.PriceList(price, dryrun)
 	if orderList == nil {
 		return false
 	}
 
-	return orderList.OrderExist(key)
+	return orderList.OrderExist(key, dryrun)
 }
 
 func (orderTree *OrderTree) InsertOrder(order *OrderItem, dryrun bool) error {
@@ -234,12 +230,12 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, dryrun bool) error {
 
 	var orderList *OrderList
 
-	if !orderTree.PriceExist(price) {
+	if !orderTree.PriceExist(price, dryrun) {
 		// create and save
 		log.Debug("create price list", "detail", price.String())
 		orderList = orderTree.CreatePrice(price, dryrun)
 	} else {
-		orderList = orderTree.PriceList(price)
+		orderList = orderTree.PriceList(price, dryrun)
 	}
 
 	// order will be inserted to order list
@@ -247,7 +243,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, dryrun bool) error {
 
 		order := NewOrder(order, GetOrderListCommonKey(orderList.Key))
 
-		if orderList.OrderExist(order.Key) {
+		if orderList.OrderExist(order.Key, dryrun) {
 			if err := orderTree.RemoveOrder(order, dryrun); err != nil {
 				return err
 			}
@@ -282,7 +278,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, dryrun bool) error {
 func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem, dryrun bool) error {
 
 	price := orderItem.Price
-	orderList := orderTree.PriceList(price)
+	orderList := orderTree.PriceList(price, dryrun)
 
 	if orderList == nil {
 		// create a price list for this price
@@ -292,7 +288,7 @@ func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem, dryrun bool) error
 	orderID := new(big.Int).SetUint64(orderItem.OrderID)
 	key := GetKeyFromBig(orderID)
 
-	order := orderList.GetOrder(key)
+	order := orderList.GetOrder(key, dryrun)
 
 	originalQuantity := CloneBigInt(order.Item.Quantity)
 
@@ -352,7 +348,7 @@ func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *Or
 
 func (orderTree *OrderTree) RemoveOrder(order *Order, dryrun bool) error {
 	// get orderList by price. If there is orderlist existed, update it
-	orderList := orderTree.PriceList(order.Item.Price)
+	orderList := orderTree.PriceList(order.Item.Price, dryrun)
 	if orderList == nil {
 		return fmt.Errorf("Orderlist not found")
 	}
@@ -393,9 +389,9 @@ func (orderTree *OrderTree) decodeOrderList(bytes []byte) (*OrderList, error) {
 }
 
 // MaxPrice : get the max price
-func (orderTree *OrderTree) MaxPrice() *big.Int {
+func (orderTree *OrderTree) MaxPrice(dryrun bool) *big.Int {
 	if orderTree.Depth() > 0 {
-		if bytes, found := orderTree.PriceTree.GetMax(); found {
+		if bytes, found := orderTree.PriceTree.GetMax(dryrun); found {
 			item, err := orderTree.getOrderListItem(bytes)
 			if err != nil {
 				return Zero()
@@ -409,9 +405,9 @@ func (orderTree *OrderTree) MaxPrice() *big.Int {
 }
 
 // MinPrice : get the min price
-func (orderTree *OrderTree) MinPrice() *big.Int {
+func (orderTree *OrderTree) MinPrice(dryrun bool) *big.Int {
 	if orderTree.Depth() > 0 {
-		if bytes, found := orderTree.PriceTree.GetMin(); found {
+		if bytes, found := orderTree.PriceTree.GetMin(dryrun); found {
 			item, err := orderTree.getOrderListItem(bytes)
 			if err != nil {
 				return Zero()
@@ -425,9 +421,9 @@ func (orderTree *OrderTree) MinPrice() *big.Int {
 }
 
 // MaxPriceList : get max price list
-func (orderTree *OrderTree) MaxPriceList() *OrderList {
+func (orderTree *OrderTree) MaxPriceList(dryrun bool) *OrderList {
 	if orderTree.Depth() > 0 {
-		if bytes, found := orderTree.PriceTree.GetMax(); found {
+		if bytes, found := orderTree.PriceTree.GetMax(dryrun); found {
 			orderList, _ := orderTree.decodeOrderList(bytes)
 			return orderList
 		}
@@ -437,9 +433,9 @@ func (orderTree *OrderTree) MaxPriceList() *OrderList {
 }
 
 // MinPriceList : get min price list
-func (orderTree *OrderTree) MinPriceList() *OrderList {
+func (orderTree *OrderTree) MinPriceList(dryrun bool) *OrderList {
 	if orderTree.Depth() > 0 {
-		if bytes, found := orderTree.PriceTree.GetMin(); found {
+		if bytes, found := orderTree.PriceTree.GetMin(dryrun); found {
 			orderList, _ := orderTree.decodeOrderList(bytes)
 			return orderList
 		}

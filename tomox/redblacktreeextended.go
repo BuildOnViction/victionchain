@@ -27,8 +27,8 @@ func NewRedBlackTreeExtended(obdb OrderDao) *RedBlackTreeExtended {
 }
 
 // GetMin gets the min value and flag if found
-func (tree *RedBlackTreeExtended) GetMin() (value []byte, found bool) {
-	node, found := tree.getMinFromNode(tree.Root())
+func (tree *RedBlackTreeExtended) GetMin(dryrun bool) (value []byte, found bool) {
+	node, found := tree.getMinFromNode(tree.Root(dryrun), dryrun)
 	if node != nil {
 		return node.Value(), found
 	}
@@ -36,8 +36,8 @@ func (tree *RedBlackTreeExtended) GetMin() (value []byte, found bool) {
 }
 
 // GetMax gets the max value and flag if found
-func (tree *RedBlackTreeExtended) GetMax() (value []byte, found bool) {
-	node, found := tree.getMaxFromNode(tree.Root())
+func (tree *RedBlackTreeExtended) GetMax(dryrun bool) (value []byte, found bool) {
+	node, found := tree.getMaxFromNode(tree.Root(dryrun), dryrun)
 	if node != nil {
 		return node.Value(), found
 	}
@@ -45,8 +45,8 @@ func (tree *RedBlackTreeExtended) GetMax() (value []byte, found bool) {
 }
 
 // RemoveMin removes the min value and flag if found
-func (tree *RedBlackTreeExtended) RemoveMin() (value []byte, deleted bool) {
-	node, found := tree.getMinFromNode(tree.Root())
+func (tree *RedBlackTreeExtended) RemoveMin(dryrun bool) (value []byte, deleted bool) {
+	node, found := tree.getMinFromNode(tree.Root(dryrun), dryrun)
 	// fmt.Println("found min", node)
 	if found {
 		tree.Remove(node.Key, false)
@@ -57,9 +57,9 @@ func (tree *RedBlackTreeExtended) RemoveMin() (value []byte, deleted bool) {
 }
 
 // RemoveMax removes the max value and flag if found
-func (tree *RedBlackTreeExtended) RemoveMax() (value []byte, deleted bool) {
+func (tree *RedBlackTreeExtended) RemoveMax(dryrun bool) (value []byte, deleted bool) {
 	// fmt.Println("found max with root", tree.Root())
-	node, found := tree.getMaxFromNode(tree.Root())
+	node, found := tree.getMaxFromNode(tree.Root(dryrun), dryrun)
 	// fmt.Println("found max", node)
 	if found {
 		tree.Remove(node.Key, false)
@@ -68,24 +68,24 @@ func (tree *RedBlackTreeExtended) RemoveMax() (value []byte, deleted bool) {
 	return nil, false
 }
 
-func (tree *RedBlackTreeExtended) getMinFromNode(node *Node) (foundNode *Node, found bool) {
+func (tree *RedBlackTreeExtended) getMinFromNode(node *Node, dryrun bool) (foundNode *Node, found bool) {
 	if node == nil {
 		return nil, false
 	}
-	nodeLeft := node.Left(tree.Tree)
+	nodeLeft := node.Left(tree.Tree, dryrun)
 	if nodeLeft == nil {
 		return node, true
 	}
-	return tree.getMinFromNode(nodeLeft)
+	return tree.getMinFromNode(nodeLeft, dryrun)
 }
 
-func (tree *RedBlackTreeExtended) getMaxFromNode(node *Node) (foundNode *Node, found bool) {
+func (tree *RedBlackTreeExtended) getMaxFromNode(node *Node, dryrun bool) (foundNode *Node, found bool) {
 	if node == nil {
 		return nil, false
 	}
-	nodeRight := node.Right(tree.Tree)
+	nodeRight := node.Right(tree.Tree, dryrun)
 	if nodeRight == nil {
 		return node, true
 	}
-	return tree.getMaxFromNode(nodeRight)
+	return tree.getMaxFromNode(nodeRight, dryrun)
 }

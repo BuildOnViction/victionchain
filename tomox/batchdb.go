@@ -27,6 +27,7 @@ type BatchDatabase struct {
 	emptyKey       []byte
 	pendingItems   map[string]*BatchItem
 	cacheItems     *lru.Cache // Cache for reading
+	dryRunCache    *lru.Cache
 	Debug          bool
 }
 
@@ -52,6 +53,7 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit, maxPending int) *Bat
 	}
 
 	cacheItems, _ := lru.New(defaultCacheLimit)
+	dryRunCache, _ := lru.New(defaultCacheLimit)
 
 	batchDB := &BatchDatabase{
 		db:             db,
@@ -60,6 +62,7 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit, maxPending int) *Bat
 		cacheItems:     cacheItems,
 		emptyKey:       EmptyKey(), // pre alloc for comparison
 		pendingItems:   make(map[string]*BatchItem),
+		dryRunCache:    dryRunCache,
 	}
 
 	return batchDB
@@ -74,11 +77,20 @@ func (db *BatchDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *BatchDatabase) Has(key []byte) (bool, error) {
+func (db *BatchDatabase) Has(key []byte, dryrun bool) (bool, error) {
 	if db.IsEmptyKey(key) {
 		return false, nil
 	}
 	cacheKey := db.getCacheKey(key)
+
+	if dryrun {
+		if item, ok := db.dryRunCache.Get(cacheKey); ok {
+			if item == nil {
+				return false, nil
+			}
+			return true, nil
+		}
+	}
 
 	// has in pending and is not deleted
 	db.lock.Lock()
@@ -95,13 +107,22 @@ func (db *BatchDatabase) Has(key []byte) (bool, error) {
 	return db.db.Has(key)
 }
 
-func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
+func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interface{}, error) {
 
 	if db.IsEmptyKey(key) {
 		return nil, nil
 	}
 
 	cacheKey := db.getCacheKey(key)
+
+	if dryrun {
+		if item, ok := db.dryRunCache.Get(cacheKey); ok {
+			if item == nil {
+				return nil, nil
+			}
+			return item.(*BatchItem).Value, nil
+		}
+	}
 
 	db.lock.Lock()
 	if pendingItem, ok := db.pendingItems[cacheKey]; ok {
@@ -118,13 +139,13 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 
 		// we can use lru for retrieving cache item, by default leveldb support get data from cache
 		// but it is raw bytes
-		bytes, err := db.db.Get(key)
+		b, err := db.db.Get(key)
 		if err != nil {
 			log.Debug("Key not found", "key", hex.EncodeToString(key), "err", err)
 			return nil, err
 		}
 
-		err = DecodeBytesItem(bytes, val)
+		err = DecodeBytesItem(b, val)
 
 		// has problem here
 		if err != nil {
@@ -139,9 +160,12 @@ func (db *BatchDatabase) Get(key []byte, val interface{}) (interface{}, error) {
 	return val, nil
 }
 
-func (db *BatchDatabase) Put(key []byte, val interface{}) error {
-
+func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 	cacheKey := db.getCacheKey(key)
+	if dryrun {
+		db.dryRunCache.Add(cacheKey, &BatchItem{Value: val})
+		return nil
+	}
 
 	db.lock.Lock()
 	db.pendingItems[cacheKey] = &BatchItem{Value: val}
@@ -155,10 +179,16 @@ func (db *BatchDatabase) Put(key []byte, val interface{}) error {
 	return nil
 }
 
-func (db *BatchDatabase) Delete(key []byte, force bool) error {
+func (db *BatchDatabase) Delete(key []byte, force bool, dryrun bool) error {
 	// by default, we force delete both db and cache,
 	// for better performance, we can mark a Deleted flag, to do batch delete
 	cacheKey := db.getCacheKey(key)
+
+	if dryrun {
+		db.dryRunCache.Add(cacheKey, nil)
+		return nil
+	}
+
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	// force delete everything
@@ -200,6 +230,45 @@ func (db *BatchDatabase) Commit() error {
 	}
 	// commit pending items does not affect the cache
 	db.pendingItems = make(map[string]*BatchItem)
+	db.lock.Unlock()
+	return batch.Write()
+}
+
+func (db *BatchDatabase) InitDryRunMode() {
+	dryRunCache, _ := lru.New(defaultCacheLimit)
+	db.dryRunCache = dryRunCache
+}
+
+func (db *BatchDatabase) SaveDryRunResult() error {
+
+	batch := db.db.NewBatch()
+	db.lock.Lock()
+	for _, cacheKey := range db.dryRunCache.Keys() {
+		key, err := hex.DecodeString(cacheKey.(string))
+		if err != nil {
+			log.Error("Can't save dry-run result", "err", err)
+			db.lock.Unlock()
+			return err
+		}
+		item, ok := db.dryRunCache.Get(cacheKey)
+		if !ok {
+			continue
+		}
+		if item == nil {
+			db.db.Delete(key)
+			continue
+		}
+		batchItem := item.(*BatchItem)
+		value, err := EncodeBytesItem(batchItem.Value)
+		if err != nil {
+			log.Error("Can't save dry-run result", "err", err)
+			db.lock.Unlock()
+			return err
+		}
+
+		batch.Put(key, value)
+		log.Debug("Saved dry-run result to DB", "cacheKey", hex.EncodeToString(key), "value", ToJSON(batchItem.Value))
+	}
 	db.lock.Unlock()
 	return batch.Write()
 }
