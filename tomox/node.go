@@ -67,13 +67,13 @@ func (node *Node) String(tree *Tree) string {
 	return fmt.Sprintf("%v -> %x, (%v)\n", tree.FormatBytes(node.Key), node.Value(), node.Item.Keys.String(tree))
 }
 
-func (node *Node) maximumNode(tree *Tree) *Node {
+func (node *Node) maximumNode(tree *Tree, dryrun bool) *Node {
 	newNode := node
 	if newNode == nil {
 		return newNode
 	}
 	for !tree.IsEmptyKey(node.RightKey()) {
-		newNode = newNode.Right(tree)
+		newNode = newNode.Right(tree, dryrun)
 	}
 	return newNode
 }
@@ -117,10 +117,10 @@ func (node *Node) ParentKey(keys ...[]byte) []byte {
 	return node.Item.Keys.Parent
 }
 
-func (node *Node) Left(tree *Tree) *Node {
+func (node *Node) Left(tree *Tree, dryrun bool) *Node {
 	key := node.LeftKey()
 
-	newNode, err := tree.GetNode(key)
+	newNode, err := tree.GetNode(key, dryrun)
 	if err != nil {
 		log.Error("Error at left", "err", err)
 	}
@@ -128,18 +128,18 @@ func (node *Node) Left(tree *Tree) *Node {
 	return newNode
 }
 
-func (node *Node) Right(tree *Tree) *Node {
+func (node *Node) Right(tree *Tree, dryrun bool) *Node {
 	key := node.RightKey()
-	newNode, err := tree.GetNode(key)
+	newNode, err := tree.GetNode(key,dryrun)
 	if err != nil {
 		fmt.Println(err)
 	}
 	return newNode
 }
 
-func (node *Node) Parent(tree *Tree) *Node {
+func (node *Node) Parent(tree *Tree, dryrun bool) *Node {
 	key := node.ParentKey()
-	newNode, err := tree.GetNode(key)
+	newNode, err := tree.GetNode(key, dryrun)
 	if err != nil {
 		log.Error("Error at parent", "err", err)
 	}
@@ -150,33 +150,33 @@ func (node *Node) Value() []byte {
 	return node.Item.Value
 }
 
-func (node *Node) grandparent(tree *Tree) *Node {
+func (node *Node) grandparent(tree *Tree, dryrun bool) *Node {
 	if node != nil && !tree.IsEmptyKey(node.ParentKey()) {
-		return node.Parent(tree).Parent(tree)
+		return node.Parent(tree, dryrun).Parent(tree, dryrun)
 	}
 	return nil
 }
 
-func (node *Node) uncle(tree *Tree) *Node {
+func (node *Node) uncle(tree *Tree, dryrun bool) *Node {
 	if node == nil || tree.IsEmptyKey(node.ParentKey()) {
 		return nil
 	}
-	parent := node.Parent(tree)
+	parent := node.Parent(tree, dryrun)
 	// if tree.IsEmptyKey(parent.ParentKey()) {
 	// 	return nil
 	// }
 
-	return parent.sibling(tree)
+	return parent.sibling(tree, dryrun)
 }
 
-func (node *Node) sibling(tree *Tree) *Node {
+func (node *Node) sibling(tree *Tree, dryrun bool) *Node {
 	if node == nil || tree.IsEmptyKey(node.ParentKey()) {
 		return nil
 	}
-	parent := node.Parent(tree)
+	parent := node.Parent(tree, dryrun)
 	// fmt.Printf("Parent: %s\n", parent)
 	if tree.Comparator(node.Key, parent.LeftKey()) == 0 {
-		return parent.Right(tree)
+		return parent.Right(tree, dryrun)
 	}
-	return parent.Left(tree)
+	return parent.Left(tree, dryrun)
 }

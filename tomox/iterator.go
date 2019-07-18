@@ -26,12 +26,12 @@ func (tree *Tree) Iterator() Iterator {
 // If Next() returns true, then next element's key and value can be retrieved by Key() and Value().
 // If Next() was called for the first time, then it will point the iterator to the first element if it exists.
 // Modifies the state of the iterator.
-func (iterator *Iterator) Next() bool {
+func (iterator *Iterator) Next(dryrun bool) bool {
 	if iterator.position == end {
 		goto end
 	}
 	if iterator.position == begin {
-		left := iterator.tree.Left()
+		left := iterator.tree.Left(dryrun)
 		if left == nil {
 			goto end
 		}
@@ -39,12 +39,12 @@ func (iterator *Iterator) Next() bool {
 		goto between
 	}
 	if len(iterator.node.Item.Keys.Right) > 0 {
-		iterator.node = iterator.node.Right(iterator.tree)
+		iterator.node = iterator.node.Right(iterator.tree, dryrun)
 		if iterator.node == nil {
 			goto end
 		}
 		for len(iterator.node.Item.Keys.Left) > 0 {
-			iterator.node = iterator.node.Left(iterator.tree)
+			iterator.node = iterator.node.Left(iterator.tree, dryrun)
 			if iterator.node == nil {
 				goto end
 			}
@@ -57,7 +57,7 @@ func (iterator *Iterator) Next() bool {
 			if iterator.node == nil {
 				goto end
 			}
-			iterator.node = iterator.node.Parent(iterator.tree)
+			iterator.node = iterator.node.Parent(iterator.tree, dryrun)
 			if iterator.tree.Comparator(node.Key, iterator.node.Key) <= 0 {
 				goto between
 			}
@@ -77,12 +77,12 @@ between:
 // Prev moves the iterator to the previous element and returns true if there was a previous element in the container.
 // If Prev() returns true, then previous element's key and value can be retrieved by Key() and Value().
 // Modifies the state of the iterator.
-func (iterator *Iterator) Prev() bool {
+func (iterator *Iterator) Prev(dryrun bool) bool {
 	if iterator.position == begin {
 		goto begin
 	}
 	if iterator.position == end {
-		right := iterator.tree.Right()
+		right := iterator.tree.Right(dryrun)
 		if right == nil {
 			goto begin
 		}
@@ -90,16 +90,16 @@ func (iterator *Iterator) Prev() bool {
 		goto between
 	}
 	if iterator.node.Item.Keys.Left != nil {
-		iterator.node = iterator.node.Left(iterator.tree)
+		iterator.node = iterator.node.Left(iterator.tree, dryrun)
 		for iterator.node.Item.Keys.Right != nil {
-			iterator.node = iterator.node.Right(iterator.tree)
+			iterator.node = iterator.node.Right(iterator.tree, dryrun)
 		}
 		goto between
 	}
 	if iterator.node.Item.Keys.Parent != nil {
 		node := iterator.node
 		for iterator.node.Item.Keys.Parent != nil {
-			iterator.node = iterator.node.Parent(iterator.tree)
+			iterator.node = iterator.node.Parent(iterator.tree, dryrun)
 			if iterator.tree.Comparator(node.Key, iterator.node.Key) >= 0 {
 				goto between
 			}
@@ -145,15 +145,15 @@ func (iterator *Iterator) End() {
 // First moves the iterator to the first element and returns true if there was a first element in the container.
 // If First() returns true, then first element's key and value can be retrieved by Key() and Value().
 // Modifies the state of the iterator
-func (iterator *Iterator) First() bool {
+func (iterator *Iterator) First(dryrun bool) bool {
 	iterator.Begin()
-	return iterator.Next()
+	return iterator.Next(dryrun)
 }
 
 // Last moves the iterator to the last element and returns true if there was a last element in the container.
 // If Last() returns true, then last element's key and value can be retrieved by Key() and Value().
 // Modifies the state of the iterator.
-func (iterator *Iterator) Last() bool {
+func (iterator *Iterator) Last(dryrun bool) bool {
 	iterator.End()
-	return iterator.Prev()
+	return iterator.Prev(dryrun)
 }

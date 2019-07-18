@@ -174,7 +174,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to create orderbook", err)
 	}
-	if err := ob.Save(); err != nil {
+	if err := ob.Save(false); err != nil {
 		t.Error(err)
 	}
 	tomox.activePairs[pair] = true
@@ -193,13 +193,13 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// remove order whose OrderId = 1 (bid order)
 	price := CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(99))
-	if err = ob.Bids.orderDB.Delete(ob.Bids.getKeyFromPrice(price), true); err != nil {
+	if err = ob.Bids.orderDB.Delete(ob.Bids.getKeyFromPrice(price), true, false); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 	// remove order whose OrderId = 4 (ask order)
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(102))
-	if err = ob.Asks.orderDB.Delete(ob.Asks.getKeyFromPrice(price), true); err != nil {
+	if err = ob.Asks.orderDB.Delete(ob.Asks.getKeyFromPrice(price), true, false); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 
@@ -270,7 +270,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// loading snapshot process should put it back
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(99))
-	order := bidTree.GetOrder(GetKeyFromBig(big.NewInt(1)), price)
+	order := bidTree.GetOrder(GetKeyFromBig(big.NewInt(1)), price, false)
 	if order == nil {
 		t.Error("Can not find order", "price", price)
 	} else if order.Item.Quantity.Cmp(big.NewInt(100)) != 0 {
@@ -280,7 +280,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// verify bid  order, orderId = 2, price = 98
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(98))
-	order = bidTree.GetOrder(GetKeyFromBig(big.NewInt(2)), price)
+	order = bidTree.GetOrder(GetKeyFromBig(big.NewInt(2)), price, false)
 	if order == nil {
 		t.Error("Can not find order", "price", price)
 	} else if order.Item.Quantity.Cmp(big.NewInt(50)) != 0 {
@@ -290,7 +290,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// verify ask order, orderId =3, price = 101
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(101))
-	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(3)), price)
+	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(3)), price, false)
 	if order == nil {
 		t.Error("Can not find order", "price", price)
 	} else if order.Item.Quantity.Cmp(big.NewInt(200)) != 0 {
@@ -302,7 +302,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// loading snapshot should put it back
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(102))
-	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(4)), price)
+	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(4)), price, false)
 	if order == nil {
 		t.Error("Can not find order", "price", price)
 	} else if order.Item.Quantity.Cmp(big.NewInt(300)) != 0 {

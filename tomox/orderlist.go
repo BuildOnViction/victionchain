@@ -85,27 +85,27 @@ func NewOrderListWithItem(item *OrderListItem, orderTree *OrderTree) *OrderList 
 	return orderList
 }
 
-func (orderList *OrderList) GetOrder(key []byte) *Order {
+func (orderList *OrderList) GetOrder(key []byte, dryrun bool) *Order {
 	// re-use method from orderbook, because orderlist has the same slot as orderbook
 	storedKey := orderList.GetOrderIDFromKey(key)
 	log.Debug("Get order from key", "storedKey", storedKey)
-	return orderList.orderTree.orderBook.GetOrder(storedKey, key)
+	return orderList.orderTree.orderBook.GetOrder(storedKey, key, dryrun)
 }
 
 func (orderList *OrderList) isEmptyKey(key []byte) bool {
 	return orderList.orderTree.PriceTree.IsEmptyKey(key)
 }
 
-func (orderList *OrderList) Head() *Order {
-	return orderList.GetOrder(orderList.Item.HeadOrder)
+func (orderList *OrderList) Head(dryrun bool) *Order {
+	return orderList.GetOrder(orderList.Item.HeadOrder, dryrun)
 }
 
-func (orderList *OrderList) Tail() *Order {
-	return orderList.GetOrder(orderList.Item.TailOrder)
+func (orderList *OrderList) Tail(dryrun bool) *Order {
+	return orderList.GetOrder(orderList.Item.TailOrder, dryrun)
 }
 
 // String : travel the list to print it in nice format
-func (orderList *OrderList) String(startDepth int) string {
+func (orderList *OrderList) String(startDepth int, dryrun bool) string {
 
 	if orderList == nil {
 		return "<nil>"
@@ -119,7 +119,7 @@ func (orderList *OrderList) String(startDepth int) string {
 	buffer.WriteString("\n\t")
 	buffer.WriteString(tabs)
 	buffer.WriteString("Head:")
-	linkedList := orderList.Head()
+	linkedList := orderList.Head(dryrun)
 	depth := 0
 	for linkedList != nil {
 		depth++
@@ -130,7 +130,7 @@ func (orderList *OrderList) String(startDepth int) string {
 			break
 		}
 		buffer.WriteString(fmt.Sprintf("\n\t%s%s |-> %s", tabs, spaces, linkedList.String()))
-		linkedList = orderList.GetOrder(linkedList.Item.NextOrder)
+		linkedList = orderList.GetOrder(linkedList.Item.NextOrder, dryrun)
 	}
 	if depth == 0 {
 		buffer.WriteString(" <nil>")
@@ -138,7 +138,7 @@ func (orderList *OrderList) String(startDepth int) string {
 	buffer.WriteString("\n\t")
 	buffer.WriteString(tabs)
 	buffer.WriteString("Tail:")
-	linkedList = orderList.Tail()
+	linkedList = orderList.Tail(dryrun)
 	depth = 0
 	for linkedList != nil {
 		depth++
@@ -149,7 +149,7 @@ func (orderList *OrderList) String(startDepth int) string {
 			break
 		}
 		buffer.WriteString(fmt.Sprintf("\n\t%s%s <-| %s", tabs, spaces, linkedList.String()))
-		linkedList = orderList.GetOrder(linkedList.Item.PrevOrder)
+		linkedList = orderList.GetOrder(linkedList.Item.PrevOrder, dryrun)
 	}
 	if depth == 0 {
 		buffer.WriteString(" <nil>")
@@ -191,9 +191,9 @@ func (orderList *OrderList) GetOrderID(order *Order) []byte {
 }
 
 // OrderExist search order in orderlist
-func (orderList *OrderList) OrderExist(key []byte) bool {
+func (orderList *OrderList) OrderExist(key []byte, dryrun bool) bool {
 	orderKey := orderList.GetOrderIDFromKey(key)
-	found, _ := orderList.orderTree.orderDB.Has(orderKey)
+	found, _ := orderList.orderTree.orderDB.Has(orderKey, dryrun)
 	return found
 }
 
@@ -201,11 +201,7 @@ func (orderList *OrderList) SaveOrder(order *Order, dryrun bool) error {
 	key := orderList.GetOrderID(order)
 	log.Debug("Save order ", "key", hex.EncodeToString(key), "value", ToJSON(order.Item))
 
-	if !dryrun {
-		return orderList.orderTree.orderDB.Put(key, order.Item)
-	}
-
-	return nil
+	return orderList.orderTree.orderDB.Put(key, order.Item, dryrun)
 }
 
 // AppendOrder : append order into the order list
@@ -228,7 +224,7 @@ func (orderList *OrderList) AppendOrder(order *Order, dryrun bool) error {
 		orderList.Item.HeadOrder = order.Key
 		orderList.Item.TailOrder = order.Key
 	} else {
-		tailOrder := orderList.GetOrder(orderList.Item.TailOrder)
+		tailOrder := orderList.GetOrder(orderList.Item.TailOrder, dryrun)
 		if tailOrder != nil {
 			tailOrder.Item.NextOrder = order.Key
 			orderList.Item.TailOrder = order.Key
@@ -242,9 +238,9 @@ func (orderList *OrderList) AppendOrder(order *Order, dryrun bool) error {
 	return nil
 }
 
-func (orderList *OrderList) DeleteOrder(order *Order) error {
+func (orderList *OrderList) DeleteOrder(order *Order, dryrun bool) error {
 	key := orderList.GetOrderID(order)
-	return orderList.orderTree.orderDB.Delete(key, false)
+	return orderList.orderTree.orderDB.Delete(key, false, dryrun)
 }
 
 // RemoveOrder : remove order from the order list
@@ -261,13 +257,13 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 			return err
 		}
 	} else {
-		if err := orderList.DeleteOrder(order); err != nil {
+		if err := orderList.DeleteOrder(order, dryrun); err != nil {
 			return err
 		}
 	}
 
-	nextOrder := orderList.GetOrder(order.Item.NextOrder)
-	prevOrder := orderList.GetOrder(order.Item.PrevOrder)
+	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)
+	prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun)
 
 	orderList.Item.Volume = Sub(orderList.Item.Volume, order.Item.Quantity)
 	orderList.Item.Length--
@@ -309,7 +305,7 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 // MoveToTail : move order to the end of the order list
 func (orderList *OrderList) MoveToTail(order *Order, dryrun bool) error {
 	if !orderList.isEmptyKey(order.Item.PrevOrder) { // This Order is not the first Order in the OrderList
-		prevOrder := orderList.GetOrder(order.Item.PrevOrder)
+		prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun)
 		if prevOrder != nil {
 			prevOrder.Item.NextOrder = order.Item.NextOrder // Link the previous Order to the next Order, then move the Order to tail
 			if err := orderList.SaveOrder(prevOrder, dryrun); err != nil {
@@ -321,7 +317,7 @@ func (orderList *OrderList) MoveToTail(order *Order, dryrun bool) error {
 		orderList.Item.HeadOrder = order.Item.NextOrder // Make next order the first
 	}
 
-	nextOrder := orderList.GetOrder(order.Item.NextOrder)
+	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)
 	if nextOrder != nil {
 		nextOrder.Item.PrevOrder = order.Item.PrevOrder
 		if err := orderList.SaveOrder(nextOrder, dryrun); err != nil {
@@ -330,7 +326,7 @@ func (orderList *OrderList) MoveToTail(order *Order, dryrun bool) error {
 	}
 
 	// Move Order to the last position. Link up the previous last position Order.
-	tailOrder := orderList.GetOrder(orderList.Item.TailOrder)
+	tailOrder := orderList.GetOrder(orderList.Item.TailOrder, dryrun)
 	if tailOrder != nil {
 		tailOrder.Item.NextOrder = order.Key
 		if err := orderList.SaveOrder(tailOrder, dryrun); err != nil {
