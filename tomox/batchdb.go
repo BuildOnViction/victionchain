@@ -118,9 +118,6 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 	if dryrun {
 		if value, ok := db.dryRunCache.Get(cacheKey); ok {
 			log.Debug("Debug DB get from dry-run cache", "cacheKey", cacheKey, "val", value)
-			if value == nil {
-				return nil, nil
-			}
 			return value, nil
 		}
 	}
@@ -191,7 +188,7 @@ func (db *BatchDatabase) Delete(key []byte, force bool, dryrun bool) error {
 		db.dryRunCache.Add(cacheKey, nil)
 		return nil
 	}
-
+	log.Debug("Debug DB delete ", "cacheKey", cacheKey)
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	// force delete everything
@@ -238,8 +235,8 @@ func (db *BatchDatabase) Commit() error {
 }
 
 func (db *BatchDatabase) InitDryRunMode() {
-	dryRunCache, _ := lru.New(defaultCacheLimit)
-	db.dryRunCache = dryRunCache
+	log.Debug("Start dry-run mode, clear old data")
+	db.dryRunCache.Purge()
 }
 
 func (db *BatchDatabase) SaveDryRunResult() error {
@@ -272,6 +269,8 @@ func (db *BatchDatabase) SaveDryRunResult() error {
 		batch.Put(key, value)
 		log.Debug("Saved dry-run result to DB", "cacheKey", hex.EncodeToString(key), "value", ToJSON(val))
 	}
+	// purge cache data
+	db.dryRunCache.Purge()
 	db.lock.Unlock()
 	return batch.Write()
 }
