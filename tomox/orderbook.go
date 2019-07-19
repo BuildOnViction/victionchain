@@ -123,11 +123,6 @@ func (orderBook *OrderBook) Save(dryrun bool) error {
 	return orderBook.db.Put(orderBook.Key, orderBook.Item, dryrun)
 }
 
-// commit everything by trigger db.Commit, later we can map custom encode and decode based on item
-func (orderBook *OrderBook) Commit() error {
-	return orderBook.db.Commit()
-}
-
 func (orderBook *OrderBook) Restore(dryrun bool) error {
 	log.Debug("restore orderbook asks")
 	if err := orderBook.Asks.Restore(dryrun); err != nil {

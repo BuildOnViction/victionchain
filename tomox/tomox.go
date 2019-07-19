@@ -106,7 +106,7 @@ type TomoX struct {
 
 func NewLDBEngine(cfg *Config) *BatchDatabase {
 	datadir := cfg.DataDir
-	batchDB := NewBatchDatabaseWithEncode(datadir, 0, 0)
+	batchDB := NewBatchDatabaseWithEncode(datadir, 0)
 	return batchDB
 }
 
@@ -626,11 +626,6 @@ func (tomox *TomoX) hasOrderBook(name string, dryrun bool) bool {
 	return true
 }
 
-// commit for all orderbooks
-func (tomox *TomoX) Commit() error {
-	return tomox.db.Commit()
-}
-
 func (tomox *TomoX) getAndCreateIfNotExisted(pairName string, dryrun bool) (*OrderBook, error) {
 
 	name := strings.ToLower(pairName)
@@ -941,7 +936,7 @@ func (tomox *TomoX) removeOrderPending(orderHash common.Hash) error {
 			return fmt.Errorf("Order is corrupted")
 		}
 	} else {
-		if err := tomox.db.Delete(key, true, false); err != nil {
+		if err := tomox.db.Delete(key, false); err != nil {
 			log.Error("Fail to delete order pending", "err", err)
 			return err
 		}
@@ -1144,12 +1139,10 @@ func (tomox *TomoX) Snapshot(blockHash common.Hash) error {
 	if err = tomox.db.Put([]byte(latestSnapshotKey), &blockHash, false); err != nil {
 		return err
 	}
-	if err = tomox.db.Commit(); err != nil {
-		return err
-	}
+
 	// remove old snapshot
 	if oldHash != (common.Hash{}) {
-		if err = tomox.db.Delete(append([]byte(snapshotPrefix), oldHash[:]...), false, false); err != nil {
+		if err = tomox.db.Delete(append([]byte(snapshotPrefix), oldHash[:]...), false); err != nil {
 			return err
 		}
 	}
