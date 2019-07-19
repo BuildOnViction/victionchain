@@ -506,13 +506,9 @@ func (tree *Tree) Save(node *Node, dryrun bool) error {
 	return tree.db.Put(node.Key, node.Item, dryrun)
 }
 
-func (tree *Tree) Commit() error {
-	return tree.db.Commit()
-}
-
 func (tree *Tree) deleteCase1(node *Node, dryrun bool) {
 	if tree.IsEmptyKey(node.ParentKey()) {
-		tree.deleteNode(node, false, dryrun)
+		tree.deleteNode(node, dryrun)
 		return
 	}
 
@@ -553,7 +549,7 @@ func (tree *Tree) deleteCase3(node *Node, dryrun bool) {
 		tree.Save(sibling, dryrun)
 		tree.deleteCase1(parent, dryrun)
 		log.Debug("delete node,  key: %x, parentKey :%x\n", node.Key, parent.Key)
-		tree.deleteNode(node, false, dryrun)
+		tree.deleteNode(node, dryrun)
 
 	} else {
 		tree.deleteCase4(node, dryrun)
@@ -638,7 +634,7 @@ func (tree *Tree) deleteCase6(node *Node, dryrun bool) {
 	}
 
 	// update the parent meta then delete the current node from db
-	tree.deleteNode(node, false, dryrun)
+	tree.deleteNode(node, dryrun)
 }
 
 func nodeColor(node *Node) bool {
@@ -648,6 +644,6 @@ func nodeColor(node *Node) bool {
 	return node.Item.Color
 }
 
-func (tree *Tree) deleteNode(node *Node, force bool, dryrun bool) {
-	tree.db.Delete(node.Key, force, dryrun)
+func (tree *Tree) deleteNode(node *Node, dryrun bool) {
+	tree.db.Delete(node.Key, dryrun)
 }

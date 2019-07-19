@@ -266,10 +266,7 @@ func TestDBPending(t *testing.T) {
 	// Test remove hash
 	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
 	tomox.removePendingHash(hash)
-	// commit to force getPendingHashes from db
-	if err := tomox.db.Commit(); err != nil {
-		t.Error(err)
-	}
+
 	if pHashes := tomox.getPendingHashes(); len(pHashes) != 2 {
 		t.Error("Expected: 2 pending hash", "Actual:", len(pHashes))
 	}
@@ -304,11 +301,6 @@ func TestTomoX_GetActivePairs(t *testing.T) {
 	savedPairs["aaa/tomo"] = true
 	if err := tomox.updatePairs(savedPairs); err != nil {
 		t.Error("Failed to save active pairs", err)
-	}
-
-	// try to commit to see if there is any error with rlp encode
-	if err := tomox.db.Commit(); err != nil {
-		t.Errorf(err.Error())
 	}
 
 	// a node has just been restarted, haven't inserted any order yet
@@ -420,10 +412,7 @@ func TestProcessedHash(t *testing.T) {
 	if len(pHashes) != 3 {
 		t.Error("Expected: 3 processed hash", "Actual:", len(pHashes), "pHashes", pHashes)
 	}
-	// commit to force checking existProcessedOrderHash from db
-	if err := tomox.db.Commit(); err != nil {
-		t.Error(err)
-	}
+
 	if !tomox.existProcessedOrderHash(common.StringToHash("0x0000000000000000000000000000000000000004")) {
 		t.Error("Processed hash not exist")
 	}
@@ -455,11 +444,6 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	storedOrderCountMap[common.StringToAddress("0x00011")] = big.NewInt(5)
 	if err := tomox.updateOrderCount(storedOrderCountMap); err != nil {
 		t.Error("Failed to save orderCount", "err", err)
-	}
-
-	// try to commit to see if there is any error with rlp encode
-	if err := tomox.db.Commit(); err != nil {
-		t.Error(err)
 	}
 
 	// set duplicated nonce

@@ -182,10 +182,6 @@ func TestTomoX_Snapshot(t *testing.T) {
 		t.Error("Failed to store snapshot", "err", err, "blockHash", blockHash)
 	}
 
-	// try to commit to see if there is any error with rlp encode
-	if err := tomox.db.Commit(); err != nil {
-		t.Error(err)
-	}
 
 	// after taking a snapshot
 	// delete some orders from database
@@ -193,13 +189,13 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// remove order whose OrderId = 1 (bid order)
 	price := CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(99))
-	if err = ob.Bids.orderDB.Delete(ob.Bids.getKeyFromPrice(price), true, false); err != nil {
+	if err = ob.Bids.orderDB.Delete(ob.Bids.getKeyFromPrice(price),false); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 	// remove order whose OrderId = 4 (ask order)
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(102))
-	if err = ob.Asks.orderDB.Delete(ob.Asks.getKeyFromPrice(price), true, false); err != nil {
+	if err = ob.Asks.orderDB.Delete(ob.Asks.getKeyFromPrice(price),false); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 

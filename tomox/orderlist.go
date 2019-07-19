@@ -240,7 +240,7 @@ func (orderList *OrderList) AppendOrder(order *Order, dryrun bool) error {
 
 func (orderList *OrderList) DeleteOrder(order *Order, dryrun bool) error {
 	key := orderList.GetOrderID(order)
-	return orderList.orderTree.orderDB.Delete(key, false, dryrun)
+	return orderList.orderTree.orderDB.Delete(key, dryrun)
 }
 
 // RemoveOrder : remove order from the order list

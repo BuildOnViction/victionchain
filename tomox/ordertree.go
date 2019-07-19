@@ -82,15 +82,6 @@ func (orderTree *OrderTree) Save(dryrun bool) error {
 	return orderTree.orderDB.Put(orderTree.GetCommonKey(), orderTree.Item, dryrun)
 }
 
-// save this tree information then do database commit
-func (orderTree *OrderTree) Commit() error {
-	err := orderTree.Save(false)
-	if err == nil {
-		err = orderTree.orderDB.Commit()
-	}
-	return err
-}
-
 func (orderTree *OrderTree) Restore(dryrun bool) error {
 	val, err := orderTree.orderDB.Get(orderTree.GetCommonKey(), orderTree.Item, dryrun)
 
