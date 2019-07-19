@@ -20,7 +20,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/tomox"
 	"io"
 	"math/big"
 	"os"
@@ -123,16 +122,17 @@ type BlockChain struct {
 	currentBlock     atomic.Value // Current head of the block chain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache       state.Database // State database to reuse between imports (contains state cache)
-	bodyCache        *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache     *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	blockCache       *lru.Cache     // Cache for the most recent entire blocks
-	futureBlocks     *lru.Cache     // future blocks are blocks added for later processing
-	resultProcess    *lru.Cache     // Cache for processed blocks
-	calculatingBlock *lru.Cache     // Cache for processing blocks
-	downloadingBlock *lru.Cache     // Cache for downloading blocks (avoid duplication from fetcher)
-	quit             chan struct{}  // blockchain quit channel
-	running          int32          // running must be called atomically
+	stateCache         state.Database // State database to reuse between imports (contains state cache)
+	bodyCache          *lru.Cache     // Cache for the most recent block bodies
+	bodyRLPCache       *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
+	blockCache         *lru.Cache     // Cache for the most recent entire blocks
+	futureBlocks       *lru.Cache     // future blocks are blocks added for later processing
+	resultProcess      *lru.Cache     // Cache for processed blocks
+	matchedOrderHashes *lru.Cache     // Cache for matchedOrderHashes
+	calculatingBlock   *lru.Cache     // Cache for processing blocks
+	downloadingBlock   *lru.Cache     // Cache for downloading blocks (avoid duplication from fetcher)
+	quit               chan struct{}  // blockchain quit channel
+	running            int32          // running must be called atomically
 	// procInterrupt must be atomically called
 	procInterrupt int32          // interrupt signaler for block processing
 	wg            sync.WaitGroup // chain processing wait group for shutting down
@@ -163,25 +163,27 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
 	resultProcess, _ := lru.New(blockCacheLimit)
+	matchedOrderHashes, _ := lru.New(blockCacheLimit)
 	preparingBlock, _ := lru.New(blockCacheLimit)
 	downloadingBlock, _ := lru.New(blockCacheLimit)
 	bc := &BlockChain{
-		chainConfig:      chainConfig,
-		cacheConfig:      cacheConfig,
-		db:               db,
-		triegc:           prque.New(),
-		stateCache:       state.NewDatabase(db),
-		quit:             make(chan struct{}),
-		bodyCache:        bodyCache,
-		bodyRLPCache:     bodyRLPCache,
-		blockCache:       blockCache,
-		futureBlocks:     futureBlocks,
-		resultProcess:    resultProcess,
-		calculatingBlock: preparingBlock,
-		downloadingBlock: downloadingBlock,
-		engine:           engine,
-		vmConfig:         vmConfig,
-		badBlocks:        badBlocks,
+		chainConfig:        chainConfig,
+		cacheConfig:        cacheConfig,
+		db:                 db,
+		triegc:             prque.New(),
+		stateCache:         state.NewDatabase(db),
+		quit:               make(chan struct{}),
+		bodyCache:          bodyCache,
+		bodyRLPCache:       bodyRLPCache,
+		blockCache:         blockCache,
+		futureBlocks:       futureBlocks,
+		resultProcess:      resultProcess,
+		matchedOrderHashes: matchedOrderHashes,
+		calculatingBlock:   preparingBlock,
+		downloadingBlock:   downloadingBlock,
+		engine:             engine,
+		vmConfig:           vmConfig,
+		badBlocks:          badBlocks,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -1196,12 +1198,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 
 		if tomoXService != nil {
-			if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
-				return i, events, coalescedLogs, err
+			if len(matchedOrderHashes) > 0 {
+				log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "matchedOrderHashes", matchedOrderHashes)
+				if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
+					return i, events, coalescedLogs, err
+				}
 			}
 
 			if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 {
-				if err := bc.snapshotTomoX(tomoXService); err != nil {
+				if err := tomoXService.Snapshot(block.Hash()); err != nil {
 					log.Error("Failed to snapshot tomox", "err", err)
 				}
 			}
@@ -1279,9 +1284,10 @@ func (bc *BlockChain) PrepareBlock(block *types.Block) (err error) {
 	if err != nil {
 		return err
 	}
-	result, _, err := bc.getResultBlock(block, false)
+	result, matchedOrderHashes, err := bc.getResultBlock(block, false)
 	if err == nil {
 		bc.resultProcess.Add(block.Hash(), result)
+		bc.matchedOrderHashes.Add(block.Hash(), matchedOrderHashes)
 		return nil
 	} else if err == ErrKnownBlock {
 		return nil
@@ -1297,7 +1303,12 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	if verifiedM2 {
 		if result, check := bc.resultProcess.Get(block.HashNoValidator()); check {
 			log.Debug("Get result block from cache ", "number", block.NumberU64(), "hash", block.Hash(), "hash no validator", block.HashNoValidator())
-			return result.(*ResultProcessBlock), []common.Hash{}, nil
+			matchedOrderHashes := []common.Hash{}
+			val, ok := bc.matchedOrderHashes.Get(block.HashNoValidator())
+			if ok && val != nil {
+				matchedOrderHashes = val.([]common.Hash)
+			}
+			return result.(*ResultProcessBlock), matchedOrderHashes, nil
 		}
 		log.Debug("Not found cache prepare block ", "number", block.NumberU64(), "hash", block.Hash(), "validator", block.HashNoValidator())
 		if calculatedBlock, _ := bc.calculatingBlock.Get(block.HashNoValidator()); calculatedBlock != nil {
@@ -1414,12 +1425,15 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	engine := bc.Engine().(*posv.Posv)
 	tomoXService := engine.GetTomoXService()
 	if tomoXService != nil {
-		if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
-			return events, coalescedLogs, err
+		if len(matchedOrderHashes) > 0 {
+			log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "matchedOrderHashes", matchedOrderHashes)
+			if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
+				return events, coalescedLogs, err
+			}
 		}
 
 		if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 {
-			if err := bc.snapshotTomoX(tomoXService); err != nil {
+			if err := tomoXService.Snapshot(block.Hash()); err != nil {
 				log.Error("Failed to snapshot tomox", "err", err)
 			}
 		}
@@ -1914,9 +1928,3 @@ func (bc *BlockChain) UpdateM1() error {
 	return nil
 }
 
-func (bc *BlockChain) snapshotTomoX(tomoXService *tomox.TomoX) error {
-	if err := tomoXService.Snapshot(bc.CurrentHeader().Hash()); err != nil {
-		return err
-	}
-	return nil
-}
