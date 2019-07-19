@@ -131,7 +131,7 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 	log.Debug("Debug DB get", "pending map", db.pendingItems, "cacheKey", cacheKey)
 	db.lock.Unlock()
 
-	if cached, ok := db.cacheItems.Get(cacheKey); ok {
+	if cached, ok := db.cacheItems.Get(cacheKey); ok && !dryrun {
 		val = cached
 	} else {
 
