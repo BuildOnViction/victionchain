@@ -22,6 +22,7 @@ var (
 	// errors
 	ErrUnsupportedEngine    = errors.New("only POSV supports matching orders")
 	ErrTomoXServiceNotFound = errors.New("can't attach tomoX service")
+	ErrInvalidDryRunResult  = errors.New("failed to apply txMatches, invalid dryRun result")
 )
 
 // use alloc to prevent reference manipulation

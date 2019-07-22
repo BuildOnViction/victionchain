@@ -287,6 +287,18 @@ func (tx *Transaction) IsSpecialTransaction() bool {
 	return tx.To().String() == common.RandomizeSMC || tx.To().String() == common.BlockSigners || tx.To().String() == common.TomoXAddr
 }
 
+func (tx *Transaction) IsMatchingTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+
+	if tx.To().String() != common.TomoXAddr {
+		return false
+	}
+
+	return true
+}
+
 func (tx *Transaction) IsSigningTransaction() bool {
 	if tx.To() == nil {
 		return false
@@ -345,20 +357,6 @@ func (tx *Transaction) IsVotingTransaction() (bool, *common.Address) {
 	}
 
 	return b, nil
-}
-
-func (tx *Transaction) IsMatchingTransaction() bool {
-	if tx.To() == nil {
-		return false
-	}
-
-	if tx.To().String() != common.HexToAddress(common.TomoXAddr).String() {
-		return false
-	}
-	if tx.Data() == nil {
-		return false
-	}
-	return true
 }
 
 func (tx *Transaction) String() string {
