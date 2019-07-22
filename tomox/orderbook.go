@@ -17,8 +17,8 @@ import (
 const (
 	Ask    = "SELL"
 	Bid    = "BUY"
-	Market = "market"
-	Limit  = "limit"
+	Market = "MO"
+	Limit  = "LO"
 	Cancel = "CANCELLED"
 
 	// we use a big number as segment for storing order, order list from order tree slot.
