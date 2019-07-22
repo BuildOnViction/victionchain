@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"time"
+	"bytes"
+	"encoding/hex"
 )
 
 const (
@@ -210,22 +212,22 @@ func GetTokenBalance(statedb *state.StateDB, address common.Address, contractAdd
 // verify orderbook, orderTrees before running matching engine
 func (tx *TxDataMatch) VerifyOldTomoXState(ob *OrderBook) error {
 	// verify orderbook
-	if hash, err := ob.Hash(); err != nil || hash != tx.ObOld {
-		log.Error("wrong old orderbook", "expected", tx.ObOld, "actual", hash)
+	if hash, err := ob.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.ObOld.Bytes()) {
+		log.Error("wrong old orderbook", "expected", hex.EncodeToString(tx.ObOld.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
 		return errOrderBookHashNotMatch
 	}
 
 	// verify order trees
 	// bidTree tree
 	bidTree := ob.Bids
-	if hash, err := bidTree.Hash(); err != nil || hash != tx.BidOld {
-		log.Error("wrong old bid tree", "expected", tx.BidOld, "actual", hash)
+	if hash, err := bidTree.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.BidOld.Bytes()) {
+		log.Error("wrong old bid tree", "expected",  hex.EncodeToString(tx.BidOld.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
 		return errOrderTreeHashNotMatch
 	}
 	// askTree tree
 	askTree := ob.Asks
-	if hash, err := askTree.Hash(); err != nil || hash != tx.AskOld {
-		log.Error("wrong old ask tree", "expected", tx.AskOld, "actual", hash)
+	if hash, err := askTree.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.AskOld.Bytes()) {
+		log.Error("wrong old ask tree", "expected", hex.EncodeToString(tx.AskOld.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
 		return errOrderTreeHashNotMatch
 	}
 	return nil
@@ -234,22 +236,22 @@ func (tx *TxDataMatch) VerifyOldTomoXState(ob *OrderBook) error {
 // verify orderbook, orderTrees after running matching engine
 func (tx *TxDataMatch) VerifyNewTomoXState(ob *OrderBook) error {
 	// verify orderbook
-	if hash, err := ob.Hash(); err != nil || hash != tx.ObNew {
-		log.Error("wrong new orderbook", "expected", tx.ObNew, "actual", hash)
+	if hash, err := ob.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.ObNew.Bytes()) {
+		log.Error("wrong new orderbook", "expected", hex.EncodeToString(tx.ObNew.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
 		return errOrderBookHashNotMatch
 	}
 
 	// verify order trees
 	// bidTree tree
 	bidTree := ob.Bids
-	if hash, err := bidTree.Hash(); err != nil || hash != tx.BidNew {
-		log.Error("wrong new bid tree", "expected", tx.BidNew, "actual", hash)
+	if hash, err := bidTree.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.BidNew.Bytes()) {
+		log.Error("wrong new bid tree", "expected", hex.EncodeToString(tx.BidNew.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
 		return errOrderTreeHashNotMatch
 	}
 	// askTree tree
 	askTree := ob.Asks
-	if hash, err := askTree.Hash(); err != nil || hash != tx.AskNew {
-		log.Error("wrong new ask tree", "expected", tx.AskNew, "actual", hash)
+	if hash, err := askTree.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.AskNew.Bytes()) {
+		log.Error("wrong new ask tree", "expected", hex.EncodeToString(tx.AskNew.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
 		return errOrderTreeHashNotMatch
 	}
 	return nil
