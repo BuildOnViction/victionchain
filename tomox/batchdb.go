@@ -189,6 +189,7 @@ func (db *BatchDatabase) SaveDryRunResult() error {
 				log.Error("Can't save dry-run result (db.db.Delete)", "err", err)
 				return err
 			}
+			continue
 		}
 
 		value, err := EncodeBytesItem(val)

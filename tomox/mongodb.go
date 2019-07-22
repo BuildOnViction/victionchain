@@ -275,6 +275,7 @@ func (db *MongoDatabase) SaveDryRunResult() error {
 				log.Error("Can't save dry-run result (db.Delete)", "err", err)
 				return err
 			}
+			continue
 		}
 		if err := db.Put(key, val, false); err != nil {
 			log.Error("Can't save dry-run result (db.Put)", "err", err)
