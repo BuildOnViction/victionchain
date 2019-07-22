@@ -272,7 +272,10 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
-			orderBook.Bids.InsertOrder(order, dryrun)
+			if err := orderBook.Bids.InsertOrder(order, dryrun); err != nil {
+				log.Error("Failed to insert order to bidTree", "pairName", order.PairName, "orderItem", order, "err", err)
+				return nil, nil, err
+			}
 			orderInBook = order
 		}
 
@@ -291,7 +294,10 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
-			orderBook.Asks.InsertOrder(order, dryrun)
+			if err := orderBook.Asks.InsertOrder(order, dryrun); err != nil {
+				log.Error("Failed to insert order to askTree", "pairName", order.PairName, "orderItem", order, "err", err)
+				return nil, nil, err
+			}
 			orderInBook = order
 		}
 	}
@@ -380,6 +386,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 					return nil, nil, err
 				}
 			}
+			quantityToTrade = Sub(quantityToTrade, tradedQuantity)
 		}
 
 		if verbose {
