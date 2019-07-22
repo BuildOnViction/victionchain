@@ -111,7 +111,7 @@ func NewLDBEngine(cfg *Config) *BatchDatabase {
 }
 
 func NewMongoDBEngine(cfg *Config) *MongoDatabase {
-	mongoDB, err := NewMongoDatabase(nil, cfg.ConnectionUrl)
+	mongoDB, err := NewMongoDatabase(nil, cfg.ConnectionUrl, 0)
 
 	if err != nil {
 		log.Error(err.Error())
@@ -139,8 +139,7 @@ func New(cfg *Config) *TomoX {
 		tomoX.db = NewLDBEngine(cfg)
 		tomoX.sdkNode = false
 	case "mongodb":
-		// TODO: add dry-run mode for mongodb
-		//tomoX.db = NewMongoDBEngine(cfg)
+		tomoX.db = NewMongoDBEngine(cfg)
 		tomoX.sdkNode = true
 	default:
 		log.Crit("wrong database engine, only accept either leveldb or mongodb")

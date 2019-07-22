@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
 )
 
 const (
 	defaultCacheLimit = 1024
-	defaultMaxPending = 1024
 )
 
 type BatchItem struct {
@@ -20,7 +20,6 @@ type BatchItem struct {
 
 type BatchDatabase struct {
 	db             *ethdb.LDBDatabase
-	itemCacheLimit int
 	emptyKey       []byte
 	cacheItems     *lru.Cache // Cache for reading
 	dryRunCache    *lru.Cache
@@ -44,12 +43,11 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit int) *BatchDatabase {
 		itemCacheLimit = cacheLimit
 	}
 
-	cacheItems, _ := lru.New(defaultCacheLimit)
-	dryRunCache, _ := lru.New(defaultCacheLimit)
+	cacheItems, _ := lru.New(itemCacheLimit)
+	dryRunCache, _ := lru.New(itemCacheLimit)
 
 	batchDB := &BatchDatabase{
 		db:             db,
-		itemCacheLimit: itemCacheLimit,
 		cacheItems:     cacheItems,
 		emptyKey:       EmptyKey(), // pre alloc for comparison
 		dryRunCache:    dryRunCache,
@@ -140,12 +138,12 @@ func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 		return nil
 	}
 
+	log.Debug("Debug DB put to cacheItems", "cacheKey", cacheKey,  "val", val)
 	db.cacheItems.Add(cacheKey, val)
 	value, err := EncodeBytesItem(val)
 	if err != nil {
 		return err
 	}
-	log.Debug("Debug DB put", "cacheKey", cacheKey,  "val", val)
 	return db.db.Put(key, value)
 }
 
@@ -154,6 +152,7 @@ func (db *BatchDatabase) Delete(key []byte, dryrun bool) error {
 	// for better performance, we can mark a Deleted flag, to do batch delete
 	cacheKey := db.getCacheKey(key)
 
+	//mark it to nil in dryrun cache
 	if dryrun {
 		log.Debug("Debug DB delete from dry-run cache", "cacheKey", cacheKey)
 		db.dryRunCache.Add(cacheKey, nil)
@@ -176,25 +175,33 @@ func (db *BatchDatabase) SaveDryRunResult() error {
 	for _, cacheKey := range db.dryRunCache.Keys() {
 		key, err := hex.DecodeString(cacheKey.(string))
 		if err != nil {
-			log.Error("Can't save dry-run result", "err", err)
+			log.Error("Can't save dry-run result (hex.DecodeString)", "err", err)
 			return err
 		}
 		val, ok := db.dryRunCache.Get(cacheKey)
 		if !ok {
-			continue
+			err := errors.New("can't get item from dryrun cache")
+			log.Error("Can't save dry-run result (db.dryRunCache.Get)", "err", err)
+			return err
 		}
 		if val == nil {
-			db.db.Delete(key)
+			if err := db.db.Delete(key); err != nil {
+				log.Error("Can't save dry-run result (db.db.Delete)", "err", err)
+				return err
+			}
 			continue
 		}
 
 		value, err := EncodeBytesItem(val)
 		if err != nil {
-			log.Error("Can't save dry-run result", "err", err)
+			log.Error("Can't save dry-run result (EncodeBytesItem)", "err", err)
 			return err
 		}
 
-		batch.Put(key, value)
+		if err := batch.Put(key, value); err != nil {
+			log.Error("Can't save dry-run result (batch.Put)", "err", err)
+			return err
+		}
 		log.Debug("Saved dry-run result to DB", "cacheKey", hex.EncodeToString(key), "value", ToJSON(val))
 	}
 	// purge cache data
