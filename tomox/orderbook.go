@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"strings"
 	"time"
 
 	"encoding/hex"
@@ -29,7 +28,6 @@ const (
 var ErrDoesNotExist = errors.New("order doesn't exist in ordertree")
 
 type OrderBookItem struct {
-	Timestamp     uint64 `json:"time"`
 	NextOrderID   uint64 `json:"nextOrderID"`
 	MaxPricePoint uint64 `json:"maxVolume"` // maximum
 	Name          string `json:"name"`
@@ -58,6 +56,7 @@ type OrderBook struct {
 	Bids *OrderTree `json:"bids"`
 	Asks *OrderTree `json:"asks"`
 	Item *OrderBookItem
+	Timestamp     uint64 `json:"time"`
 
 	Key  []byte
 	Slot *big.Int
@@ -173,19 +172,10 @@ func (orderBook *OrderBook) GetOrder(storedKey, key []byte, dryrun bool) *Order 
 	return order
 }
 
-func (orderBook *OrderBook) String(startDepth int, dryrun bool) string {
-	tabs := strings.Repeat("\t", startDepth)
-	return fmt.Sprintf("%s{\n\t%sName: %s\n\t%sTimestamp: %d\n\t%sNextOrderID: %d\n\t%sBids: %s\n\t%sAsks: %s\n%s}\n",
-		tabs,
-		tabs, orderBook.Item.Name, tabs, orderBook.Item.Timestamp, tabs, orderBook.Item.NextOrderID,
-		tabs, orderBook.Bids.String(startDepth+1, dryrun), tabs, orderBook.Asks.String(startDepth+1, dryrun),
-		tabs)
-}
-
 // UpdateTime : update time for order book
 func (orderBook *OrderBook) UpdateTime() {
 	timestamp := uint64(time.Now().Unix())
-	orderBook.Item.Timestamp = timestamp
+	orderBook.Timestamp = timestamp
 }
 
 // BestBid : get the best bid of the order book
@@ -383,11 +373,11 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		}
 
 		if verbose {
-			log.Info("TRADE", "Timestamp", orderBook.Item.Timestamp, "Price", tradedPrice, "Quantity", tradedQuantity, "TradeID", headOrder.Item.ExchangeAddress.Hex(), "Matching TradeID", order.ExchangeAddress.Hex())
+			log.Info("TRADE", "Timestamp", orderBook.Timestamp, "Price", tradedPrice, "Quantity", tradedQuantity, "TradeID", headOrder.Item.ExchangeAddress.Hex(), "Matching TradeID", order.ExchangeAddress.Hex())
 		}
 
 		transactionRecord := make(map[string]string)
-		transactionRecord["timestamp"] = strconv.FormatUint(orderBook.Item.Timestamp, 10)
+		transactionRecord["timestamp"] = strconv.FormatUint(orderBook.Timestamp, 10)
 		transactionRecord["quantity"] = tradedQuantity.String()
 		transactionRecord["exAddr"] = headOrder.Item.ExchangeAddress.String()
 		transactionRecord["uAddr"] = headOrder.Item.UserAddress.String()
