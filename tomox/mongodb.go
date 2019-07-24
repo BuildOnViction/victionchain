@@ -177,10 +177,6 @@ func (db *MongoDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 
 	log.Debug("Debug DB put", "cacheKey", cacheKey,  "val", val)
 	db.cacheItems.Add(cacheKey, val)
-	val, err := EncodeBytesItem(val)
-	if err != nil {
-		return err
-	}
 
 	switch val.(type) {
 	case *types.Trade:
@@ -336,15 +332,20 @@ func (db *MongoDatabase) CommitItem(cacheKey string, val interface{}) error {
 	sc := db.Session.Copy()
 	defer sc.Close()
 
+	data, err := EncodeBytesItem(val)
+	if err != nil {
+		return err
+	}
+
 	r := &MongoItemRecord{
 		Key:   cacheKey,
-		Value: common.Bytes2Hex(val.([]byte)),
+		Value: common.Bytes2Hex(data),
 	}
 
 	query := bson.M{"key": cacheKey}
 	if _, err := sc.DB(db.dbName).C("items").Upsert(query, r); err != nil {
 		return err
 	}
-	log.Debug("Save", "cacheKey", cacheKey, "value", ToJSON(common.Bytes2Hex(val.([]byte))))
+	log.Debug("Save", "cacheKey", cacheKey, "value", ToJSON(common.Bytes2Hex(data)))
 	return nil
 }
