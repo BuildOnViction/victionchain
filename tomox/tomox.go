@@ -612,7 +612,8 @@ func (tomox *TomoX) GetOrderBook(pairName string, dryrun bool) (*OrderBook, erro
 
 func (tomox *TomoX) hasOrderBook(name string, dryrun bool) bool {
 	key := crypto.Keccak256([]byte(name)) //name is already in lower format
-	val, err := tomox.db.Get(key, &OrderBookItem{}, dryrun)
+	orderBookItemKey := append([]byte(orderbookItemPrefix), key...)
+	val, err := tomox.db.Get(orderBookItemKey, &OrderBookItem{}, dryrun)
 	if val == nil {
 		if err != nil {
 			log.Error("Can't get orderbook in DB", "err", err)
