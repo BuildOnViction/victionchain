@@ -23,6 +23,7 @@ const (
 	// we use a big number as segment for storing order, order list from order tree slot.
 	// as sequential id
 	SlotSegment = common.AddressLength
+	orderbookItemPrefix = "OB"
 )
 
 var ErrDoesNotExist = errors.New("order doesn't exist in ordertree")
@@ -118,8 +119,9 @@ func (orderBook *OrderBook) Save(dryrun bool) error {
 		return err
 	}
 
-	log.Debug("save orderbook", "key", hex.EncodeToString(orderBook.Key))
-	return orderBook.db.Put(orderBook.Key, orderBook.Item, dryrun)
+	orderBookItemKey := append([]byte(orderbookItemPrefix), orderBook.Key...)
+	log.Debug("save orderbook", "key", hex.EncodeToString(orderBookItemKey))
+	return orderBook.db.Put(orderBookItemKey, orderBook.Item, dryrun)
 }
 
 func (orderBook *OrderBook) Restore(dryrun bool) error {
@@ -135,7 +137,8 @@ func (orderBook *OrderBook) Restore(dryrun bool) error {
 		return err
 	}
 
-	val, err := orderBook.db.Get(orderBook.Key, orderBook.Item, dryrun)
+	orderBookItemKey := append([]byte(orderbookItemPrefix), orderBook.Key...)
+	val, err := orderBook.db.Get(orderBookItemKey, orderBook.Item, dryrun)
 	if err == nil {
 		orderBook.Item = val.(*OrderBookItem)
 		log.Debug("orderbook restored", "orderBook.Item", orderBook.Item)
