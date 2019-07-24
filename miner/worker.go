@@ -596,7 +596,7 @@ func (self *worker) commitNewWork() {
 	)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		tomoX := self.eth.GetTomoX()
-		if tomoX != nil {
+		if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
 			manager := self.eth.AccountManager()
 			if manager != nil {
 				// Find active account.
