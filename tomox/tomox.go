@@ -827,6 +827,11 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 							log.Error("Fail to get bid tree hash old", "err", err)
 							continue
 						}
+						value, err := EncodeBytesItem(order)
+						if err != nil {
+							log.Error("Can't encode", "order", order, "err", err)
+							continue
+						}
 						trades, _, err := ob.ProcessOrder(order, true, true)
 						if err != nil {
 							log.Error("Can't process order", "order", order, "err", err)
@@ -848,21 +853,16 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 							continue
 						}
 
-						value, err := EncodeBytesItem(order)
-						if err != nil {
-							log.Error("Can't encode", "order", order, "err", err)
-							continue
-						} else {
-							txMatches[order.Hash] = TxDataMatch{
-								Order:  value,
-								Trades: trades,
-								ObOld:  obOld,
-								ObNew:  obNew,
-								AskOld: askOld,
-								AskNew: askNew,
-								BidOld: bidOld,
-								BidNew: bidNew,
-							}
+						log.Info("Process OrderPending completed", "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
+						txMatches[order.Hash] = TxDataMatch{
+							Order:  value,
+							Trades: trades,
+							ObOld:  obOld,
+							ObNew:  obNew,
+							AskOld: askOld,
+							AskNew: askNew,
+							BidOld: bidOld,
+							BidNew: bidNew,
 						}
 					}
 				} else {
