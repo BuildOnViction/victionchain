@@ -3,15 +3,13 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
-	"time"
-	"errors"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
-	"github.com/tomochain/tomox-sdk/types"
 	"github.com/hashicorp/golang-lru"
+	"github.com/tomochain/tomox-sdk/types"
+	"time"
 )
 
 type MongoItem struct {
@@ -247,38 +245,9 @@ func (db *MongoDatabase) InitDryRunMode() {
 	db.dryRunCache.Purge()
 }
 
-//TODO: should use batch commit to avoid data inconsistency
 func (db *MongoDatabase) SaveDryRunResult() error {
-
-	sc := db.Session.Copy()
-	defer sc.Close()
-
-	for _, cacheKey := range db.dryRunCache.Keys() {
-		key, err := hex.DecodeString(cacheKey.(string))
-		if err != nil {
-			log.Error("Can't save dry-run result (hex.DecodeString)", "err", err)
-			return err
-		}
-		val, ok := db.dryRunCache.Get(cacheKey)
-		if !ok {
-			err := errors.New("can't get item from dryrun cache")
-			log.Error("Can't save dry-run result (db.dryRunCache.Get)", "err", err)
-			return err
-		}
-		if val == nil {
-			//TODO: don't remove order item in mongo
-			if err := db.Delete(key,false); err != nil {
-				log.Error("Can't save dry-run result (db.Delete)", "err", err)
-				return err
-			}
-			continue
-		}
-		if err := db.Put(key, val, false); err != nil {
-			log.Error("Can't save dry-run result (db.Put)", "err", err)
-			return err
-		}
-	}
-	// purge cache data
+	// SDK node (which running with mongodb) doesn't run Matching engine
+	// dry-run cache is useless for sdk node
 	db.dryRunCache.Purge()
 	return nil
 }
