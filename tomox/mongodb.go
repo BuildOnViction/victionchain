@@ -300,7 +300,7 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 		return err
 	}
 
-	log.Debug("Save", "cacheKey", cacheKey, "value", ToJSON(o))
+	log.Debug("Save orderItem", "cacheKey", cacheKey, "value", ToJSON(o))
 
 	return nil
 }
