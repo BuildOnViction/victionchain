@@ -206,7 +206,7 @@ func (tree *Tree) Size() uint64 {
 func (tree *Tree) Keys(dryrun bool) [][]byte {
 	keys := make([][]byte, tree.size)
 	it := tree.Iterator()
-	for i := 0; it.Next(dryrun); i++ {
+	for i := 0; it.Next(dryrun) && i < len(keys); i++ {
 		keys[i] = it.Key()
 	}
 	return keys
@@ -216,7 +216,7 @@ func (tree *Tree) Keys(dryrun bool) [][]byte {
 func (tree *Tree) Values(dryrun bool) [][]byte {
 	values := make([][]byte, tree.size)
 	it := tree.Iterator()
-	for i := 0; it.Next(dryrun); i++ {
+	for i := 0; it.Next(dryrun) && i < len(values); i++ {
 		values[i] = it.Value()
 	}
 	return values

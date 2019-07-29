@@ -1176,7 +1176,7 @@ func (tomox *TomoX) Snapshot(blockHash common.Hash) error {
 	}(time.Now())
 
 	if snap, err = newSnapshot(tomox, blockHash); err != nil {
-		return nil
+		return err
 	}
 	if err = snap.store(tomox.db); err != nil {
 		return err
