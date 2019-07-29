@@ -1320,12 +1320,15 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch *TxDataMatch, txHash common.Ha
 		if err := db.Put(EmptyKey(), tradeSDK, false); err != nil {
 			return fmt.Errorf("SDKNode: failed to store tradeSDK %s", err.Error())
 		}
-
+		filledAmount, ok := new(big.Int).SetString(trade["quantity"], 10)
+		if !ok {
+			return fmt.Errorf("failed to get tradedQuantity. QuantityString: %s", trade["quantity"])
+		}
 		// update order status of relating orders
-		if err := tomox.updateStatusOfMatchedOrder(trade["makerOrderHash"]); err != nil {
+		if err := tomox.updateStatusOfMatchedOrder(trade["makerOrderHash"], filledAmount); err != nil {
 			return err
 		}
-		if err := tomox.updateStatusOfMatchedOrder(trade["takerOrderHash"]); err != nil {
+		if err := tomox.updateStatusOfMatchedOrder(trade["takerOrderHash"],filledAmount); err != nil {
 			return err
 		}
 	}
@@ -1349,7 +1352,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch *TxDataMatch, txHash common.Ha
 	return nil
 }
 
-func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string) error {
+func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *big.Int) error {
 	db := tomox.GetDB()
 	orderHashBytes, err := hex.DecodeString(hashString)
 	if err != nil {
@@ -1361,6 +1364,9 @@ func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string) error {
 	}
 	matchedOrder := val.(*OrderItem)
 	matchedOrder.Status = sdktypes.OrderStatusFilled
+	updatedFillAmount := new(big.Int)
+	updatedFillAmount.Add(matchedOrder.FilledAmount, filledAmount)
+	matchedOrder.FilledAmount = updatedFillAmount
 	if err = db.Put(matchedOrder.Hash.Bytes(), matchedOrder, false); err != nil {
 		return fmt.Errorf("SDKNode: failed to update matchedOrder to sdkNode %s", err.Error())
 	}
