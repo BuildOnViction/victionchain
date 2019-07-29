@@ -793,6 +793,7 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 	txMatches := make(map[common.Hash]TxDataMatch)
 	tomox.db.InitDryRunMode()
 
+	log.Debug("Get pending hashes")
 	pendingHashes := tomox.getPendingHashes()
 	if len(pendingHashes) > 0 {
 		for i, orderHash := range pendingHashes {

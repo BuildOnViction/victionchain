@@ -184,13 +184,16 @@ func (orderTree *OrderTree) Depth() uint64 {
 func (orderTree *OrderTree) RemovePrice(price *big.Int, dryrun bool) error {
 	if orderTree.Depth() > 0 {
 		priceKey := orderTree.getKeyFromPrice(price)
+		log.Debug("Remove price", "price", price.String(), "priceKey", hex.EncodeToString(priceKey), "dryrun", dryrun)
 		orderListKey := GetOrderListCommonKey(priceKey)
+		log.Debug("Remove price", "price", price.String(), "orderListKey", hex.EncodeToString(orderListKey), "dryrun", dryrun)
 		orderTree.PriceTree.Remove(orderListKey, dryrun)
-
+		log.Debug("Removed price from price tree", "price", price.String(), "orderListKey", hex.EncodeToString(orderListKey), "dryrun", dryrun)
 		// should use batch to optimize the performance
 		if err := orderTree.Save(dryrun); err != nil {
 			return err
 		}
+		log.Debug("Remove price - saved ordertree", "dryrun", dryrun)
 	}
 	return nil
 }
@@ -313,18 +316,20 @@ func (orderTree *OrderTree) RemoveOrderFromOrderList(order *Order, orderList *Or
 	if err := orderList.RemoveOrder(order, dryrun); err != nil {
 		return err
 	}
+	log.Debug("Removed order from orderlist", "order", order.Item, "orderlist", orderList.Item)
 
 	// snapshot order list
 	if err := orderList.Save(dryrun); err != nil {
 		return err
 	}
+	log.Debug("Saved orderlist", "orderlist", orderList.Item)
 
 	// no items left than safety remove
 	if orderList.Item.Length == uint64(0) {
 		if err := orderTree.RemovePrice(order.Item.Price, dryrun); err != nil {
 			return err
 		}
-		log.Debug("remove price list", "price", order.Item.Price.String())
+		log.Debug("Removed price list", "price", order.Item.Price.String())
 	}
 
 	// update orderTree
@@ -398,14 +403,18 @@ func (orderTree *OrderTree) MaxPrice(dryrun bool) *big.Int {
 // MinPrice : get the min price
 func (orderTree *OrderTree) MinPrice(dryrun bool) *big.Int {
 	if orderTree.Depth() > 0 {
+		log.Debug("ordertree isn't empty")
 		if bytes, found := orderTree.PriceTree.GetMin(dryrun); found {
 			item, err := orderTree.getOrderListItem(bytes)
 			if err != nil {
+				log.Error("Failed to get orderlist with min price", "err", err)
 				return Zero()
 			}
 			if item != nil {
 				return CloneBigInt(item.Price)
 			}
+		} else {
+			log.Debug("Min not found")
 		}
 	}
 	return Zero()

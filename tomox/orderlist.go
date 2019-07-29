@@ -263,7 +263,9 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 	}
 
 	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)
+	log.Debug("Orderlist remove order debug", "nextOrder", nextOrder.Item)
 	prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun)
+	log.Debug("Orderlist remove order debug", "prevOrder", prevOrder.Item)
 
 	orderList.Item.Volume = Sub(orderList.Item.Volume, order.Item.Quantity)
 	orderList.Item.Length--
@@ -298,7 +300,6 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 		orderList.Item.HeadOrder = EmptyKey()
 		orderList.Item.TailOrder = EmptyKey()
 	}
-
 	return nil
 }
 
