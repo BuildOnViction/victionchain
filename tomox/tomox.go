@@ -966,10 +966,21 @@ func (tomox *TomoX) removeOrderPending(orderHash common.Hash) error {
 	}
 	switch data.(type) {
 	case *OrderItem:
-		if err := tomox.db.Delete(key, false); err != nil {
-			log.Error("Fail to delete order pending", "err", err)
-			return err
+		if !tomox.IsSDKNode() {
+			if err := tomox.db.Delete(key, false); err != nil {
+				log.Error("Fail to delete order pending", "err", err)
+				return err
+			}
+		} else {
+			order := data.(*OrderItem)
+			// update order.key: remove pending prefix
+			order.Key = hex.EncodeToString(orderHash.Bytes())
+			order.Status = sdktypes.OrderStatusOpen
+			if err := tomox.db.Put(key, order, false); err != nil {
+				return err
+			}
 		}
+
 	default:
 		return fmt.Errorf("Order is corrupted")
 	}
@@ -1291,13 +1302,18 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch *TxDataMatch, txHash common.Ha
 		tradeSDK.BaseToken = order.BaseToken
 		tradeSDK.QuoteToken = order.QuoteToken
 		tradeSDK.Status = sdktypes.TradeStatusSuccess
-		tradeSDK.Maker = order.UserAddress
-		tradeSDK.MakerOrderHash = order.Hash
+		tradeSDK.Taker = order.UserAddress
+		tradeSDK.TakerOrderHash = order.Hash
 		if u, ok := trade["uAddr"]; ok {
 			tradeSDK.Taker = common.Address{}
 			tradeSDK.Taker.SetString(u)
 		}
-		tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
+		makerOrderHash, err := hex.DecodeString(trade["makerOrderHash"])
+		if err != nil {
+			return fmt.Errorf("SDKNode: failed to decode makerOrderHash. HashString: %s", trade["makerOrderHash"])
+		}
+		tradeSDK.MakerOrderHash = common.BytesToHash(makerOrderHash)
+		tradeSDK.Maker = common.StringToAddress(trade["uAddr"])
 		tradeSDK.TxHash = txHash
 		tradeSDK.Hash = tradeSDK.ComputeHash()
 		log.Debug("TRADE history", "order", order, "trade", tradeSDK)
@@ -1305,22 +1321,48 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch *TxDataMatch, txHash common.Ha
 			return fmt.Errorf("SDKNode: failed to store tradeSDK %s", err.Error())
 		}
 
-		// remove from orders
-		orderHashBytes, err := hex.DecodeString(trade["orderHash"])
-		if err != nil {
-			return fmt.Errorf("SDKNode: failed to decode orderKey. Key: %s", trade["orderHash"])
+		// update order status of relating orders
+		if err := tomox.updateStatusOfMatchedOrder(trade["makerOrderHash"]); err != nil {
+			return err
 		}
-		log.Debug("SDKNode: try to remove matched order from orders collection", "orderHash", trade["orderHash"])
-		if err := db.Delete(orderHashBytes, false); err != nil {
-			return fmt.Errorf("SDKNode: failed to remove matched order from orders collection %s", trade["orderHash"])
+		if err := tomox.updateStatusOfMatchedOrder(trade["takerOrderHash"]); err != nil {
+			return err
 		}
 	}
 
+	// in case of remaining order in orderTree, the status of order should be partial_filled
 	if orderInBook != nil {
-		log.Debug("store orderInBook", "order", orderInBook)
-		if err = db.Put(orderInBook.Hash.Bytes(), orderInBook, false); err != nil {
-			return fmt.Errorf("SDKNode: failed to store orderInBook to sdkNode %s", err.Error())
+		key := orderInBook.Hash.Bytes()
+		data, err := tomox.db.Get(key, &OrderItem{}, false)
+		if data == nil || err != nil {
+			return fmt.Errorf("SDKNode: failed to get order. Key: %s", hex.EncodeToString(key))
 		}
+		order := data.(*OrderItem)
+		if order.Status == sdktypes.OrderStatusFilled {
+			// if order already matched but still exist in orderbook, then update status to OrderStatusPartialFilled
+			order.Status = sdktypes.OrderStatusPartialFilled
+			if err = db.Put(key, order, false); err != nil {
+				return fmt.Errorf("SDKNode: failed to update status to %s %s", sdktypes.OrderStatusPartialFilled, err.Error())
+			}
+		}
+	}
+	return nil
+}
+
+func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string) error {
+	db := tomox.GetDB()
+	orderHashBytes, err := hex.DecodeString(hashString)
+	if err != nil {
+		return fmt.Errorf("SDKNode: failed to decode orderKey. Key: %s", hashString)
+	}
+	val, err := db.Get(orderHashBytes, &OrderItem{}, false)
+	if err != nil || val == nil {
+		return fmt.Errorf("SDKNode: failed to get order. Key: %s", hashString)
+	}
+	matchedOrder := val.(*OrderItem)
+	matchedOrder.Status = sdktypes.OrderStatusFilled
+	if err = db.Put(matchedOrder.Hash.Bytes(), matchedOrder, false); err != nil {
+		return fmt.Errorf("SDKNode: failed to update matchedOrder to sdkNode %s", err.Error())
 	}
 	return nil
 }

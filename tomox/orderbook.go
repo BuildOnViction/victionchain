@@ -413,7 +413,8 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		}
 
 		transactionRecord := make(map[string]string)
-		transactionRecord["orderHash"] = hex.EncodeToString(headOrder.Item.Hash.Bytes())
+		transactionRecord["takerOrderHash"] = hex.EncodeToString(order.Hash.Bytes())
+		transactionRecord["makerOrderHash"] = hex.EncodeToString(headOrder.Item.Hash.Bytes())
 		transactionRecord["timestamp"] = strconv.FormatUint(orderBook.Timestamp, 10)
 		transactionRecord["quantity"] = tradedQuantity.String()
 		transactionRecord["exAddr"] = headOrder.Item.ExchangeAddress.String()
