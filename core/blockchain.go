@@ -18,8 +18,10 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox"
 	"io"
 	"math/big"
 	"os"
@@ -1203,6 +1205,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
 					return i, events, coalescedLogs, err
 				}
+				if tomoXService.IsSDKNode() {
+					if err := logDataToSdkNode(tomoXService, block.Transactions()); err != nil {
+						return i, events, coalescedLogs, err
+					}
+				}
 			}
 
 			if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 {
@@ -1430,8 +1437,12 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 			if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
 				return events, coalescedLogs, err
 			}
+			if tomoXService.IsSDKNode() {
+				if err := logDataToSdkNode(tomoXService, block.Transactions()); err != nil {
+					return events, coalescedLogs, err
+				}
+			}
 		}
-
 		if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 {
 			if err := tomoXService.Snapshot(block.Hash()); err != nil {
 				log.Error("Failed to snapshot tomox", "err", err)
@@ -1928,3 +1939,17 @@ func (bc *BlockChain) UpdateM1() error {
 	return nil
 }
 
+func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions) error {
+	for _, tx := range transactions {
+		if tx.IsMatchingTransaction() {
+			txMatch := &tomox.TxDataMatch{}
+			if err := json.Unmarshal(tx.Data(), txMatch); err != nil {
+				return err
+			}
+			if err := tomoXService.SyncDataToSDKNode(txMatch, tx.Hash()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

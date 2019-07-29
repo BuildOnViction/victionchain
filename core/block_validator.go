@@ -19,8 +19,6 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/posv"
@@ -29,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/tomox"
-	sdktypes "github.com/tomochain/tomox-sdk/types"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -151,6 +148,13 @@ func (v *BlockValidator) validateMatchedOrder(tomoXService *tomox.TomoX, current
 	if err != nil {
 		return common.Hash{},fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err.Error())
 	}
+
+	// SDK node doesn't need to run ME
+	if tomoXService.IsSDKNode() {
+		log.Debug("SDK node ignore running matching engine")
+		return order.Hash, nil
+	}
+
 	if err := order.VerifyMatchedOrder(currentState); err != nil {
 		return common.Hash{},err
 	}
@@ -177,10 +181,6 @@ func (v *BlockValidator) validateMatchedOrder(tomoXService *tomox.TomoX, current
 		return common.Hash{}, err
 	}
 
-	trades := txMatch.GetTrades()
-	if err := logTrades(tomoXService, tx.Hash(), order, trades); err != nil {
-		return common.Hash{}, err
-	}
 	return order.Hash, nil
 }
 
@@ -215,36 +215,3 @@ func CalcGasLimit(parent *types.Block) uint64 {
 	return limit
 }
 
-func logTrades(tomoXService *tomox.TomoX, txHash common.Hash, order *tomox.OrderItem, trades []map[string]string) error {
-	log.Debug("Got trades", "number", len(trades), "trades", trades)
-	for _, trade := range trades {
-		tradeSDK := &sdktypes.Trade{}
-		if q, ok := trade["quantity"]; ok {
-			tradeSDK.Amount = new(big.Int)
-			tradeSDK.Amount.SetString(q, 10)
-		}
-		tradeSDK.PricePoint = order.Price
-		tradeSDK.PairName = order.PairName
-		tradeSDK.BaseToken = order.BaseToken
-		tradeSDK.QuoteToken = order.QuoteToken
-		tradeSDK.Status = sdktypes.TradeStatusSuccess
-		tradeSDK.Maker = order.UserAddress
-		tradeSDK.MakerOrderHash = order.Hash
-		if u, ok := trade["uAddr"]; ok {
-			tradeSDK.Taker = common.Address{}
-			tradeSDK.Taker.SetString(u)
-		}
-		tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
-		tradeSDK.TxHash = txHash
-		tradeSDK.Hash = tradeSDK.ComputeHash()
-		log.Debug("TRADE history", "order", order, "trade", tradeSDK)
-		// put tradeSDK to mongodb on SDK node
-		if tomoXService.IsSDKNode() {
-			db := tomoXService.GetDB()
-			if err := db.Put(tomox.EmptyKey(), tradeSDK, true); err != nil {
-				return fmt.Errorf("failed to store tradeSDK %s", err.Error())
-			}
-		}
-	}
-	return nil
-}

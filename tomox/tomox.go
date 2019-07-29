@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	sdktypes "github.com/tomochain/tomox-sdk/types"
 	"math/big"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"encoding/hex"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -19,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
-	"encoding/hex"
 )
 
 const (
@@ -57,14 +58,15 @@ type Config struct {
 }
 
 type TxDataMatch struct {
-	Order  []byte
-	Trades []map[string]string
-	ObOld  common.Hash
-	ObNew  common.Hash
-	AskOld common.Hash
-	AskNew common.Hash
-	BidOld common.Hash
-	BidNew common.Hash
+	Order       []byte
+	Trades      []map[string]string
+	OrderInBook []byte
+	ObOld       common.Hash
+	ObNew       common.Hash
+	AskOld      common.Hash
+	AskNew      common.Hash
+	BidOld      common.Hash
+	BidNew      common.Hash
 }
 
 // DefaultConfig represents (shocker!) the default configuration.
@@ -799,7 +801,7 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 				if order != nil {
 					if !tomox.existProcessedOrderHash(orderHash) {
 						var (
-							ob *OrderBook
+							ob  *OrderBook
 							err error
 						)
 
@@ -832,7 +834,7 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 							log.Error("Can't encode", "order", order, "err", err)
 							continue
 						}
-						trades, _, err := ob.ProcessOrder(order, true, true)
+						trades, orderInBook, err := ob.ProcessOrder(order, true, true)
 						if err != nil {
 							log.Error("Can't process order", "order", order, "err", err)
 							continue
@@ -852,17 +854,25 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 							log.Error("Fail to get bid tree hash new", "err", err)
 							continue
 						}
-
-						log.Info("Process OrderPending completed", "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
+						orderInBookValue := []byte{}
+						if orderInBook != nil {
+							orderInBookValue, err = EncodeBytesItem(orderInBook)
+							if err != nil {
+								log.Error("Can't encode orderInBook", "orderInBook", orderInBook, "err", err)
+								continue
+							}
+						}
+						log.Debug("Process OrderPending completed", "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
 						txMatches[order.Hash] = TxDataMatch{
-							Order:  value,
-							Trades: trades,
-							ObOld:  obOld,
-							ObNew:  obNew,
-							AskOld: askOld,
-							AskNew: askNew,
-							BidOld: bidOld,
-							BidNew: bidNew,
+							Order:       value,
+							Trades:      trades,
+							OrderInBook: orderInBookValue,
+							ObOld:       obOld,
+							ObNew:       obNew,
+							AskOld:      askOld,
+							AskNew:      askNew,
+							BidOld:      bidOld,
+							BidNew:      bidNew,
 						}
 					}
 				} else {
@@ -1230,15 +1240,86 @@ func (tomox *TomoX) loadSnapshot(hash common.Hash) error {
 // save orderbook after matching orders
 // update order pending list, processed list
 func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash) error {
-	if err := tomox.db.SaveDryRunResult(); err != nil {
-		log.Error("Failed to save dry-run result")
-		return err
+	if !tomox.IsSDKNode() {
+		if err := tomox.db.SaveDryRunResult(); err != nil {
+			log.Error("Failed to save dry-run result")
+			return err
+		}
 	}
+
 	for _, hash := range orderHashes {
 		if err := tomox.MarkOrderAsProcessed(hash); err != nil {
 			log.Error("Failed to mark order as processed", "err", err)
 		}
 	}
 	tomox.db.InitDryRunMode()
+	return nil
+}
+
+func (tomox *TomoX) SyncDataToSDKNode(txDataMatch *TxDataMatch, txHash common.Hash) error {
+	// put trade output to mongodb on SDK node only
+	if !tomox.IsSDKNode() {
+		return nil
+	}
+	var (
+		order, orderInBook *OrderItem
+		err                error
+	)
+	if order, err = txDataMatch.DecodeOrder(); err != nil {
+		log.Error("SDK node decode order failed", "txDataMatch", txDataMatch)
+		return fmt.Errorf("SDK node decode order failed")
+	}
+	if orderInBook, err = txDataMatch.DecodeOrderInBook(); err != nil {
+		log.Error("SDK node decode orderInBook failed", "txDataMatch", txDataMatch)
+		return fmt.Errorf("SDK node decode orderInBook failed")
+	}
+
+	db := tomox.GetDB()
+	trades := txDataMatch.GetTrades()
+	log.Debug("Got trades", "number", len(trades), "trades", trades)
+	for _, trade := range trades {
+
+		// insert to trades
+		tradeSDK := &sdktypes.Trade{}
+		if q, ok := trade["quantity"]; ok {
+			tradeSDK.Amount = new(big.Int)
+			tradeSDK.Amount.SetString(q, 10)
+		}
+		tradeSDK.PricePoint = order.Price
+		tradeSDK.PairName = order.PairName
+		tradeSDK.BaseToken = order.BaseToken
+		tradeSDK.QuoteToken = order.QuoteToken
+		tradeSDK.Status = sdktypes.TradeStatusSuccess
+		tradeSDK.Maker = order.UserAddress
+		tradeSDK.MakerOrderHash = order.Hash
+		if u, ok := trade["uAddr"]; ok {
+			tradeSDK.Taker = common.Address{}
+			tradeSDK.Taker.SetString(u)
+		}
+		tradeSDK.TakerOrderHash = order.Hash //FIXME: will update txMatch to include TakerOrderHash = headOrder.Item.Hash
+		tradeSDK.TxHash = txHash
+		tradeSDK.Hash = tradeSDK.ComputeHash()
+		log.Debug("TRADE history", "order", order, "trade", tradeSDK)
+		if err := db.Put(EmptyKey(), tradeSDK, false); err != nil {
+			return fmt.Errorf("SDKNode: failed to store tradeSDK %s", err.Error())
+		}
+
+		// remove from orders
+		orderHashBytes, err := hex.DecodeString(trade["orderHash"])
+		if err != nil {
+			return fmt.Errorf("SDKNode: failed to decode orderKey. Key: %s", trade["orderHash"])
+		}
+		log.Debug("SDKNode: try to remove matched order from orders collection", "orderHash", trade["orderHash"])
+		if err := db.Delete(orderHashBytes, false); err != nil {
+			return fmt.Errorf("SDKNode: failed to remove matched order from orders collection %s", trade["orderHash"])
+		}
+	}
+
+	if orderInBook != nil {
+		log.Debug("store orderInBook", "order", orderInBook)
+		if err = db.Put(orderInBook.Hash.Bytes(), orderInBook, false); err != nil {
+			return fmt.Errorf("SDKNode: failed to store orderInBook to sdkNode %s", err.Error())
+		}
+	}
 	return nil
 }

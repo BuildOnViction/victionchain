@@ -268,3 +268,14 @@ func (tx *TxDataMatch) DecodeOrder() (*OrderItem, error) {
 func (tx *TxDataMatch) GetTrades() []map[string]string {
 	return tx.Trades
 }
+
+func (tx *TxDataMatch) DecodeOrderInBook() (*OrderItem, error) {
+	if len(tx.OrderInBook) == 0 {
+		return nil, nil
+	}
+	orderInBook := &OrderItem{}
+	if err := DecodeBytesItem(tx.OrderInBook, orderInBook); err != nil {
+		return orderInBook, err
+	}
+	return orderInBook, nil
+}
