@@ -50,10 +50,10 @@ func NewMongoDatabase(session *mgo.Session, mongoURL string, cacheLimit int) (*M
 	dryRunCache, _ := lru.New(itemCacheLimit)
 
 	db := &MongoDatabase{
-		Session:        session,
-		dbName:         dbName,
-		cacheItems:     cacheItems,
-		dryRunCache:    dryRunCache,
+		Session:     session,
+		dbName:      dbName,
+		cacheItems:  cacheItems,
+		dryRunCache: dryRunCache,
 	}
 
 	return db, nil
@@ -131,7 +131,6 @@ func (db *MongoDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 			return value, nil
 		}
 	}
-
 	if cached, ok := db.cacheItems.Get(cacheKey); ok && !dryrun {
 		return cached, nil
 	} else {
@@ -173,7 +172,7 @@ func (db *MongoDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 		return nil
 	}
 
-	log.Debug("Debug DB put", "cacheKey", cacheKey,  "val", val)
+	log.Debug("Debug DB put", "cacheKey", cacheKey, "val", val)
 	db.cacheItems.Add(cacheKey, val)
 
 	switch val.(type) {
@@ -241,14 +240,13 @@ func (db *MongoDatabase) Delete(key []byte, dryrun bool) error {
 }
 
 func (db *MongoDatabase) InitDryRunMode() {
-	log.Debug("Start dry-run mode, clear old data")
-	db.dryRunCache.Purge()
+	// SDK node (which running with mongodb) doesn't run Matching engine
+	// dry-run cache is useless for sdk node
 }
 
 func (db *MongoDatabase) SaveDryRunResult() error {
 	// SDK node (which running with mongodb) doesn't run Matching engine
 	// dry-run cache is useless for sdk node
-	db.dryRunCache.Purge()
 	return nil
 }
 

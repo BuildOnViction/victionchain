@@ -1257,7 +1257,7 @@ func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash) error {
 }
 
 func (tomox *TomoX) SyncDataToSDKNode(txDataMatch *TxDataMatch, txHash common.Hash) error {
-	// put tradeSDK to mongodb on SDK node only
+	// put trade output to mongodb on SDK node only
 	if !tomox.IsSDKNode() {
 		return nil
 	}
