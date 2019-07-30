@@ -253,26 +253,26 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 
 	if side == Bid {
 		minPrice := orderBook.Asks.MinPrice(dryrun)
-		log.Debug("Min price in asks tree", "price", minPrice.String(), "dryrun", dryrun)
+		log.Debug("Min price in asks tree", "price", minPrice.String())
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() && price.Cmp(minPrice) >= 0 {
 			bestPriceAsks := orderBook.Asks.MinPriceList(dryrun)
-			log.Debug("Orderlist at min price", "orderlist", bestPriceAsks.Item, "dryrun", dryrun)
+			log.Debug("Orderlist at min price", "orderlist", bestPriceAsks.Item)
 			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose, dryrun)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
-			log.Debug("New trade found", "newTrades", newTrades, "orderInBook", orderInBook, "quantityToTrade", quantityToTrade, "dryrun", dryrun)
+			log.Debug("New trade found", "newTrades", newTrades, "orderInBook", orderInBook, "quantityToTrade", quantityToTrade)
 			minPrice = orderBook.Asks.MinPrice(dryrun)
-			log.Debug("New min price in asks tree", "price", minPrice.String(), "dryrun", dryrun)
+			log.Debug("New min price in asks tree", "price", minPrice.String())
 		}
 
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
-			log.Debug("After matching, order (unmatched part) is now added to bids tree", "order", order, "dryrun", dryrun)
+			log.Debug("After matching, order (unmatched part) is now added to bids tree", "order", order)
 			if err := orderBook.Bids.InsertOrder(order, dryrun); err != nil {
-				log.Error("Failed to insert order to bidTree", "pairName", order.PairName, "orderItem", order, "err", err, "dryrun", dryrun)
+				log.Error("Failed to insert order to bidTree", "pairName", order.PairName, "orderItem", order, "err", err)
 				return nil, nil, err
 			}
 			orderInBook = order
@@ -280,26 +280,26 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 
 	} else {
 		maxPrice := orderBook.Bids.MaxPrice(dryrun)
-		log.Debug("Max price in bids tree", "price", maxPrice.String(), "dryrun", dryrun)
+		log.Debug("Max price in bids tree", "price", maxPrice.String())
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() && price.Cmp(maxPrice) <= 0 {
 			bestPriceBids := orderBook.Bids.MaxPriceList(dryrun)
-			log.Debug("Orderlist at max price", "orderlist", bestPriceBids.Item, "dryrun", dryrun)
+			log.Debug("Orderlist at max price", "orderlist", bestPriceBids.Item)
 			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose, dryrun)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
-			log.Debug("New trade found", "newTrades", newTrades, "orderInBook", orderInBook, "quantityToTrade", quantityToTrade, "dryrun", dryrun)
+			log.Debug("New trade found", "newTrades", newTrades, "orderInBook", orderInBook, "quantityToTrade", quantityToTrade)
 			maxPrice = orderBook.Bids.MaxPrice(dryrun)
-			log.Debug("New max price in bids tree", "price", maxPrice.String(), "dryrun", dryrun)
+			log.Debug("New max price in bids tree", "price", maxPrice.String())
 		}
 
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
-			log.Debug("After matching, order (unmatched part) is now back to asks tree", "order", order, "dryrun", dryrun)
+			log.Debug("After matching, order (unmatched part) is now back to asks tree", "order", order)
 			if err := orderBook.Asks.InsertOrder(order, dryrun); err != nil {
-				log.Error("Failed to insert order to askTree", "pairName", order.PairName, "orderItem", order, "err", err, "dryrun", dryrun)
+				log.Error("Failed to insert order to askTree", "pairName", order.PairName, "orderItem", order, "err", err)
 				return nil, nil, err
 			}
 			orderInBook = order
@@ -344,7 +344,7 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun 
 
 // processOrderList : process the order list
 func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool, dryrun bool) (*big.Int, []map[string]string, *OrderItem, error) {
-	log.Debug("Process matching between order and orderlist", "dryrun", dryrun)
+	log.Debug("Process matching between order and orderlist")
 	quantityToTrade := CloneBigInt(quantityStillToTrade)
 	var (
 		trades []map[string]string
@@ -358,7 +358,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		if headOrder == nil {
 			return nil, nil, nil, fmt.Errorf("headOrder is null")
 		}
-		log.Debug("Get head order in the orderlist", "headOrder", headOrder.Item, "dryrun", dryrun)
+		log.Debug("Get head order in the orderlist", "headOrder", headOrder.Item)
 
 		tradedPrice := CloneBigInt(headOrder.Item.Price)
 
@@ -374,7 +374,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 			if err := headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt, dryrun); err != nil {
 				return nil, nil, nil, err
 			}
-			log.Debug("Update quantity for head order", "headOrder", headOrder.Item, "dryrun", dryrun)
+			log.Debug("Update quantity for head order", "headOrder", headOrder.Item)
 			quantityToTrade = Zero()
 			orderInBook = headOrder.Item
 		} else if IsEqual(quantityToTrade, headOrder.Item.Quantity) {
@@ -383,12 +383,12 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
 					return nil, nil, nil, err
 				}
-				log.Debug("Removed headOrder from bids orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side, "dryrun", dryrun)
+				log.Debug("Removed headOrder from bids orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side)
 			} else {
 				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
 					return nil, nil, nil, err
 				}
-				log.Debug("Removed headOrder from asks orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side, "dryrun", dryrun)
+				log.Debug("Removed headOrder from asks orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side)
 			}
 			quantityToTrade = Zero()
 
@@ -398,12 +398,12 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
 					return nil, nil, nil, err
 				}
-				log.Debug("Removed headOrder from bids orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side, "dryrun", dryrun)
+				log.Debug("Removed headOrder from bids orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side)
 			} else {
 				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
 					return nil, nil, nil, err
 				}
-				log.Debug("Removed headOrder from asks orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side, "dryrun", dryrun)
+				log.Debug("Removed headOrder from asks orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side)
 			}
 			quantityToTrade = Sub(quantityToTrade, tradedQuantity)
 		}

@@ -158,7 +158,7 @@ func (tree *Tree) Remove(key []byte, dryrun bool) {
 	if err != nil || node == nil {
 		return
 	}
-	log.Debug("Get node", "node", node, "dryrun", dryrun)
+	log.Debug("Get node", "node", node)
 
 	var left, right *Node = nil, nil
 	if !tree.IsEmptyKey(node.LeftKey()) {
@@ -367,6 +367,7 @@ func output(tree *Tree, node *Node, prefix string, isTail bool, str *string, dry
 }
 
 func (tree *Tree) rotateLeft(node *Node, dryrun bool) {
+	log.Debug("Rotate left - before", "nodeRoot", hex.EncodeToString(tree.Root(dryrun).Value()))
 	right := node.Right(tree, dryrun)
 	tree.replaceNode(node, right, dryrun)
 	node.RightKey(right.LeftKey())
@@ -379,9 +380,11 @@ func (tree *Tree) rotateLeft(node *Node, dryrun bool) {
 	node.ParentKey(right.Key)
 	tree.Save(node, dryrun)
 	tree.Save(right, dryrun)
+	log.Debug("Rotate left - after", "nodeRoot", hex.EncodeToString(tree.Root(dryrun).Value()))
 }
 
 func (tree *Tree) rotateRight(node *Node, dryrun bool) {
+	log.Debug("Rotate right - before", "nodeRoot", hex.EncodeToString(tree.Root(dryrun).Value()))
 	left := node.Left(tree, dryrun)
 	tree.replaceNode(node, left, dryrun)
 	node.LeftKey(left.RightKey())
@@ -394,10 +397,11 @@ func (tree *Tree) rotateRight(node *Node, dryrun bool) {
 	node.ParentKey(left.Key)
 	tree.Save(node, dryrun)
 	tree.Save(left, dryrun)
+	log.Debug("Rotate right - after", "nodeRoot", hex.EncodeToString(tree.Root(dryrun).Value()))
 }
 
 func (tree *Tree) replaceNode(old *Node, new *Node, dryrun bool) {
-	log.Debug("Replace node", "old", old, "new", new, "dryrun", dryrun)
+	log.Debug("Replace node", "old", old, "new", new)
 
 	// we do not change any byte of Key so we can copy the reference to save directly to db
 	var newKey []byte
@@ -513,7 +517,7 @@ func (tree *Tree) insertCase5(node *Node, dryrun bool) {
 }
 
 func (tree *Tree) Save(node *Node, dryrun bool) error {
-	log.Debug("Save node", "node", node, "dryrun", dryrun)
+	log.Debug("Save node", "node", node)
 	return tree.db.Put(node.Key, node.Item, dryrun)
 }
 
@@ -659,6 +663,6 @@ func nodeColor(node *Node) bool {
 }
 
 func (tree *Tree) deleteNode(node *Node, dryrun bool) {
-	log.Debug("Delete node", "node value", hex.EncodeToString(node.Value()), "dryrun", dryrun)
+	log.Debug("Delete node", "node value", hex.EncodeToString(node.Value()))
 	tree.db.Delete(node.Key, dryrun)
 }

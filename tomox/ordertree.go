@@ -184,16 +184,16 @@ func (orderTree *OrderTree) Depth() uint64 {
 func (orderTree *OrderTree) RemovePrice(price *big.Int, dryrun bool) error {
 	if orderTree.Depth() > 0 {
 		priceKey := orderTree.getKeyFromPrice(price)
-		log.Debug("Remove price", "price", price.String(), "priceKey", hex.EncodeToString(priceKey), "dryrun", dryrun)
+		log.Debug("Remove price", "price", price.String(), "priceKey", hex.EncodeToString(priceKey))
 		orderListKey := GetOrderListCommonKey(priceKey)
-		log.Debug("Remove price", "price", price.String(), "orderListKey", hex.EncodeToString(orderListKey), "dryrun", dryrun)
+		log.Debug("Remove price", "price", price.String(), "orderListKey", hex.EncodeToString(orderListKey))
 		orderTree.PriceTree.Remove(orderListKey, dryrun)
-		log.Debug("Removed price from price tree", "price", price.String(), "orderListKey", hex.EncodeToString(orderListKey), "dryrun", dryrun)
+		log.Debug("Removed price from price tree", "price", price.String(), "orderListKey", hex.EncodeToString(orderListKey))
 		// should use batch to optimize the performance
 		if err := orderTree.Save(dryrun); err != nil {
 			return err
 		}
-		log.Debug("Remove price - saved ordertree", "dryrun", dryrun)
+		log.Debug("Remove price - saved ordertree")
 	}
 	return nil
 }
