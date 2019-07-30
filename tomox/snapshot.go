@@ -104,7 +104,7 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 	snap.OrderTreeItem = serializedTree
 
 	snap.OrderList = make(map[common.Hash]*OrderListSnapshot)
-	if !tree.NotEmpty() {
+	if !tree.NotEmpty() || tree.PriceTree.Size() == 0 {
 		return snap, nil
 	}
 	// foreach each price, snapshot its orderlist

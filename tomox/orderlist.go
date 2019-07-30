@@ -88,7 +88,7 @@ func NewOrderListWithItem(item *OrderListItem, orderTree *OrderTree) *OrderList 
 func (orderList *OrderList) GetOrder(key []byte, dryrun bool) *Order {
 	// re-use method from orderbook, because orderlist has the same slot as orderbook
 	storedKey := orderList.GetOrderIDFromKey(key)
-	log.Debug("Get order from key", "storedKey", storedKey)
+	log.Debug("Get order from key", "storedKey", hex.EncodeToString(storedKey))
 	return orderList.orderTree.orderBook.GetOrder(storedKey, key, dryrun)
 }
 
@@ -263,7 +263,9 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 	}
 
 	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)
+	log.Debug("Orderlist remove order debug", "nextOrder", nextOrder)
 	prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun)
+	log.Debug("Orderlist remove order debug", "prevOrder", prevOrder)
 
 	orderList.Item.Volume = Sub(orderList.Item.Volume, order.Item.Quantity)
 	orderList.Item.Length--
@@ -298,7 +300,6 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 		orderList.Item.HeadOrder = EmptyKey()
 		orderList.Item.TailOrder = EmptyKey()
 	}
-
 	return nil
 }
 

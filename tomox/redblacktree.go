@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/log"
+	"encoding/hex"
 )
 
 // Tree holds elements of the red-black tree
@@ -39,7 +40,11 @@ func NewWithBytesComparator(db OrderDao) *Tree {
 }
 
 func (tree *Tree) Root(dryrun bool) *Node {
-	root, _ := tree.GetNode(tree.rootKey, dryrun)
+	root, err := tree.GetNode(tree.rootKey, dryrun)
+	if err != nil {
+		log.Error("Can't get tree.Root", "rootKey", hex.EncodeToString(tree.rootKey), "err", err)
+		return nil
+	}
 	return root
 }
 
@@ -150,10 +155,10 @@ func (tree *Tree) Get(key []byte, dryrun bool) (value []byte, found bool) {
 func (tree *Tree) Remove(key []byte, dryrun bool) {
 	var child *Node
 	node, err := tree.GetNode(key, dryrun)
-
 	if err != nil || node == nil {
 		return
 	}
+	log.Debug("Get node", "node", node)
 
 	var left, right *Node = nil, nil
 	if !tree.IsEmptyKey(node.LeftKey()) {
@@ -173,19 +178,22 @@ func (tree *Tree) Remove(key []byte, dryrun bool) {
 		} else {
 			child = right
 		}
+		if child == nil {
+			tree.deleteNode(node, dryrun)
+		} else {
+			if node.Item.Color == black {
+				node.Item.Color = nodeColor(child)
+				tree.Save(node, dryrun)
 
-		if node.Item.Color == black {
-			node.Item.Color = nodeColor(child)
-			tree.Save(node, dryrun)
+				tree.deleteCase1(node, dryrun)
+			}
 
-			tree.deleteCase1(node, dryrun)
-		}
+			tree.replaceNode(node, child, dryrun)
 
-		tree.replaceNode(node, child, dryrun)
-
-		if tree.IsEmptyKey(node.ParentKey()) && child != nil {
-			child.Item.Color = black
-			tree.Save(child, dryrun)
+			if tree.IsEmptyKey(node.ParentKey()) && child != nil {
+				child.Item.Color = black
+				tree.Save(child, dryrun)
+			}
 		}
 	}
 
@@ -359,6 +367,7 @@ func output(tree *Tree, node *Node, prefix string, isTail bool, str *string, dry
 }
 
 func (tree *Tree) rotateLeft(node *Node, dryrun bool) {
+	log.Debug("Rotate left - before", "nodeRoot", hex.EncodeToString(tree.Root(dryrun).Value()))
 	right := node.Right(tree, dryrun)
 	tree.replaceNode(node, right, dryrun)
 	node.RightKey(right.LeftKey())
@@ -371,9 +380,11 @@ func (tree *Tree) rotateLeft(node *Node, dryrun bool) {
 	node.ParentKey(right.Key)
 	tree.Save(node, dryrun)
 	tree.Save(right, dryrun)
+	log.Debug("Rotate left - after", "nodeRoot", hex.EncodeToString(tree.Root(dryrun).Value()))
 }
 
 func (tree *Tree) rotateRight(node *Node, dryrun bool) {
+	log.Debug("Rotate right - before", "nodeRoot", hex.EncodeToString(tree.Root(dryrun).Value()))
 	left := node.Left(tree, dryrun)
 	tree.replaceNode(node, left, dryrun)
 	node.LeftKey(left.RightKey())
@@ -386,9 +397,11 @@ func (tree *Tree) rotateRight(node *Node, dryrun bool) {
 	node.ParentKey(left.Key)
 	tree.Save(node, dryrun)
 	tree.Save(left, dryrun)
+	log.Debug("Rotate right - after", "nodeRoot", hex.EncodeToString(tree.Root(dryrun).Value()))
 }
 
 func (tree *Tree) replaceNode(old *Node, new *Node, dryrun bool) {
+	log.Debug("Replace node", "old", old, "new", new)
 
 	// we do not change any byte of Key so we can copy the reference to save directly to db
 	var newKey []byte
@@ -410,8 +423,9 @@ func (tree *Tree) replaceNode(old *Node, new *Node, dryrun bool) {
 			oldParent.RightKey(newKey)
 		}
 		// we can have case like: remove a node, then add it again
-		tree.Save(oldParent, dryrun)
-		// }
+		if oldParent != nil {
+			tree.Save(oldParent, dryrun)
+		}
 	}
 	if new != nil {
 		// here is the swap, not update key
@@ -503,10 +517,12 @@ func (tree *Tree) insertCase5(node *Node, dryrun bool) {
 }
 
 func (tree *Tree) Save(node *Node, dryrun bool) error {
+	log.Debug("Save node", "node", node)
 	return tree.db.Put(node.Key, node.Item, dryrun)
 }
 
 func (tree *Tree) deleteCase1(node *Node, dryrun bool) {
+	log.Debug("delete case 1", "node value", hex.EncodeToString(node.Value()))
 	if tree.IsEmptyKey(node.ParentKey()) {
 		tree.deleteNode(node, dryrun)
 		return
@@ -516,6 +532,7 @@ func (tree *Tree) deleteCase1(node *Node, dryrun bool) {
 }
 
 func (tree *Tree) deleteCase2(node *Node, dryrun bool) {
+	log.Debug("delete case 2", "node value", hex.EncodeToString(node.Value()))
 	parent := node.Parent(tree, dryrun)
 	sibling := node.sibling(tree, dryrun)
 
@@ -535,7 +552,7 @@ func (tree *Tree) deleteCase2(node *Node, dryrun bool) {
 }
 
 func (tree *Tree) deleteCase3(node *Node, dryrun bool) {
-
+	log.Debug("delete case 3", "node value", hex.EncodeToString(node.Value()))
 	parent := node.Parent(tree, dryrun)
 	sibling := node.sibling(tree, dryrun)
 	siblingLeft := sibling.Left(tree, dryrun)
@@ -548,9 +565,7 @@ func (tree *Tree) deleteCase3(node *Node, dryrun bool) {
 		sibling.Item.Color = red
 		tree.Save(sibling, dryrun)
 		tree.deleteCase1(parent, dryrun)
-		log.Debug("delete node,  key: %x, parentKey :%x\n", node.Key, parent.Key)
 		tree.deleteNode(node, dryrun)
-
 	} else {
 		tree.deleteCase4(node, dryrun)
 	}
@@ -558,6 +573,7 @@ func (tree *Tree) deleteCase3(node *Node, dryrun bool) {
 }
 
 func (tree *Tree) deleteCase4(node *Node, dryrun bool) {
+	log.Debug("delete case 4", "node value", hex.EncodeToString(node.Value()))
 	parent := node.Parent(tree, dryrun)
 	sibling := node.sibling(tree, dryrun)
 	siblingLeft := sibling.Left(tree, dryrun)
@@ -577,6 +593,7 @@ func (tree *Tree) deleteCase4(node *Node, dryrun bool) {
 }
 
 func (tree *Tree) deleteCase5(node *Node, dryrun bool) {
+	log.Debug("delete case 5", "node value", hex.EncodeToString(node.Value()))
 	parent := node.Parent(tree, dryrun)
 	sibling := node.sibling(tree, dryrun)
 	siblingLeft := sibling.Left(tree, dryrun)
@@ -612,6 +629,7 @@ func (tree *Tree) deleteCase5(node *Node, dryrun bool) {
 }
 
 func (tree *Tree) deleteCase6(node *Node, dryrun bool) {
+	log.Debug("delete case 6", "node value", hex.EncodeToString(node.Value()))
 	parent := node.Parent(tree, dryrun)
 	sibling := node.sibling(tree, dryrun)
 	siblingLeft := sibling.Left(tree, dryrun)
@@ -645,5 +663,6 @@ func nodeColor(node *Node) bool {
 }
 
 func (tree *Tree) deleteNode(node *Node, dryrun bool) {
+	log.Debug("Delete node", "node value", hex.EncodeToString(node.Value()))
 	tree.db.Delete(node.Key, dryrun)
 }

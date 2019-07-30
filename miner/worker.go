@@ -609,6 +609,7 @@ func (self *worker) commitNewWork() {
 					}
 				}
 
+				log.Debug("Start processing order pending")
 				txMatches := tomoX.ProcessOrderPending()
 				if len(txMatches) > 0 {
 					log.Debug("transaction matches found", "txMatches", txMatches)
