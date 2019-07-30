@@ -178,19 +178,22 @@ func (tree *Tree) Remove(key []byte, dryrun bool) {
 		} else {
 			child = right
 		}
+		if child == nil {
+			tree.deleteNode(node, dryrun)
+		} else {
+			if node.Item.Color == black {
+				node.Item.Color = nodeColor(child)
+				tree.Save(node, dryrun)
 
-		if node.Item.Color == black {
-			node.Item.Color = nodeColor(child)
-			tree.Save(node, dryrun)
+				tree.deleteCase1(node, dryrun)
+			}
 
-			tree.deleteCase1(node, dryrun)
-		}
+			tree.replaceNode(node, child, dryrun)
 
-		tree.replaceNode(node, child, dryrun)
-
-		if tree.IsEmptyKey(node.ParentKey()) && child != nil {
-			child.Item.Color = black
-			tree.Save(child, dryrun)
+			if tree.IsEmptyKey(node.ParentKey()) && child != nil {
+				child.Item.Color = black
+				tree.Save(child, dryrun)
+			}
 		}
 	}
 
