@@ -107,6 +107,7 @@ func prepareOrderTreeData(tree *OrderTree) (*OrderTreeSnapshot, error) {
 	if !tree.NotEmpty() || tree.PriceTree.Size() == 0 {
 		return snap, nil
 	}
+
 	// foreach each price, snapshot its orderlist
 	for _, key := range tree.PriceTree.Keys(false) {
 		priceKeyHash := common.BytesToHash(key)
