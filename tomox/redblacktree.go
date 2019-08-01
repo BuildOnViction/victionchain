@@ -155,7 +155,11 @@ func (tree *Tree) Get(key []byte, dryrun bool) (value []byte, found bool) {
 func (tree *Tree) Remove(key []byte, dryrun bool) {
 	var child *Node
 	node, err := tree.GetNode(key, dryrun)
-	if err != nil || node == nil {
+	if err != nil {
+		log.Error("Can't remove node", "err", err)
+		return
+	}
+	if node == nil {
 		return
 	}
 	log.Debug("Get node", "node", node)

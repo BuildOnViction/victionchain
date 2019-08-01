@@ -667,7 +667,6 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 		if err := tomox.verifyOrderNonce(order); err != nil {
 			return err
 		}
-		// Save order into orderbook tree.
 		if err := tomox.addPendingHash(order.Hash); err != nil {
 			return err
 		}
