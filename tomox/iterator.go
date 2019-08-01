@@ -1,7 +1,3 @@
-// Copyright (c) 2019, Agiletech Viet Nam. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package tomox
 
 // Iterator holding the iterator's state
@@ -38,25 +34,16 @@ func (iterator *Iterator) Next(dryrun bool) bool {
 		iterator.node = left
 		goto between
 	}
-	if len(iterator.node.Item.Keys.Right) > 0 {
+	if iterator.node.Right != nil {
 		iterator.node = iterator.node.Right(iterator.tree, dryrun)
-		if iterator.node == nil {
-			goto end
-		}
-		for len(iterator.node.Item.Keys.Left) > 0 {
+		for iterator.node.Left != nil {
 			iterator.node = iterator.node.Left(iterator.tree, dryrun)
-			if iterator.node == nil {
-				goto end
-			}
 		}
 		goto between
 	}
-	if len(iterator.node.Item.Keys.Parent) > 0 {
+	if iterator.node.Parent != nil {
 		node := iterator.node
-		for len(iterator.node.Item.Keys.Parent) > 0 {
-			if iterator.node == nil {
-				goto end
-			}
+		for iterator.node.Parent != nil {
 			iterator.node = iterator.node.Parent(iterator.tree, dryrun)
 			if iterator.tree.Comparator(node.Key, iterator.node.Key) <= 0 {
 				goto between
@@ -89,16 +76,16 @@ func (iterator *Iterator) Prev(dryrun bool) bool {
 		iterator.node = right
 		goto between
 	}
-	if iterator.node.Item.Keys.Left != nil {
+	if iterator.node.Left != nil {
 		iterator.node = iterator.node.Left(iterator.tree, dryrun)
-		for iterator.node.Item.Keys.Right != nil {
+		for iterator.node.Right != nil {
 			iterator.node = iterator.node.Right(iterator.tree, dryrun)
 		}
 		goto between
 	}
-	if iterator.node.Item.Keys.Parent != nil {
+	if iterator.node.Parent != nil {
 		node := iterator.node
-		for iterator.node.Item.Keys.Parent != nil {
+		for iterator.node.Parent != nil {
 			iterator.node = iterator.node.Parent(iterator.tree, dryrun)
 			if iterator.tree.Comparator(node.Key, iterator.node.Key) >= 0 {
 				goto between
@@ -119,7 +106,7 @@ between:
 // Value returns the current element's value.
 // Does not modify the state of the iterator.
 func (iterator *Iterator) Value() []byte {
-	return iterator.node.Item.Value
+	return iterator.node.Value()
 }
 
 // Key returns the current element's key.
