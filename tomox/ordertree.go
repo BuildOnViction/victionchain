@@ -135,7 +135,7 @@ func (orderTree *OrderTree) getKeyFromPrice(price *big.Int) []byte {
 func (orderTree *OrderTree) PriceList(price *big.Int, dryrun bool) *OrderList {
 
 	key := orderTree.getKeyFromPrice(price)
-	bytes, found := orderTree.PriceTree.Get(GetOrderListCommonKey(key), dryrun)
+	bytes, found := orderTree.PriceTree.Get(GetOrderListCommonKey(key, orderTree.orderBook.Item.Name), dryrun)
 	log.Debug("Got orderlist by price", "key", hex.EncodeToString(key), "found", found)
 
 	if found {
@@ -171,7 +171,7 @@ func (orderTree *OrderTree) SaveOrderList(orderList *OrderList, dryrun bool) err
 		log.Error("Can't encode", "orderList.Item", orderList.Item, "err", err)
 		return err
 	}
-	olKey := GetOrderListCommonKey(orderList.Key)
+	olKey := GetOrderListCommonKey(orderList.Key, orderTree.orderBook.Item.Name)
 	log.Debug("Save orderlist", "key", hex.EncodeToString(olKey), "value", value)
 	return orderTree.PriceTree.Put(olKey, value, dryrun)
 }
@@ -185,7 +185,7 @@ func (orderTree *OrderTree) RemovePrice(price *big.Int, dryrun bool) error {
 	if orderTree.Depth() > 0 {
 		priceKey := orderTree.getKeyFromPrice(price)
 		log.Debug("Remove price", "price", price.String(), "priceKey", hex.EncodeToString(priceKey))
-		orderListKey := GetOrderListCommonKey(priceKey)
+		orderListKey := GetOrderListCommonKey(priceKey, orderTree.orderBook.Item.Name)
 		log.Debug("Remove price", "price", price.String(), "orderListKey", hex.EncodeToString(orderListKey))
 		orderTree.PriceTree.Remove(orderListKey, dryrun)
 		log.Debug("Removed price from price tree", "price", price.String(), "orderListKey", hex.EncodeToString(orderListKey))
@@ -202,7 +202,7 @@ func (orderTree *OrderTree) RemovePrice(price *big.Int, dryrun bool) error {
 func (orderTree *OrderTree) PriceExist(price *big.Int, dryrun bool) bool {
 
 	priceKey := orderTree.getKeyFromPrice(price)
-	orderListKey := GetOrderListCommonKey(priceKey)
+	orderListKey := GetOrderListCommonKey(priceKey, orderTree.orderBook.Item.Name)
 	found, _ := orderTree.PriceTree.Has(orderListKey, dryrun)
 
 	return found
@@ -235,7 +235,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, dryrun bool) error {
 	// order will be inserted to order list
 	if orderList != nil {
 
-		order := NewOrder(order, GetOrderListCommonKey(orderList.Key))
+		order := NewOrder(order, GetOrderListCommonKey(orderList.Key, orderTree.orderBook.Item.Name))
 
 		if orderList.OrderExist(order.Key, dryrun) {
 			if err := orderTree.RemoveOrder(order, dryrun); err != nil {
