@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/tomox"
+	"sort"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -96,6 +97,10 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 			txs = append(txs, tx)
 		}
 	}
+
+	sort.Slice(txs, func(i, j int) bool {
+		return txs[i].Timestamp() <= txs[j].Timestamp()
+	})
 
 	for _, tx := range txs {
 		if tx.IsMatchingTransaction() {
