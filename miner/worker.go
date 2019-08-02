@@ -20,13 +20,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox"
 	"math/big"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"encoding/json"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -59,6 +59,8 @@ const (
 	waitPeriod = 10
 	// timeout for checkpoint.
 	waitPeriodCheckpoint = 120 // 2 mins
+
+	txMatchGasLimit = 40000000
 )
 
 // Agent can register themself with the worker
@@ -612,28 +614,27 @@ func (self *worker) commitNewWork() {
 				log.Debug("Start processing order pending")
 				txMatches := tomoX.ProcessOrderPending()
 				if len(txMatches) > 0 {
-					log.Debug("transaction matches found", "txMatches", txMatches)
-					// Add tx matches to local pool.
-					for _, txMatch := range txMatches {
-						txMatchBytes, err := json.Marshal(txMatch)
+					log.Debug("transaction matches found", "txMatches", len(txMatches))
+					// put all TxMatchesData into only one tx
+					txMatchBytes, err := tomox.EncodeTxMatchesBatch(txMatches)
+					if err != nil {
+						log.Error("Fail to marshal txMatch", "error", err)
+					} else {
+						// Create and send tx to smart contract for sign validate block.
+						nonce := self.eth.TxPool().State().GetNonce(account.Address)
+						tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
+						txM, err := wallet.SignTx(account, tx, self.config.ChainId)
 						if err != nil {
-							log.Error("Fail to marshal txMatch", "error", err)
+							log.Error("Fail to create tx matches", "error", err)
 						} else {
-							// Create and send tx to smart contract for sign validate block.
-							nonce := self.eth.TxPool().State().GetNonce(account.Address)
-							tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), 200000, big.NewInt(0), txMatchBytes)
-							txM, err := wallet.SignTx(account, tx, self.config.ChainId)
+							// Add tx signed to local tx pool.
+							err = self.eth.TxPool().AddLocal(txM)
 							if err != nil {
-								log.Error("Fail to create tx matches", "error", err)
-							} else {
-								// Add tx signed to local tx pool.
-								err = self.eth.TxPool().AddLocal(txM)
-								if err != nil {
-									log.Error("Fail to add tx matches to local pool.", "error", err)
-								}
+								log.Error("Fail to add tx matches to local pool.", "error", err)
 							}
 						}
 					}
+
 				}
 			}
 		}

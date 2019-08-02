@@ -17,7 +17,7 @@
 package core
 
 import (
-	"encoding/json"
+	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -52,27 +52,27 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
-func (v *BlockValidator) ValidateBody(block *types.Block) (error, []common.Hash) {
+func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	// Check whether the block's known, and if not, that it's linkable
 	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
-		return ErrKnownBlock, []common.Hash{}
+		return ErrKnownBlock
 	}
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
-			return consensus.ErrUnknownAncestor, []common.Hash{}
+			return consensus.ErrUnknownAncestor
 		}
-		return consensus.ErrPrunedAncestor, []common.Hash{}
+		return consensus.ErrPrunedAncestor
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
 	if err := v.engine.VerifyUncles(v.bc, block); err != nil {
-		return err, []common.Hash{}
+		return err
 	}
 	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
-		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash), []common.Hash{}
+		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
 	}
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
-		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash), []common.Hash{}
+		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 
 	engine, _ := v.engine.(*posv.Posv)
@@ -80,30 +80,42 @@ func (v *BlockValidator) ValidateBody(block *types.Block) (error, []common.Hash)
 
 	currentState, err := v.bc.State()
 	if err != nil {
-		return err, []common.Hash{}
+		return err
 	}
 
 	// validate matchedOrder txs
-	processedHashes :=  []common.Hash{}
+	processedHashes := []common.Hash{}
 	// clear the previous dry-run cache
 	if tomoXService != nil {
 		tomoXService.GetDB().InitDryRunMode()
 	}
+	txs := []*types.Transaction{}
+
 	for _, tx := range block.Transactions() {
+		if tx.IsMatchingTransaction() {
+			txs = append(txs, tx)
+		}
+	}
+
+	for _, tx := range txs {
 		if tx.IsMatchingTransaction() {
 			if tomoXService == nil {
 				log.Error("tomox not found")
-				return tomox.ErrTomoXServiceNotFound, []common.Hash{}
+				return tomox.ErrTomoXServiceNotFound
 			}
-			log.Debug("process tx match")
-			hash, err := v.validateMatchedOrder(tomoXService, currentState, tx)
+			log.Debug("verify matching transaction")
+			hashes, err := v.validateMatchingOrder(tomoXService, currentState, tx)
 			if err != nil {
-				return err, []common.Hash{}
+				return err
 			}
-			processedHashes = append(processedHashes, hash)
+			processedHashes = append(processedHashes, hashes...)
 		}
 	}
-	return nil, processedHashes
+	hashNoValidator := block.HashNoValidator()
+	if _, ok := v.bc.processedOrderHashes.Get(hashNoValidator); !ok && len(processedHashes) > 0 {
+		v.bc.processedOrderHashes.Add(block.HashNoValidator(), processedHashes)
+	}
+	return nil
 }
 
 // ValidateState validates the various changes that happen after a state
@@ -134,54 +146,60 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-// return values
-// hash: for removing from pending list and add to processed list
-// orderbook according to the order
-func (v *BlockValidator) validateMatchedOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, tx *types.Transaction) (common.Hash, error) {
-	txMatch := &tomox.TxDataMatch{}
-	if err := json.Unmarshal(tx.Data(), txMatch); err != nil {
-		return common.Hash{}, fmt.Errorf("transaction match is corrupted. Failed unmarshal. Error: %s", err.Error())
-	}
-
-	// verify orderItem
-	order, err := txMatch.DecodeOrder()
+func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, tx *types.Transaction) ([]common.Hash, error) {
+	txMatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
 	if err != nil {
-		return common.Hash{},fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err.Error())
+		return []common.Hash{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchesBatch. Error: %s", err.Error())
+	}
+	processedHashes := []common.Hash{}
+	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatches))
+
+	for _, txMatch := range txMatches {
+		// verify orderItem
+		order, err := txMatch.DecodeOrder()
+		if err != nil {
+			return []common.Hash{}, fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err.Error())
+		}
+		if !tomoXService.ExistProcessedOrderHash(order.Hash) {
+			return []common.Hash{}, fmt.Errorf("This order has been processed: Hash: %s ", hex.EncodeToString(order.Hash.Bytes()))
+		}
+		log.Debug("process tx match", "order", order)
+
+		processedHashes = append(processedHashes, order.Hash)
+
+		// SDK node doesn't need to run ME
+		if tomoXService.IsSDKNode() {
+			log.Debug("SDK node ignore running matching engine")
+			continue
+		}
+		if err := order.VerifyMatchedOrder(currentState); err != nil {
+			return []common.Hash{}, err
+		}
+
+		ob, err := tomoXService.GetOrderBook(order.PairName, true)
+		// if orderbook of this pairName has been updated by previous tx in this block, use it
+
+		if err != nil {
+			return []common.Hash{}, err
+		}
+
+		// verify old state: orderbook hash, bidTree hash, askTree hash
+		if err := txMatch.VerifyOldTomoXState(ob); err != nil {
+			return []common.Hash{}, err
+		}
+
+		// process Matching Engine
+		if _, _, err := ob.ProcessOrder(order, true, true); err != nil {
+			return []common.Hash{}, err
+		}
+
+		// verify new state
+		if err := txMatch.VerifyNewTomoXState(ob); err != nil {
+			return []common.Hash{}, err
+		}
 	}
 
-	// SDK node doesn't need to run ME
-	if tomoXService.IsSDKNode() {
-		log.Debug("SDK node ignore running matching engine")
-		return order.Hash, nil
-	}
-
-	if err := order.VerifyMatchedOrder(currentState); err != nil {
-		return common.Hash{},err
-	}
-
-	ob, err := tomoXService.GetOrderBook(order.PairName, true)
-	// if orderbook of this pairName has been updated by previous tx in this block, use it
-
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	// verify old state: orderbook hash, bidTree hash, askTree hash
-	if err := txMatch.VerifyOldTomoXState(ob); err != nil {
-		return common.Hash{}, err
-	}
-
-	// process Matching Engine
-	if _, _, err := ob.ProcessOrder(order, true, true); err != nil {
-		return common.Hash{}, err
-	}
-
-	// verify new state
-	if err := txMatch.VerifyNewTomoXState(ob); err != nil {
-		return common.Hash{}, err
-	}
-
-	return order.Hash, nil
+	return processedHashes, nil
 }
 
 // CalcGasLimit computes the gas limit of the next block after parent.
