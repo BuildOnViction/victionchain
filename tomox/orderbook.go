@@ -129,10 +129,20 @@ func (orderBook *OrderBook) Restore(dryrun bool) error {
 		log.Error("can't restore orderbook asks", "err", err)
 		return err
 	}
+	// rootKey might change once restoring thus to be safe, we should save changes to DB
+	if err := orderBook.Asks.Save(dryrun); err != nil {
+		log.Error("can't save asks changes to DB", "err", err)
+		return err
+	}
 	log.Debug("restored orderbook asks", "asks.Item", orderBook.Bids.Item)
 
 	if err := orderBook.Bids.Restore(dryrun); err != nil {
 		log.Error("can't restore orderbook bids", "err", err)
+		return err
+	}
+	// rootKey might change once restoring thus to be safe, we should save changes to DB
+	if err := orderBook.Bids.Save(dryrun); err != nil {
+		log.Error("can't save bids changes to DB", "err", err)
 		return err
 	}
 	log.Debug("restored orderbook bids", "bids.Item", orderBook.Bids.Item)
