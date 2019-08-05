@@ -413,7 +413,7 @@ func TestProcessedHash(t *testing.T) {
 		t.Error("Expected: 3 processed hash", "Actual:", len(pHashes), "pHashes", pHashes)
 	}
 
-	if !tomox.existProcessedOrderHash(common.StringToHash("0x0000000000000000000000000000000000000004")) {
+	if !tomox.ExistProcessedOrderHash(common.StringToHash("0x0000000000000000000000000000000000000004")) {
 		t.Error("Processed hash not exist")
 	}
 }

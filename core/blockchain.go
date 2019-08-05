@@ -124,17 +124,17 @@ type BlockChain struct {
 	currentBlock     atomic.Value // Current head of the block chain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache         state.Database // State database to reuse between imports (contains state cache)
-	bodyCache          *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache       *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	blockCache         *lru.Cache     // Cache for the most recent entire blocks
-	futureBlocks       *lru.Cache     // future blocks are blocks added for later processing
-	resultProcess      *lru.Cache     // Cache for processed blocks
-	matchedOrderHashes *lru.Cache     // Cache for matchedOrderHashes
-	calculatingBlock   *lru.Cache     // Cache for processing blocks
-	downloadingBlock   *lru.Cache     // Cache for downloading blocks (avoid duplication from fetcher)
-	quit               chan struct{}  // blockchain quit channel
-	running            int32          // running must be called atomically
+	stateCache           state.Database // State database to reuse between imports (contains state cache)
+	bodyCache            *lru.Cache     // Cache for the most recent block bodies
+	bodyRLPCache         *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
+	blockCache           *lru.Cache     // Cache for the most recent entire blocks
+	futureBlocks         *lru.Cache     // future blocks are blocks added for later processing
+	resultProcess        *lru.Cache     // Cache for processed blocks
+	processedOrderHashes *lru.Cache     // Cache for processedOrderHashes
+	calculatingBlock     *lru.Cache     // Cache for processing blocks
+	downloadingBlock     *lru.Cache     // Cache for downloading blocks (avoid duplication from fetcher)
+	quit                 chan struct{}  // blockchain quit channel
+	running              int32          // running must be called atomically
 	// procInterrupt must be atomically called
 	procInterrupt int32          // interrupt signaler for block processing
 	wg            sync.WaitGroup // chain processing wait group for shutting down
@@ -169,23 +169,23 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	preparingBlock, _ := lru.New(blockCacheLimit)
 	downloadingBlock, _ := lru.New(blockCacheLimit)
 	bc := &BlockChain{
-		chainConfig:        chainConfig,
-		cacheConfig:        cacheConfig,
-		db:                 db,
-		triegc:             prque.New(),
-		stateCache:         state.NewDatabase(db),
-		quit:               make(chan struct{}),
-		bodyCache:          bodyCache,
-		bodyRLPCache:       bodyRLPCache,
-		blockCache:         blockCache,
-		futureBlocks:       futureBlocks,
-		resultProcess:      resultProcess,
-		matchedOrderHashes: matchedOrderHashes,
-		calculatingBlock:   preparingBlock,
-		downloadingBlock:   downloadingBlock,
-		engine:             engine,
-		vmConfig:           vmConfig,
-		badBlocks:          badBlocks,
+		chainConfig:          chainConfig,
+		cacheConfig:          cacheConfig,
+		db:                   db,
+		triegc:               prque.New(),
+		stateCache:           state.NewDatabase(db),
+		quit:                 make(chan struct{}),
+		bodyCache:            bodyCache,
+		bodyRLPCache:         bodyRLPCache,
+		blockCache:           blockCache,
+		futureBlocks:         futureBlocks,
+		resultProcess:        resultProcess,
+		processedOrderHashes: matchedOrderHashes,
+		calculatingBlock:     preparingBlock,
+		downloadingBlock:     downloadingBlock,
+		engine:               engine,
+		vmConfig:             vmConfig,
+		badBlocks:            badBlocks,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -1107,9 +1107,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		bstart := time.Now()
 
 		err := <-results
-		matchedOrderHashes := []common.Hash{}
 		if err == nil {
-			err, matchedOrderHashes = bc.Validator().ValidateBody(block)
+			err = bc.Validator().ValidateBody(block)
 		}
 		switch {
 		case err == ErrKnownBlock:
@@ -1200,11 +1199,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 
 		if tomoXService != nil {
-			if len(matchedOrderHashes) > 0 {
-				log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "matchedOrderHashes", matchedOrderHashes)
+			if matchedData, ok := bc.processedOrderHashes.Get(block.HashNoValidator()); ok && matchedData != nil {
+				matchedOrderHashes := matchedData.([]common.Hash)
+				log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "processedOrderHashes", matchedOrderHashes)
 				if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
 					return i, events, coalescedLogs, err
 				}
+				bc.processedOrderHashes.Remove(block.HashNoValidator())
 				if tomoXService.IsSDKNode() {
 					if err := logDataToSdkNode(tomoXService, block.Transactions()); err != nil {
 						return i, events, coalescedLogs, err
@@ -1291,10 +1292,9 @@ func (bc *BlockChain) PrepareBlock(block *types.Block) (err error) {
 	if err != nil {
 		return err
 	}
-	result, matchedOrderHashes, err := bc.getResultBlock(block, false)
+	result, err := bc.getResultBlock(block, false)
 	if err == nil {
 		bc.resultProcess.Add(block.Hash(), result)
-		bc.matchedOrderHashes.Add(block.Hash(), matchedOrderHashes)
 		return nil
 	} else if err == ErrKnownBlock {
 		return nil
@@ -1305,17 +1305,12 @@ func (bc *BlockChain) PrepareBlock(block *types.Block) (err error) {
 	return err
 }
 
-func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*ResultProcessBlock, []common.Hash, error) {
+func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*ResultProcessBlock, error) {
 	var calculatedBlock *CalculatedBlock
 	if verifiedM2 {
 		if result, check := bc.resultProcess.Get(block.HashNoValidator()); check {
 			log.Debug("Get result block from cache ", "number", block.NumberU64(), "hash", block.Hash(), "hash no validator", block.HashNoValidator())
-			matchedOrderHashes := []common.Hash{}
-			val, ok := bc.matchedOrderHashes.Get(block.HashNoValidator())
-			if ok && val != nil {
-				matchedOrderHashes = val.([]common.Hash)
-			}
-			return result.(*ResultProcessBlock), matchedOrderHashes, nil
+			return result.(*ResultProcessBlock), nil
 		}
 		log.Debug("Not found cache prepare block ", "number", block.NumberU64(), "hash", block.Hash(), "validator", block.HashNoValidator())
 		if calculatedBlock, _ := bc.calculatingBlock.Get(block.HashNoValidator()); calculatedBlock != nil {
@@ -1328,22 +1323,22 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	// If the chain is terminating, stop processing blocks
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		log.Debug("Premature abort during blocks processing")
-		return nil, []common.Hash{}, ErrBlacklistedHash
+		return nil, ErrBlacklistedHash
 	}
 	// If the header is a banned one, straight out abort
 	if BadHashes[block.Hash()] {
 		bc.reportBlock(block, nil, ErrBlacklistedHash)
-		return nil, []common.Hash{}, ErrBlacklistedHash
+		return nil, ErrBlacklistedHash
 	}
 	// Wait for the block's verification to complete
 	bstart := time.Now()
-	err, matchedOrderHashes := bc.Validator().ValidateBody(block)
+	err := bc.Validator().ValidateBody(block)
 	switch {
 	case err == ErrKnownBlock:
 		// Block and state both already known. However if the current block is below
 		// this number we did a rollback and we should reimport it nonetheless.
 		if bc.CurrentBlock().NumberU64() >= block.NumberU64() {
-			return nil, []common.Hash{}, ErrKnownBlock
+			return nil, ErrKnownBlock
 		}
 	case err == consensus.ErrPrunedAncestor:
 		// Block competing with the canonical chain, store in the db, but don't process
@@ -1352,7 +1347,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 		externTd := new(big.Int).Add(bc.GetTd(block.ParentHash(), block.NumberU64()-1), block.Difficulty())
 		if localTd.Cmp(externTd) > 0 {
-			return nil, []common.Hash{}, err
+			return nil, err
 		}
 		// Competitor chain beat canonical, gather all blocks from the common ancestor
 		var winner []*types.Block
@@ -1369,18 +1364,18 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		// Import all the pruned blocks to make the state available
 		_, _, _, err := bc.insertChain(winner)
 		if err != nil {
-			return nil, []common.Hash{}, err
+			return nil, err
 		}
 	case err != nil:
 		bc.reportBlock(block, nil, err)
-		return nil, []common.Hash{}, err
+		return nil, err
 	}
 	// Create a new statedb using the parent block and report an
 	// error if it fails.
 	var parent = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	state, err := state.New(parent.Root(), bc.stateCache)
 	if err != nil {
-		return nil, []common.Hash{}, err
+		return nil, err
 	}
 	// Process block using the parent state as reference point.
 	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, state, bc.vmConfig)
@@ -1389,18 +1384,18 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		if err != ErrStopPreparingBlock {
 			bc.reportBlock(block, receipts, err)
 		}
-		return nil, []common.Hash{}, err
+		return nil, err
 	}
 	// Validate the state using the default validator
 	err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
 	if err != nil {
 		bc.reportBlock(block, receipts, err)
-		return nil, []common.Hash{}, err
+		return nil, err
 	}
 	proctime := time.Since(bstart)
 	log.Debug("Calculate new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)), "process", process)
-	return &ResultProcessBlock{receipts: receipts, logs: logs, state: state, proctime: proctime, usedGas: usedGas}, matchedOrderHashes, nil
+	return &ResultProcessBlock{receipts: receipts, logs: logs, state: state, proctime: proctime, usedGas: usedGas}, nil
 }
 
 // insertChain will execute the actual chain insertion and event aggregation. The
@@ -1416,7 +1411,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		log.Debug("Stop fetcher a block because downloading", "number", block.NumberU64(), "hash", block.Hash())
 		return events, coalescedLogs, nil
 	}
-	result, matchedOrderHashes, err := bc.getResultBlock(block, true)
+	result, err := bc.getResultBlock(block, true)
 	if err != nil {
 		return events, coalescedLogs, err
 	}
@@ -1432,11 +1427,13 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	engine := bc.Engine().(*posv.Posv)
 	tomoXService := engine.GetTomoXService()
 	if tomoXService != nil {
-		if len(matchedOrderHashes) > 0 {
-			log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "matchedOrderHashes", matchedOrderHashes)
+		if matchedData, ok := bc.processedOrderHashes.Get(block.HashNoValidator()); ok && matchedData != nil {
+			matchedOrderHashes := matchedData.([]common.Hash)
+			log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "processedOrderHashes", matchedOrderHashes)
 			if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
 				return events, coalescedLogs, err
 			}
+			bc.processedOrderHashes.Remove(block.HashNoValidator())
 			if tomoXService.IsSDKNode() {
 				if err := logDataToSdkNode(tomoXService, block.Transactions()); err != nil {
 					return events, coalescedLogs, err

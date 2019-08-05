@@ -48,7 +48,7 @@ const (
 	pendingHash          = "PENDING_HASH"
 	pendingPrefix        = "XP"
 	processedHash        = "PROCESSED_HASH"
-	orderProcessLimit    = 5
+	orderProcessLimit    = 10
 )
 
 type Config struct {
@@ -789,18 +789,18 @@ func (tomox *TomoX) GetAsksTree(pairName string, dryrun bool) (*OrderTree, error
 	return ob.Asks, nil
 }
 
-func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
-	txMatches := make(map[common.Hash]TxDataMatch)
+func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
+	txMatches := []TxDataMatch{}
 	tomox.db.InitDryRunMode()
 
 	log.Debug("Get pending hashes")
 	pendingHashes := tomox.getPendingHashes()
 	if len(pendingHashes) > 0 {
 		for i, orderHash := range pendingHashes {
-			if i <= orderProcessLimit {
+			if i < orderProcessLimit {
 				order := tomox.getOrderPending(orderHash)
 				if order != nil {
-					if !tomox.existProcessedOrderHash(orderHash) {
+					if !tomox.ExistProcessedOrderHash(orderHash) {
 						var (
 							ob  *OrderBook
 							err error
@@ -863,8 +863,8 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 								continue
 							}
 						}
-						log.Debug("Process OrderPending completed", "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
-						txMatches[order.Hash] = TxDataMatch{
+						log.Debug("Process OrderPending completed", "orderNonce", order.Nonce, "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
+						txMatch := TxDataMatch{
 							Order:       value,
 							Trades:      trades,
 							OrderInBook: orderInBookValue,
@@ -875,6 +875,7 @@ func (tomox *TomoX) ProcessOrderPending() map[common.Hash]TxDataMatch {
 							BidOld:      bidOld,
 							BidNew:      bidNew,
 						}
+						txMatches = append(txMatches, txMatch)
 					}
 				} else {
 					log.Error("Fail to get order pending from db", "hash", orderHash)
@@ -1073,7 +1074,7 @@ func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash, limit int) erro
 	return nil
 }
 
-func (tomox *TomoX) existProcessedOrderHash(orderHash common.Hash) bool {
+func (tomox *TomoX) ExistProcessedOrderHash(orderHash common.Hash) bool {
 	processedHashes := tomox.getProcessedOrderHash()
 
 	for _, k := range processedHashes {

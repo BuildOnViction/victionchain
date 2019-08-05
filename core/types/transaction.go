@@ -23,6 +23,7 @@ import (
 	"io"
 	"math/big"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -61,6 +62,7 @@ type txdata struct {
 	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
+	Timestamp    uint64
 
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
@@ -80,17 +82,23 @@ type txdataMarshaling struct {
 	V            *hexutil.Big
 	R            *hexutil.Big
 	S            *hexutil.Big
+	Timestamp    *hexutil.Uint64
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+	timestamp := uint64(0)
+	// set timestamp for matchingOrders only
+	if to.String() == common.TomoXAddr {
+		timestamp = uint64(time.Now().UnixNano())
+	}
+	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, timestamp)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, uint64(0))
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, timestamp uint64) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -104,6 +112,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		V:            new(big.Int),
 		R:            new(big.Int),
 		S:            new(big.Int),
+		Timestamp:    timestamp,
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
@@ -183,6 +192,7 @@ func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
 func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
+func (tx *Transaction) Timestamp() uint64  { return tx.data.Timestamp }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
 // To returns the recipient address of the transaction.
