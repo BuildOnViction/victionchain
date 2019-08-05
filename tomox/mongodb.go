@@ -256,7 +256,9 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 	defer sc.Close()
 
 	// Store the key
-	o.Key = cacheKey
+	if len(o.Key) == 0 {
+		o.Key = cacheKey
+	}
 
 	query := bson.M{"key": cacheKey}
 
