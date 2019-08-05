@@ -210,7 +210,7 @@ func GetTokenBalance(statedb *state.StateDB, address common.Address, contractAdd
 }
 
 // verify orderbook, orderTrees before running matching engine
-func (tx *TxDataMatch) VerifyOldTomoXState(ob *OrderBook) error {
+func (tx TxDataMatch) VerifyOldTomoXState(ob *OrderBook) error {
 	// verify orderbook
 	if hash, err := ob.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.ObOld.Bytes()) {
 		log.Error("wrong old orderbook", "expected", hex.EncodeToString(tx.ObOld.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
@@ -234,7 +234,7 @@ func (tx *TxDataMatch) VerifyOldTomoXState(ob *OrderBook) error {
 }
 
 // verify orderbook, orderTrees after running matching engine
-func (tx *TxDataMatch) VerifyNewTomoXState(ob *OrderBook) error {
+func (tx TxDataMatch) VerifyNewTomoXState(ob *OrderBook) error {
 	// verify orderbook
 	if hash, err := ob.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.ObNew.Bytes()) {
 		log.Error("wrong new orderbook", "expected", hex.EncodeToString(tx.ObNew.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
@@ -257,7 +257,7 @@ func (tx *TxDataMatch) VerifyNewTomoXState(ob *OrderBook) error {
 	return nil
 }
 
-func (tx *TxDataMatch) DecodeOrder() (*OrderItem, error) {
+func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
 	order := &OrderItem{}
 	if err := DecodeBytesItem(tx.Order, order); err != nil {
 		return order, err
@@ -265,11 +265,11 @@ func (tx *TxDataMatch) DecodeOrder() (*OrderItem, error) {
 	return order, nil
 }
 
-func (tx *TxDataMatch) GetTrades() []map[string]string {
+func (tx TxDataMatch) GetTrades() []map[string]string {
 	return tx.Trades
 }
 
-func (tx *TxDataMatch) DecodeOrderInBook() (*OrderItem, error) {
+func (tx TxDataMatch) DecodeOrderInBook() (*OrderItem, error) {
 	if len(tx.OrderInBook) == 0 {
 		return nil, nil
 	}
