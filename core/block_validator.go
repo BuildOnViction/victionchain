@@ -166,7 +166,8 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 			return []common.Hash{}, fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err.Error())
 		}
 		if tomoXService.ExistProcessedOrderHash(order.Hash) {
-			return []common.Hash{}, fmt.Errorf("This order has been processed: Hash: %s ", hex.EncodeToString(order.Hash.Bytes()))
+			log.Debug("This order has been processed", "hash", hex.EncodeToString(order.Hash.Bytes()))
+			continue
 		}
 		log.Debug("process tx match", "order", order)
 
