@@ -807,7 +807,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 						)
 
 						// if orderbook has been processed before in this block, it should be in dry-run mode
-						// otherwise it's on db
+						// otherwise it's in db
 						ob, err = tomox.getAndCreateIfNotExisted(order.PairName, true)
 						if err != nil || ob == nil {
 							log.Error("Fail to get/create orderbook", "order.PairName", order.PairName)
@@ -1263,13 +1263,14 @@ func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash) error {
 	for _, hash := range orderHashes {
 		if err := tomox.MarkOrderAsProcessed(hash); err != nil {
 			log.Error("Failed to mark order as processed", "err", err)
+			return err
 		}
 	}
 	tomox.db.InitDryRunMode()
 	return nil
 }
 
-func (tomox *TomoX) SyncDataToSDKNode(txDataMatch *TxDataMatch, txHash common.Hash) error {
+func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Hash) error {
 	// put trade output to mongodb on SDK node only
 	if !tomox.IsSDKNode() {
 		return nil

@@ -18,7 +18,6 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/tomox"
@@ -1937,12 +1936,24 @@ func (bc *BlockChain) UpdateM1() error {
 }
 
 func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions) error {
+	txs := []*types.Transaction{}
 	for _, tx := range transactions {
 		if tx.IsMatchingTransaction() {
-			txMatch := &tomox.TxDataMatch{}
-			if err := json.Unmarshal(tx.Data(), txMatch); err != nil {
-				return err
-			}
+			txs = append(txs, tx)
+		}
+	}
+	// the order of matching transactions is very important
+	sort.Slice(txs, func(i, j int) bool {
+		return txs[i].Timestamp() <= txs[j].Timestamp()
+	})
+
+	for _, tx := range txs {
+		var err error
+		txMatches := []tomox.TxDataMatch{}
+		if txMatches, err = tomox.DecodeTxMatchesBatch(tx.Data()); err != nil {
+			return err
+		}
+		for _, txMatch := range txMatches {
 			if err := tomoXService.SyncDataToSDKNode(txMatch, tx.Hash()); err != nil {
 				return err
 			}
