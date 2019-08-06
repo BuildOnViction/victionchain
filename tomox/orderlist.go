@@ -8,7 +8,6 @@ import (
 
 	"encoding/hex"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -67,26 +66,18 @@ func NewOrderList(price *big.Int, orderTree *OrderTree) *OrderList {
 
 func NewOrderListWithItem(item *OrderListItem, orderTree *OrderTree) *OrderList {
 	key := orderTree.getKeyFromPrice(item.Price)
-
+	slot := new(big.Int).SetBytes(key)
 	orderList := &OrderList{
 		Item:      item,
 		Key:       key,
 		orderTree: orderTree,
-	}
-
-	// priceKey will be slot of order tree + plus price key
-	// we can use orderList slot as orderbook slot to store sequential of orders
-	if orderTree.orderBook != nil {
-		orderList.slot = orderTree.orderBook.Slot
-	} else {
-		orderList.slot = new(big.Int).SetBytes(crypto.Keccak256(key))
+		slot: slot,
 	}
 
 	return orderList
 }
 
 func (orderList *OrderList) GetOrder(key []byte, dryrun bool) *Order {
-	// re-use method from orderbook, because orderlist has the same slot as orderbook
 	storedKey := orderList.GetOrderIDFromKey(key)
 	log.Debug("Get order from key", "storedKey", hex.EncodeToString(storedKey))
 	return orderList.orderTree.orderBook.GetOrder(storedKey, key, dryrun)
@@ -347,6 +338,6 @@ func (orderList *OrderList) Hash() (common.Hash, error) {
 	return common.BytesToHash(olEncoded), nil
 }
 
-func GetOrderListCommonKey(key []byte) []byte {
-	return append([]byte("OL"), key...)
+func GetOrderListCommonKey(key []byte, pairName string) []byte {
+	return append([]byte(pairName), key...)
 }

@@ -268,7 +268,7 @@ func (s *Snapshot) RestoreOrderTree(treeSnap *OrderTreeSnapshot, tree *OrderTree
 			if err = DecodeBytesItem(item, orderItem); err != nil {
 				return tree, err
 			}
-			order := NewOrder(orderItem, ol.Key)
+			order := NewOrder(orderItem, GetOrderListCommonKey(ol.Key, tree.orderBook.Item.Name))
 			if err = ol.SaveOrder(order, false); err != nil {
 				return tree, err
 			}

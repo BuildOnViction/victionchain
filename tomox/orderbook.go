@@ -125,23 +125,33 @@ func (orderBook *OrderBook) Save(dryrun bool) error {
 }
 
 func (orderBook *OrderBook) Restore(dryrun bool) error {
-	log.Debug("restore orderbook asks")
 	if err := orderBook.Asks.Restore(dryrun); err != nil {
 		log.Error("can't restore orderbook asks", "err", err)
 		return err
 	}
+	// rootKey might change once restoring thus to be safe, we should save changes to DB
+	if err := orderBook.Asks.Save(dryrun); err != nil {
+		log.Error("can't save asks changes to DB", "err", err)
+		return err
+	}
+	log.Debug("restored orderbook asks", "asks.Item", orderBook.Bids.Item)
 
-	log.Debug("restore orderbook bids")
 	if err := orderBook.Bids.Restore(dryrun); err != nil {
 		log.Error("can't restore orderbook bids", "err", err)
 		return err
 	}
+	// rootKey might change once restoring thus to be safe, we should save changes to DB
+	if err := orderBook.Bids.Save(dryrun); err != nil {
+		log.Error("can't save bids changes to DB", "err", err)
+		return err
+	}
+	log.Debug("restored orderbook bids", "bids.Item", orderBook.Bids.Item)
 
 	orderBookItemKey := append([]byte(orderbookItemPrefix), orderBook.Key...)
 	val, err := orderBook.db.Get(orderBookItemKey, orderBook.Item, dryrun)
 	if err == nil {
 		orderBook.Item = val.(*OrderBookItem)
-		log.Debug("orderbook restored", "orderBook.Item", orderBook.Item)
+		log.Debug("restored orderbook", "orderBook.Item", orderBook.Item)
 	}
 
 	return err
