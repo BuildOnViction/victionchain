@@ -76,9 +76,11 @@ func (orderTree *OrderTree) Save(dryrun bool) error {
 	if priceTreeRoot != nil {
 		orderTree.Item.PriceTreeKey = priceTreeRoot.Key
 		orderTree.Item.PriceTreeSize = orderTree.Depth()
+	} else {
+		log.Debug("Can't update ordertree")
 	}
 
-	log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.GetCommonKey()))
+	log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.GetCommonKey()), "order.Item", orderTree.Item)
 	return orderTree.orderDB.Put(orderTree.GetCommonKey(), orderTree.Item, dryrun)
 }
 

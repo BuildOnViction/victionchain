@@ -159,10 +159,11 @@ func (tree *Tree) Remove(key []byte, dryrun bool) {
 	var child *Node
 	node, err := tree.GetNode(key, dryrun)
 	if err != nil {
-		log.Error("Can't remove node", "err", err)
+		log.Error("Can't remove node", "key", hex.EncodeToString(key), "err", err)
 		return
 	}
 	if node == nil {
+		log.Error("Can't remove node. Node == nil", "key", hex.EncodeToString(key))
 		return
 	}
 
@@ -205,7 +206,7 @@ func (tree *Tree) Remove(key []byte, dryrun bool) {
 	}
 
 	tree.size--
-	log.Debug("Deleted node", "node key", hex.EncodeToString(node.Key), "all keys", tree.KeysinString(true))
+	log.Debug("Deleted node", "node key", hex.EncodeToString(node.Key), "all keys", tree.KeysinString(true), "tree.size", tree.size)
 }
 
 // // Empty returns true if tree does not contain any nodes
@@ -547,7 +548,7 @@ func (tree *Tree) Save(node *Node, dryrun bool) error {
 func (tree *Tree) deleteCase1(node *Node, dryrun bool) {
 	log.Debug("delete case 1", "node key", hex.EncodeToString(node.Key))
 	if tree.IsEmptyKey(node.ParentKey()) {
-		tree.deleteNode(node, dryrun)
+		//tree.deleteNode(node, dryrun)
 		return
 	}
 
@@ -588,7 +589,7 @@ func (tree *Tree) deleteCase3(node *Node, dryrun bool) {
 		sibling.Item.Color = red
 		tree.Save(sibling, dryrun)
 		tree.deleteCase1(parent, dryrun)
-		tree.deleteNode(node, dryrun)
+		//tree.deleteNode(node, dryrun)
 	} else {
 		tree.deleteCase4(node, dryrun)
 	}
@@ -675,7 +676,7 @@ func (tree *Tree) deleteCase6(node *Node, dryrun bool) {
 	}
 
 	// update the parent meta then delete the current node from db
-	tree.deleteNode(node, dryrun)
+	//tree.deleteNode(node, dryrun)
 }
 
 func nodeColor(node *Node) bool {
