@@ -73,11 +73,16 @@ func (orderTree *OrderTree) Save(dryrun bool) error {
 
 	// update tree meta information, make sure item existed instead of checking rootKey
 	priceTreeRoot := orderTree.PriceTree.Root(dryrun)
+	orderTree.Item.PriceTreeSize = orderTree.Depth()
+
 	if priceTreeRoot != nil {
 		orderTree.Item.PriceTreeKey = priceTreeRoot.Key
-		orderTree.Item.PriceTreeSize = orderTree.Depth()
+	} else if orderTree.Depth() == 0 {
+		orderTree.Item.PriceTreeKey = EmptyKey()
+		orderTree.Item.PriceTreeSize = 0
+		orderTree.PriceTree.Clear()
 	} else {
-		log.Debug("Can't update ordertree")
+		return fmt.Errorf("Ordertree root not found")
 	}
 
 	log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.GetCommonKey()), "order.Item", orderTree.Item)
