@@ -670,6 +670,7 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 		if err := tomox.addPendingHash(order.Hash); err != nil {
 			return err
 		}
+		order.CreatedAt = uint64(time.Now().Unix())
 		if err := tomox.addOrderPending(order); err != nil {
 			return err
 		}
@@ -1365,6 +1366,7 @@ func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *
 	}
 	matchedOrder := val.(*OrderItem)
 	matchedOrder.Status = sdktypes.OrderStatusFilled
+	matchedOrder.UpdatedAt = uint64(time.Now().Unix())
 	updatedFillAmount := new(big.Int)
 	updatedFillAmount.Add(matchedOrder.FilledAmount, filledAmount)
 	matchedOrder.FilledAmount = updatedFillAmount
