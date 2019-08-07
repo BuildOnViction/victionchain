@@ -756,10 +756,10 @@ func (tomox *TomoX) CancelOrder(order *OrderItem, dryrun bool) error {
 		if err := tomox.removePendingHash(order.Hash); err != nil {
 			return err
 		}
-		if o := tomox.getOrderPending(order.Hash); o != nil {
-			if err := tomox.cancelOrderPending(order.Hash); err != nil {
-				return err
-			}
+
+		// remove order pending
+		if err := tomox.removeOrderPending(order.Hash); err != nil {
+			return err
 		}
 
 		// remove order from ordertree
@@ -919,38 +919,6 @@ func (tomox *TomoX) addOrderPending(order *OrderItem) error {
 	if err := tomox.db.Put(key, order, false); err != nil {
 		log.Error("Fail to save order pending", "err", err)
 		return err
-	}
-
-	return nil
-}
-
-func (tomox *TomoX) cancelOrderPending(orderHash common.Hash) error {
-	prefix := []byte(pendingPrefix)
-	key := append(prefix, orderHash.Bytes()...)
-	log.Debug("Cancel order pending", "orderHash", orderHash, "key", hex.EncodeToString(key))
-	if tomox.IsSDKNode() {
-		log.Debug("Update order status to CANCELLED in sdk node", "orderHash", orderHash)
-		data, err := tomox.db.Get(key, &OrderItem{}, false)
-		if err != nil || data == nil {
-			log.Error("Order doesn't exist in pending", "orderHash", orderHash, "err", err)
-			return err
-		}
-		switch data.(type) {
-		case *OrderItem:
-			o := data.(*OrderItem)
-			o.Status = Cancel
-			if err = tomox.db.Put(key, o, false); err != nil {
-				log.Error("Can't update order status in mongo", "err", err)
-				return err
-			}
-		default:
-			return fmt.Errorf("Order is corrupted")
-		}
-	} else {
-		if err := tomox.db.Delete(key, false); err != nil {
-			log.Error("Fail to delete order pending", "err", err)
-			return err
-		}
 	}
 
 	return nil
