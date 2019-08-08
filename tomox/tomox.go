@@ -467,11 +467,18 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 	}
 
 	if order.Status == Cancel {
-		if err := tomox.CancelOrder(order, false); err != nil {
+		err := tomox.CancelOrder(order, false)
+		switch err {
+		case ErrDoesNotExist:
+			log.Error("Can't cancel order", "err", err)
+			return nil
+		case nil:
+			log.Debug("Cancelled order", "order", order)
+			return nil
+		default:
 			log.Error("Can't cancel order", "order", order, "err", err)
 			return err
 		}
-		log.Debug("Cancelled order", "order", order)
 	} else {
 		if err := tomox.InsertOrder(order); err != nil {
 			log.Error("Can't insert order", "order", order, "err", err)
@@ -764,9 +771,7 @@ func (tomox *TomoX) CancelOrder(order *OrderItem, dryrun bool) error {
 
 		// remove order from ordertree
 		if err := ob.CancelOrder(order, dryrun); err != nil {
-			if err == ErrDoesNotExist {
-				return nil
-			}
+			return err
 		}
 	}
 
