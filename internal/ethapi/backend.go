@@ -76,6 +76,7 @@ type Backend interface {
 	GetRewardByHash(hash common.Hash) map[string]interface{}
 
 	GetBlocksByNumber(blockNr rpc.BlockNumber) []common.Hash
+	AreTwoBlockSamePath(newBlock common.Hash, oldBlock common.Hash) bool
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

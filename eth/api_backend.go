@@ -210,11 +210,11 @@ func (b *EthApiBackend) EventMux() *event.TypeMux {
 }
 
 func (b *EthApiBackend) AccountManager() *accounts.Manager {
-	return b.eth.AccountManager()uint64
+	return b.eth.AccountManager()
 }
 
-func (b *EthApiBackend) BloomStatuint64s() (uint64, uint64) {
-	sections, _, _ := b.eth.bloomuint64ndexer.Sections()
+func (b *EthApiBackend) BloomStatus() (uint64, uint64) {
+	sections, _, _ := b.eth.bloomIndexer.Sections()
 	return params.BloomBitsBlocks, sections
 }
 
@@ -261,10 +261,10 @@ func (s *EthApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{}
 	return make(map[string]interface{})
 }
 
-func (b *EthApiBackend) GetBlocksByNumber(blockNr rpc.BlockNumber) []common.Hash{} {
-	return b.eth.blockchain.GetBlocksByNumber(uint64(blockNr))
+func (b *EthApiBackend) GetBlocksByNumber(blockNr rpc.BlockNumber) []common.Hash {
+	return b.eth.blockchain.GetBlocksByNumber(uint(blockNr))
 }
 
-func (b *EthApiBackend) IsSamePathTwoBlocks(bh1 common.Hash, bh2 common.Hash) bool {
-	return return b.eth.blockchain.IsSamePathTwoBlocks(bh1, bh2)
+func (b *EthApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bool {
+	return b.eth.blockchain.AreTwoBlockSamePath(bh1, bh2)
 }

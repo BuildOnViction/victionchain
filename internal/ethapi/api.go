@@ -1088,20 +1088,33 @@ func (s *PublicBlockChainAPI) findNearestSignedBlock(b *types.Block, ctx context
 	Use blocksByNumberCache for to keep track - refer core/blockchain.go for more detail
 	From signedBlock's number we go back to number
 */
-func (s *PublicBlockChainAPI) findFinalityOfBlock(b *types.Block, ctx context.Context, masternodes []common.Address) (uint, error) {
+func (s *PublicBlockChainAPI) findFinalityOfBlock(b *types.Block, ctx context.Context, masternodes []common.Address) uint {
 	signedBlock, _ := s.findNearestSignedBlock(b, ctx)
 	if signedBlock == nil {
-		return 0, nil
+		return 0
 	}
 
 	signedBlocks := s.b.GetBlocksByNumber(rpc.BlockNumber(signedBlock.Number().Uint64()))
 	log.Debug("Signed Blocks ", signedBlocks)
 
 	// Track down all the way to check if input block same path
-	isFound := false
+	var signedBlockSamePath common.Hash
+
 	for count := 0; count < len(signedBlocks); count++ {
 		blockHash := signedBlocks[count]
+		if s.b.AreTwoBlockSamePath(blockHash, b.Hash()) {
+			signedBlockSamePath = blockHash
+			break
+		}
 	}
+
+	if len(signedBlockSamePath) == 0 {
+		return 0
+	}
+
+	// find all signed of found block and return finality
+	// NOT IMPLEMENTED yet
+	return 100
 }
 
 /*
@@ -1141,7 +1154,7 @@ func (s *PublicBlockChainAPI) getSigners(block *types.Block, checkpointBlock *ty
 }
 
 func (s *PublicBlockChainAPI) rpcOutputBlockSigners(b *types.Block, ctx context.Context, masternodes []common.Address) ([]common.Address, error) {
-	client, err := s.b.GetIPCClient()
+	_, err := s.b.GetIPCClient()
 	if err != nil {
 		log.Error("Fail to connect IPC client for block status", "error", err)
 		return []common.Address{}, err

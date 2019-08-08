@@ -659,9 +659,9 @@ func (bc *BlockChain) GetBlocksByNumber(number uint) []common.Hash {
 	return []common.Hash{}
 }
 
-// IsSamePathTwoBlocks check if two blocks are same path
+// AreTwoBlockSamePath check if two blocks are same path
 // Assume block 1 is ahead block 2 so we need to check parentHash
-func (bc *BlockChain) IsSamePathTwoBlocks(bh1 common.Hash, bh2 common.Hash) bool {
+func (bc *BlockChain) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bool {
 	bl1 := bc.GetBlockByHash(bh1)
 	bl2 := bc.GetBlockByHash(bh2)
 	toBlockLevel := bl2.Number().Uint64()
