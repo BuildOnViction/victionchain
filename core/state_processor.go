@@ -25,6 +25,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/tomox"
+	"math/big"
 )
 import (
 	"runtime"
@@ -141,6 +143,9 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
 		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
+	if tx.IsMatchingTransaction() && config.IsTIPTomoX(header.Number) {
+		return ApplyTomoXMatchedTransaction(config, statedb, header, tx, usedGas)
+	}
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, 0, err
@@ -204,6 +209,119 @@ func ApplySignTransaction(config *params.ChainConfig, statedb *state.StateDB, he
 	receipt := types.NewReceipt(root, false, *usedGas)
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = 0
+	// if the transaction created a contract, store the creation address in the receipt.
+	// Set the receipt logs and create a bloom for filtering
+	log := &types.Log{}
+	log.Address = common.HexToAddress(common.BlockSigners)
+	log.BlockNumber = header.Number.Uint64()
+	statedb.AddLog(log)
+	receipt.Logs = statedb.GetLogs(tx.Hash())
+	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	return receipt, 0, nil
+}
+
+func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error) {
+	// Update the state with pending changes
+	from, err := types.Sender(types.MakeSigner(config, header.Number), tx)
+	if err != nil {
+		return nil, 0, err
+	}
+	nonce := statedb.GetNonce(from)
+	if nonce < tx.Nonce() {
+		return nil, 0, ErrNonceTooHigh
+	} else if nonce > tx.Nonce() {
+		return nil, 0, ErrNonceTooLow
+	}
+
+	txMatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
+	if err != nil {
+		return nil, 0, err
+	}
+	gasUsed := big.NewInt(0)
+	for _, txMatch := range txMatches {
+		orderItem, err := txMatch.DecodeOrder()
+		if err != nil {
+			return nil, 0, err
+		}
+		sellAddr := orderItem.UserAddress
+		sellExAddr := orderItem.ExchangeAddress
+		sellExOwner := GetRelayerOwner(orderItem.ExchangeAddress, statedb)
+		sellToken := orderItem.BaseToken
+		buyToken := orderItem.QuoteToken
+		sellExfee := GetExRelayerFee(orderItem.ExchangeAddress, statedb)
+		baseFee := big.NewInt(1000)
+
+		price := orderItem.Price
+		for i := 0; i < len(txMatch.Trades); i++ {
+			data := txMatch.Trades[i]["quantity"]
+			buyExAddr := common.HexToAddress(txMatch.Trades[i]["exAddr"])
+			buyExfee := GetExRelayerFee(buyExAddr, statedb)
+			buyExOwner := GetRelayerOwner(buyExAddr, statedb)
+			buyAddr := common.HexToAddress(txMatch.Trades[i]["uAddr"])
+			if data != "" && buyExAddr != (common.Address{}) && buyAddr != (common.Address{}) {
+				// take relayer fee
+				err := SubRelayerFee(sellExAddr, common.RelayerFee, statedb)
+				if err != nil {
+					return nil, 0, err
+				}
+				err = SubRelayerFee(buyExAddr, common.RelayerFee, statedb)
+				if err != nil {
+					return nil, 0, err
+				}
+				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
+				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
+
+				quantity := tomox.ToBigInt(data)
+				//seller
+				totalReceiveToken := quantity.Mul(quantity, price)
+				totalReceiveToken = totalReceiveToken.Div(totalReceiveToken, common.BasePrice)
+				feeSell := totalReceiveToken.Mul(totalReceiveToken, sellExfee)
+				feeSell = feeSell.Div(feeSell, baseFee)
+				receiveSell := totalReceiveToken.Sub(totalReceiveToken, feeSell)
+				err = AddTokenBalacne(sellAddr, receiveSell, buyToken, statedb)
+				if err != nil {
+					return nil, 0, err
+				}
+				err = AddTokenBalacne(sellExOwner, feeSell, buyToken, statedb)
+				if err != nil {
+					return nil, 0, err
+				}
+				err = SubTokenBalacne(buyAddr, totalReceiveToken, buyToken, statedb)
+				if err != nil {
+					return nil, 0, err
+				}
+				//buyer
+				feeBuy := quantity.Mul(quantity, buyExfee)
+				feeBuy = feeBuy.Div(quantity, baseFee)
+				receiveBuy := quantity.Sub(quantity, feeBuy)
+				err = AddTokenBalacne(buyAddr, receiveBuy, sellToken, statedb)
+				if err != nil {
+					return nil, 0, err
+				}
+				err = AddTokenBalacne(buyExOwner, feeBuy, sellToken, statedb)
+				if err != nil {
+					return nil, 0, err
+				}
+				err = SubTokenBalacne(sellAddr, quantity, sellToken, statedb)
+				if err != nil {
+					return nil, 0, err
+				}
+			}
+		}
+	}
+	statedb.SetNonce(from, nonce+1)
+	statedb.AddBalance(header.Coinbase, gasUsed)
+	var root []byte
+	if config.IsByzantium(header.Number) {
+		statedb.Finalise(true)
+	} else {
+		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
+	}
+	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
+	// based on the eip phase, we're passing wether the root touch-delete accounts.
+	receipt := types.NewReceipt(root, false, *usedGas)
+	receipt.TxHash = tx.Hash()
+	receipt.GasUsed = gasUsed.Uint64()
 	// if the transaction created a contract, store the creation address in the receipt.
 	// Set the receipt logs and create a bloom for filtering
 	log := &types.Log{}

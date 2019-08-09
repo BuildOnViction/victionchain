@@ -26,7 +26,11 @@ const (
 var TIP2019Block = big.NewInt(1050000)
 var TIPSigning = big.NewInt(3000000)
 var TIPRandomize = big.NewInt(3464000)
+var TIPTomoX = big.NewInt(0)
 var IsTestnet bool = false
 var StoreRewardFolder string
 var RollbackHash Hash
 var MinGasPrice int64
+var BasePrice = big.NewInt(1000000000000000000) // 1
+var RelayerFee = big.NewInt(1000000000000000)   // 0.001
+
