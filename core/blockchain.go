@@ -68,7 +68,7 @@ const (
 	BlockChainVersion = 3
 
 	// Maximum length of chain to cache by block's number
-	blocksByNumberCacheLimit = 900
+	blocksHashCacheLimit = 900
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning
@@ -150,7 +150,7 @@ type BlockChain struct {
 
 	// Blocks hash array by block number
 	// cache field for tracking finality purpose, can't use for tracking block vs block relationship
-	blocksByNumberCache *lru.Cache
+	blocksHashCache *lru.Cache
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -166,30 +166,30 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
-	blocksByNumberCache, _ := lru.New(blocksByNumberCacheLimit)
+	blocksHashCache, _ := lru.New(blocksHashCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
 	resultProcess, _ := lru.New(blockCacheLimit)
 	preparingBlock, _ := lru.New(blockCacheLimit)
 	downloadingBlock, _ := lru.New(blockCacheLimit)
 	bc := &BlockChain{
-		chainConfig:         chainConfig,
-		cacheConfig:         cacheConfig,
-		db:                  db,
-		triegc:              prque.New(),
-		stateCache:          state.NewDatabase(db),
-		quit:                make(chan struct{}),
-		bodyCache:           bodyCache,
-		bodyRLPCache:        bodyRLPCache,
-		blockCache:          blockCache,
-		futureBlocks:        futureBlocks,
-		resultProcess:       resultProcess,
-		calculatingBlock:    preparingBlock,
-		downloadingBlock:    downloadingBlock,
-		engine:              engine,
-		vmConfig:            vmConfig,
-		badBlocks:           badBlocks,
-		blocksByNumberCache: blocksByNumberCache,
+		chainConfig:      chainConfig,
+		cacheConfig:      cacheConfig,
+		db:               db,
+		triegc:           prque.New(),
+		stateCache:       state.NewDatabase(db),
+		quit:             make(chan struct{}),
+		bodyCache:        bodyCache,
+		bodyRLPCache:     bodyRLPCache,
+		blockCache:       blockCache,
+		futureBlocks:     futureBlocks,
+		resultProcess:    resultProcess,
+		calculatingBlock: preparingBlock,
+		downloadingBlock: downloadingBlock,
+		engine:           engine,
+		vmConfig:         vmConfig,
+		badBlocks:        badBlocks,
+		blocksHashCache:  blocksHashCache,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -309,7 +309,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.bodyRLPCache.Purge()
 	bc.blockCache.Purge()
 	bc.futureBlocks.Purge()
-	bc.blocksByNumberCache.Purge()
+	bc.blocksHashCache.Purge()
 
 	// Rewind the block chain, ensuring we don't end up with a stateless head block
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil && currentHeader.Number.Uint64() < currentBlock.NumberU64() {
@@ -650,9 +650,12 @@ func (bc *BlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []*type
 }
 
 // GetBlocksByNumber get all blocks with same level
-// just work with latest blocksByNumberCacheLimit
-func (bc *BlockChain) GetBlocksByNumber(number uint) []common.Hash {
-	cached, ok := bc.blocksByNumberCache.Get(number)
+// just work with latest blocksHashCacheLimit
+func (bc *BlockChain) GetBlocksByNumber(number uint64) []common.Hash {
+	cached, ok := bc.blocksHashCache.Get(number)
+
+	log.Info("Trying to query cache hash by ", number, " ", cached)
+	log.Info("All cached key ", bc.blocksHashCache.Keys())
 	if ok {
 		return cached.([]common.Hash)
 	}
@@ -1402,32 +1405,25 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, proctime: proctime, usedGas: usedGas}, nil
 }
 
-/*
-	Update list blocksByNumberCache
-	data structure
-	{
-		block_number: []common.Hash
-	}
-*/
-
-func (bc *BlockChain) updateblocksByNumberCache(block *types.Block) []common.Hash {
+// UpdateBlocksHashCache update BlocksHashCache by block number
+func (bc *BlockChain) UpdateBlocksHashCache(block *types.Block) []common.Hash {
 	var hashArr []common.Hash
-	blockNumber := block.Number()
-	cached, ok := bc.blocksByNumberCache.Get(blockNumber)
+	blockNumber := block.Number().Uint64()
+	cached, ok := bc.blocksHashCache.Get(blockNumber)
 
 	if ok {
 		hashArr := cached.([]common.Hash)
 		hashArr = append(hashArr, block.Hash())
-		bc.blocksByNumberCache.Remove(blockNumber)
-		bc.blocksByNumberCache.Add(blockNumber, hashArr)
+		bc.blocksHashCache.Remove(blockNumber)
+		bc.blocksHashCache.Add(blockNumber, hashArr)
 		return hashArr
 	}
 
 	hashArr = []common.Hash{
 		block.Hash(),
 	}
-	// Cache the found body for next time and return
-	bc.blocksByNumberCache.Add(blockNumber, hashArr)
+	fmt.Println("Adding blocksHash with number ", blockNumber, " - ", hashArr)
+	bc.blocksHashCache.Add(blockNumber, hashArr)
 	return hashArr
 }
 
@@ -1472,14 +1468,16 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 
 		// Only count canonical blocks for GC processing time
 		bc.gcproc += result.proctime
+
+		bc.UpdateBlocksHashCache(block)
 	case SideStatTy:
 		log.Debug("Inserted forked block from fetcher", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 			common.PrettyDuration(time.Since(block.ReceivedAt)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
 
 		blockInsertTimer.Update(result.proctime)
 		events = append(events, ChainSideEvent{block})
-	default:
-		bc.updateblocksByNumberCache(block)
+
+		bc.UpdateBlocksHashCache(block)
 	}
 	stats.processed++
 	stats.usedGas += result.usedGas

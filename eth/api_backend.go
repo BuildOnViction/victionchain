@@ -261,8 +261,8 @@ func (s *EthApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{}
 	return make(map[string]interface{})
 }
 
-func (b *EthApiBackend) GetBlocksByNumber(blockNr rpc.BlockNumber) []common.Hash {
-	return b.eth.blockchain.GetBlocksByNumber(uint(blockNr))
+func (b *EthApiBackend) GetBlocksByNumber(blockNr uint64) []common.Hash {
+	return b.eth.blockchain.GetBlocksByNumber(blockNr)
 }
 
 func (b *EthApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bool {

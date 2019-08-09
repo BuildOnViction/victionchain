@@ -75,7 +75,7 @@ type Backend interface {
 	GetEngine() consensus.Engine
 	GetRewardByHash(hash common.Hash) map[string]interface{}
 
-	GetBlocksByNumber(blockNr rpc.BlockNumber) []common.Hash
+	GetBlocksByNumber(blockNr uint64) []common.Hash
 	AreTwoBlockSamePath(newBlock common.Hash, oldBlock common.Hash) bool
 }
 

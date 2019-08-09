@@ -641,38 +641,32 @@ func (s *PublicBlockChainAPI) GetBlockSignersByNumber(ctx context.Context, block
 	return s.rpcOutputBlockSigners(block, ctx, masternodes)
 }
 
-func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockHash common.Hash) (int32, error) {
+func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockHash common.Hash) (uint, error) {
 	block, err := s.b.GetBlock(ctx, blockHash)
 	if err != nil || block == nil {
-		return int32(0), err
+		return uint(0), err
 	}
 	masternodes, err := s.GetMasternodes(ctx, block)
 	if err != nil || len(masternodes) == 0 {
 		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
-		return int32(0), err
+		return uint(0), err
 	}
-	blockSigners, err := s.rpcOutputBlockSigners(block, ctx, masternodes)
-	if err != nil {
-		return int32(0), err
-	}
-	return int32(100 * len(blockSigners) / len(masternodes)), err
+	fmt.Println("before_calling_into_get_finality ")
+	return s.findFinalityOfBlock(ctx, block, masternodes)
 }
 
-func (s *PublicBlockChainAPI) GetBlockFinalityByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (int32, error) {
+func (s *PublicBlockChainAPI) GetBlockFinalityByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (uint, error) {
 	block, err := s.b.BlockByNumber(ctx, blockNumber)
 	if err != nil || block == nil {
-		return int32(0), err
+		return uint(0), err
 	}
 	masternodes, err := s.GetMasternodes(ctx, block)
 	if err != nil || len(masternodes) == 0 {
 		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
-		return int32(0), err
+		return uint(0), err
 	}
-	blockSigners, err := s.rpcOutputBlockSigners(block, ctx, masternodes)
-	if err != nil {
-		return int32(0), err
-	}
-	return int32(100 * len(blockSigners) / len(masternodes)), err
+	fmt.Println("before_calling_into_get_finality ")
+	return s.findFinalityOfBlock(ctx, block, masternodes)
 }
 
 // GetMasternodes returns masternodes set at the starting block of epoch of the given block
@@ -1056,10 +1050,9 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 }
 
 // findNearestSignedBlock finds the nearest checkpoint from input block
-//	the checkpoint block maybe not have relationship with the input block (in fork case)
-func (s *PublicBlockChainAPI) findNearestSignedBlock(b *types.Block, ctx context.Context) (*types.Block, *types.Block) {
+func (s *PublicBlockChainAPI) findNearestSignedBlock(ctx context.Context, b *types.Block) *types.Block {
 	if b.Number().Int64() <= 0 {
-		return nil, nil
+		return nil
 	}
 
 	blockNumber := b.Number().Uint64()
@@ -1071,61 +1064,82 @@ func (s *PublicBlockChainAPI) findNearestSignedBlock(b *types.Block, ctx context
 	}
 
 	// Get block epoc latest.
+	// TODO: check if this check needed or not
 	checkpointNumber := signedBlockNumber - (signedBlockNumber % s.b.ChainConfig().Posv.Epoch)
 	checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpointNumber))
 
 	if checkpointBlock != nil {
 		signedBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(signedBlockNumber))
-		return signedBlock, checkpointBlock
+		return signedBlock
 	}
 
-	return nil, nil
+	return nil
 }
 
 /*
 	findFinalityOfBlock return finality of a block
 
-	Use blocksByNumberCache for to keep track - refer core/blockchain.go for more detail
-	From signedBlock's number we go back to number
+	Use blocksHashCache for to keep track - refer core/blockchain.go for more detail
 */
-func (s *PublicBlockChainAPI) findFinalityOfBlock(b *types.Block, ctx context.Context, masternodes []common.Address) uint {
-	signedBlock, _ := s.findNearestSignedBlock(b, ctx)
+func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.Block, masternodes []common.Address) (uint, error) {
+	signedBlock := s.findNearestSignedBlock(ctx, b)
+	fmt.Println("Nearest signed block ", signedBlock)
 	if signedBlock == nil {
-		return 0
+		return 0, nil
 	}
 
-	signedBlocks := s.b.GetBlocksByNumber(rpc.BlockNumber(signedBlock.Number().Uint64()))
-	log.Debug("Signed Blocks ", signedBlocks)
+	signedBlocksHash := s.b.GetBlocksByNumber(signedBlock.Number().Uint64())
+	fmt.Println("nearest block number ", signedBlock.Number().Uint64())
+	fmt.Println("Signed Blocks hash ", signedBlocksHash)
 
 	// Track down all the way to check if input block same path
 	var signedBlockSamePath common.Hash
 
-	for count := 0; count < len(signedBlocks); count++ {
-		blockHash := signedBlocks[count]
+	for count := 0; count < len(signedBlocksHash); count++ {
+		blockHash := signedBlocksHash[count]
 		if s.b.AreTwoBlockSamePath(blockHash, b.Hash()) {
 			signedBlockSamePath = blockHash
 			break
 		}
 	}
 
+	// return 0 if not same path with any signed block
 	if len(signedBlockSamePath) == 0 {
-		return 0
+		return 0, nil
 	}
 
-	// find all signed of found block and return finality
-	// NOT IMPLEMENTED yet
-	return 100
+	// get signers and return finality
+	engine, ok := s.b.GetEngine().(*posv.Posv)
+	if !ok {
+		log.Error("Undefined POSV consensus engine")
+		return 0, nil
+	}
+
+	samePathSignedBlock, err := s.b.GetBlock(ctx, signedBlockSamePath)
+	if samePathSignedBlock == nil {
+		return 0, err
+	}
+
+	blockSigners, err := s.getSigners(ctx, samePathSignedBlock, engine)
+	if blockSigners == nil {
+		return 0, err
+	}
+
+	return uint(100 * len(blockSigners) / len(masternodes)), nil
 }
 
 /*
 	Extract signers from block
-	Need checkpointBlock for querrying all masternodes
 */
-func (s *PublicBlockChainAPI) getSigners(block *types.Block, checkpointBlock *types.Block, engine *posv.Posv) ([]common.Address, error) {
+func (s *PublicBlockChainAPI) getSigners(ctx context.Context, block *types.Block, engine *posv.Posv) ([]common.Address, error) {
 	client, err := s.b.GetIPCClient()
 	var filterSigners []common.Address
 	var signers []common.Address
 	blockNumber := block.Number().Uint64()
+
+	// Get block epoc latest.
+	checkpointNumber := blockNumber - (blockNumber % s.b.ChainConfig().Posv.Epoch)
+	checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpointNumber))
 
 	masternodes := engine.GetMasternodesFromCheckpointHeader(checkpointBlock.Header(), blockNumber, s.b.ChainConfig().Posv.Epoch)
 	if s.b.ChainConfig().IsTIPSigning(checkpointBlock.Number()) {
@@ -1166,12 +1180,12 @@ func (s *PublicBlockChainAPI) rpcOutputBlockSigners(b *types.Block, ctx context.
 		return []common.Address{}, nil
 	}
 
-	signedBlock, checkpointBlock := s.findNearestSignedBlock(b, ctx)
+	signedBlock := s.findNearestSignedBlock(ctx, b)
 	if signedBlock == nil {
 		return []common.Address{}, nil
 	}
 
-	return s.getSigners(signedBlock, checkpointBlock, engine)
+	return s.getSigners(ctx, signedBlock, engine)
 }
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
