@@ -1078,21 +1078,42 @@ func (s *PublicBlockChainAPI) findNearestSignedBlock(ctx context.Context, b *typ
 
 /*
 	findFinalityOfBlock return finality of a block
-
 	Use blocksHashCache for to keep track - refer core/blockchain.go for more detail
+	TODO: this function need refactoring because the content is not same abstraction
 */
 func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.Block, masternodes []common.Address) (uint, error) {
+	engine, _ := s.b.GetEngine().(*posv.Posv)
 	signedBlock := s.findNearestSignedBlock(ctx, b)
-	fmt.Println("Nearest signed block ", signedBlock)
+
 	if signedBlock == nil {
 		return 0, nil
 	}
 
-	signedBlocksHash := s.b.GetBlocksByNumber(signedBlock.Number().Uint64())
-	fmt.Println("nearest block number ", signedBlock.Number().Uint64())
-	fmt.Println("Signed Blocks hash ", signedBlocksHash)
+	signedBlocksHash := s.b.GetBlocksHashCache(signedBlock.Number().Uint64())
 
-	// Track down all the way to check if input block same path
+	// there is no cache for this block's number
+	// return the number(signers) / number(masternode) * 100 if this block is on canonical path
+	// else return 0 for fork path
+	if signedBlocksHash == nil {
+		if !s.b.AreTwoBlockSamePath(signedBlock.Hash(), b.Hash()) {
+			return 0, nil
+		}
+
+		blockSigners, err := s.getSigners(ctx, signedBlock, engine)
+		if blockSigners == nil {
+			return 0, err
+		}
+
+		return uint(100 * len(blockSigners) / len(masternodes)), nil
+	}
+
+	/*
+		With Hashes cache - we can track all chain's path
+		back to current's block number by parent's Hash
+		If found the current block so the finality = signedBlock's finality
+		else return 0
+	*/
+
 	var signedBlockSamePath common.Hash
 
 	for count := 0; count < len(signedBlocksHash); count++ {
@@ -1109,12 +1130,6 @@ func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.
 	}
 
 	// get signers and return finality
-	engine, ok := s.b.GetEngine().(*posv.Posv)
-	if !ok {
-		log.Error("Undefined POSV consensus engine")
-		return 0, nil
-	}
-
 	samePathSignedBlock, err := s.b.GetBlock(ctx, signedBlockSamePath)
 	if samePathSignedBlock == nil {
 		return 0, err

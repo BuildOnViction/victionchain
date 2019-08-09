@@ -649,17 +649,15 @@ func (bc *BlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []*type
 	return
 }
 
-// GetBlocksByNumber get all blocks with same level
+// GetBlocksHashCache get all block's hashes with same level
 // just work with latest blocksHashCacheLimit
-func (bc *BlockChain) GetBlocksByNumber(number uint64) []common.Hash {
+func (bc *BlockChain) GetBlocksHashCache(number uint64) []common.Hash {
 	cached, ok := bc.blocksHashCache.Get(number)
 
-	log.Info("Trying to query cache hash by ", number, " ", cached)
-	log.Info("All cached key ", bc.blocksHashCache.Keys())
 	if ok {
 		return cached.([]common.Hash)
 	}
-	return []common.Hash{}
+	return nil
 }
 
 // AreTwoBlockSamePath check if two blocks are same path
@@ -1245,13 +1243,14 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
-
+			bc.UpdateBlocksHashCache(block)
 		case SideStatTy:
 			log.Debug("Inserted forked block from downloader", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
 
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, ChainSideEvent{block})
+			bc.UpdateBlocksHashCache(block)
 		}
 		stats.processed++
 		stats.usedGas += usedGas
@@ -1422,7 +1421,6 @@ func (bc *BlockChain) UpdateBlocksHashCache(block *types.Block) []common.Hash {
 	hashArr = []common.Hash{
 		block.Hash(),
 	}
-	fmt.Println("Adding blocksHash with number ", blockNumber, " - ", hashArr)
 	bc.blocksHashCache.Add(blockNumber, hashArr)
 	return hashArr
 }

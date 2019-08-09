@@ -227,7 +227,7 @@ func (s *LesApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{}
 	return make(map[string]interface{})
 }
 
-func (b *LesApiBackend) GetBlocksByNumber(blockNr uint64) []common.Hash {
+func (b *LesApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
 	return []common.Hash{}
 }
 
