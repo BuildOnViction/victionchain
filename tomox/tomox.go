@@ -1273,13 +1273,9 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		tradeSDK.QuoteToken = order.QuoteToken
 		tradeSDK.Status = sdktypes.TradeStatusSuccess
 		tradeSDK.Taker = order.UserAddress
+		tradeSDK.Maker = common.HexToAddress(trade["uAddr"])
 		tradeSDK.TakerOrderHash = order.Hash
-		if u, ok := trade["uAddr"]; ok {
-			tradeSDK.Taker = common.Address{}
-			tradeSDK.Taker.SetString(u)
-		}
 		tradeSDK.MakerOrderHash = common.HexToHash(trade["makerOrderHash"])
-		tradeSDK.Maker = common.StringToAddress(trade["uAddr"])
 		tradeSDK.TxHash = txHash
 		tradeSDK.Hash = tradeSDK.ComputeHash()
 		log.Debug("TRADE history", "order", order, "trade", tradeSDK)
