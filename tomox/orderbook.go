@@ -173,7 +173,7 @@ func (orderBook *OrderBook) GetOrder(storedKey, key []byte, dryrun bool) *Order 
 	}
 	orderItem := &OrderItem{}
 	val, err := orderBook.db.Get(storedKey, orderItem, dryrun)
-	if err != nil {
+	if err != nil  || val == nil {
 		log.Error("Key not found", "key", storedKey, "err", err)
 		return nil
 	}

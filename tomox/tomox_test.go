@@ -20,10 +20,10 @@ func buildOrder(nonce *big.Int) *OrderItem {
 	order := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(10)) * 1000000000000000000),
 		Price:           new(big.Int).SetUint64(uint64(rand.Intn(10)) * 100000000000000000),
-		ExchangeAddress: common.StringToAddress("0x0000000000000000000000000000000000000000"),
-		UserAddress:     common.StringToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
-		BaseToken:       common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
-		QuoteToken:      common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		UserAddress:     common.HexToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
+		BaseToken:       common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		QuoteToken:      common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
 		Status:          "New",
 		Side:            lstBuySell[rand.Int()%len(lstBuySell)],
 		Type:            Limit,
@@ -121,10 +121,10 @@ func TestOrderMatching1To1(t *testing.T) {
 	buy := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(1000000000000000000),
 		Price:           new(big.Int).SetUint64(100000000000000000),
-		ExchangeAddress: common.StringToAddress("0x0000000000000000000000000000000000000000"),
-		UserAddress:     common.StringToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
-		BaseToken:       common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
-		QuoteToken:      common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		UserAddress:     common.HexToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
+		BaseToken:       common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		QuoteToken:      common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
 		Status:          "New",
 		Side:            "BUY",
 		Type:            "LO",
@@ -179,10 +179,10 @@ func TestOrderMatching1To1(t *testing.T) {
 	sell := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(2500000000000000000),
 		Price:           new(big.Int).SetUint64(100000000000000000),
-		ExchangeAddress: common.StringToAddress("0x0000000000000000000000000000000000000000"),
-		UserAddress:     common.StringToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
-		BaseToken:       common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
-		QuoteToken:      common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		UserAddress:     common.HexToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
+		BaseToken:       common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		QuoteToken:      common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
 		Status:          "New",
 		Side:            "SELL",
 		Type:            "LO",
@@ -434,14 +434,14 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	// verifyOrderNonce should PASS
 	order := &OrderItem{
 		Nonce:       big.NewInt(1),
-		UserAddress: common.StringToAddress("0x00011"),
+		UserAddress: common.HexToAddress("0x00011"),
 	}
 	if err := tomox.verifyOrderNonce(order); err != nil {
 		t.Error("Expected: no error")
 	}
 
 	storedOrderCountMap := make(map[common.Address]*big.Int)
-	storedOrderCountMap[common.StringToAddress("0x00011")] = big.NewInt(5)
+	storedOrderCountMap[common.HexToAddress("0x00011")] = big.NewInt(5)
 	if err := tomox.updateOrderCount(storedOrderCountMap); err != nil {
 		t.Error("Failed to save orderCount", "err", err)
 	}
@@ -449,7 +449,7 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	// set duplicated nonce
 	order = &OrderItem{
 		Nonce:       big.NewInt(5), //duplicated nonce
-		UserAddress: common.StringToAddress("0x00011"),
+		UserAddress: common.HexToAddress("0x00011"),
 	}
 	if err := tomox.verifyOrderNonce(order); err != ErrOrderNonceTooLow {
 		t.Error("Expected error: " + ErrOrderNonceTooLow.Error())
@@ -467,7 +467,7 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	}
 
 	// test new account
-	order.UserAddress = common.StringToAddress("0x0022")
+	order.UserAddress = common.HexToAddress("0x0022")
 	if err := tomox.verifyOrderNonce(order); err != nil {
 		t.Error("Expected: no error")
 	}
