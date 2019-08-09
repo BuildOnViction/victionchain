@@ -835,11 +835,10 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 							log.Error("Fail to get bid tree hash old", "err", err)
 							continue
 						}
-						value, err := EncodeBytesItem(order)
-						if err != nil {
-							log.Error("Can't encode", "order", order, "err", err)
-							continue
-						}
+						originalOrder := &OrderItem{}
+						*originalOrder = *order
+						originalOrder.Quantity = CloneBigInt(order.Quantity)
+
 						trades, orderInBook, err := ob.ProcessOrder(order, true, true)
 						if err != nil {
 							log.Error("Can't process order", "order", order, "err", err)
@@ -860,6 +859,14 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 							log.Error("Fail to get bid tree hash new", "err", err)
 							continue
 						}
+
+						// orderID has been updated
+						originalOrder.OrderID = order.OrderID
+						originalOrderValue, err := EncodeBytesItem(originalOrder)
+						if err != nil {
+							log.Error("Can't encode", "order", originalOrder, "err", err)
+							continue
+						}
 						orderInBookValue := []byte{}
 						if orderInBook != nil {
 							orderInBookValue, err = EncodeBytesItem(orderInBook)
@@ -870,7 +877,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 						}
 						log.Debug("Process OrderPending completed", "orderNonce", order.Nonce, "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
 						txMatch := TxDataMatch{
-							Order:       value,
+							Order:       originalOrderValue,
 							Trades:      trades,
 							OrderInBook: orderInBookValue,
 							ObOld:       obOld,
