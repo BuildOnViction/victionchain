@@ -20,25 +20,31 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/eth/filters"
-	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/eth/filters"
+	"github.com/ethereum/go-ethereum/rlp"
+
 	"bytes"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/consensus/posv"
 	"github.com/ethereum/go-ethereum/contracts"
+	contractValidator "github.com/ethereum/go-ethereum/contracts/validator/contract"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
+
 	//"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -425,6 +431,49 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 				return penComebacks, nil
 			}
 			return []common.Address{}, nil
+		}
+
+		c.HookGetSignersFromContract = func() ([]common.Address, error) {
+			client, err := eth.blockchain.GetClient()
+			if err != nil {
+				return nil, err
+			}
+			addr := common.HexToAddress(common.MasternodeVotingSMC)
+			validator, err := contractValidator.NewTomoValidator(addr, client)
+			if err != nil {
+				return nil, err
+			}
+			opts := new(bind.CallOpts)
+			var (
+				candidateAddresses []common.Address
+				candidates         []posv.Masternode
+			)
+
+			candidateAddresses, err = validator.GetCandidates(opts)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, address := range candidateAddresses {
+				v, err := validator.GetCandidateCap(opts, address)
+				if err != nil {
+					return nil, err
+				}
+				if address.String() != "0x0000000000000000000000000000000000000000" {
+					candidates = append(candidates, posv.Masternode{Address: address, Stake: v})
+				}
+			}
+			// sort candidates by stake descending
+			sort.Slice(candidates, func(i, j int) bool {
+				return candidates[i].Stake.Cmp(candidates[j].Stake) >= 0
+			})
+			candidates = candidates[:150]
+
+			result := []common.Address{}
+			for _, candidate := range candidates {
+				result = append(result, candidate.Address)
+			}
+			return result[:150], nil
 		}
 
 		// Hook calculates reward for masternodes
