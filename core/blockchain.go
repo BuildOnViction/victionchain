@@ -1937,23 +1937,28 @@ func (bc *BlockChain) UpdateM1() error {
 
 func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions) error {
 	txs := []*types.Transaction{}
+	txMatchBatchData := map[common.Hash]tomox.TxMatchBatch{}
 	for _, tx := range transactions {
 		if tx.IsMatchingTransaction() {
 			txs = append(txs, tx)
+			txMatchBatch, err := tomox.DecodeTxMatchesBatch(tx.Data())
+			if err != nil {
+				return fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err.Error())
+			}
+			txMatchBatchData[tx.Hash()] = txMatchBatch
 		}
 	}
-	// the order of matching transactions is very important
 	sort.Slice(txs, func(i, j int) bool {
-		return txs[i].Timestamp() <= txs[j].Timestamp()
+		return txMatchBatchData[txs[i].Hash()].Timestamp <= txMatchBatchData[txs[j].Hash()].Timestamp
 	})
 
+
 	for _, tx := range txs {
-		var err error
-		txMatches := []tomox.TxDataMatch{}
-		if txMatches, err = tomox.DecodeTxMatchesBatch(tx.Data()); err != nil {
-			return err
+		txMatchBatch, ok := txMatchBatchData[tx.Hash()]
+		if !ok {
+			return fmt.Errorf("no txMatchBatch data . TxHash: %v . TxData: %v", tx.Hash(), tx.Data())
 		}
-		for _, txMatch := range txMatches {
+		for _, txMatch := range txMatchBatch.Data {
 			if err := tomoXService.SyncDataToSDKNode(txMatch, tx.Hash()); err != nil {
 				return err
 			}

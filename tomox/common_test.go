@@ -47,7 +47,9 @@ func TestTxMatchesBatch(t *testing.T) {
 		},
 	}
 
-	encodedData, err := EncodeTxMatchesBatch(originalTxMatchesBatch)
+	encodedData, err := EncodeTxMatchesBatch(TxMatchBatch{
+		Data:      originalTxMatchesBatch,
+	})
 	if err != nil {
 		t.Error("Failed to encode", err.Error())
 	}
@@ -57,7 +59,7 @@ func TestTxMatchesBatch(t *testing.T) {
 		t.Error("Failed to decode", err.Error())
 	}
 
-	eq := reflect.DeepEqual(originalTxMatchesBatch, txMatchesBatch)
+	eq := reflect.DeepEqual(originalTxMatchesBatch, txMatchesBatch.Data)
 	if eq {
 		t.Log("Awesome, encode and decode txMatchesBatch are correct")
 	} else {
