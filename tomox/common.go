@@ -214,18 +214,18 @@ func IsEqualOrSmallerThan(x, y *big.Int) bool {
 	return (IsEqual(x, y) || IsSmallerThan(x, y))
 }
 
-func EncodeTxMatchesBatch(txMatchResult []TxDataMatch) ([]byte, error) {
-	data, err := json.Marshal(txMatchResult)
+func EncodeTxMatchesBatch(txMatchBatch TxMatchBatch) ([]byte, error) {
+	data, err := json.Marshal(txMatchBatch)
 	if err != nil || data == nil {
 		return []byte{}, err
 	}
 	return data, nil
 }
 
-func DecodeTxMatchesBatch(data []byte) ([]TxDataMatch, error) {
-	txMatchResult := []TxDataMatch{}
+func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
+	txMatchResult := TxMatchBatch{}
 	if err := json.Unmarshal(data, &txMatchResult); err != nil {
-		return []TxDataMatch{}, err
+		return TxMatchBatch{}, err
 	}
 	return txMatchResult, nil
 }

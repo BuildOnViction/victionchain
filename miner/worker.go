@@ -616,7 +616,10 @@ func (self *worker) commitNewWork() {
 				if len(txMatches) > 0 {
 					log.Debug("transaction matches found", "txMatches", len(txMatches))
 					// put all TxMatchesData into only one tx
-					txMatchBytes, err := tomox.EncodeTxMatchesBatch(txMatches)
+					txMatchBytes, err := tomox.EncodeTxMatchesBatch(tomox.TxMatchBatch{
+						Data:      txMatches,
+						Timestamp: uint64(time.Now().UnixNano()),
+					})
 					if err != nil {
 						log.Error("Fail to marshal txMatch", "error", err)
 					} else {

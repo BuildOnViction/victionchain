@@ -233,12 +233,12 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 		return nil, 0, ErrNonceTooLow
 	}
 
-	txMatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
-	if err != nil {
+	txMatchBatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
+	if err != nil || len(txMatchBatches.Data) == 0 {
 		return nil, 0, err
 	}
 	gasUsed := big.NewInt(0)
-	for _, txMatch := range txMatches {
+	for _, txMatch := range txMatchBatches.Data {
 		orderItem, err := txMatch.DecodeOrder()
 		if err != nil {
 			return nil, 0, err

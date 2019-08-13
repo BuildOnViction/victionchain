@@ -69,6 +69,11 @@ type TxDataMatch struct {
 	BidNew      common.Hash
 }
 
+type TxMatchBatch struct {
+	Data []TxDataMatch
+	Timestamp uint64
+}
+
 // DefaultConfig represents (shocker!) the default configuration.
 var DefaultConfig = Config{
 	DataDir: node.DefaultDataDir(),
