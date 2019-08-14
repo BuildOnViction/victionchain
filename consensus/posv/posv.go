@@ -440,8 +440,11 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 		if isPenaltiesCheckError != nil {
 			// Query the signers from state of nearest start gap block
 			// for example the checkpoint is 886500 -> the start gap block is 886495
-			startGapBlock := chain.GetHeaderByNumber(number - chain.Config().Posv.Gap)
-			signers, err = c.HookGetSignersFromContract(startGapBlock.Hash())
+			startGapBlockHeader := header
+			for step := uint64(1); step <= chain.Config().Posv.Gap; step++ {
+				startGapBlockHeader = chain.GetHeader(startGapBlockHeader.ParentHash, number-step)
+			}
+			signers, err = c.HookGetSignersFromContract(startGapBlockHeader.Hash())
 			if err != nil {
 				return err
 			}
