@@ -437,7 +437,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		   HookGetSignersFromContract return list masternode for current state (block)
 		   This is a solution for work around issue return wrong list signers from snapshot
 		*/
-		c.HookGetSignersFromContract = func() ([]common.Address, error) {
+		c.HookGetSignersFromContract = func(block common.Hash) ([]common.Address, error) {
 			client, err := eth.blockchain.GetClient()
 			if err != nil {
 				return nil, err
@@ -453,7 +453,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 				candidates         []posv.Masternode
 			)
 
-			stateDB, err := eth.blockchain.State()
+			stateDB, err := eth.blockchain.StateAt(block)
 			candidateAddresses = contracts.GetCandidates(stateDB)
 
 			if err != nil {

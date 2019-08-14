@@ -230,7 +230,7 @@ type Posv struct {
 	BlockSigners               *lru.Cache
 	HookReward                 func(chain consensus.ChainReader, state *state.StateDB, header *types.Header) (error, map[string]interface{})
 	HookPenalty                func(chain consensus.ChainReader, blockNumberEpoc uint64) ([]common.Address, error)
-	HookGetSignersFromContract func() ([]common.Address, error)
+	HookGetSignersFromContract func(blockHash common.Hash) ([]common.Address, error)
 	HookPenaltyTIPSigning      func(chain consensus.ChainReader, header *types.Header, candidate []common.Address) ([]common.Address, error)
 	HookValidator              func(header *types.Header, signers []common.Address) ([]byte, error)
 	HookVerifyMNs              func(header *types.Header, signers []common.Address) error
@@ -438,7 +438,10 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 
 		isPenaltiesCheckError := checkPenalties()
 		if isPenaltiesCheckError != nil {
-			signers, err = c.HookGetSignersFromContract()
+			// Query the signers from state of nearest start gap block
+			// for example the checkpoint is 886500 -> the start gap block is 886495
+			startGapBlock := chain.GetHeaderByNumber(number - chain.Config().Posv.Gap)
+			signers, err = c.HookGetSignersFromContract(startGapBlock.Hash())
 			if err != nil {
 				return err
 			}
