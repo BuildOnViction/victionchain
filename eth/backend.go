@@ -453,7 +453,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 				candidates         []posv.Masternode
 			)
 
-			stateDB, err := eth.blockchain.StateAt(block)
+			stateDB, err := eth.blockchain.StateAt(eth.blockchain.GetBlockByHash(block).Root())
 			candidateAddresses = contracts.GetCandidates(stateDB)
 
 			if err != nil {
