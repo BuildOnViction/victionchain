@@ -446,7 +446,6 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem, dryrun bool) error {
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
 			return ErrDoesNotExist
 		}
-		orderInDB.Item.Status = Cancel
 		if err := orderBook.Bids.RemoveOrder(orderInDB, dryrun); err != nil {
 			return err
 		}
@@ -455,7 +454,6 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem, dryrun bool) error {
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
 			return ErrDoesNotExist
 		}
-		orderInDB.Item.Status = Cancel
 		if err := orderBook.Asks.RemoveOrder(orderInDB, dryrun); err != nil {
 			return err
 		}
