@@ -394,88 +394,89 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 	if parent.Time.Uint64()+c.config.Period > header.Time.Uint64() {
 		return ErrInvalidTimestamp
 	}
+
+	if number%c.config.Epoch != 0 {
+		return c.verifySeal(chain, header, parents, fullVerify)
+	}
+
+	/*
+		BUG: snapshot returns wrong signers sometimes
+		when it happens we get the signers list by requesting smart contract
+	*/
 	// Retrieve the snapshot needed to verify this header and cache it
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
 	if err != nil {
 		return err
 	}
-	// If the block is a checkpoint block, verify the signer list
-	if number%c.config.Epoch == 0 {
-		/*
-			BUG: snapshot returns wrong signers sometimes
-			when it happens we get the signers list by requesting
-			smart contract - HookGetSignersFromContract
-		*/
-		signers := snap.GetSigners()
-		penPenalties := []common.Address{}
-		checkPenalties := func() error {
-			if c.HookPenalty != nil || c.HookPenaltyTIPSigning != nil {
-				var err error = nil
-				if chain.Config().IsTIPSigning(header.Number) {
-					penPenalties, err = c.HookPenaltyTIPSigning(chain, header, signers)
-				} else {
-					penPenalties, err = c.HookPenalty(chain, number)
-				}
-				if err != nil {
-					return err
-				}
-				for _, address := range penPenalties {
-					log.Debug("Penalty Info", "address", address, "number", number)
-				}
-				bytePenalties := common.ExtractAddressToBytes(penPenalties)
-				if !bytes.Equal(header.Penalties, bytePenalties) {
-					return errInvalidCheckpointPenalties
-				}
-			}
-			signers = common.RemoveItemFromArray(signers, penPenalties)
-			for i := 1; i <= common.LimitPenaltyEpoch; i++ {
-				if number > uint64(i)*c.config.Epoch {
-					signers = RemovePenaltiesFromBlock(chain, signers, number-uint64(i)*c.config.Epoch)
-				}
-			}
-			return nil
-		}
 
-		isPenaltiesCheckError := checkPenalties()
-		if isPenaltiesCheckError != nil {
-			// Query the signers from state of nearest start gap block
-			// for example the checkpoint is 886500 -> the start gap block is 886495
-			startGapBlockHeader := header
-			for step := uint64(1); step <= chain.Config().Posv.Gap; step++ {
-				startGapBlockHeader = chain.GetHeader(startGapBlockHeader.ParentHash, number-step)
-			}
-			signers, err = c.HookGetSignersFromContract(startGapBlockHeader.Hash())
-			if err != nil {
-				return err
-			}
-			isPenaltiesCheckError = checkPenalties()
-			if isPenaltiesCheckError != nil {
-				return isPenaltiesCheckError
-			}
-		}
+	signers := snap.GetSigners()
+	err = c.checkSignersOnCheckpoint(chain, header, signers)
+	if err == nil {
+		return c.verifySeal(chain, header, parents, fullVerify)
+	}
 
-		signers = common.RemoveItemFromArray(signers, penPenalties)
-		for i := 1; i <= common.LimitPenaltyEpoch; i++ {
-			if number > uint64(i)*c.config.Epoch {
-				signers = RemovePenaltiesFromBlock(chain, signers, number-uint64(i)*c.config.Epoch)
-			}
+	// try again the progress with signers querying from smart contract
+	// for example the checkpoint is 886500 -> the start gap block is 886495
+	startGapBlockHeader := header
+	for step := uint64(1); step <= chain.Config().Posv.Gap; step++ {
+		startGapBlockHeader = chain.GetHeader(startGapBlockHeader.ParentHash, number-step)
+	}
+	signers, err = c.HookGetSignersFromContract(startGapBlockHeader.Hash())
+	if err != nil {
+		log.Debug("Can't get signers from Smart Contract ", err)
+		return err
+	}
+
+	err = c.checkSignersOnCheckpoint(chain, header, signers)
+	if err == nil {
+		return c.verifySeal(chain, header, parents, fullVerify)
+	}
+
+	return err
+}
+
+func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *types.Header, signers []common.Address) error {
+	number := header.Number.Uint64()
+	penPenalties := []common.Address{}
+	if c.HookPenalty != nil || c.HookPenaltyTIPSigning != nil {
+		var err error
+		if chain.Config().IsTIPSigning(header.Number) {
+			penPenalties, err = c.HookPenaltyTIPSigning(chain, header, signers)
+		} else {
+			penPenalties, err = c.HookPenalty(chain, number)
 		}
-		extraSuffix := len(header.Extra) - extraSeal
-		masternodesFromCheckpointHeader := common.ExtractAddressFromBytes(header.Extra[extraVanity:extraSuffix])
-		validSigners := compareSignersLists(masternodesFromCheckpointHeader, signers)
-		if !validSigners {
-			log.Error("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "masternodes_in_snapshot", signers, "penList", penPenalties)
-			return errInvalidCheckpointSigners
+		if err != nil {
+			return err
 		}
-		if c.HookVerifyMNs != nil {
-			err := c.HookVerifyMNs(header, signers)
-			if err != nil {
-				return err
-			}
+		for _, address := range penPenalties {
+			log.Debug("Penalty Info", "address", address, "number", number)
+		}
+		bytePenalties := common.ExtractAddressToBytes(penPenalties)
+		if !bytes.Equal(header.Penalties, bytePenalties) {
+			return errInvalidCheckpointPenalties
 		}
 	}
-	// All basic checks passed, verify the seal and return
-	return c.verifySeal(chain, header, parents, fullVerify)
+	signers = common.RemoveItemFromArray(signers, penPenalties)
+	for i := 1; i <= common.LimitPenaltyEpoch; i++ {
+		if number > uint64(i)*c.config.Epoch {
+			signers = RemovePenaltiesFromBlock(chain, signers, number-uint64(i)*c.config.Epoch)
+		}
+	}
+	extraSuffix := len(header.Extra) - extraSeal
+	masternodesFromCheckpointHeader := common.ExtractAddressFromBytes(header.Extra[extraVanity:extraSuffix])
+	validSigners := compareSignersLists(masternodesFromCheckpointHeader, signers)
+	if !validSigners {
+		log.Error("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "masternodes_in_snapshot", signers, "penList", penPenalties)
+		return errInvalidCheckpointSigners
+	}
+	if c.HookVerifyMNs != nil {
+		err := c.HookVerifyMNs(header, signers)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // compare 2 signers lists
