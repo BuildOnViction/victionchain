@@ -774,9 +774,15 @@ func (tomox *TomoX) CancelOrder(order *OrderItem, dryrun bool) error {
 			return err
 		}
 
-		// remove order from ordertree
-		if err := ob.CancelOrder(order, dryrun); err != nil {
-			return err
+		if !tomox.IsSDKNode() {
+			// remove order from ordertree
+			if err := ob.CancelOrder(order, dryrun); err != nil {
+				return err
+			}
+		} else {
+			if err := tomox.db.CancelOrder(order.Hash); err != nil {
+				return err
+			}
 		}
 	}
 
