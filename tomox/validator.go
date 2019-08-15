@@ -13,12 +13,6 @@ import (
 	"encoding/hex"
 )
 
-const (
-	// following: https://github.com/tomochain/tomorelayer/blob/master/contracts/Registration.sol#L21
-	RelayerListSlot  = uint64(3)
-	TokenBalanceSlot = uint64(0)
-)
-
 var (
 	// errors
 	errFutureOrder             = errors.New("verify matched order: future order")
@@ -187,12 +181,12 @@ func (o *OrderItem) encodedSide() *big.Int {
 }
 
 func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
-	slotHash := common.BigToHash(new(big.Int).SetUint64(RelayerListSlot))
+	slotHash := common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"]))
 	retByte := crypto.Keccak256(address.Bytes(), slotHash.Bytes())
 	locRelayerState := new(big.Int)
 	locRelayerState.SetBytes(retByte)
 
-	ret := statedb.GetState(common.StringToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState))
+	ret := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState))
 	if ret.Big().Cmp(new(big.Int).SetUint64(uint64(0))) > 0 {
 		return true
 	}
@@ -200,7 +194,7 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 }
 
 func GetTokenBalance(statedb *state.StateDB, address common.Address, contractAddr common.Address) *big.Int {
-	slotHash := common.BigToHash(new(big.Int).SetUint64(TokenBalanceSlot))
+	slotHash := common.BigToHash(new(big.Int).SetUint64(TokenMappingSlot["balances"]))
 	retByte := crypto.Keccak256(address.Bytes(), slotHash.Bytes())
 	locBalance := new(big.Int)
 	locBalance.SetBytes(retByte)
