@@ -17,6 +17,23 @@ const (
 	FalseByte = byte(0)
 	decimals  = 18
 )
+var (
+	TokenMappingSlot = map[string]uint64{
+		"balances": 0,
+	}
+	RelayerMappingSlot = map[string]uint64{
+		"CONTRACT_OWNER":   0,
+		"MaximumRelayers":  1,
+		"MaximumTokenList": 2,
+		"RELAYER_LIST":     3,
+		"OWNER_LIST":       4,
+	}
+	RelayerStructMappingSlot = map[string]*big.Int{
+		"_deposit": big.NewInt(0),
+		"_fee":     big.NewInt(1),
+	}
+)
+
 
 var (
 	// errors

@@ -18,7 +18,7 @@ func TestIsValidRelayer(t *testing.T) {
 		ExchangeAddress: common.StringToAddress("relayer1"),
 	}
 	var stateDb, _ = state.New(common.Hash{}, state.NewDatabase(fakeDb))
-	slotKec := crypto.Keccak256(order.ExchangeAddress.Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerListSlot)).Bytes())
+	slotKec := crypto.Keccak256(order.ExchangeAddress.Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"])).Bytes())
 	locRelayerState := new(big.Int).SetBytes(slotKec)
 	stateDb.SetState(common.StringToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(0)))
 	if valid := IsValidRelayer(stateDb, order.ExchangeAddress); valid {
@@ -133,7 +133,7 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 
 	// set relayer and mock state to make it valid
 	order.ExchangeAddress = common.StringToAddress("relayer1")
-	slotKec := crypto.Keccak256(order.ExchangeAddress.Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerListSlot)).Bytes())
+	slotKec := crypto.Keccak256(order.ExchangeAddress.Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"])).Bytes())
 	locRelayerState := new(big.Int).SetBytes(slotKec)
 	stateDb.SetState(common.StringToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(2500)))
 

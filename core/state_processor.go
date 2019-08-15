@@ -278,15 +278,15 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				feeSell := totalReceiveToken.Mul(totalReceiveToken, sellExfee)
 				feeSell = feeSell.Div(feeSell, baseFee)
 				receiveSell := totalReceiveToken.Sub(totalReceiveToken, feeSell)
-				err = AddTokenBalacne(sellAddr, receiveSell, buyToken, statedb)
+				err = AddTokenBalance(sellAddr, receiveSell, buyToken, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = AddTokenBalacne(sellExOwner, feeSell, buyToken, statedb)
+				err = AddTokenBalance(sellExOwner, feeSell, buyToken, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = SubTokenBalacne(buyAddr, totalReceiveToken, buyToken, statedb)
+				err = SubTokenBalance(buyAddr, totalReceiveToken, buyToken, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
@@ -294,15 +294,15 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				feeBuy := quantity.Mul(quantity, buyExfee)
 				feeBuy = feeBuy.Div(quantity, baseFee)
 				receiveBuy := quantity.Sub(quantity, feeBuy)
-				err = AddTokenBalacne(buyAddr, receiveBuy, sellToken, statedb)
+				err = AddTokenBalance(buyAddr, receiveBuy, sellToken, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = AddTokenBalacne(buyExOwner, feeBuy, sellToken, statedb)
+				err = AddTokenBalance(buyExOwner, feeBuy, sellToken, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = SubTokenBalacne(sellAddr, quantity, sellToken, statedb)
+				err = SubTokenBalance(sellAddr, quantity, sellToken, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
