@@ -256,6 +256,10 @@ func (db *MongoDatabase) CancelOrder(orderHash common.Hash) error {
 	query := bson.M{"hash": orderHash.Hex()}
 	var result *OrderItem
 	if err := sc.DB(db.dbName).C("orders").Find(query).One(&result); err != nil {
+		if err == mgo.ErrNotFound {
+			//cancel done
+			return nil
+		}
 		return err
 	}
 	result.Status = Cancel
