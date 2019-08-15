@@ -242,15 +242,9 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 		return nil
 	}
 
-	if order.Item.Status == Cancel {
-		// only CANCELLED order will be put back to DB
-		if err := orderList.SaveOrder(order, dryrun); err != nil {
-			return err
-		}
-	} else {
-		if err := orderList.DeleteOrder(order, dryrun); err != nil {
-			return err
-		}
+	//remove order from DB
+	if err := orderList.DeleteOrder(order, dryrun); err != nil {
+		return err
 	}
 
 	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)

@@ -250,6 +250,25 @@ func (db *MongoDatabase) SaveDryRunResult() error {
 	return nil
 }
 
+func (db *MongoDatabase) CancelOrder(orderHash common.Hash) error {
+	sc := db.Session.Copy()
+	defer sc.Close()
+	query := bson.M{"hash": orderHash.Hex()}
+	var result *OrderItem
+	if err := sc.DB(db.dbName).C("orders").Find(query).One(&result); err != nil {
+		if err == mgo.ErrNotFound {
+			//cancel done
+			return nil
+		}
+		return err
+	}
+	result.Status = Cancel
+	if _, err := sc.DB(db.dbName).C("orders").Upsert(query, result); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 
 	sc := db.Session.Copy()

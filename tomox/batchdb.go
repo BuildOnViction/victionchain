@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/common"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 )
@@ -207,4 +208,8 @@ func (db *BatchDatabase) SaveDryRunResult() error {
 	// purge cache data
 	db.dryRunCache.Purge()
 	return batch.Write()
+}
+
+func (db *BatchDatabase) CancelOrder(hash common.Hash) error {
+	return nil
 }
