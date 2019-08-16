@@ -141,6 +141,17 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	// Iterate over and process the individual transactions
 	receipts = make([]*types.Receipt, block.Transactions().Len())
 	for i, tx := range block.Transactions() {
+		// check black-list txs after hf
+		if block.Number().Uint64() >= common.BlackListHFNumber {
+			// check if sender is in black list
+			if tx.From() != nil && common.Blacklist[tx.From().Hex()] {
+				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
+			}
+			// check if receiver is in black list
+			if tx.To() != nil && common.Blacklist[tx.To().Hex()] {
+				return nil, nil, 0, fmt.Errorf("Block contains transaction with receiver in black-list: %v", tx.To().Hex())
+			}
+		}
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {
