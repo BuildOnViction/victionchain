@@ -666,12 +666,12 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		//HF number for black-list
 		if env.header.Number.Uint64() >= common.BlackListHFNumber {
 			// check if sender is in black list
-			if tx.From() != nil && common.Blacklist[tx.From().Hex()] {
+			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
 				continue
 			}
 			// check if receiver is in black list
-			if tx.To() != nil && common.Blacklist[tx.To().Hex()] {
+			if tx.To() != nil && common.Blacklist[*tx.To()] {
 				log.Debug("Skipping transaction with receiver in black-list", "receiver", tx.To().Hex())
 				continue
 			}
@@ -755,13 +755,13 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		//HF number for black-list
 		if env.header.Number.Uint64() >= common.BlackListHFNumber {
 			// check if sender is in black list
-			if tx.From() != nil && common.Blacklist[tx.From().Hex()] {
+			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
 				txs.Pop()
 				continue
 			}
 			// check if receiver is in black list
-			if tx.To() != nil && common.Blacklist[tx.To().Hex()] {
+			if tx.To() != nil && common.Blacklist[*tx.To()] {
 				log.Debug("Skipping transaction with receiver in black-list", "receiver", tx.To().Hex())
 				txs.Shift()
 				continue

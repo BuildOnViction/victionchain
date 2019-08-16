@@ -85,11 +85,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		// check black-list txs after hf
 		if block.Number().Uint64() >= common.BlackListHFNumber {
 			// check if sender is in black list
-			if tx.From() != nil && common.Blacklist[tx.From().Hex()] {
+			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
 			}
 			// check if receiver is in black list
-			if tx.To() != nil && common.Blacklist[tx.To().Hex()] {
+			if tx.To() != nil && common.Blacklist[*tx.To()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with receiver in black-list: %v", tx.To().Hex())
 			}
 		}
@@ -144,11 +144,11 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		// check black-list txs after hf
 		if block.Number().Uint64() >= common.BlackListHFNumber {
 			// check if sender is in black list
-			if tx.From() != nil && common.Blacklist[tx.From().Hex()] {
+			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
 			}
 			// check if receiver is in black list
-			if tx.To() != nil && common.Blacklist[tx.To().Hex()] {
+			if tx.To() != nil && common.Blacklist[*tx.To()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with receiver in black-list: %v", tx.To().Hex())
 			}
 		}
