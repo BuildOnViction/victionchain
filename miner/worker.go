@@ -662,6 +662,21 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 	var coalescedLogs []*types.Log
 	// first priority for special Txs
 	for _, tx := range specialTxs {
+
+		//HF number for black-list
+		if env.header.Number.Uint64() >= common.BlackListHFNumber {
+			// check if sender is in black list
+			if tx.From() != nil && common.Blacklist[tx.From().Hex()] {
+				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
+				continue
+			}
+			// check if receiver is in black list
+			if tx.To() != nil && common.Blacklist[tx.To().Hex()] {
+				log.Debug("Skipping transaction with receiver in black-list", "receiver", tx.To().Hex())
+				continue
+			}
+		}
+
 		if gp.Gas() < params.TxGas && tx.Gas() > 0 {
 			log.Trace("Not enough gas for further transactions", "gp", gp)
 			break
@@ -732,6 +747,21 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 		// Retrieve the next transaction and abort if all done
 		tx := txs.Peek()
+
+		//HF number for black-list
+		if env.header.Number.Uint64() >= common.BlackListHFNumber {
+			// check if sender is in black list
+			if tx.From() != nil && common.Blacklist[tx.From().Hex()] {
+				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
+				continue
+			}
+			// check if receiver is in black list
+			if tx.To() != nil && common.Blacklist[tx.To().Hex()] {
+				log.Debug("Skipping transaction with receiver in black-list", "receiver", tx.To().Hex())
+				continue
+			}
+		}
+
 		if tx == nil {
 			break
 		}

@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -70,6 +71,22 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
+
+	// check black-list txs after hf
+	if block.Number().Uint64() >= common.BlackListHFNumber {
+		txs := block.Transactions()
+		for _, tx := range txs {
+			// check if sender is in black list
+			if tx.From() != nil && common.Blacklist[tx.From().Hex()] {
+				return fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
+			}
+			// check if receiver is in black list
+			if tx.To() != nil && common.Blacklist[tx.To().Hex()] {
+				return fmt.Errorf("Block contains transaction with receiver in black-list: %v", tx.To().Hex())
+			}
+		}
+	}
+
 	return nil
 }
 
