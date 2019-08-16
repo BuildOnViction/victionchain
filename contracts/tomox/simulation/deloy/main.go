@@ -16,7 +16,7 @@ import (
 func main() {
 	fmt.Println("========================")
 	fmt.Println("mainAddr", simulation.MainAddr.Hex())
-	fmt.Println("relayerAddr", simulation.ReplayAddr.Hex())
+	fmt.Println("relayerAddr", simulation.ReplayCoinbaseAddr.Hex())
 	fmt.Println("ownerRelayerAddr", simulation.OwnerRelayAddr.Hex())
 	fmt.Println("========================")
 	client, err := ethclient.Dial(simulation.RpcEndpoint)
@@ -132,9 +132,9 @@ func main() {
 	relayerRegistration.TransactOpts.Value = big.NewInt(0).Mul(simulation.MinDeposit, simulation.BaseTOMO)
 	relayerRegistration.TransactOpts.GasPrice = big.NewInt(210000000000000)
 
-	fromTokens := []common.Address{BTCTokenAddr}
-	toTokens := []common.Address{ETHTokenAddr}
-	_, err = relayerRegistration.Register(simulation.ReplayAddr, simulation.TradeFee, fromTokens, toTokens)
+	fromTokens := []common.Address{BTCTokenAddr, ETHTokenAddr}
+	toTokens := []common.Address{simulation.TOMONative,simulation.TOMONative}
+	_, err = relayerRegistration.Register(simulation.ReplayCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
 	if err != nil {
 		log.Fatal("relayerRegistration Register", err)
 	}

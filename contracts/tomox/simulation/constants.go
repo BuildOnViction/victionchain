@@ -1,6 +1,7 @@
 package simulation
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 )
@@ -22,9 +23,11 @@ var (
 	MinDeposit   = big.NewInt(25000) // 25000 TOMO
 	TradeFee     = uint16(1)
 
-	ReplayKey, _ = crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-	ReplayAddr   = crypto.PubkeyToAddress(ReplayKey.PublicKey) // 0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e
+	ReplayCoinbaseKey, _ = crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
+	ReplayCoinbaseAddr   = crypto.PubkeyToAddress(ReplayCoinbaseKey.PublicKey) // 0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e
 
 	OwnerRelayerKey, _ = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 	OwnerRelayAddr     = crypto.PubkeyToAddress(OwnerRelayerKey.PublicKey) //0x703c4b2bD70c169f5717101CaeE543299Fc946C7
+
+	TOMONative = common.HexToAddress("0x0000000000000000000000000000000000000001")
 )
