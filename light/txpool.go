@@ -344,6 +344,15 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 		err  error
 	)
 
+	// check if sender is in black list
+	if tx.From() != nil && common.Blacklist[*tx.From()] {
+		return fmt.Errorf("Reject transaction with sender in black-list: %v",  tx.From().Hex())
+	}
+	// check if receiver is in black list
+	if tx.To() != nil && common.Blacklist[*tx.To()] {
+		return fmt.Errorf("Reject transaction with receiver in black-list: %v", tx.To().Hex())
+	}
+
 	// Validate the transaction sender and it's sig. Throw
 	// if the from fields is invalid.
 	if from, err = types.Sender(pool.signer, tx); err != nil {
