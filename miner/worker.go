@@ -748,6 +748,10 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		// Retrieve the next transaction and abort if all done
 		tx := txs.Peek()
 
+		if tx == nil {
+			break
+		}
+
 		//HF number for black-list
 		if env.header.Number.Uint64() >= common.BlackListHFNumber {
 			// check if sender is in black list
@@ -762,9 +766,6 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 
-		if tx == nil {
-			break
-		}
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
