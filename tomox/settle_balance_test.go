@@ -18,19 +18,19 @@ import (
 
 var (
 	// parameters
-	userA = common.HexToAddress("0x000000000000000000000000000000000000000a")
-	userB = common.HexToAddress("0x000000000000000000000000000000000000000b")
-	baseToken = common.HexToAddress("0x000000000000000000000000000000000000000x")
+	userA      = common.HexToAddress("0x000000000000000000000000000000000000000a")
+	userB      = common.HexToAddress("0x000000000000000000000000000000000000000b")
+	baseToken  = common.HexToAddress("0x000000000000000000000000000000000000000x")
 	quoteToken = common.HexToAddress("0x000000000000000000000000000000000000000y")
-	feeRate = big.NewInt(1)
-	quantity = big.NewInt(1)
-	price = big.NewInt(9000)
+	feeRate    = big.NewInt(1)
+	quantity   = big.NewInt(1)
+	price      = big.NewInt(9000)
 
 	// expected
 	userAReceived = big.NewInt(8991)
-	userASend = big.NewInt(1)
+	userASend     = big.NewInt(1)
 	userBReceived = big.NewInt(1)
-	userBSend = big.NewInt(9009)
+	userBSend     = big.NewInt(9009)
 )
 
 // A is taker
@@ -67,7 +67,6 @@ func TestSettleBalance_TakerSell(t *testing.T) {
 	if takerOutTotal.Cmp(userASend) != 0 {
 		t.Error("Taker sends wrong quantity", "Expected send:", userASend, "Actual send:", takerOutTotal)
 	}
-
 
 	// maker
 	makerInToken := result[userB][InToken].(common.Address)
@@ -117,7 +116,6 @@ func TestSettleBalance_TakerBuy(t *testing.T) {
 		quantity,
 		price)
 
-
 	// taker
 	takerInToken := result[userB][InToken].(common.Address)
 	takerInTotal := result[userB][InTotal].(*big.Int)
@@ -138,7 +136,6 @@ func TestSettleBalance_TakerBuy(t *testing.T) {
 	if takerOutTotal.Cmp(userBSend) != 0 {
 		t.Error("Taker sends wrong quantity", "Expected send:", userBSend, "Actual send:", takerOutTotal)
 	}
-
 
 	// maker
 	makerInToken := result[userA][InToken].(common.Address)
@@ -173,4 +170,3 @@ func TestSettleBalance_TakerBuy(t *testing.T) {
 		t.Error("Wrong makerFee fee amount", "Expected: ", 9, "Actual: ", makerFee)
 	}
 }
-

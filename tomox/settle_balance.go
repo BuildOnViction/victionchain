@@ -15,7 +15,14 @@ const (
 	OutTotal    = "OutTotal"    // amount of token which user sends out to the partner as the result of the trade, include fee
 )
 
-func SettleBalance(maker, taker common.Address, baseToken, quoteToken common.Address, isTakerBuy bool, makerFeeRate, takerFeeRate, baseFee *big.Int, quantity *big.Int, price *big.Int) map[common.Address]map[string]interface{} {
+func SettleBalance(
+	maker, taker common.Address,
+	baseToken, quoteToken common.Address,
+	isTakerBuy bool,
+	makerFeeRate, takerFeeRate, baseFee *big.Int,
+	quantity *big.Int,
+	price *big.Int,
+) map[common.Address]map[string]interface{} {
 	result := map[common.Address]map[string]interface{}{}
 	//
 	//// pair: BASE_TOKEN / QUOTE_TOKEN
