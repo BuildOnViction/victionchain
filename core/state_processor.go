@@ -276,7 +276,6 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
 
 				quantity := tomox.ToBigInt(quantityString)
-				quantity = quantity.Div(quantity, common.BasePrice) // SDK send amount which is multiplied 10^18
 				log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
 
 				isTakerBuy := orderItem.Side == tomox.Bid

@@ -36,15 +36,18 @@ func SettleBalance(
 		baseTokenQuantity := quantity
 
 		// maker InQuantity
-		quoteTokenQuantity := new(big.Int).SetUint64(0).Mul(quantity, price)
+		quoteTokenQuantity := big.NewInt(0).Mul(quantity, price)
+		quoteTokenQuantity = big.NewInt(0).Div(quoteTokenQuantity, common.BasePrice)
 
 		// Fee
 		// charge on the token he/she has before the trade, in this case: quoteToken
-		takerFee := new(big.Int).SetUint64(0).Mul(quoteTokenQuantity, takerFeeRate)
-		takerFee = takerFee.Div(takerFee, baseFee)
+		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, takerFeeRate)
+		takerFee = big.NewInt(0).Div(takerFee, common.BasePrice)
+		takerFee = big.NewInt(0).Div(takerFee, baseFee)
 		// charge on the token he/she has before the trade, in this case: baseToken
-		makerFee := new(big.Int).SetUint64(0).Mul(quoteTokenQuantity, makerFeeRate)
-		makerFee = makerFee.Div(makerFee, baseFee)
+		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, makerFeeRate)
+		makerFee = big.NewInt(0).Div(makerFee, baseFee)
+		makerFee = big.NewInt(0).Div(makerFee, common.BasePrice)
 
 		result[taker] = map[string]interface{}{
 			Fee:         takerFee,
@@ -53,37 +56,40 @@ func SettleBalance(
 			InTotal:     baseTokenQuantity,
 			OutToken:    quoteToken,
 			OutQuantity: quoteTokenQuantity,
-			OutTotal:    new(big.Int).SetUint64(0).Add(quoteTokenQuantity, takerFee),
+			OutTotal:    big.NewInt(0).Add(quoteTokenQuantity, takerFee),
 		}
 
 		result[maker] = map[string]interface{}{
 			Fee:         makerFee,
 			InToken:     quoteToken,
 			InQuantity:  quoteTokenQuantity,
-			InTotal:     new(big.Int).SetUint64(0).Sub(quoteTokenQuantity, makerFee),
+			InTotal:     big.NewInt(0).Sub(quoteTokenQuantity, makerFee),
 			OutToken:    baseToken,
 			OutQuantity: baseTokenQuantity,
 			OutTotal:    baseTokenQuantity,
 		}
 	} else {
 		// taker InQuantity
-		quoteTokenQuantity := new(big.Int).SetUint64(0).Mul(quantity, price)
+		quoteTokenQuantity := big.NewInt(0).Mul(quantity, price)
+		quoteTokenQuantity = big.NewInt(0).Div(quoteTokenQuantity, common.BasePrice)
 		// maker InQuantity
 		baseTokenQuantity := quantity
 
 		// Fee
 		// charge on the token he/she has before the trade, in this case: baseToken
-		takerFee := new(big.Int).SetUint64(0).Mul(quoteTokenQuantity, takerFeeRate)
-		takerFee = takerFee.Div(takerFee, baseFee)
+		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, takerFeeRate)
+		takerFee = big.NewInt(0).Div(takerFee, baseFee)
+		takerFee = big.NewInt(0).Div(takerFee, common.BasePrice)
 		// charge on the token he/she has before the trade, in this case: quoteToken
-		makerFee := new(big.Int).SetUint64(0).Mul(quoteTokenQuantity, makerFeeRate)
-		makerFee = makerFee.Div(makerFee, baseFee)
+		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, makerFeeRate)
+		makerFee = big.NewInt(0).Div(makerFee, baseFee)
+		makerFee = big.NewInt(0).Div(makerFee, common.BasePrice)
 
 		result[taker] = map[string]interface{}{
 			Fee:         takerFee,
 			InToken:     quoteToken,
 			InQuantity:  quoteTokenQuantity,
-			InTotal:     new(big.Int).SetUint64(0).Sub(quoteTokenQuantity, takerFee),
+			InTotal:     big.NewInt(0).Sub(quoteTokenQuantity, takerFee),
 			OutToken:    baseToken,
 			OutQuantity: baseTokenQuantity,
 			OutTotal:    baseTokenQuantity,
@@ -96,7 +102,7 @@ func SettleBalance(
 			InTotal:     baseTokenQuantity,
 			OutToken:    quoteToken,
 			OutQuantity: quoteTokenQuantity,
-			OutTotal:    new(big.Int).SetUint64(0).Add(quoteTokenQuantity, makerFee),
+			OutTotal:    big.NewInt(0).Add(quoteTokenQuantity, makerFee),
 		}
 	}
 	return result

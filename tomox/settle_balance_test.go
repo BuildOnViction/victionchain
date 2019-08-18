@@ -22,15 +22,16 @@ var (
 	userB      = common.HexToAddress("0x000000000000000000000000000000000000000b")
 	baseToken  = common.HexToAddress("0x000000000000000000000000000000000000000x")
 	quoteToken = common.HexToAddress("0x000000000000000000000000000000000000000y")
-	feeRate    = big.NewInt(1)
-	quantity   = big.NewInt(1)
-	price      = big.NewInt(9000)
+	feeRate    = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
+	quantity   = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
+	price      = big.NewInt(0).Mul(big.NewInt(9000), common.BasePrice) // 9000 * 10^18
 
 	// expected
-	userAReceived = big.NewInt(8991)
-	userASend     = big.NewInt(1)
-	userBReceived = big.NewInt(1)
-	userBSend     = big.NewInt(9009)
+	userAReceived = big.NewInt(0).Mul(big.NewInt(8991), common.BasePrice)
+	userASend     = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
+	userBReceived = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
+	userBSend     = big.NewInt(0).Mul(big.NewInt(9009), common.BasePrice)
+	expectedFee   = big.NewInt(0).Mul(big.NewInt(9), common.BasePrice)
 )
 
 // A is taker
@@ -92,12 +93,12 @@ func TestSettleBalance_TakerSell(t *testing.T) {
 	// fee
 	// taker fee
 	takerFee := result[userA][Fee].(*big.Int)
-	if takerFee.Cmp(big.NewInt(9)) != 0 {
+	if takerFee.Cmp(expectedFee) != 0 {
 		t.Error("Wrong taker fee amount", "Expected: ", 9, "Actual: ", takerFee)
 	}
 	// maker fee
 	makerFee := result[userB][Fee].(*big.Int)
-	if takerFee.Cmp(big.NewInt(9)) != 0 {
+	if takerFee.Cmp(expectedFee) != 0 {
 		t.Error("Wrong makerFee fee amount", "Expected: ", 9, "Actual: ", makerFee)
 	}
 }
@@ -161,12 +162,12 @@ func TestSettleBalance_TakerBuy(t *testing.T) {
 	// fee
 	// taker fee
 	takerFee := result[userB][Fee].(*big.Int)
-	if takerFee.Cmp(big.NewInt(9)) != 0 {
+	if takerFee.Cmp(expectedFee) != 0 {
 		t.Error("Wrong taker fee amount", "Expected: ", 9, "Actual: ", takerFee)
 	}
 	// maker fee
 	makerFee := result[userA][Fee].(*big.Int)
-	if takerFee.Cmp(big.NewInt(9)) != 0 {
+	if takerFee.Cmp(expectedFee) != 0 {
 		t.Error("Wrong makerFee fee amount", "Expected: ", 9, "Actual: ", makerFee)
 	}
 }
