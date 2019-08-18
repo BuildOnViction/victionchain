@@ -42,12 +42,10 @@ func SettleBalance(
 		// Fee
 		// charge on the token he/she has before the trade, in this case: quoteToken
 		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, takerFeeRate)
-		takerFee = big.NewInt(0).Div(takerFee, common.BasePrice)
 		takerFee = big.NewInt(0).Div(takerFee, baseFee)
 		// charge on the token he/she has before the trade, in this case: baseToken
 		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, makerFeeRate)
 		makerFee = big.NewInt(0).Div(makerFee, baseFee)
-		makerFee = big.NewInt(0).Div(makerFee, common.BasePrice)
 
 		result[taker] = map[string]interface{}{
 			Fee:         takerFee,
@@ -79,11 +77,9 @@ func SettleBalance(
 		// charge on the token he/she has before the trade, in this case: baseToken
 		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, takerFeeRate)
 		takerFee = big.NewInt(0).Div(takerFee, baseFee)
-		takerFee = big.NewInt(0).Div(takerFee, common.BasePrice)
 		// charge on the token he/she has before the trade, in this case: quoteToken
 		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, makerFeeRate)
 		makerFee = big.NewInt(0).Div(makerFee, baseFee)
-		makerFee = big.NewInt(0).Div(makerFee, common.BasePrice)
 
 		result[taker] = map[string]interface{}{
 			Fee:         takerFee,

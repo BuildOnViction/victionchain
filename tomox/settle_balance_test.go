@@ -22,7 +22,7 @@ var (
 	userB      = common.HexToAddress("0x000000000000000000000000000000000000000b")
 	baseToken  = common.HexToAddress("0x000000000000000000000000000000000000000x")
 	quoteToken = common.HexToAddress("0x000000000000000000000000000000000000000y")
-	feeRate    = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
+	feeRate    = big.NewInt(1)
 	quantity   = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
 	price      = big.NewInt(0).Mul(big.NewInt(9000), common.BasePrice) // 9000 * 10^18
 
