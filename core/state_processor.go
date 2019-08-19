@@ -298,7 +298,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 					"inTotal", settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int),
 					"outToken", settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[takerAddr][tomox.OutQuantity].(*big.Int),
 					"outTotal", settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int))
-				err = AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InQuantity].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
+				err = AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err
 				}
@@ -314,7 +314,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 					"inTotal", settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int),
 					"outToken", settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[makerAddr][tomox.OutQuantity].(*big.Int),
 					"outTotal", settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int))
-				err = AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InQuantity].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
+				err = AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err
 				}
