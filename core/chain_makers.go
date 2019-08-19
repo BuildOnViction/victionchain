@@ -97,13 +97,17 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
+	feeCapacity := state.GetTRC21FeeCapacityFromState(b.statedb)
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
-	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
+	receipt, gas, err, tokenFeeUsed := ApplyTransaction(b.config, feeCapacity, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
+	if tokenFeeUsed {
+		state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, gas)
+	}
 }
 
 // Number returns the block number of the block being generated.

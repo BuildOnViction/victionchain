@@ -818,8 +818,8 @@ type CallArgs struct {
 func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) ([]byte, uint64, bool, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
-	state, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
-	if state == nil || err != nil {
+	statedb, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if statedb == nil || err != nil {
 		return nil, 0, false, err
 	}
 	// Set sender address or use a default if none specified
@@ -839,9 +839,10 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	if gasPrice.Sign() == 0 {
 		gasPrice = new(big.Int).SetUint64(defaultGasPrice)
 	}
-
+	balanceTokenFee := big.NewInt(0).SetUint64(gas)
+	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false)
+	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false, balanceTokenFee)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -856,7 +857,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	defer cancel()
 
 	// Get a new instance of the EVM.
-	evm, vmError, err := s.b.GetEVM(ctx, msg, state, header, vmCfg)
+	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, header, vmCfg)
 	if err != nil {
 		return nil, 0, false, err
 	}

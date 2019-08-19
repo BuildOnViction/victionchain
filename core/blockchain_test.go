@@ -117,7 +117,7 @@ func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 		if err != nil {
 			return err
 		}
-		receipts, _, usedGas, err := blockchain.Processor().Process(block, statedb, vm.Config{})
+		receipts, _, usedGas, err := blockchain.Processor().Process(block, statedb, vm.Config{}, map[common.Address]*big.Int{})
 		if err != nil {
 			blockchain.reportBlock(block, receipts, err)
 			return err
@@ -130,7 +130,7 @@ func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 		blockchain.mu.Lock()
 		WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(block.Difficulty(), blockchain.GetTdByHash(block.ParentHash())))
 		WriteBlock(blockchain.db, block)
-		statedb.Commit(false)
+		statedb.Commit(true)
 		blockchain.mu.Unlock()
 	}
 	return nil

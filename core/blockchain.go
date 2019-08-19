@@ -1180,18 +1180,19 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		} else {
 			parent = chain[i-1]
 		}
-		state, err := state.New(parent.Root(), bc.stateCache)
+		statedb, err := state.New(parent.Root(), bc.stateCache)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
+		feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 		// Process block using the parent state as reference point.
-		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
+		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig, feeCapacity)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
 		}
 		// Validate the state using the default validator
-		err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
+		err = bc.Validator().ValidateState(block, parent, statedb, receipts, usedGas)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
@@ -1222,7 +1223,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteBlockWithState(block, receipts, state)
+		status, err := bc.WriteBlockWithState(block, receipts, statedb)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
@@ -1372,12 +1373,13 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	// Create a new statedb using the parent block and report an
 	// error if it fails.
 	var parent = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
-	state, err := state.New(parent.Root(), bc.stateCache)
+	statedb, err := state.New(parent.Root(), bc.stateCache)
 	if err != nil {
 		return nil, err
 	}
+	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	// Process block using the parent state as reference point.
-	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, state, bc.vmConfig)
+	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, bc.vmConfig, feeCapacity)
 	process := time.Since(bstart)
 	if err != nil {
 		if err != ErrStopPreparingBlock {
@@ -1386,7 +1388,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		return nil, err
 	}
 	// Validate the state using the default validator
-	err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
+	err = bc.Validator().ValidateState(block, parent, statedb, receipts, usedGas)
 	if err != nil {
 		bc.reportBlock(block, receipts, err)
 		return nil, err
@@ -1394,7 +1396,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	proctime := time.Since(bstart)
 	log.Debug("Calculate new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)), "process", process)
-	return &ResultProcessBlock{receipts: receipts, logs: logs, state: state, proctime: proctime, usedGas: usedGas}, nil
+	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, proctime: proctime, usedGas: usedGas}, nil
 }
 
 // insertChain will execute the actual chain insertion and event aggregation. The

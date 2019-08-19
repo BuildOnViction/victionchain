@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"runtime"
 	"sync"
 	"time"
@@ -189,10 +190,16 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 			// Fetch and execute the next block trace tasks
 			for task := range tasks {
 				signer := types.MakeSigner(api.config, task.block.Number())
-
+				feeCapacity := state.GetTRC21FeeCapacityFromState(task.statedb)
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
-					msg, _ := tx.AsMessage(signer)
+					var balacne *big.Int
+					if tx.To() != nil {
+						if value, ok := feeCapacity[*tx.To()]; ok {
+							balacne = value
+						}
+					}
+					msg, _ := tx.AsMessage(signer, balacne)
 					vmctx := core.NewEVMContext(msg, task.block.Header(), api.eth.blockchain, nil)
 
 					res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -273,8 +280,9 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				}
 				traced += uint64(len(txs))
 			}
+			feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
 			// Generate the next state snapshot fast without tracing
-			_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, vm.Config{})
+			_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, vm.Config{}, feeCapacity)
 			if err != nil {
 				failed = err
 				break
@@ -423,7 +431,14 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 
 			// Fetch and execute the next transaction trace tasks
 			for task := range jobs {
-				msg, _ := txs[task.index].AsMessage(signer)
+				feeCapacity := state.GetTRC21FeeCapacityFromState(task.statedb)
+				var balacne *big.Int
+				if txs[task.index].To() != nil {
+					if value, ok := feeCapacity[*txs[task.index].To()]; ok {
+						balacne = value
+					}
+				}
+				msg, _ := txs[task.index].AsMessage(signer, balacne)
 				vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 				res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -436,13 +451,19 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 		}()
 	}
 	// Feed the transactions into the tracers and return
+	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
 	var failed error
 	for i, tx := range txs {
 		// Send the trace task over for execution
 		jobs <- &txTraceTask{statedb: statedb.Copy(), index: i}
-
+		var balacne *big.Int
+		if tx.To() != nil {
+			if value, ok := feeCapacity[*tx.To()]; ok {
+				balacne = value
+			}
+		}
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer)
+		msg, _ := tx.AsMessage(signer, balacne)
 		vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 		vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{})
@@ -509,7 +530,8 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 		if block = api.eth.blockchain.GetBlockByNumber(block.NumberU64() + 1); block == nil {
 			return nil, fmt.Errorf("block #%d not found", block.NumberU64()+1)
 		}
-		_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, vm.Config{})
+		feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
+		_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, vm.Config{}, feeCapacity)
 		if err != nil {
 			return nil, err
 		}
@@ -627,10 +649,16 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	}
 	// Recompute transactions up to the target index.
 	signer := types.MakeSigner(api.config, block.Number())
-
+	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
 	for idx, tx := range block.Transactions() {
+		var balacne *big.Int
+		if tx.To() != nil {
+			if value, ok := feeCapacity[*tx.To()]; ok {
+				balacne = value
+			}
+		}
 		// Assemble the transaction call message and return if the requested offset
-		msg, _ := tx.AsMessage(signer)
+		msg, _ := tx.AsMessage(signer, balacne)
 		context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 		if idx == txIndex {
 			return msg, context, statedb, nil
