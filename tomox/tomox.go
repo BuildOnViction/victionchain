@@ -1313,16 +1313,21 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		log.Error("SDK node decode orderInBook failed", "txDataMatch", txDataMatch)
 		return fmt.Errorf("SDK node decode orderInBook failed")
 	}
+	log.Debug("OrderInBook found in blockdata", "order", orderInBook)
 	if orderInBook != nil {
 		existingOrderInDB := &OrderItem{}
 		key := orderInBook.Hash.Bytes()
 		data, err := tomox.db.Get(key, &OrderItem{}, false)
-		if data != nil && err == nil && existingOrderInDB.Status == sdktypes.OrderStatusFilled {
+		if data != nil && err == nil {
 			existingOrderInDB = data.(*OrderItem)
-			// if order already matched but still exist in orderbook, then update status to OrderStatusPartialFilled
-			existingOrderInDB.Status = sdktypes.OrderStatusPartialFilled
-			if err = db.Put(key, existingOrderInDB, false); err != nil {
-				return fmt.Errorf("SDKNode: failed to update status to %s %s", existingOrderInDB.Status, err.Error())
+			log.Debug("OrderInBook found in database", "order", existingOrderInDB)
+			if existingOrderInDB.Status == sdktypes.OrderStatusFilled {
+				log.Debug("Update status to PARTIAL_FILLED", "order", existingOrderInDB)
+				// if order already matched but still exist in orderbook, then update status to OrderStatusPartialFilled
+				existingOrderInDB.Status = sdktypes.OrderStatusPartialFilled
+				if err = db.Put(key, existingOrderInDB, false); err != nil {
+					return fmt.Errorf("SDKNode: failed to update status to %s %s", existingOrderInDB.Status, err.Error())
+				}
 			}
 		}
 	}
