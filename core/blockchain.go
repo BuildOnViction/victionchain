@@ -1207,7 +1207,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 				bc.processedOrderHashes.Remove(block.HashNoValidator())
 				if tomoXService.IsSDKNode() {
-					if err := logDataToSdkNode(tomoXService, block.Transactions()); err != nil {
+					currentState, err := bc.State()
+					if err != nil {
+						return i, events, coalescedLogs, err
+					}
+					if err := logDataToSdkNode(tomoXService, block.Transactions(), currentState); err != nil {
 						return i, events, coalescedLogs, err
 					}
 				}
@@ -1436,7 +1440,11 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 			}
 			bc.processedOrderHashes.Remove(block.HashNoValidator())
 			if tomoXService.IsSDKNode() {
-				if err := logDataToSdkNode(tomoXService, block.Transactions()); err != nil {
+				currentState, err := bc.State()
+				if err != nil {
+					return events, coalescedLogs, err
+				}
+				if err := logDataToSdkNode(tomoXService, block.Transactions(), currentState); err != nil {
 					return events, coalescedLogs, err
 				}
 			}
@@ -1937,7 +1945,7 @@ func (bc *BlockChain) UpdateM1() error {
 	return nil
 }
 
-func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions) error {
+func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions, statedb *state.StateDB) error {
 	txs := []*types.Transaction{}
 	txMatchBatchData := map[common.Hash]tomox.TxMatchBatch{}
 	for _, tx := range transactions {
@@ -1961,7 +1969,7 @@ func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions
 			return fmt.Errorf("no txMatchBatch data . TxHash: %v . TxData: %v", tx.Hash(), tx.Data())
 		}
 		for _, txMatch := range txMatchBatch.Data {
-			if err := tomoXService.SyncDataToSDKNode(txMatch, tx.Hash()); err != nil {
+			if err := tomoXService.SyncDataToSDKNode(txMatch, tx.Hash(), statedb); err != nil {
 				return err
 			}
 		}

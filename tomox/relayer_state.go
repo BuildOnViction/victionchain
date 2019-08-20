@@ -1,11 +1,10 @@
-package core
+package tomox
 
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/tomox"
 	"github.com/pkg/errors"
 	"math/big"
 )
@@ -19,25 +18,25 @@ func getLocMappingAtKey(key common.Hash, slot uint64) *big.Int {
 }
 
 func GetExRelayerFee(relayer common.Address, statedb *state.StateDB) *big.Int {
-	slot := tomox.RelayerMappingSlot["RELAYER_LIST"]
+	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := getLocMappingAtKey(relayer.Hash(), slot)
-	locBig = locBig.Add(locBig, tomox.RelayerStructMappingSlot["_fee"])
+	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_fee"])
 	locHash := common.BigToHash(locBig)
 	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big()
 
 }
 func GetRelayerOwner(relayer common.Address, statedb *state.StateDB) common.Address {
-	slot := tomox.RelayerMappingSlot["OWNER_LIST"]
+	slot := RelayerMappingSlot["OWNER_LIST"]
 	locBig := getLocMappingAtKey(relayer.Hash(), slot)
 	locHash := common.BigToHash(locBig)
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Bytes())
 
 }
 func SubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB) error {
-	slot := tomox.RelayerMappingSlot["RELAYER_LIST"]
+	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := getLocMappingAtKey(relayer.Hash(), slot)
 
-	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, tomox.RelayerStructMappingSlot["_deposit"])
+	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, RelayerStructMappingSlot["_deposit"])
 	locHashDeposit := common.BigToHash(locBigDeposit)
 	balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
 	log.Debug("ApplyTomoXMatchedTransaction settle balance: SubRelayerFee BEFORE", "relayer", relayer.String(), "balance", balance)
@@ -66,7 +65,7 @@ func AddTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 
 	// TRC tokens
 	if statedb.Exist(token) {
-		slot := tomox.TokenMappingSlot["balances"]
+		slot := TokenMappingSlot["balances"]
 		locHash := common.BigToHash(getLocMappingAtKey(addr.Hash(), slot))
 		balance := statedb.GetState(token, locHash).Big()
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: ADD TOKEN BALANCE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value )
@@ -96,7 +95,7 @@ func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 
 	// TRC tokens
 	if statedb.Exist(token) {
-		slot := tomox.TokenMappingSlot["balances"]
+		slot := TokenMappingSlot["balances"]
 		locHash := common.BigToHash(getLocMappingAtKey(addr.Hash(), slot))
 		balance := statedb.GetState(token, locHash).Big()
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOKEN BALANCE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value )

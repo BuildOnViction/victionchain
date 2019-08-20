@@ -30,9 +30,9 @@ import (
 	"math/big"
 )
 import (
+	"fmt"
 	"runtime"
 	"sync"
-	"fmt"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -294,10 +294,10 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 		}
 		takerAddr := orderItem.UserAddress
 		takerExAddr := orderItem.ExchangeAddress
-		takerExOwner := GetRelayerOwner(orderItem.ExchangeAddress, statedb)
+		takerExOwner := tomox.GetRelayerOwner(orderItem.ExchangeAddress, statedb)
 		baseToken := orderItem.BaseToken
 		quoteToken := orderItem.QuoteToken
-		takerExfee := GetExRelayerFee(orderItem.ExchangeAddress, statedb)
+		takerExfee := tomox.GetExRelayerFee(orderItem.ExchangeAddress, statedb)
 		baseFee := common.TomoXBaseFee
 
 		for i := 0; i < len(txMatch.Trades); i++ {
@@ -308,17 +308,17 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				return nil, 0, fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity), false
 			}
 			makerExAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradedMakerExchangeAddress])
-			makerExfee := GetExRelayerFee(makerExAddr, statedb)
-			makerExOwner := GetRelayerOwner(makerExAddr, statedb)
+			makerExfee := tomox.GetExRelayerFee(makerExAddr, statedb)
+			makerExOwner := tomox.GetRelayerOwner(makerExAddr, statedb)
 			makerAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradedMaker])
 			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
 			if makerExAddr != (common.Address{}) && makerAddr != (common.Address{}) {
 				// take relayer fee
-				err := SubRelayerFee(takerExAddr, common.RelayerFee, statedb)
+				err := tomox.SubRelayerFee(takerExAddr, common.RelayerFee, statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
-				err = SubRelayerFee(makerExAddr, common.RelayerFee, statedb)
+				err = tomox.SubRelayerFee(makerExAddr, common.RelayerFee, statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
@@ -349,11 +349,11 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 					"inTotal", settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int),
 					"outToken", settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[takerAddr][tomox.OutQuantity].(*big.Int),
 					"outTotal", settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int))
-				err = AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
+				err = tomox.AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
-				err = SubTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), statedb)
+				err = tomox.SubTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
@@ -365,11 +365,11 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 					"inTotal", settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int),
 					"outToken", settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[makerAddr][tomox.OutQuantity].(*big.Int),
 					"outTotal", settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int))
-				err = AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
+				err = tomox.AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
-				err = SubTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), statedb)
+				err = tomox.SubTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
@@ -381,12 +381,12 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 					"makerRelayerOwner", makerExOwner,
 					"makerFeeToken", quoteToken, "makerFee", settleBalanceResult[makerAddr][tomox.Fee].(*big.Int))
 				// takerFee
-				err = AddTokenBalance(takerExOwner, settleBalanceResult[takerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
+				err = tomox.AddTokenBalance(takerExOwner, settleBalanceResult[takerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
 				// makerFee
-				err = AddTokenBalance(makerExOwner, settleBalanceResult[makerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
+				err = tomox.AddTokenBalance(makerExOwner, settleBalanceResult[makerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
