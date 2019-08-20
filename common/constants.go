@@ -33,4 +33,5 @@ var RollbackHash Hash
 var MinGasPrice int64
 var BasePrice = big.NewInt(1000000000000000000) // 1
 var RelayerFee = big.NewInt(1000000000000000)   // 0.001
+var TomoXBaseFee = big.NewInt(1000)
 

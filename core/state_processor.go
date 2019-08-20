@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/tomox"
 	"math/big"
@@ -243,66 +244,98 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 		if err != nil {
 			return nil, 0, err
 		}
-		sellAddr := orderItem.UserAddress
-		sellExAddr := orderItem.ExchangeAddress
-		sellExOwner := GetRelayerOwner(orderItem.ExchangeAddress, statedb)
-		sellToken := orderItem.BaseToken
-		buyToken := orderItem.QuoteToken
-		sellExfee := GetExRelayerFee(orderItem.ExchangeAddress, statedb)
-		baseFee := big.NewInt(1000)
+		takerAddr := orderItem.UserAddress
+		takerExAddr := orderItem.ExchangeAddress
+		takerExOwner := GetRelayerOwner(orderItem.ExchangeAddress, statedb)
+		baseToken := orderItem.BaseToken
+		quoteToken := orderItem.QuoteToken
+		takerExfee := GetExRelayerFee(orderItem.ExchangeAddress, statedb)
+		baseFee := common.TomoXBaseFee
 
 		price := orderItem.Price
 		for i := 0; i < len(txMatch.Trades); i++ {
-			data := txMatch.Trades[i]["quantity"]
-			buyExAddr := common.HexToAddress(txMatch.Trades[i]["exAddr"])
-			buyExfee := GetExRelayerFee(buyExAddr, statedb)
-			buyExOwner := GetRelayerOwner(buyExAddr, statedb)
-			buyAddr := common.HexToAddress(txMatch.Trades[i]["uAddr"])
-			if data != "" && buyExAddr != (common.Address{}) && buyAddr != (common.Address{}) {
+			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
+			quantityString := txMatch.Trades[i]["quantity"]
+			makerExAddr := common.HexToAddress(txMatch.Trades[i]["exAddr"])
+			makerExfee := GetExRelayerFee(makerExAddr, statedb)
+			makerExOwner := GetRelayerOwner(makerExAddr, statedb)
+			makerAddr := common.HexToAddress(txMatch.Trades[i]["uAddr"])
+			if quantityString != "" && makerExAddr != (common.Address{}) && makerAddr != (common.Address{}) {
 				// take relayer fee
-				err := SubRelayerFee(sellExAddr, common.RelayerFee, statedb)
+				err := SubRelayerFee(takerExAddr, common.RelayerFee, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = SubRelayerFee(buyExAddr, common.RelayerFee, statedb)
+				err = SubRelayerFee(makerExAddr, common.RelayerFee, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
+
+				// masternodes charges fee of both 2 relayers. If maker and taker are on same relayer, that relayer is charged fee twice
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
 
-				quantity := tomox.ToBigInt(data)
-				//seller
-				totalReceiveToken := quantity.Mul(quantity, price)
-				totalReceiveToken = totalReceiveToken.Div(totalReceiveToken, common.BasePrice)
-				feeSell := totalReceiveToken.Mul(totalReceiveToken, sellExfee)
-				feeSell = feeSell.Div(feeSell, baseFee)
-				receiveSell := totalReceiveToken.Sub(totalReceiveToken, feeSell)
-				err = AddTokenBalance(sellAddr, receiveSell, buyToken, statedb)
+				quantity := tomox.ToBigInt(quantityString)
+				log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
+
+				isTakerBuy := orderItem.Side == tomox.Bid
+				settleBalanceResult := tomox.SettleBalance(
+					makerAddr,
+					takerAddr,
+					baseToken,
+					quoteToken,
+					isTakerBuy,
+					makerExfee,
+					takerExfee,
+					baseFee,
+					quantity,
+					price)
+
+				// TAKER
+				log.Debug("ApplyTomoXMatchedTransaction settle balance for taker",
+					"taker", takerAddr,
+					"inToken", settleBalanceResult[takerAddr][tomox.InToken].(common.Address), "inQuantity", settleBalanceResult[takerAddr][tomox.InQuantity].(*big.Int),
+					"inTotal", settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int),
+					"outToken", settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[takerAddr][tomox.OutQuantity].(*big.Int),
+					"outTotal", settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int))
+				err = AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = AddTokenBalance(sellExOwner, feeSell, buyToken, statedb)
+				err = SubTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = SubTokenBalance(buyAddr, totalReceiveToken, buyToken, statedb)
+
+				// MAKER
+				log.Debug("ApplyTomoXMatchedTransaction settle balance for maker",
+					"maker", makerAddr,
+					"inToken", settleBalanceResult[makerAddr][tomox.InToken].(common.Address), "inQuantity", settleBalanceResult[makerAddr][tomox.InQuantity].(*big.Int),
+					"inTotal", settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int),
+					"outToken", settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[makerAddr][tomox.OutQuantity].(*big.Int),
+					"outTotal", settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int))
+				err = AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				//buyer
-				feeBuy := quantity.Mul(quantity, buyExfee)
-				feeBuy = feeBuy.Div(quantity, baseFee)
-				receiveBuy := quantity.Sub(quantity, feeBuy)
-				err = AddTokenBalance(buyAddr, receiveBuy, sellToken, statedb)
+				err = SubTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = AddTokenBalance(buyExOwner, feeBuy, sellToken, statedb)
+
+				// add balance for relayers
+				log.Debug("ApplyTomoXMatchedTransaction settle fee for relayers",
+					"takerRelayerOwner", takerExOwner,
+					"takerFeeToken", quoteToken, "takerFee", settleBalanceResult[takerAddr][tomox.Fee].(*big.Int),
+					"makerRelayerOwner", makerExOwner,
+					"makerFeeToken", quoteToken, "makerFee", settleBalanceResult[makerAddr][tomox.Fee].(*big.Int))
+				// takerFee
+				err = AddTokenBalance(takerExOwner, settleBalanceResult[takerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
-				err = SubTokenBalance(sellAddr, quantity, sellToken, statedb)
+				// makerFee
+				err = AddTokenBalance(makerExOwner, settleBalanceResult[makerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
 				if err != nil {
 					return nil, 0, err
 				}
