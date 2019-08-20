@@ -192,7 +192,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 			balanceFee = value
 		}
 	}
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee)
 	if err != nil {
 		return nil, 0, err, false
 	}
@@ -268,28 +268,28 @@ func ApplySignTransaction(config *params.ChainConfig, statedb *state.StateDB, he
 	return receipt, 0, nil, false
 }
 
-func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error) {
+func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
 	// Update the state with pending changes
 	from, err := types.Sender(types.MakeSigner(config, header.Number), tx)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, err, false
 	}
 	nonce := statedb.GetNonce(from)
 	if nonce < tx.Nonce() {
-		return nil, 0, ErrNonceTooHigh
+		return nil, 0, ErrNonceTooHigh, false
 	} else if nonce > tx.Nonce() {
-		return nil, 0, ErrNonceTooLow
+		return nil, 0, ErrNonceTooLow, false
 	}
 
 	txMatchBatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
 	if err != nil || len(txMatchBatches.Data) == 0 {
-		return nil, 0, err
+		return nil, 0, err, false
 	}
 	gasUsed := big.NewInt(0)
 	for _, txMatch := range txMatchBatches.Data {
 		orderItem, err := txMatch.DecodeOrder()
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, err, false
 		}
 		sellAddr := orderItem.UserAddress
 		sellExAddr := orderItem.ExchangeAddress
@@ -310,11 +310,11 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				// take relayer fee
 				err := SubRelayerFee(sellExAddr, common.RelayerFee, statedb)
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, err, false
 				}
 				err = SubRelayerFee(buyExAddr, common.RelayerFee, statedb)
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, err, false
 				}
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
@@ -328,15 +328,15 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				receiveSell := totalReceiveToken.Sub(totalReceiveToken, feeSell)
 				err = AddTokenBalance(sellAddr, receiveSell, buyToken, statedb)
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, err, false
 				}
 				err = AddTokenBalance(sellExOwner, feeSell, buyToken, statedb)
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, err, false
 				}
 				err = SubTokenBalance(buyAddr, totalReceiveToken, buyToken, statedb)
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, err, false
 				}
 				//buyer
 				feeBuy := quantity.Mul(quantity, buyExfee)
@@ -344,15 +344,15 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				receiveBuy := quantity.Sub(quantity, feeBuy)
 				err = AddTokenBalance(buyAddr, receiveBuy, sellToken, statedb)
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, err, false
 				}
 				err = AddTokenBalance(buyExOwner, feeBuy, sellToken, statedb)
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, err, false
 				}
 				err = SubTokenBalance(sellAddr, quantity, sellToken, statedb)
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, err, false
 				}
 			}
 		}
@@ -378,7 +378,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 	statedb.AddLog(log)
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	return receipt, 0, nil
+	return receipt, 0, nil, false
 }
 
 func InitSignerInTransactions(config *params.ChainConfig, header *types.Header, txs types.Transactions) {
