@@ -26,6 +26,8 @@ import (
 	"math/big"
 	"math/rand"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -45,7 +47,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -233,6 +235,7 @@ type Posv struct {
 	HookValidator         func(header *types.Header, signers []common.Address) ([]byte, error)
 	HookVerifyMNs         func(header *types.Header, signers []common.Address) error
 	GetTomoXService       func() *tomox.TomoX
+	HookGetSignersFromContract func(blockHash common.Hash) ([]common.Address, error)
 }
 
 // New creates a PoSV proof-of-stake-voting consensus engine with the initial
@@ -393,53 +396,104 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 	if parent.Time.Uint64()+c.config.Period > header.Time.Uint64() {
 		return ErrInvalidTimestamp
 	}
+
+	if number%c.config.Epoch != 0 {
+		return c.verifySeal(chain, header, parents, fullVerify)
+	}
+
+	/*
+		BUG: snapshot returns wrong signers sometimes
+		when it happens we get the signers list by requesting smart contract
+	*/
 	// Retrieve the snapshot needed to verify this header and cache it
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
 	if err != nil {
 		return err
 	}
-	// If the block is a checkpoint block, verify the signer list
-	if number%c.config.Epoch == 0 {
-		signers := snap.GetSigners()
-		penPenalties := []common.Address{}
-		if c.HookPenalty != nil || c.HookPenaltyTIPSigning != nil {
-			var err error = nil
-			if chain.Config().IsTIPSigning(header.Number) {
-				penPenalties, err = c.HookPenaltyTIPSigning(chain, header, signers)
-			} else {
-				penPenalties, err = c.HookPenalty(chain, number)
-			}
-			if err != nil {
-				return err
-			}
-			for _, address := range penPenalties {
-				log.Debug("Penalty Info", "address", address, "number", number)
-			}
-			bytePenalties := common.ExtractAddressToBytes(penPenalties)
-			if !bytes.Equal(header.Penalties, bytePenalties) {
-				return errInvalidCheckpointPenalties
-			}
+
+	signers := snap.GetSigners()
+	err = c.checkSignersOnCheckpoint(chain, header, signers)
+	if err == nil {
+		return c.verifySeal(chain, header, parents, fullVerify)
+	}
+
+	// try again the progress with signers querying from smart contract
+	// for example the checkpoint is 886500 -> the start gap block is 886495
+	startGapBlockHeader := header
+	for step := uint64(1); step <= chain.Config().Posv.Gap; step++ {
+		startGapBlockHeader = chain.GetHeader(startGapBlockHeader.ParentHash, number-step)
+	}
+	signers, err = c.HookGetSignersFromContract(startGapBlockHeader.Hash())
+	if err != nil {
+		log.Debug("Can't get signers from Smart Contract ", err)
+		return err
+	}
+
+	err = c.checkSignersOnCheckpoint(chain, header, signers)
+	if err == nil {
+		return c.verifySeal(chain, header, parents, fullVerify)
+	}
+
+	return err
+}
+
+func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *types.Header, signers []common.Address) error {
+	number := header.Number.Uint64()
+	penPenalties := []common.Address{}
+	if c.HookPenalty != nil || c.HookPenaltyTIPSigning != nil {
+		var err error
+		if chain.Config().IsTIPSigning(header.Number) {
+			penPenalties, err = c.HookPenaltyTIPSigning(chain, header, signers)
+		} else {
+			penPenalties, err = c.HookPenalty(chain, number)
 		}
-		signers = common.RemoveItemFromArray(signers, penPenalties)
-		for i := 1; i <= common.LimitPenaltyEpoch; i++ {
-			if number > uint64(i)*c.config.Epoch {
-				signers = RemovePenaltiesFromBlock(chain, signers, number-uint64(i)*c.config.Epoch)
-			}
+		if err != nil {
+			return err
 		}
-		byteMasterNodes := common.ExtractAddressToBytes(signers)
-		extraSuffix := len(header.Extra) - extraSeal
-		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], byteMasterNodes) {
-			return errInvalidCheckpointSigners
+		for _, address := range penPenalties {
+			log.Debug("Penalty Info", "address", address, "number", number)
 		}
-		if c.HookVerifyMNs != nil {
-			err := c.HookVerifyMNs(header, signers)
-			if err != nil {
-				return err
-			}
+		bytePenalties := common.ExtractAddressToBytes(penPenalties)
+		if !bytes.Equal(header.Penalties, bytePenalties) {
+			return errInvalidCheckpointPenalties
 		}
 	}
-	// All basic checks passed, verify the seal and return
-	return c.verifySeal(chain, header, parents, fullVerify)
+	signers = common.RemoveItemFromArray(signers, penPenalties)
+	for i := 1; i <= common.LimitPenaltyEpoch; i++ {
+		if number > uint64(i)*c.config.Epoch {
+			signers = RemovePenaltiesFromBlock(chain, signers, number-uint64(i)*c.config.Epoch)
+		}
+	}
+	extraSuffix := len(header.Extra) - extraSeal
+	masternodesFromCheckpointHeader := common.ExtractAddressFromBytes(header.Extra[extraVanity:extraSuffix])
+	validSigners := compareSignersLists(masternodesFromCheckpointHeader, signers)
+	if !validSigners {
+		log.Error("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "masternodes_in_snapshot", signers, "penList", penPenalties)
+		return errInvalidCheckpointSigners
+	}
+	if c.HookVerifyMNs != nil {
+		err := c.HookVerifyMNs(header, signers)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// compare 2 signers lists
+// return true if they are same elements, otherwise return false
+func compareSignersLists(list1 []common.Address, list2 []common.Address) bool {
+	if len(list1) == 0 && len(list2) == 0 {
+		return true
+	}
+	sort.Slice(list1, func(i, j int) bool {
+		return list1[i].String() <= list1[j].String()
+	})
+	sort.Slice(list2, func(i, j int) bool {
+		return list2[i].String() <= list2[j].String()
+	})
+	return reflect.DeepEqual(list1, list2)
 }
 
 func (c *Posv) GetSnapshot(chain consensus.ChainReader, header *types.Header) (*Snapshot, error) {

@@ -16,11 +16,11 @@ var (
 func GetSigners(statedb *state.StateDB, block *types.Block) []common.Address {
 	slot := slotBlockSignerMapping["blockSigners"]
 	keys := []common.Hash{}
-	keyArrSlot := getLocMappingAtKey(block.Hash(), slot)
+	keyArrSlot := state.GetLocMappingAtKey(block.Hash(), slot)
 	arrSlot := statedb.GetState(common.HexToAddress(common.BlockSigners), common.BigToHash(keyArrSlot))
 	arrLength := arrSlot.Big().Uint64()
 	for i := uint64(0); i < arrLength; i++ {
-		key := getLocDynamicArrAtElement(common.BigToHash(keyArrSlot), i, 1)
+		key := state.GetLocDynamicArrAtElement(common.BigToHash(keyArrSlot), i, 1)
 		keys = append(keys, key)
 	}
 	rets := []common.Address{}

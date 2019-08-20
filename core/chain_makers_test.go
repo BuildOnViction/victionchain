@@ -38,7 +38,6 @@ func ExampleGenerateChain() {
 		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
 		db, _   = ethdb.NewMemDatabase()
 	)
-
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
 		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
