@@ -1,6 +1,8 @@
 package tomox
 
 import (
+	"bytes"
+	"encoding/hex"
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -9,24 +11,22 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"time"
-	"bytes"
-	"encoding/hex"
 )
 
 var (
 	// errors
-	errFutureOrder             = errors.New("verify matched order: future order")
-	errNoTimestamp             = errors.New("verify matched order: no timestamp")
-	errWrongHash               = errors.New("verify matched order: wrong hash")
-	errInvalidSignature        = errors.New("verify matched order: invalid signature")
-	errNotEnoughBalance        = errors.New("verify matched order: not enough balance")
-	errInvalidPrice            = errors.New("verify matched order: invalid price")
-	errInvalidQuantity         = errors.New("verify matched order: invalid quantity")
-	errInvalidRelayer          = errors.New("verify matched order: invalid relayer")
-	errInvalidOrderType        = errors.New("verify matched order: unsupported order type")
-	errInvalidOrderSide        = errors.New("verify matched order: invalid order side")
-	errOrderBookHashNotMatch   = errors.New("verify matched order: orderbook hash not match")
-	errOrderTreeHashNotMatch   = errors.New("verify matched order: ordertree hash not match")
+	errFutureOrder           = errors.New("verify matched order: future order")
+	errNoTimestamp           = errors.New("verify matched order: no timestamp")
+	errWrongHash             = errors.New("verify matched order: wrong hash")
+	errInvalidSignature      = errors.New("verify matched order: invalid signature")
+	errNotEnoughBalance      = errors.New("verify matched order: not enough balance")
+	errInvalidPrice          = errors.New("verify matched order: invalid price")
+	errInvalidQuantity       = errors.New("verify matched order: invalid quantity")
+	errInvalidRelayer        = errors.New("verify matched order: invalid relayer")
+	errInvalidOrderType      = errors.New("verify matched order: unsupported order type")
+	errInvalidOrderSide      = errors.New("verify matched order: invalid order side")
+	errOrderBookHashNotMatch = errors.New("verify matched order: orderbook hash not match")
+	errOrderTreeHashNotMatch = errors.New("verify matched order: ordertree hash not match")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
@@ -46,10 +46,6 @@ func (o *OrderItem) VerifyMatchedOrder(state *state.StateDB) error {
 	if err := o.verifyOrderType(); err != nil {
 		return err
 	}
-	// TODO: for testing without relayer, ignore the rest
-	// TODO: remove it
-	return nil
-
 	if err := o.verifyRelayer(state); err != nil {
 		return err
 	}
@@ -66,7 +62,7 @@ func (o *OrderItem) VerifyMatchedOrder(state *state.StateDB) error {
 func (o *OrderItem) verifyBalance(state *state.StateDB) error {
 	orderValueByQuoteToken := Zero()
 	balance := Zero()
-	tokenAddr := common.Address{}
+	outTokenAddr := common.Address{}
 
 	if o.Price == nil || o.Price.Cmp(Zero()) <= 0 {
 		return errInvalidPrice
@@ -74,21 +70,24 @@ func (o *OrderItem) verifyBalance(state *state.StateDB) error {
 	if o.Quantity == nil || o.Quantity.Cmp(Zero()) <= 0 {
 		return errInvalidQuantity
 	}
+	quantity := o.Quantity
 	if o.Side == Bid {
-		tokenAddr = o.QuoteToken
-		orderValueByQuoteToken = orderValueByQuoteToken.Mul(o.Quantity, o.Price)
+		outTokenAddr = o.QuoteToken
+		orderValueByQuoteToken = orderValueByQuoteToken.Mul(quantity, o.Price)
+		orderValueByQuoteToken = orderValueByQuoteToken.Div(orderValueByQuoteToken, common.BasePrice)
 	} else {
-		tokenAddr = o.BaseToken
-		orderValueByQuoteToken = o.Quantity
+		outTokenAddr = o.BaseToken
+		orderValueByQuoteToken = quantity
 	}
-	if tokenAddr == (common.Address{}) {
+	if outTokenAddr.String() == common.TomoNativeAddress {
 		// native TOMO
 		balance = state.GetBalance(o.UserAddress)
 	} else {
 		// query balance from tokenContract
-		balance = GetTokenBalance(state, o.UserAddress, tokenAddr)
+		balance = GetTokenBalance(state, o.UserAddress, outTokenAddr)
 	}
 	if balance.Cmp(orderValueByQuoteToken) < 0 {
+		log.Debug("Not enough balance:", "token", outTokenAddr.String(), "balance", balance)
 		return errNotEnoughBalance
 	}
 	return nil
@@ -123,22 +122,26 @@ func (o *OrderItem) verifySignature() error {
 	var (
 		hash           common.Hash
 		err            error
-		signatureBytes []byte
 	)
 	hash = o.computeHash()
 	if hash != o.Hash {
+		log.Debug("Wrong orderhash", "expected", hex.EncodeToString(o.Hash.Bytes()), "actual", hex.EncodeToString(hash.Bytes()))
 		return errWrongHash
 	}
-	signatureBytes = append(signatureBytes, o.Signature.R.Bytes()...)
-	signatureBytes = append(signatureBytes, o.Signature.S.Bytes()...)
-	signatureBytes = append(signatureBytes, o.Signature.V-27)
-	pubkey, err := crypto.Ecrecover(hash.Bytes(), signatureBytes)
+	message := crypto.Keccak256(
+		[]byte("\x19Ethereum Signed Message:\n32"),
+		hash.Bytes(),
+	)
+
+	recoveredAddress, err := o.Signature.Verify(common.BytesToHash(message))
 	if err != nil {
-		return err
+		log.Debug("failed to recover userAddress")
+		return errInvalidSignature
 	}
-	var userAddress common.Address
-	copy(userAddress[:], crypto.Keccak256(pubkey[1:])[12:])
-	if userAddress != o.UserAddress {
+	if !bytes.Equal(recoveredAddress.Bytes(), o.UserAddress.Bytes()) {
+		log.Debug("userAddress mismatch",
+			"expected", hex.EncodeToString(o.UserAddress.Bytes()),
+			"actual", hex.EncodeToString(recoveredAddress.Bytes()))
 		return errInvalidSignature
 	}
 	return nil
@@ -147,6 +150,7 @@ func (o *OrderItem) verifySignature() error {
 // verify order type
 func (o *OrderItem) verifyOrderType() error {
 	if _, ok := MatchingOrderType[o.Type]; !ok {
+		log.Debug("Invalid order type", "type", o.Type)
 		return errInvalidOrderType
 	}
 	return nil
@@ -156,6 +160,7 @@ func (o *OrderItem) verifyOrderType() error {
 func (o *OrderItem) verifyOrderSide() error {
 
 	if o.Side != Bid && o.Side != Ask {
+		log.Debug("Invalid orderSide", "side", o.Side)
 		return errInvalidOrderSide
 	}
 	return nil
@@ -165,9 +170,11 @@ func (o *OrderItem) verifyOrderSide() error {
 func (o *OrderItem) verifyTimestamp() error {
 	// check timestamp of buyOrder
 	if o.CreatedAt == 0 || o.UpdatedAt == 0 {
+		log.Debug("No timestamp found in order")
 		return errNoTimestamp
 	}
 	if o.CreatedAt > uint64(time.Now().Unix()) || o.UpdatedAt > uint64(time.Now().Unix()) {
+		log.Debug("Received future order")
 		return errFutureOrder
 	}
 	return nil
@@ -184,10 +191,13 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locRelayerState := getLocMappingAtKey(address.Hash(), slot)
 
-	ret := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState))
-	if ret.Big().Cmp(new(big.Int).SetUint64(uint64(0))) > 0 {
+	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locRelayerState, RelayerStructMappingSlot["_deposit"])
+	locHashDeposit := common.BigToHash(locBigDeposit)
+	balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
+	if balance.Cmp(new(big.Int).SetUint64(uint64(0))) > 0 {
 		return true
 	}
+	log.Debug("Balance of relayer is not enough", "relayer", address.String(), "balance", balance)
 	return false
 }
 
@@ -211,7 +221,7 @@ func (tx TxDataMatch) VerifyOldTomoXState(ob *OrderBook) error {
 	// bidTree tree
 	bidTree := ob.Bids
 	if hash, err := bidTree.Hash(); err != nil || !bytes.Equal(hash.Bytes(), tx.BidOld.Bytes()) {
-		log.Error("wrong old bid tree", "expected",  hex.EncodeToString(tx.BidOld.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
+		log.Error("wrong old bid tree", "expected", hex.EncodeToString(tx.BidOld.Bytes()), "actual", hex.EncodeToString(hash.Bytes()), "err", err)
 		return errOrderTreeHashNotMatch
 	}
 	// askTree tree
@@ -268,4 +278,34 @@ func (tx TxDataMatch) DecodeOrderInBook() (*OrderItem, error) {
 		return orderInBook, err
 	}
 	return orderInBook, nil
+}
+
+// MarshalSignature marshals the signature struct to []byte
+func (s *Signature) MarshalSignature() ([]byte, error) {
+	sigBytes1 := s.R.Bytes()
+	sigBytes2 := s.S.Bytes()
+	sigBytes3 := s.V - 27
+
+	sigBytes := append([]byte{}, sigBytes1...)
+	sigBytes = append(sigBytes, sigBytes2...)
+	sigBytes = append(sigBytes, sigBytes3)
+
+	return sigBytes, nil
+}
+
+// Verify returns the address that corresponds to the given signature and signed message
+func (s *Signature) Verify(hash common.Hash) (common.Address, error) {
+
+	hashBytes := hash.Bytes()
+	sigBytes, err := s.MarshalSignature()
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	pubKey, err := crypto.SigToPub(hashBytes, sigBytes)
+	if err != nil {
+		return common.Address{}, err
+	}
+	address := crypto.PubkeyToAddress(*pubKey)
+	return address, nil
 }

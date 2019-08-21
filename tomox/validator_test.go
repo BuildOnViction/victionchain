@@ -15,17 +15,17 @@ var fakeDb, _ = ethdb.NewMemDatabase()
 
 func TestIsValidRelayer(t *testing.T) {
 	order := &OrderItem{
-		ExchangeAddress: common.StringToAddress("relayer1"),
+		ExchangeAddress: common.HexToAddress("relayer1"),
 	}
 	var stateDb, _ = state.New(common.Hash{}, state.NewDatabase(fakeDb))
-	slotKec := crypto.Keccak256(order.ExchangeAddress.Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"])).Bytes())
+	slotKec := crypto.Keccak256(order.ExchangeAddress.Hash().Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"])).Bytes())
 	locRelayerState := new(big.Int).SetBytes(slotKec)
-	stateDb.SetState(common.StringToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(0)))
+	stateDb.SetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(0)))
 	if valid := IsValidRelayer(stateDb, order.ExchangeAddress); valid {
 		t.Error("TestIsValidRelayer FAILED. It should be invalid relayer", "ExchangeAddress", order.ExchangeAddress)
 	}
 
-	stateDb.SetState(common.StringToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(2500)))
+	stateDb.SetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(2500)))
 	if valid := IsValidRelayer(stateDb, order.ExchangeAddress); !valid {
 		t.Error("TestIsValidRelayer FAILED. This address should be a valid relayer", "ExchangeAddress", order.ExchangeAddress)
 	}
@@ -33,7 +33,7 @@ func TestIsValidRelayer(t *testing.T) {
 
 func TestOrderItem_VerifyBalance(t *testing.T) {
 	stateDb, _ := state.New(common.Hash{}, state.NewDatabase(fakeDb))
-	addr := common.StringToAddress("userAddress")
+	addr := common.HexToAddress("userAddress")
 
 	// native tomo
 	// sell 100 TOMO
@@ -42,8 +42,8 @@ func TestOrderItem_VerifyBalance(t *testing.T) {
 		UserAddress: addr,
 		Side:        Ask,
 		PairName:    "TOMO/WETH",
-		BaseToken:   common.Address{},
-		QuoteToken:  common.StringToAddress("weth"),
+		BaseToken:   common.HexToAddress(common.TomoNativeAddress),
+		QuoteToken:  common.HexToAddress("weth"),
 		Quantity:    big.NewInt(100),
 		Price:       big.NewInt(1),
 	}
@@ -61,15 +61,15 @@ func TestOrderItem_VerifyBalance(t *testing.T) {
 		Side:        Bid,
 		PairName:    "TOMO/WETH",
 		BaseToken:   common.Address{},
-		QuoteToken:  common.StringToAddress("weth"),
-		Quantity:    big.NewInt(100),
+		QuoteToken:  common.HexToAddress("weth"),
+		Quantity:    new(big.Int).SetUint64(0).Mul(big.NewInt(100), common.BasePrice), // the amount which SDK send to masternodes is multiplied 10^18
 		Price:       big.NewInt(1),
 	}
 	locBalance := new(big.Int)
-	locBalance.SetBytes(crypto.Keccak256(addr.Bytes(), common.BigToHash(big.NewInt(0)).Bytes()))
-	stateDb.SetState(common.StringToAddress("weth"), common.BigToHash(locBalance), common.BigToHash(big.NewInt(98)))
+	locBalance.SetBytes(crypto.Keccak256(addr.Hash().Bytes(), common.BigToHash(big.NewInt(0)).Bytes()))
+	stateDb.SetState(common.HexToAddress("weth"), common.BigToHash(locBalance), common.BigToHash(big.NewInt(98)))
 
-	if balance := GetTokenBalance(stateDb, addr, common.StringToAddress("weth")); balance.Cmp(big.NewInt(98)) != 0 {
+	if balance := GetTokenBalance(stateDb, addr, common.HexToAddress("weth")); balance.Cmp(big.NewInt(98)) != 0 {
 		t.Error("TestGetTokenBalance FAILED. Expected 98", "actual", balance)
 	}
 
@@ -84,10 +84,12 @@ func TestOrderItem_VerifyBalance(t *testing.T) {
 // in this test, we sequentially make each test PASS
 func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 	stateDb, _ := state.New(common.Hash{}, state.NewDatabase(fakeDb))
-	addr := common.StringToAddress("test_user")
+	addr := common.HexToAddress("0x0332d186212b04E6933682b3bed8e232b6b3361a")
 
 	order := &OrderItem{
 		PairName:    "TOMO/WETH",
+		BaseToken: common.HexToAddress(common.TomoNativeAddress),
+		QuoteToken: common.HexToAddress("0x0aaad186212b04E6933682b3bed8e232b6b3361a"),
 		UserAddress: addr,
 		Nonce:       big.NewInt(1),
 		MakeFee:     big.NewInt(1),
@@ -132,10 +134,10 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 	}
 
 	// set relayer and mock state to make it valid
-	order.ExchangeAddress = common.StringToAddress("relayer1")
-	slotKec := crypto.Keccak256(order.ExchangeAddress.Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"])).Bytes())
+	order.ExchangeAddress = common.HexToAddress("0x0342d186212b04E69eA682b3bed8e232b6b3361a")
+	slotKec := crypto.Keccak256(order.ExchangeAddress.Hash().Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"])).Bytes())
 	locRelayerState := new(big.Int).SetBytes(slotKec)
-	stateDb.SetState(common.StringToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(2500)))
+	stateDb.SetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(2500)))
 
 	// then order should fail the next step: verifyBalance
 	// failed due to missing price
@@ -151,8 +153,8 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 		t.Error(err)
 	}
 
-	// set quantity
-	order.Quantity = big.NewInt(100)
+	// set quantity: // the amount which SDK send to masternodes is multiplied 10^18
+	order.Quantity = new(big.Int).SetUint64(0).Mul(new(big.Int).SetUint64(100), common.BasePrice)
 
 	// failed due to not enough balance
 	if err := order.VerifyMatchedOrder(stateDb); err != errNotEnoughBalance {
@@ -161,7 +163,7 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 
 	// mock state to make order pass verifyBalance
 	// balance should greater than or equal 100 TOMO
-	stateDb.SetBalance(addr, big.NewInt(105))
+	stateDb.SetBalance(addr, big.NewInt(0).Mul(big.NewInt(105), common.BasePrice))
 
 	// after pass verifyBalance, order should fail verifySignature
 	// wrong hash
@@ -178,7 +180,7 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 	copy(addr[:], crypto.Keccak256(pubKeyBytes[1:])[12:])
 	order.UserAddress = addr
 	// since userAddress has been updated, we should update balance for the user to pass verifyBalance
-	stateDb.SetBalance(addr, big.NewInt(105))
+	stateDb.SetBalance(addr, big.NewInt(0).Mul(big.NewInt(105), common.BasePrice))
 
 	// set valid hash
 	order.Hash = order.computeHash()
@@ -196,8 +198,13 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 		t.Error(err)
 	}
 
+	message := crypto.Keccak256(
+		[]byte("\x19Ethereum Signed Message:\n32"),
+		order.Hash.Bytes(),
+	)
+
 	// set valid signature
-	signatureBytes, _ = crypto.Sign(order.Hash.Bytes(), privKey)
+	signatureBytes, _ = crypto.Sign(message, privKey)
 	sig = &Signature{
 		R: common.BytesToHash(signatureBytes[0:32]),
 		S: common.BytesToHash(signatureBytes[32:64]),
@@ -227,8 +234,8 @@ func TestTxDataMatch_DecodeOrder(t *testing.T) {
 		Quantity:        big.NewInt(100),
 		Type:            Limit,
 		Side:            Bid,
-		UserAddress:     common.StringToAddress("aaa"),
-		ExchangeAddress: common.StringToAddress("bbb"),
+		UserAddress:     common.HexToAddress("aaa"),
+		ExchangeAddress: common.HexToAddress("bbb"),
 		Signature:       &Signature{},
 	}
 	b, err := EncodeBytesItem(orderItem)
