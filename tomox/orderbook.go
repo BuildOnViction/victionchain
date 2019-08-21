@@ -134,7 +134,7 @@ func (orderBook *OrderBook) Restore(dryrun bool) error {
 		log.Error("can't save asks changes to DB", "err", err)
 		return err
 	}
-	log.Debug("restored orderbook asks", "asks.Item", orderBook.Bids.Item)
+	log.Debug("restored orderbook asks", "asks.Item", orderBook.Asks.Item)
 
 	if err := orderBook.Bids.Restore(dryrun); err != nil {
 		log.Error("can't restore orderbook bids", "err", err)
