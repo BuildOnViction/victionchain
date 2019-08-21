@@ -186,6 +186,19 @@ func (tree *Tree) Remove(key []byte, dryrun bool) {
 			child = right
 		}
 		if child == nil {
+			parent := node.Parent(tree, dryrun)
+			if parent == nil {
+				log.Error("Parent can't be nil", "node.Key", hex.EncodeToString(node.Key))
+				return
+			}
+			if !tree.IsEmptyKey(parent.LeftKey()) && bytes.Equal(parent.LeftKey(), node.Key) {
+				parent.Item.Keys.Left = EmptyKey()
+			} else if !tree.IsEmptyKey(parent.RightKey()) && bytes.Equal(parent.RightKey(), node.Key) {
+				parent.Item.Keys.Right = EmptyKey()
+			} else {
+				log.Error("Parent doesn't have node as child", "node.Key", hex.EncodeToString(node.Key))
+				return
+			}
 			tree.deleteNode(node, dryrun)
 			log.Debug("Removed node with child = nil", "node", hex.EncodeToString(node.Key), "all keys", tree.KeysinString(true))
 		} else {
