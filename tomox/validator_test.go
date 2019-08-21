@@ -139,19 +139,8 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 	locRelayerState := new(big.Int).SetBytes(slotKec)
 	stateDb.SetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(2500)))
 
-	// then order should fail the next step: verifyBalance
-	// failed due to missing price
-	if err := order.VerifyMatchedOrder(stateDb); err != errInvalidPrice {
-		t.Error(err)
-	}
-
 	// set price
 	order.Price = big.NewInt(1)
-
-	// failed due to missing quantity
-	if err := order.VerifyMatchedOrder(stateDb); err != errInvalidQuantity {
-		t.Error(err)
-	}
 
 	// set quantity: // the amount which SDK send to masternodes is multiplied 10^18
 	order.Quantity = new(big.Int).SetUint64(0).Mul(new(big.Int).SetUint64(100), common.BasePrice)

@@ -49,9 +49,12 @@ func (o *OrderItem) VerifyMatchedOrder(state *state.StateDB) error {
 	if err := o.verifyRelayer(state); err != nil {
 		return err
 	}
-	if err := o.verifyBalance(state); err != nil {
-		return err
+	if o.Type == Limit {
+		if err := o.verifyBalance(state); err != nil {
+			return err
+		}
 	}
+
 	if err := o.verifySignature(); err != nil {
 		return err
 	}
