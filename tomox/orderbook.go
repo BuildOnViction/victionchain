@@ -22,8 +22,19 @@ const (
 
 	// we use a big number as segment for storing order, order list from order tree slot.
 	// as sequential id
-	SlotSegment = common.AddressLength
+	SlotSegment         = common.AddressLength
 	orderbookItemPrefix = "OB"
+
+	// trade struct field
+	TradedTakerOrderHash       = "takerOrderHash"
+	TradedMakerOrderHash       = "makerOrderHash"
+	TradedTimestamp            = "timestamp"
+	TradedQuantity             = "quantity"
+	TradedMakerExchangeAddress = "makerExAddr"
+	TradedMaker                = "uAddr"
+	TradedBaseToken            = "bToken"
+	TradedQuoteToken           = "qToken"
+	TradedPrice                = "tradedPrice"
 )
 
 var ErrDoesNotExist = errors.New("order doesn't exist in ordertree")
@@ -53,11 +64,11 @@ type OrderBookItemRecordBSON struct {
 
 // OrderBook : list of orders
 type OrderBook struct {
-	db   OrderDao   // this is for orderBook
-	Bids *OrderTree `json:"bids"`
-	Asks *OrderTree `json:"asks"`
-	Item *OrderBookItem
-	Timestamp     uint64 `json:"time"`
+	db        OrderDao   // this is for orderBook
+	Bids      *OrderTree `json:"bids"`
+	Asks      *OrderTree `json:"asks"`
+	Item      *OrderBookItem
+	Timestamp uint64 `json:"time"`
 
 	Key  []byte
 	Slot *big.Int
@@ -173,7 +184,7 @@ func (orderBook *OrderBook) GetOrder(storedKey, key []byte, dryrun bool) *Order 
 	}
 	orderItem := &OrderItem{}
 	val, err := orderBook.db.Get(storedKey, orderItem, dryrun)
-	if err != nil  || val == nil {
+	if err != nil || val == nil {
 		log.Error("Key not found", "key", storedKey, "err", err)
 		return nil
 	}
@@ -214,10 +225,10 @@ func (orderBook *OrderBook) WorstAsk(dryrun bool) (value *big.Int) {
 // processMarketOrder : process the market order
 func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, dryrun bool) ([]map[string]string, *OrderItem, error) {
 	var (
-		trades    []map[string]string
-		newTrades []map[string]string
+		trades      []map[string]string
+		newTrades   []map[string]string
 		orderInBook *OrderItem
-		err       error
+		err         error
 	)
 	quantityToTrade := order.Quantity
 	side := order.Side
@@ -357,7 +368,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 	log.Debug("Process matching between order and orderlist")
 	quantityToTrade := CloneBigInt(quantityStillToTrade)
 	var (
-		trades []map[string]string
+		trades      []map[string]string
 		orderInBook *OrderItem
 	)
 	// speedup the comparison, do not assign because it is pointer
@@ -374,7 +385,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 
 		var (
 			newBookQuantity *big.Int
-			tradedQuantity *big.Int
+			tradedQuantity  *big.Int
 		)
 
 		if IsStrictlySmallerThan(quantityToTrade, headOrder.Item.Quantity) {
@@ -423,14 +434,15 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		}
 
 		transactionRecord := make(map[string]string)
-		transactionRecord["takerOrderHash"] = hex.EncodeToString(order.Hash.Bytes())
-		transactionRecord["makerOrderHash"] = hex.EncodeToString(headOrder.Item.Hash.Bytes())
-		transactionRecord["timestamp"] = strconv.FormatUint(orderBook.Timestamp, 10)
-		transactionRecord["quantity"] = tradedQuantity.String()
-		transactionRecord["exAddr"] = headOrder.Item.ExchangeAddress.String()
-		transactionRecord["uAddr"] = headOrder.Item.UserAddress.String()
-		transactionRecord["bToken"] = headOrder.Item.BaseToken.String()
-		transactionRecord["qToken"] = headOrder.Item.QuoteToken.String()
+		transactionRecord[TradedTakerOrderHash] = hex.EncodeToString(order.Hash.Bytes())
+		transactionRecord[TradedMakerOrderHash] = hex.EncodeToString(headOrder.Item.Hash.Bytes())
+		transactionRecord[TradedTimestamp] = strconv.FormatUint(orderBook.Timestamp, 10)
+		transactionRecord[TradedQuantity] = tradedQuantity.String()
+		transactionRecord[TradedMakerExchangeAddress] = headOrder.Item.ExchangeAddress.String()
+		transactionRecord[TradedMaker] = headOrder.Item.UserAddress.String()
+		transactionRecord[TradedBaseToken] = headOrder.Item.BaseToken.String()
+		transactionRecord[TradedQuoteToken] = headOrder.Item.QuoteToken.String()
+		transactionRecord[TradedPrice] = headOrder.Item.Price.String()
 
 		trades = append(trades, transactionRecord)
 	}

@@ -70,7 +70,7 @@ type TxDataMatch struct {
 }
 
 type TxMatchBatch struct {
-	Data []TxDataMatch
+	Data      []TxDataMatch
 	Timestamp uint64
 }
 
@@ -1274,19 +1274,18 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 
 		// 2.a. put to trades
 		tradeSDK := &sdktypes.Trade{}
-		if q, ok := trade["quantity"]; ok {
-			tradeSDK.Amount = new(big.Int)
-			tradeSDK.Amount.SetString(q, 10)
-		}
-		tradeSDK.PricePoint = order.Price
+		quantity := ToBigInt(trade[TradedQuantity])
+		tradeSDK.Amount = quantity
+		price := ToBigInt(trade[TradedPrice])
+		tradeSDK.PricePoint = price
 		tradeSDK.PairName = order.PairName
 		tradeSDK.BaseToken = order.BaseToken
 		tradeSDK.QuoteToken = order.QuoteToken
 		tradeSDK.Status = sdktypes.TradeStatusSuccess
 		tradeSDK.Taker = order.UserAddress
-		tradeSDK.Maker = common.HexToAddress(trade["uAddr"])
+		tradeSDK.Maker = common.HexToAddress(trade[TradedMakerExchangeAddress])
 		tradeSDK.TakerOrderHash = order.Hash
-		tradeSDK.MakerOrderHash = common.HexToHash(trade["makerOrderHash"])
+		tradeSDK.MakerOrderHash = common.HexToHash(trade[TradedMakerOrderHash])
 		tradeSDK.TxHash = txHash
 		tradeSDK.Hash = tradeSDK.ComputeHash()
 		log.Debug("TRADE history", "order", order, "trade", tradeSDK)
@@ -1295,15 +1294,12 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		}
 
 		// 2.b. update status and filledAmount
-		filledAmount, ok := new(big.Int).SetString(trade["quantity"], 10)
-		if !ok {
-			return fmt.Errorf("failed to get tradedQuantity. QuantityString: %s", trade["quantity"])
-		}
+		filledAmount := quantity
 		// update order status of relating orders
-		if err := tomox.updateStatusOfMatchedOrder(trade["makerOrderHash"], filledAmount); err != nil {
+		if err := tomox.updateStatusOfMatchedOrder(trade[TradedMakerOrderHash], filledAmount); err != nil {
 			return err
 		}
-		if err := tomox.updateStatusOfMatchedOrder(trade["takerOrderHash"], filledAmount); err != nil {
+		if err := tomox.updateStatusOfMatchedOrder(trade[TradedTakerOrderHash], filledAmount); err != nil {
 			return err
 		}
 	}

@@ -300,14 +300,14 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 		takerExfee := GetExRelayerFee(orderItem.ExchangeAddress, statedb)
 		baseFee := common.TomoXBaseFee
 
-		price := orderItem.Price
 		for i := 0; i < len(txMatch.Trades); i++ {
-			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
-			quantityString := txMatch.Trades[i]["quantity"]
-			makerExAddr := common.HexToAddress(txMatch.Trades[i]["exAddr"])
+			price := tomox.ToBigInt(txMatch.Trades[i][tomox.TradedPrice])
+			quantityString := txMatch.Trades[i][tomox.TradedQuantity]
+			makerExAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradedMakerExchangeAddress])
 			makerExfee := GetExRelayerFee(makerExAddr, statedb)
 			makerExOwner := GetRelayerOwner(makerExAddr, statedb)
-			makerAddr := common.HexToAddress(txMatch.Trades[i]["uAddr"])
+			makerAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradedMaker])
+			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
 			if quantityString != "" && makerExAddr != (common.Address{}) && makerAddr != (common.Address{}) {
 				// take relayer fee
 				err := SubRelayerFee(takerExAddr, common.RelayerFee, statedb)
