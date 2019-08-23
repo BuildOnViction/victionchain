@@ -40,6 +40,7 @@ jobs:
     deploy:
       provider: releases
       api_key: $GITHUB_TOKEN
+      file_glob: true
       file: build/bin/tomo-*
       skip_cleanup: true
       on:
