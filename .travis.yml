@@ -36,12 +36,11 @@ jobs:
   - stage: Github release
     go: '1.10'
     script:
-      - make tomo
+      - make tomo-cross
     deploy:
       provider: releases
       api_key: $GITHUB_TOKEN
-      file:
-        - "build/bin/tomo"
+      file: build/bin/tomo-*
       skip_cleanup: true
       on:
         branch: master
