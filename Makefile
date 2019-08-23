@@ -41,7 +41,7 @@ clean:
 
 # Cross Compilation Targets (xgo)
 
-tomo-cross: tomo-linux tomo-darwin
+tomo-cross: tomo-windows-amd64 tomo-darwin-amd64 tomo-linux
 	@echo "Full cross compilation done:"
 	@ls -ld $(GOBIN)/tomo-*
 
@@ -93,6 +93,10 @@ tomo-darwin-amd64:
 	@echo "Darwin amd64 cross compilation done:"
 	@ls -ld $(GOBIN)/tomo-darwin-* | grep amd64
 
+tomo-windows-amd64:
+	build/env.sh go run build/ci.go xgo -- --go=$(GO) --targets=windows/amd64 -v ./cmd/tomo
+	@echo "Darwin amd64 cross compilation done:"
+	@ls -ld $(GOBIN)/tomo-windows-* | grep amd64
 gofmt:
 	$(GOFMT) -s -w $(GO_FILES)
 	$(GIT) checkout vendor
