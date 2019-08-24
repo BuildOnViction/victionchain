@@ -20,6 +20,7 @@ const (
 )
 
 func (tomox *TomoX) SettleBalance(
+	ipcEndpoint string,
 	maker, taker common.Address,
 	baseToken, quoteToken common.Address,
 	isTakerBuy bool,
@@ -35,7 +36,7 @@ func (tomox *TomoX) SettleBalance(
 	////				quoteQuantity = quantity
 	//// Fee by quoteToken
 	//
-	baseTokenDecimal, err := tomox.GetTokenDecimal(baseToken)
+	baseTokenDecimal, err := tomox.GetTokenDecimal(ipcEndpoint, baseToken)
 	if err != nil {
 		return nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", baseToken.String(), err)
 	}
@@ -112,14 +113,14 @@ func (tomox *TomoX) SettleBalance(
 	return result, nil
 }
 
-func (tomox *TomoX) GetTokenDecimal(tokenAddr common.Address) (*big.Int, error) {
+func (tomox *TomoX) GetTokenDecimal(ipcEndpoint string,tokenAddr common.Address) (*big.Int, error) {
 	tokenDecimal, ok := tomox.tokenDecimalCache.Get(tokenAddr)
 	if  !ok {
 		if tokenAddr.String() == common.TomoNativeAddress {
 			tomox.tokenDecimalCache.Add(tokenAddr, common.BasePrice)
 		}
 
-		client, err := ethclient.Dial("http://127.0.0.1:8501/")
+		client, err := ethclient.Dial(ipcEndpoint)
 		if err != nil {
 			return nil, err
 		}
