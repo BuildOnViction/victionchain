@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+	"os"
 	"testing"
 )
 
@@ -32,11 +33,24 @@ var (
 	userBReceived = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
 	userBSend     = big.NewInt(0).Mul(big.NewInt(9009), common.BasePrice)
 	expectedFee   = big.NewInt(0).Mul(big.NewInt(9), common.BasePrice)
+	endpoint = "http://127.0.0.1"
+
 )
 
 // A is taker
 func TestSettleBalance_TakerSell(t *testing.T) {
-	result := SettleBalance(
+	testDir := "TestSettleBalance_TakerSell"
+	tomoX := New(&Config{
+		DBEngine: "leveldb",
+		DataDir: testDir,
+	})
+	defer os.RemoveAll(testDir)
+
+	tomoX.tokenDecimalCache.Add(baseToken, common.BasePrice)
+	tomoX.tokenDecimalCache.Add(quoteToken, common.BasePrice)
+
+	result, err := tomoX.SettleBalance(
+		endpoint,
 		userB,
 		userA,
 		baseToken,
@@ -47,7 +61,9 @@ func TestSettleBalance_TakerSell(t *testing.T) {
 		common.TomoXBaseFee,
 		quantity,
 		price)
-
+	if err != nil {
+		t.Error(err)
+	}
 	// taker
 	takerInToken := result[userA][InToken].(common.Address)
 	takerInTotal := result[userA][InTotal].(*big.Int)
@@ -105,7 +121,18 @@ func TestSettleBalance_TakerSell(t *testing.T) {
 
 // A is maker
 func TestSettleBalance_TakerBuy(t *testing.T) {
-	result := SettleBalance(
+	testDir := "TestSettleBalance_TakerBuy"
+	tomoX := New(&Config{
+		DBEngine: "leveldb",
+		DataDir: testDir,
+	})
+	defer os.RemoveAll(testDir)
+
+	tomoX.tokenDecimalCache.Add(baseToken, common.BasePrice)
+	tomoX.tokenDecimalCache.Add(quoteToken, common.BasePrice)
+
+	result, err := tomoX.SettleBalance(
+		endpoint,
 		userB,
 		userA,
 		baseToken,
@@ -116,6 +143,10 @@ func TestSettleBalance_TakerBuy(t *testing.T) {
 		common.TomoXBaseFee,
 		quantity,
 		price)
+
+	if err != nil {
+		t.Error(err)
+	}
 
 	// taker
 	takerInToken := result[userB][InToken].(common.Address)
