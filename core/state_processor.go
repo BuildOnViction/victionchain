@@ -327,8 +327,8 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 
 				isTakerBuy := orderItem.Side == tomox.Bid
 				engine := bc.Engine().(*posv.Posv)
-				tomoService := engine.GetTomoXService()
-				settleBalanceResult, err := tomoService.SettleBalance(
+				tomoXService := engine.GetTomoXService()
+				settleBalanceResult, err := tomoXService.SettleBalance(
 					bc.IPCEndpoint,
 					makerAddr,
 					takerAddr,

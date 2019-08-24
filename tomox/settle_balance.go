@@ -114,24 +114,25 @@ func (tomox *TomoX) SettleBalance(
 }
 
 func (tomox *TomoX) GetTokenDecimal(ipcEndpoint string,tokenAddr common.Address) (*big.Int, error) {
-	tokenDecimal, ok := tomox.tokenDecimalCache.Get(tokenAddr)
-	if  !ok {
-		if tokenAddr.String() == common.TomoNativeAddress {
-			tomox.tokenDecimalCache.Add(tokenAddr, common.BasePrice)
-		}
-
-		client, err := ethclient.Dial(ipcEndpoint)
-		if err != nil {
-			return nil, err
-		}
-		opts := new(bind.CallOpts)
-		trc21Contract, err := trc21.NewMyTRC21(tokenAddr, client)
-		decimal, err := trc21Contract.Decimals(opts)
-		if err != nil {
-			return nil, err
-		}
-		tokenDecimal = new(big.Int).SetUint64(0).Exp(big.NewInt(10), big.NewInt(int64(decimal)), nil)
-		tomox.tokenDecimalCache.Add(tokenAddr, tokenDecimal)
+	if tokenDecimal, ok := tomox.tokenDecimalCache.Get(tokenAddr); ok {
+		return tokenDecimal.(*big.Int), nil
 	}
-	return tokenDecimal.(*big.Int), nil
+	if tokenAddr.String() == common.TomoNativeAddress {
+		tomox.tokenDecimalCache.Add(tokenAddr, common.BasePrice)
+		return common.BasePrice, nil
+	}
+
+	client, err := ethclient.Dial(ipcEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	opts := new(bind.CallOpts)
+	trc21Contract, err := trc21.NewMyTRC21(tokenAddr, client)
+	decimal, err := trc21Contract.Decimals(opts)
+	if err != nil {
+		return nil, err
+	}
+	tokenDecimal := new(big.Int).SetUint64(0).Exp(big.NewInt(10), big.NewInt(int64(decimal)), nil)
+	tomox.tokenDecimalCache.Add(tokenAddr, tokenDecimal)
+	return tokenDecimal, nil
 }
