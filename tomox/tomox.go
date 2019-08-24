@@ -123,6 +123,8 @@ type TomoX struct {
 	settings syncmap.Map // holds configuration settings that can be dynamically changed
 
 	activePairs map[string]bool // hold active pairs
+
+	tokenDecimalCache *lru.Cache
 }
 
 func NewLDBEngine(cfg *Config) *BatchDatabase {
@@ -143,6 +145,7 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 
 func New(cfg *Config) *TomoX {
 	poCache, _ := lru.New(orderProcessedLimit)
+	tokenDecimalCache, _ := lru.New(defaultCacheLimit)
 	tomoX := &TomoX{
 		Orderbooks:          make(map[string]*OrderBook),
 		orderNonce:          make(map[common.Address]*big.Int),
@@ -155,6 +158,7 @@ func New(cfg *Config) *TomoX {
 		p2pMsgQueue:         make(chan *Envelope, messageQueueLimit),
 		activePairs:         make(map[string]bool),
 		processedOrderCache: poCache,
+		tokenDecimalCache: tokenDecimalCache,
 	}
 	switch cfg.DBEngine {
 	case "leveldb":

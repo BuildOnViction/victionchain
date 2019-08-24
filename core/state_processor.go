@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
+	"github.com/ethereum/go-ethereum/consensus/posv"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -185,7 +186,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
 	if tx.IsMatchingTransaction() && config.IsTIPTomoX(header.Number) {
-		return ApplyTomoXMatchedTransaction(config, statedb, header, tx, usedGas)
+		return ApplyTomoXMatchedTransaction(config, bc, statedb, header, tx, usedGas)
 	}
 	var balanceFee *big.Int
 	if tx.To() != nil {
@@ -269,7 +270,7 @@ func ApplySignTransaction(config *params.ChainConfig, statedb *state.StateDB, he
 	return receipt, 0, nil, false
 }
 
-func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
+func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
 	// Update the state with pending changes
 	from, err := types.Sender(types.MakeSigner(config, header.Number), tx)
 	if err != nil {
@@ -325,7 +326,9 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				//log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
 
 				isTakerBuy := orderItem.Side == tomox.Bid
-				settleBalanceResult := tomox.SettleBalance(
+				engine := bc.Engine().(*posv.Posv)
+				tomoService := engine.GetTomoXService()
+				settleBalanceResult, err := tomoService.SettleBalance(
 					makerAddr,
 					takerAddr,
 					baseToken,
@@ -336,7 +339,9 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 					baseFee,
 					quantity,
 					price)
-
+				if err != nil {
+					return nil, 0, err, false
+				}
 				// TAKER
 				//log.Debug("ApplyTomoXMatchedTransaction settle balance for taker",
 				//	"taker", takerAddr,
