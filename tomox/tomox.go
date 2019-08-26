@@ -73,6 +73,7 @@ type TxDataMatch struct {
 type TxMatchBatch struct {
 	Data      []TxDataMatch
 	Timestamp uint64
+	TxHash common.Hash
 }
 
 // DefaultConfig represents (shocker!) the default configuration.

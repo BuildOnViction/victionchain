@@ -90,34 +90,17 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	if tomoXService != nil {
 		tomoXService.GetDB().InitDryRunMode()
 	}
-	txs := []*types.Transaction{}
-
-	txMatchBatchData := map[common.Hash]tomox.TxMatchBatch{}
-	for _, tx := range block.Transactions() {
-		if tx.IsMatchingTransaction() {
-			txs = append(txs, tx)
-			txMatchBatch, err := tomox.DecodeTxMatchesBatch(tx.Data())
-			if err != nil {
-				return fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err.Error())
-			}
-			txMatchBatchData[tx.Hash()] = txMatchBatch
-		}
+	txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+	if err != nil {
+		return err
 	}
-	sort.Slice(txs, func(i, j int) bool {
-		return txMatchBatchData[txs[i].Hash()].Timestamp <= txMatchBatchData[txs[j].Hash()].Timestamp
-	})
-
-	for _, tx := range txs {
+	for _, txMatchBatch := range txMatchBatchData {
 		if tomoXService == nil {
 			log.Error("tomox not found")
 			return tomox.ErrTomoXServiceNotFound
 		}
-		txMatchBatch, ok := txMatchBatchData[tx.Hash()]
-		if !ok {
-			return fmt.Errorf("no txMatchBatch data . TxHash: %v . TxData: %v", tx.Hash(), tx.Data())
-		}
-		log.Debug("verify matching transaction")
-		hashes, err := v.validateMatchingOrder(tomoXService, currentState, tx, txMatchBatch)
+		log.Debug("verify matching transaction", "txHash", txMatchBatch.TxHash)
+		hashes, err := v.validateMatchingOrder(tomoXService, currentState, txMatchBatch)
 		if err != nil {
 			return err
 		}
@@ -125,7 +108,7 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	}
 	hashNoValidator := block.HashNoValidator()
 	if _, ok := v.bc.processedOrderHashes.Get(hashNoValidator); !ok && len(processedHashes) > 0 {
-		v.bc.processedOrderHashes.Add(block.HashNoValidator(), processedHashes)
+		v.bc.processedOrderHashes.Add(hashNoValidator, processedHashes)
 	}
 	return nil
 }
@@ -158,7 +141,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, tx *types.Transaction, txMatchBatch tomox.TxMatchBatch) ([]common.Hash, error) {
+func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, txMatchBatch tomox.TxMatchBatch) ([]common.Hash, error) {
 	processedHashes := []common.Hash{}
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
 
@@ -242,3 +225,20 @@ func CalcGasLimit(parent *types.Block) uint64 {
 	return limit
 }
 
+func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox.TxMatchBatch, error) {
+	txMatchBatchData := []tomox.TxMatchBatch{}
+	for _, tx := range transactions {
+		if tx.IsMatchingTransaction() {
+			txMatchBatch, err := tomox.DecodeTxMatchesBatch(tx.Data())
+			if err != nil {
+				return []tomox.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err.Error())
+			}
+			txMatchBatch.TxHash = tx.Hash()
+			txMatchBatchData = append(txMatchBatchData, txMatchBatch)
+		}
+	}
+	sort.Slice(txMatchBatchData, func(i, j int) bool {
+		return txMatchBatchData[i].Timestamp < txMatchBatchData[j].Timestamp
+	})
+	return txMatchBatchData, nil
+}

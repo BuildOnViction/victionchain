@@ -1197,6 +1197,33 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
 		}
+
+		if tomoXService != nil {
+			if matchedData, ok := bc.processedOrderHashes.Get(block.HashNoValidator()); ok && matchedData != nil {
+				matchedOrderHashes := matchedData.([]common.Hash)
+				log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "processedOrderHashes", matchedOrderHashes)
+				if err = tomoXService.ApplyTxMatches(matchedOrderHashes); err != nil {
+					return i, events, coalescedLogs, err
+				}
+				bc.processedOrderHashes.Remove(block.HashNoValidator())
+				if tomoXService.IsSDKNode() {
+					currentState, err := bc.State()
+					if err != nil {
+						return i, events, coalescedLogs, err
+					}
+					if err := logDataToSdkNode(tomoXService, block.Transactions(), currentState); err != nil {
+						return i, events, coalescedLogs, err
+					}
+				}
+			}
+
+			if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 && !tomoXService.IsSDKNode() {
+				if err := tomoXService.Snapshot(block.Hash()); err != nil {
+					log.Error("Failed to snapshot tomox", "err", err)
+				}
+			}
+		}
+
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
@@ -1945,29 +1972,14 @@ func (bc *BlockChain) UpdateM1() error {
 }
 
 func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions, statedb *state.StateDB) error {
-	txs := []*types.Transaction{}
-	txMatchBatchData := map[common.Hash]tomox.TxMatchBatch{}
-	for _, tx := range transactions {
-		if tx.IsMatchingTransaction() {
-			txs = append(txs, tx)
-			txMatchBatch, err := tomox.DecodeTxMatchesBatch(tx.Data())
-			if err != nil {
-				return fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err.Error())
-			}
-			txMatchBatchData[tx.Hash()] = txMatchBatch
-		}
+	txMatchBatchData, err := ExtractMatchingTransactions(transactions)
+	if err != nil {
+		return err
 	}
-	sort.Slice(txs, func(i, j int) bool {
-		return txMatchBatchData[txs[i].Hash()].Timestamp <= txMatchBatchData[txs[j].Hash()].Timestamp
-	})
 
-	for _, tx := range txs {
-		txMatchBatch, ok := txMatchBatchData[tx.Hash()]
-		if !ok {
-			return fmt.Errorf("no txMatchBatch data . TxHash: %v . TxData: %v", tx.Hash(), tx.Data())
-		}
+	for _, txMatchBatch := range txMatchBatchData {
 		for _, txMatch := range txMatchBatch.Data {
-			if err := tomoXService.SyncDataToSDKNode(txMatch, tx.Hash(), statedb); err != nil {
+			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, statedb); err != nil {
 				return err
 			}
 		}
