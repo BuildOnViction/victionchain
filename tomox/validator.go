@@ -132,7 +132,7 @@ func (o *OrderItem) verifySignature() error {
 		return errWrongHash
 	}
 	message := crypto.Keccak256(
-		[]byte("\x19Ethereum Signed Message:\n32"),
+		[]byte("\x19Ethereum Signed Message:\n32"), 	// FIXME: Signature signed by EtherJS library, update this one if order is signed by other standards
 		hash.Bytes(),
 	)
 
