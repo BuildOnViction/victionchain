@@ -476,26 +476,11 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 		return err
 	}
 
-	if order.Status == Cancel {
-		err := tomox.CancelOrder(order, false, common.Hash{})
-		switch err {
-		case ErrDoesNotExist:
-			log.Error("Can't cancel order", "err", err)
-			return nil
-		case nil:
-			log.Debug("Cancelled order", "order", order)
-			return nil
-		default:
-			log.Error("Can't cancel order", "order", order, "err", err)
-			return nil
-		}
-	} else {
-		if err := tomox.InsertOrder(order); err != nil {
-			log.Error("Can't insert order", "order", order, "err", err)
-			return nil
-		}
-		log.Debug("Inserted order", "order", order)
+	if err := tomox.InsertOrder(order); err != nil {
+		log.Error("Can't insert order", "order", order, "err", err)
+		return err
 	}
+	log.Debug("Inserted order to pending", "order", order)
 	return nil
 }
 
@@ -1231,7 +1216,15 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		log.Error("SDK node decode order failed", "txDataMatch", txDataMatch)
 		return fmt.Errorf("SDK node decode order failed")
 	}
+
+	if order.Status == OrderStatusCancelled {
+		if err := tomox.db.CancelOrder(order.Hash); err != nil {
+			return err
+		}
+		return nil
+	}
 	order.Status = OrderStatusOpen
+
 	log.Debug("Put processed order", "order", order)
 	if err := db.Put(order.Hash.Bytes(), order, false, common.Hash{}); err != nil {
 		return fmt.Errorf("SDKNode: failed to put processed order. Error: %s", err.Error())
