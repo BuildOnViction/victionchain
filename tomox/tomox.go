@@ -1275,8 +1275,11 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		// 2.a. put to trades
 		tradeSDK := &sdktypes.Trade{}
 		quantity := ToBigInt(trade[TradedQuantity])
-		tradeSDK.Amount = quantity
 		price := ToBigInt(trade[TradedPrice])
+		if price.Cmp(big.NewInt(0)) <= 0 || quantity.Cmp(big.NewInt(0)) <= 0 {
+			return fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity)
+		}
+		tradeSDK.Amount = quantity
 		tradeSDK.PricePoint = price
 		tradeSDK.PairName = order.PairName
 		tradeSDK.BaseToken = order.BaseToken
