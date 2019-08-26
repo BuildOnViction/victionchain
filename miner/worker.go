@@ -380,6 +380,7 @@ func (self *worker) wait() {
 					}
 				}
 			}
+			self.chain.UpdateBlocksHashCache(block)
 			self.chain.PostChainEvents(events, logs)
 
 			// Insert the block into the set of pending ones to wait for confirmations

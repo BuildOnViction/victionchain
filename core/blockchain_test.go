@@ -1179,7 +1179,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 // tests that under weird reorg conditions the blockchain and its internal header-
 // chain return the same latest block/header.
 //
-// https://github.com/ethereum/go-ethereum/pull/15941
+// https://github.com/ethereum/go-ethereum/pull/15941how Source Control
 func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
 	engine := ethash.NewFaker()
@@ -1320,4 +1320,94 @@ func TestLargeReorgTrieGC(t *testing.T) {
 			t.Fatalf("competitor %d: competing chain state missing", i)
 		}
 	}
+}
+
+/*
+	Collection test for BlochsHashCache
+	cases
+		1. When init new chain
+		2. when insertChain
+		3. when insertFork
+		4. When adding new block by mining
+		5. When adding new block by syncing with other nodes
+
+*/
+
+func TestBlocksHashCacheUpdate(t *testing.T) {
+	_, chain, err := newCanonical(ethash.NewFaker(), 0, true)
+	if err != nil {
+		t.Fatalf("failed to make new canonical chain: %v", err)
+	}
+	defer chain.Stop()
+	if err != nil {
+		t.Fatalf("failed to create tester chain: %v", err)
+	}
+
+	t.Run("Expect BlocksHashCache blank after initialized", func(t *testing.T) {
+		if len(chain.blocksHashCache.Keys()) != 0 {
+			t.Error("BlocksHashCache is not initialized correctly ")
+		}
+	})
+
+	t.Run("Expect BlocksHashCache has 4 cached keys after concat a 4-length-chain", func(t *testing.T) {
+		concatedChain := makeBlockChain(chain.CurrentBlock(), 4, ethash.NewFullFaker(), chain.db, 0)
+		if _, err := chain.InsertChain(concatedChain); err != nil {
+			t.Fatalf("failed to insert shared chain: %v", err)
+		}
+
+		if len(chain.blocksHashCache.Keys()) != 4 {
+			t.Error("BlocksHashCache doesn't add new cache after concating new chain ")
+		}
+	})
+
+	t.Run("Expect BlocksHashCache caches work for fork case", func(t *testing.T) {
+		concatedChain := makeBlockChain(chain.GetBlockByNumber(uint64(2)), 3, ethash.NewFullFaker(), chain.db, 3)
+		if _, err := chain.InsertChain(concatedChain); err != nil {
+			t.Fatalf("failed to insert forked chain: %v", err)
+		}
+		cachedAt, _ := chain.blocksHashCache.Get(uint64(3))
+
+		if len(cachedAt.([]common.Hash)) != 2 {
+			t.Error("BlocksHashCache doesn't add new cache after concating new fork ")
+		}
+	})
+
+	t.Run("Expect BlocksHashCache caches when inserting block on syncing", func(t *testing.T) {
+		currentCachedLength := len(chain.blocksHashCache.Keys())
+		singleBlockChain := makeBlockChain(chain.CurrentBlock(), 1, ethash.NewFaker(), chain.db, 0)
+		chain.insertBlock(singleBlockChain[0])
+
+		if len(chain.blocksHashCache.Keys()) != currentCachedLength+1 {
+			t.Error("BlocksHashCache doesn't work when inserting block solely")
+		}
+	})
+
+}
+
+func TestAreTwoBlocksSamePath(t *testing.T) {
+	_, chain, err := newCanonical(ethash.NewFaker(), 10, true)
+	if err != nil {
+		t.Fatalf("failed to make new canonical chain: %v", err)
+	}
+	defer chain.Stop()
+	if err != nil {
+		t.Fatalf("failed to create tester chain: %v", err)
+	}
+
+	t.Run("Expect return true with two canonical blocks", func(t *testing.T) {
+		if !chain.AreTwoBlockSamePath(chain.CurrentBlock().Hash(), chain.GetBlockByNumber(uint64(2)).Hash()) {
+			t.Error("Failed")
+		}
+	})
+
+	t.Run("Expect return fail with canonical-fork paths", func(t *testing.T) {
+		concatedChain := makeBlockChain(chain.GetBlockByNumber(uint64(2)), 3, ethash.NewFullFaker(), chain.db, 3)
+		if _, err := chain.InsertChain(concatedChain); err != nil {
+			t.Fatalf("failed to insert forked chain: %v", err)
+		}
+		if chain.AreTwoBlockSamePath(concatedChain[len(concatedChain)-1].Hash(), chain.GetBlockByNumber(uint64(3)).Hash()) {
+			t.Error("Failed")
+		}
+	})
+
 }

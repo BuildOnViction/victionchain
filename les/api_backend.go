@@ -226,3 +226,11 @@ func (s *LesApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{}
 	}
 	return make(map[string]interface{})
 }
+
+func (b *LesApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
+	return []common.Hash{}
+}
+
+func (b *LesApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bool {
+	return true
+}
