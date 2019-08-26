@@ -300,15 +300,19 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 		takerExfee := GetExRelayerFee(orderItem.ExchangeAddress, statedb)
 		baseFee := common.TomoXBaseFee
 
-		price := orderItem.Price
 		for i := 0; i < len(txMatch.Trades); i++ {
-			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
-			quantityString := txMatch.Trades[i]["quantity"]
-			makerExAddr := common.HexToAddress(txMatch.Trades[i]["exAddr"])
+			price := tomox.ToBigInt(txMatch.Trades[i][tomox.TradedPrice])
+			quantityString := txMatch.Trades[i][tomox.TradedQuantity]
+			quantity := tomox.ToBigInt(quantityString)
+			if price.Cmp(big.NewInt(0)) <= 0 || quantity.Cmp(big.NewInt(0)) <= 0 {
+				return nil, 0, fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity), false
+			}
+			makerExAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradedMakerExchangeAddress])
 			makerExfee := GetExRelayerFee(makerExAddr, statedb)
 			makerExOwner := GetRelayerOwner(makerExAddr, statedb)
-			makerAddr := common.HexToAddress(txMatch.Trades[i]["uAddr"])
-			if quantityString != "" && makerExAddr != (common.Address{}) && makerAddr != (common.Address{}) {
+			makerAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradedMaker])
+			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
+			if makerExAddr != (common.Address{}) && makerAddr != (common.Address{}) {
 				// take relayer fee
 				err := SubRelayerFee(takerExAddr, common.RelayerFee, statedb)
 				if err != nil {
@@ -323,7 +327,6 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
 
-				quantity := tomox.ToBigInt(quantityString)
 				log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
 
 				isTakerBuy := orderItem.Side == tomox.Bid
