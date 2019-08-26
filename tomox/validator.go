@@ -181,10 +181,8 @@ func (o *OrderItem) encodedSide() *big.Int {
 }
 
 func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
-	slotHash := common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"]))
-	retByte := crypto.Keccak256(address.Bytes(), slotHash.Bytes())
-	locRelayerState := new(big.Int)
-	locRelayerState.SetBytes(retByte)
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	locRelayerState := getLocMappingAtKey(address.Hash(), slot)
 
 	ret := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState))
 	if ret.Big().Cmp(new(big.Int).SetUint64(uint64(0))) > 0 {
@@ -194,10 +192,8 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 }
 
 func GetTokenBalance(statedb *state.StateDB, address common.Address, contractAddr common.Address) *big.Int {
-	slotHash := common.BigToHash(new(big.Int).SetUint64(TokenMappingSlot["balances"]))
-	retByte := crypto.Keccak256(address.Bytes(), slotHash.Bytes())
-	locBalance := new(big.Int)
-	locBalance.SetBytes(retByte)
+	slot := TokenMappingSlot["balances"]
+	locBalance := getLocMappingAtKey(address.Hash(), slot)
 
 	ret := statedb.GetState(contractAddr, common.BigToHash(locBalance))
 	return ret.Big()

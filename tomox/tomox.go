@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/state"
 	sdktypes "github.com/tomochain/tomox-sdk/types"
 	"math/big"
 	"runtime"
@@ -1245,7 +1246,7 @@ func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash) error {
 // 		a. Put them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
 // 3. txMatchData.OrderInBook: remaining order after matching. If order has been matched but still remain in orderbook, update status to sdktypes.OrderStatusPartialFilled
-func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Hash) error {
+func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Hash, statedb *state.StateDB) error {
 	// apply for SDK nodes only
 	if !tomox.IsSDKNode() {
 		return nil
@@ -1290,6 +1291,18 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		tradeSDK.TakerOrderHash = order.Hash
 		tradeSDK.MakerOrderHash = common.HexToHash(trade[TradedMakerOrderHash])
 		tradeSDK.TxHash = txHash
+
+		// feeAmount: all fees are calculated in quoteToken
+		quoteTokenQuantity := big.NewInt(0).Mul(quantity, price)
+		quoteTokenQuantity = big.NewInt(0).Div(quoteTokenQuantity, common.BasePrice)
+		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, GetExRelayerFee(order.ExchangeAddress, statedb))
+		takerFee = big.NewInt(0).Div(takerFee, common.TomoXBaseFee)
+		tradeSDK.TakeFee = takerFee
+
+		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, GetExRelayerFee(common.HexToAddress(trade[TradedMakerExchangeAddress]), statedb))
+		makerFee = big.NewInt(0).Div(makerFee, common.TomoXBaseFee)
+		tradeSDK.MakeFee = makerFee
+
 		tradeSDK.Hash = tradeSDK.ComputeHash()
 		log.Debug("TRADE history", "order", order, "trade", tradeSDK)
 		if err := db.Put(EmptyKey(), tradeSDK, false); err != nil {
