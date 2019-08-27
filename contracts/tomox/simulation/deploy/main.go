@@ -66,7 +66,7 @@ func main() {
 	fmt.Println("wait 10s to execute init smart contract : relayer registration ")
 	time.Sleep(10 * time.Second)
 
-	currentNonce := nonce + 2
+	currentNonce := nonce + 3
 	tokenList := initTRC21(auth, client, currentNonce, simulation.TokenNameList)
 
 	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
@@ -74,7 +74,6 @@ func main() {
 
 	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
 	applyTomoXListing(tomoxListing, tokenList, currentNonce)
-
 
 	// relayer registration
 	ownerRelayer := bind.NewKeyedTransactor(simulation.OwnerRelayerKey)
@@ -102,8 +101,6 @@ func main() {
 	fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
 	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
 
-
-
 	_, err = relayerRegistration.Register(simulation.RelayerCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
 	if err != nil {
 		log.Fatal("relayerRegistration Register", err)
@@ -115,44 +112,45 @@ func main() {
 func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, tokenNameList []string) []map[string]interface{} {
 	tokenListResult := []map[string]interface{}{}
 	for _, tokenName := range tokenNameList {
-		nonce = nonce + 1
 		auth.Nonce = big.NewInt(int64(nonce))
 		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, 18, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
 		if err != nil {
-		log.Fatal("DeployTRC21 ", tokenName, err)
+			log.Fatal("DeployTRC21 ", tokenName, err)
 		}
 
-		fmt.Println(tokenName + " token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
+		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
 		fmt.Println("wait 10s to execute init smart contract", tokenName)
 		time.Sleep(10 * time.Second)
 
 		tokenListResult = append(tokenListResult, map[string]interface{}{
-			"name": tokenName,
-			"address" : tokenAddr,
+			"name":    tokenName,
+			"address": tokenAddr,
 		})
+		nonce = nonce + 1
 	}
 	return tokenListResult
 }
 
-func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interface{}, nonce uint64)  {
+func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interface{}, nonce uint64) {
 	for _, token := range tokenList {
-		nonce = nonce + 1
+		trc21Issuer.TransactOpts.Nonce = big.NewInt(int64(nonce))
+		trc21Issuer.TransactOpts.Value = simulation.MinTRC21Apply
 		_, err := trc21Issuer.Apply(token["address"].(common.Address))
 		if err != nil {
 			log.Fatal("trc21Issuer Apply  ", token["name"].(string), err)
 		}
-		trc21Issuer.TransactOpts.Nonce = big.NewInt(int64(nonce))
-		trc21Issuer.TransactOpts.Value = simulation.MinTRC21Apply
+		nonce = nonce + 1
+
 	}
 }
 
 func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]interface{}, nonce uint64) {
 	for _, token := range tokenList {
-		nonce = nonce + 1
 		tomoxListing.TransactOpts.Nonce = big.NewInt(int64(nonce))
 		_, err := tomoxListing.Apply(token["address"].(common.Address))
 		if err != nil {
 			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
 		}
-		}
+		nonce = nonce + 1
+	}
 }
