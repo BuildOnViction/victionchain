@@ -75,15 +75,12 @@ func (db *MongoDatabase) Has(key []byte, dryrun bool) (bool, error) {
 	cacheKey := db.getCacheKey(key)
 
 	if dryrun {
-		if val, ok := db.dryRunCache.Get(cacheKey); ok {
-			if val == nil {
-				return false, nil
-			}
+		// TODO: SDK never run with dryrun = true, it's safe to return (false, nil) immediately
+		if db.dryRunCache.Contains(cacheKey) {
 			return true, nil
 		}
-	}
-
-	if db.cacheItems.Contains(cacheKey) {
+	} else if db.cacheItems.Contains(cacheKey) {
+		// for dry-run mode, do not read cacheItems
 		return true, nil
 	}
 
@@ -126,6 +123,7 @@ func (db *MongoDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 	cacheKey := db.getCacheKey(key)
 
 	if dryrun {
+		// TODO: SDK never run with dryrun = true, it's safe to return (nil, nil) immediately
 		if value, ok := db.dryRunCache.Get(cacheKey); ok {
 			log.Debug("Debug get from dry-run cache", "cacheKey", cacheKey, "val", value)
 			return value, nil
@@ -158,7 +156,9 @@ func (db *MongoDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 			if err != nil {
 				return nil, err
 			}
-			db.cacheItems.Add(cacheKey, val)
+			if !dryrun {
+				db.cacheItems.Add(cacheKey, val)
+			}
 			return val, nil
 		}
 	}
@@ -166,7 +166,9 @@ func (db *MongoDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 
 func (db *MongoDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 	cacheKey := db.getCacheKey(key)
+
 	if dryrun {
+		// TODO: SDK never run with dryrun = true, it's safe to return nil immediately
 		log.Debug("Debug put to dry-run cache", "cacheKey", cacheKey, "val", val)
 		db.dryRunCache.Add(cacheKey, val)
 		return nil
@@ -204,6 +206,7 @@ func (db *MongoDatabase) Delete(key []byte, dryrun bool) error {
 
 	//mark it to nil in dryrun cache
 	if dryrun {
+		// TODO: SDK never run with dryrun = true, it's safe to return nil immediately
 		log.Debug("Debug DB delete from dry-run cache", "cacheKey", cacheKey)
 		db.dryRunCache.Add(cacheKey, nil)
 		return nil
