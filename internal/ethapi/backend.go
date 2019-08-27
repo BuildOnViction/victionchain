@@ -74,6 +74,10 @@ type Backend interface {
 	GetIPCClient() (*ethclient.Client, error)
 	GetEngine() consensus.Engine
 	GetRewardByHash(hash common.Hash) map[string]interface{}
+
+	GetVotersRewards(common.Address) map[common.Address]*big.Int
+	GetVotersCap(checkpoint *big.Int, masterAddr common.Address, voters []common.Address) map[common.Address]*big.Int
+	GetEpochDuration() *big.Int
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

@@ -5239,6 +5239,10 @@ var blockSignersCall = function (args) {
   return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "eth_getBlockSignersByHash" : "eth_getBlockSignersByNumber";
 };
 
+var votersRoiCall = function (args) {
+  return "eth_getAverageMasternodeROI";
+};
+
 var blockFinalityCall = function (args) {
   return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "eth_getBlockFinalityByHash" : "eth_getBlockFinalityByNumber";
 };
@@ -5336,6 +5340,14 @@ var methods = function () {
       params: 1,
       inputFormatter: [formatters.inputBlockNumberFormatter],
       outputFormatter: formatters.outputBlockSignersFormatter
+    });
+
+    var getVotersROI = new Method({
+        name: 'getVotersROI',
+        call: votersRoiCall,
+        params: 1,
+        inputFormatter: [formatters.inputBlockNumberFormatter],
+        outputFormatter: formatters.outputBlockSignersFormatter
     });
 
     var getBlockFinality = new Method({
@@ -5492,6 +5504,7 @@ var methods = function () {
         getCode,
         getBlock,
         getBlockSigners,
+        getVotersROI,
         getBlockFinality,
         getCandidateStatus,
         getUncle,

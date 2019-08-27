@@ -561,6 +561,7 @@ func (s *PublicBlockChainAPI) GetUncleByBlockNumberAndIndex(ctx context.Context,
 
 // GetUncleByBlockHashAndIndex returns the uncle block for the given block hash and index. When fullTx is true
 // all transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
+// DEPRECATED SINCE 1.0
 func (s *PublicBlockChainAPI) GetUncleByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint) (map[string]interface{}, error) {
 	block, err := s.b.GetBlock(ctx, blockHash)
 	if block != nil {
@@ -576,6 +577,7 @@ func (s *PublicBlockChainAPI) GetUncleByBlockHashAndIndex(ctx context.Context, b
 }
 
 // GetUncleCountByBlockNumber returns number of uncles in the block for the given block number
+// DEPRECATED SINCE 1.0
 func (s *PublicBlockChainAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) *hexutil.Uint {
 	if block, _ := s.b.BlockByNumber(ctx, blockNr); block != nil {
 		n := hexutil.Uint(len(block.Uncles()))
@@ -585,6 +587,7 @@ func (s *PublicBlockChainAPI) GetUncleCountByBlockNumber(ctx context.Context, bl
 }
 
 // GetUncleCountByBlockHash returns number of uncles in the block for the given block hash
+// DEPRECATED SINCE 1.0
 func (s *PublicBlockChainAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash common.Hash) *hexutil.Uint {
 	if block, _ := s.b.GetBlock(ctx, blockHash); block != nil {
 		n := hexutil.Uint(len(block.Uncles()))
@@ -1789,4 +1792,34 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 		}
 	}
 	return addrs, nil
+}
+
+// GetAverageMasternodeROI Estimate ROI for stakers using the last epoc reward
+// then multiple by epoch per year, if the address is not masternode of last epoch - return 0
+// Formular: ROI = latest_epoch_reward_for_voters/latest_total_cap*100*number_of_epoch_per_year
+func (s *PublicBlockChainAPI) GetAverageMasternodeROI(masternode common.Address) float64 {
+	votersReward := s.b.GetVotersRewards(masternode)
+	if votersReward == nil {
+		return 0
+	}
+
+	totalVoterReward := new(big.Int).SetUint64(0)
+
+	voters := []common.Address{}
+	for voter, reward := range votersReward {
+		voters = append(voters, voter)
+		totalVoterReward.Add(totalVoterReward, reward)
+	}
+
+	blockNumber := s.b.CurrentBlock().Number().Uint64()
+	lastCheckpointNumber := blockNumber - blockNumber%s.b.ChainConfig().Posv.Epoch
+	totalCap := new(big.Int).SetUint64(0)
+	votersCap := s.b.GetVotersCap(new(big.Int).SetUint64(lastCheckpointNumber), masternode, voters)
+
+	for _, cap := range votersCap {
+		totalCap.Add(totalCap, cap)
+	}
+
+	EpochPerYear := 365 * 86400 / s.b.GetEpochDuration().Uint64()
+	return (float64(EpochPerYear) * 100.0 / float64(totalCap.Div(totalCap, totalVoterReward).Uint64()))
 }

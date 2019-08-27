@@ -226,3 +226,17 @@ func (s *LesApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{}
 	}
 	return make(map[string]interface{})
 }
+
+// GetVotersRewards return a map of voters of snapshot at given block hash
+func (b *LesApiBackend) GetVotersRewards(masternodeAddr common.Address) map[common.Address]*big.Int {
+	return map[common.Address]*big.Int{}
+}
+
+// GetVotersCap return all voters's capability at a checkpoint
+func (b *LesApiBackend) GetVotersCap(checkpoint *big.Int, masterAddr common.Address, voters []common.Address) map[common.Address]*big.Int {
+	return map[common.Address]*big.Int{}
+}
+
+func (b *LesApiBackend) GetEpochDuration() *big.Int {
+	return nil
+}
