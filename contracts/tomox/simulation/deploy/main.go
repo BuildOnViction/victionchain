@@ -16,8 +16,8 @@ import (
 func main() {
 	fmt.Println("========================")
 	fmt.Println("mainAddr", simulation.MainAddr.Hex())
-	fmt.Println("relayerAddr", simulation.ReplayCoinbaseAddr.Hex())
-	fmt.Println("ownerRelayerAddr", simulation.OwnerRelayAddr.Hex())
+	fmt.Println("relayerAddr", simulation.RelayerCoinbaseAddr.Hex())
+	fmt.Println("ownerRelayerAddr", simulation.OwnerRelayerAddr.Hex())
 	fmt.Println("========================")
 	client, err := ethclient.Dial(simulation.RpcEndpoint)
 	if err != nil {
@@ -66,64 +66,19 @@ func main() {
 	fmt.Println("wait 10s to execute init smart contract : relayer registration ")
 	time.Sleep(10 * time.Second)
 
-	// init TRC21 token : BTC
-	auth.Nonce = big.NewInt(int64(nonce + 3))
-	BTCTokenAddr, _, err := tomox.DeployTRC21(auth, client, "BTC", "BTC", 18, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
-	if err != nil {
-		log.Fatal("DeployTRC21 BTC", err)
-	}
+	currentNonce := nonce + 2
+	tokenList := initTRC21(auth, client, currentNonce, simulation.TokenNameList)
 
-	fmt.Println("===>  BTC token address", BTCTokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
-	fmt.Println("wait 10s to execute init smart contract")
-	time.Sleep(10 * time.Second)
+	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
+	applyIssuer(trc21Issuer, tokenList, currentNonce)
 
-	// init TRC21 token : ETH
-	auth.Nonce = big.NewInt(int64(nonce + 4))
-	ETHTokenAddr, _, err := tomox.DeployTRC21(auth, client, "ETH", "ETH", 18, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
-	if err != nil {
-		log.Fatal("DeployTRC21 ETH", err)
-	}
+	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
+	applyTomoXListing(tomoxListing, tokenList, currentNonce)
 
-	fmt.Println("===>  ETH token address", ETHTokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
-	fmt.Println("wait 10s to execute init smart contract")
-	time.Sleep(10 * time.Second)
-
-	trc21Issuer.TransactOpts.Nonce = big.NewInt(int64(nonce + 5))
-	trc21Issuer.TransactOpts.Value = simulation.MinTRC21Apply
-	// apply BTC token to trc21 issuer
-	_, err = trc21Issuer.Apply(BTCTokenAddr)
-	if err != nil {
-		log.Fatal("trc21Issuer Apply BTC ", err)
-	}
-	trc21Issuer.TransactOpts.Nonce = big.NewInt(int64(nonce + 6))
-	trc21Issuer.TransactOpts.Value = simulation.MinTRC21Apply
-
-	// apply ETH token to trc21 issuer
-	_, err = trc21Issuer.Apply(ETHTokenAddr)
-	if err != nil {
-		log.Fatal("trc21Issuer Apply ETH ", err)
-	}
-
-	fmt.Println("wait 10s to add token to list issuer")
-	time.Sleep(10 * time.Second)
-
-	// aplly to list TomoX Token
-	tomoxListing.TransactOpts.Nonce = big.NewInt(int64(nonce + 7))
-	_, err = tomoxListing.Apply(BTCTokenAddr)
-	if err != nil {
-		log.Fatal("tomoxListing Apply BTC", err)
-	}
-	tomoxListing.TransactOpts.Nonce = big.NewInt(int64(nonce + 8))
-	_, err = tomoxListing.Apply(ETHTokenAddr)
-	if err != nil {
-		log.Fatal("tomoxListing Apply ETH", err)
-	}
-	fmt.Println("wait 10s to apply token to list tomox")
-	time.Sleep(10 * time.Second)
 
 	// relayer registration
 	ownerRelayer := bind.NewKeyedTransactor(simulation.OwnerRelayerKey)
-	nonce, _ = client.NonceAt(context.Background(), simulation.OwnerRelayAddr, nil)
+	nonce, _ = client.NonceAt(context.Background(), simulation.OwnerRelayerAddr, nil)
 	relayerRegistration, err = tomox.NewRelayerRegistration(ownerRelayer, relayerRegistrationAddr, client)
 	if err != nil {
 		log.Fatal("NewRelayerRegistration", err)
@@ -132,12 +87,72 @@ func main() {
 	relayerRegistration.TransactOpts.Value = big.NewInt(0).Mul(simulation.MinDeposit, simulation.BaseTOMO)
 	relayerRegistration.TransactOpts.GasPrice = big.NewInt(210000000000000)
 
-	fromTokens := []common.Address{BTCTokenAddr, ETHTokenAddr}
-	toTokens := []common.Address{simulation.TOMONative,simulation.TOMONative}
-	_, err = relayerRegistration.Register(simulation.ReplayCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
+	fromTokens := []common.Address{}
+	toTokens := []common.Address{}
+	for _, token := range tokenList {
+		fromTokens = append(fromTokens, token["address"].(common.Address))
+		toTokens = append(toTokens, simulation.TOMONative)
+	}
+
+	// ETH/BTC
+	fromTokens = append(fromTokens, tokenList[1]["address"].(common.Address))
+	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
+
+	// XRP/BTC
+	fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
+	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
+
+
+
+	_, err = relayerRegistration.Register(simulation.RelayerCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
 	if err != nil {
 		log.Fatal("relayerRegistration Register", err)
 	}
 	fmt.Println("wait 10s to apply token to list tomox")
 	time.Sleep(10 * time.Second)
+}
+
+func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, tokenNameList []string) []map[string]interface{} {
+	tokenListResult := []map[string]interface{}{}
+	for _, tokenName := range tokenNameList {
+		nonce = nonce + 1
+		auth.Nonce = big.NewInt(int64(nonce))
+		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, 18, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
+		if err != nil {
+		log.Fatal("DeployTRC21 ", tokenName, err)
+		}
+
+		fmt.Println(tokenName + " token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
+		fmt.Println("wait 10s to execute init smart contract", tokenName)
+		time.Sleep(10 * time.Second)
+
+		tokenListResult = append(tokenListResult, map[string]interface{}{
+			"name": tokenName,
+			"address" : tokenAddr,
+		})
+	}
+
+}
+
+func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interface{}, nonce uint64)  {
+	for _, token := range tokenList {
+		nonce = nonce + 1
+		_, err := trc21Issuer.Apply(token["address"].(common.Address))
+		if err != nil {
+			log.Fatal("trc21Issuer Apply  ", token["name"].(string), err)
+		}
+		trc21Issuer.TransactOpts.Nonce = big.NewInt(int64(nonce))
+		trc21Issuer.TransactOpts.Value = simulation.MinTRC21Apply
+	}
+}
+
+func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]interface{}, nonce uint64) {
+	for _, token := range tokenList {
+		nonce = nonce + 1
+		tomoxListing.TransactOpts.Nonce = big.NewInt(int64(nonce))
+		_, err := tomoxListing.Apply(token["address"].(common.Address))
+		if err != nil {
+			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
+		}
+		}
 }
