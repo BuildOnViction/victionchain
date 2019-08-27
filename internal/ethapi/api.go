@@ -1804,7 +1804,6 @@ func (s *PublicBlockChainAPI) GetAverageMasternodeROI(masternode common.Address)
 	}
 
 	totalVoterReward := new(big.Int).SetUint64(0)
-
 	voters := []common.Address{}
 	for voter, reward := range votersReward {
 		voters = append(voters, voter)
