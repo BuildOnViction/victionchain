@@ -139,6 +139,8 @@ func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interfac
 		if err != nil {
 			log.Fatal("trc21Issuer Apply  ", token["name"].(string), err)
 		}
+		fmt.Println("wait 10s to applyIssuer ", token["name"].(string))
+		time.Sleep(10 * time.Second)
 		nonce = nonce + 1
 
 	}
@@ -151,6 +153,8 @@ func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]
 		if err != nil {
 			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
 		}
+		fmt.Println("wait 10s to applyTomoXListing ", token["name"].(string))
+		time.Sleep(10 * time.Second)
 		nonce = nonce + 1
 	}
 }
