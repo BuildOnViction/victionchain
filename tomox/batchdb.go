@@ -73,15 +73,11 @@ func (db *BatchDatabase) Has(key []byte, dryrun bool) (bool, error) {
 	cacheKey := db.getCacheKey(key)
 
 	if dryrun {
-		if val, ok := db.dryRunCache.Get(cacheKey); ok {
-			if val == nil {
-				return false, nil
-			}
+		if db.dryRunCache.Contains(cacheKey) {
 			return true, nil
 		}
-	}
-
-	if db.cacheItems.Contains(cacheKey) {
+	} else if db.cacheItems.Contains(cacheKey) {
+		// for dry-run mode, do not read cacheItems
 		return true, nil
 	}
 
@@ -103,7 +99,7 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 		}
 	}
 
-
+	// for dry-run mode, do not read cacheItems
 	if cached, ok := db.cacheItems.Get(cacheKey); ok && !dryrun {
 		val = cached
 	} else {
@@ -124,7 +120,9 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 		}
 
 		// update cache when reading
-		db.cacheItems.Add(cacheKey, val)
+		if !dryrun {
+			db.cacheItems.Add(cacheKey, val)
+		}
 
 	}
 
@@ -207,6 +205,8 @@ func (db *BatchDatabase) SaveDryRunResult() error {
 	}
 	// purge cache data
 	db.dryRunCache.Purge()
+	// purge reading cache to refresh data from db
+	db.cacheItems.Purge()
 	return batch.Write()
 }
 
