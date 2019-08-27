@@ -131,7 +131,7 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 			"address" : tokenAddr,
 		})
 	}
-
+	return tokenListResult
 }
 
 func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interface{}, nonce uint64)  {
