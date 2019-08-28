@@ -170,9 +170,11 @@ func airdrop(auth *bind.TransactOpts, client *ethclient.Client, tokenList []map[
 			trc21Contract.TransactOpts.Nonce = big.NewInt(int64(nonce))
 			_, err := trc21Contract.Transfer(address, big.NewInt(0).Mul(common.BasePrice, big.NewInt(1000000)))
 			if err == nil {
-				fmt.Printf("Transfer %v to %v successfully", token["name"].(string), address)
+				fmt.Printf("Transfer %v to %v successfully", token["name"].(string), address.String())
+				fmt.Println()
 			} else {
-				fmt.Printf("Transfer %v to %v failed!", token["name"].(string), address)
+				fmt.Printf("Transfer %v to %v failed!", token["name"].(string), address.String())
+				fmt.Println()
 			}
 			nonce = nonce + 1
 		}
