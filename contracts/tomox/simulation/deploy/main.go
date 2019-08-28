@@ -69,11 +69,15 @@ func main() {
 	currentNonce := nonce + 3
 	tokenList := initTRC21(auth, client, currentNonce, simulation.TokenNameList)
 
-	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
+	currentNonce = currentNonce + uint64(len(simulation.TokenNameList)) // init smartcontract
+
 	applyIssuer(trc21Issuer, tokenList, currentNonce)
 
 	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
 	applyTomoXListing(tomoxListing, tokenList, currentNonce)
+
+	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
+	airdrop(auth, client, tokenList, simulation.TeamAddresses, currentNonce)
 
 	// relayer registration
 	ownerRelayer := bind.NewKeyedTransactor(simulation.OwnerRelayerKey)
@@ -156,5 +160,21 @@ func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]
 		fmt.Println("wait 10s to applyTomoXListing ", token["name"].(string))
 		time.Sleep(10 * time.Second)
 		nonce = nonce + 1
+	}
+}
+
+func airdrop(auth *bind.TransactOpts, client *ethclient.Client, tokenList []map[string]interface{}, addresses []common.Address, nonce uint64) {
+	for _, token := range tokenList {
+		for _, address := range addresses {
+			trc21Contract, _ := tomox.NewTRC21(auth, token["address"].(common.Address), client)
+			trc21Contract.TransactOpts.Nonce = big.NewInt(int64(nonce))
+			_, err := trc21Contract.Transfer(address, big.NewInt(0).Mul(common.BasePrice, big.NewInt(1000000)))
+			if err == nil {
+				fmt.Printf("Transfer %v to %v successfully", token["name"].(string), address)
+			} else {
+				fmt.Printf("Transfer %v to %v failed!", token["name"].(string), address)
+			}
+			nonce = nonce + 1
+		}
 	}
 }

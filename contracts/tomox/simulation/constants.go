@@ -32,4 +32,10 @@ var (
 	TOMONative = common.HexToAddress("0x0000000000000000000000000000000000000001")
 
 	TokenNameList = []string{"BTC", "ETH", "XRP", "LTC", "BNB", "ADA", "ETC", "BCH", "EOS"}
+	TeamAddresses = []common.Address{
+		common.HexToAddress("0x8fB1047e874d2e472cd08980FF8383053dd83102"), // MM team
+		common.HexToAddress("0x9ca1514E3Dc4059C29a1608AE3a3E3fd35900888"), // MM team
+		common.HexToAddress("0x15e08dE16f534c890828F2a0D935433aF5B3CE0C"), // CTO
+		common.HexToAddress("0xb68D825655F2fE14C32558cDf950b45beF18D218"), // DEX team
+	}
 )
