@@ -358,3 +358,10 @@ func (b *EthApiBackend) GetEpochDuration() *big.Int {
 
 	return secondToLastCheckpointBlockTime.Add(secondToLastCheckpointBlockTime, lastCheckpointBlockTime.Mul(lastCheckpointBlockTime, new(big.Int).SetInt64(-1)))
 }
+func (b *EthApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
+	return b.eth.blockchain.GetBlocksHashCache(blockNr)
+}
+
+func (b *EthApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bool {
+	return b.eth.blockchain.AreTwoBlockSamePath(bh1, bh2)
+}
