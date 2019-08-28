@@ -1796,18 +1796,19 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 
 // GetAverageMasternodeROI Estimate ROI for stakers using the last epoc reward
 // then multiple by epoch per year, if the address is not masternode of last epoch - return 0
-// Formular: ROI = latest_epoch_reward_for_voters/latest_total_cap*100*number_of_epoch_per_year
+// Formular:
+// 		ROI = latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
 func (s *PublicBlockChainAPI) GetAverageMasternodeROI(masternode common.Address) float64 {
 	votersReward := s.b.GetVotersRewards(masternode)
 	if votersReward == nil {
 		return 0
 	}
 
-	totalVoterReward := new(big.Int).SetUint64(0)
+	masternodeReward := new(big.Int).SetUint64(0) // this includes all reward for this masternode
 	voters := []common.Address{}
 	for voter, reward := range votersReward {
 		voters = append(voters, voter)
-		totalVoterReward.Add(totalVoterReward, reward)
+		masternodeReward.Add(masternodeReward, reward)
 	}
 
 	blockNumber := s.b.CurrentBlock().Number().Uint64()
@@ -1819,6 +1820,10 @@ func (s *PublicBlockChainAPI) GetAverageMasternodeROI(masternode common.Address)
 		totalCap.Add(totalCap, cap)
 	}
 
+	// holder reward = 50% total reward of a masternode
+	holderReward := new(big.Int).Div(masternodeReward, new(big.Int).SetUint64(2))
 	EpochPerYear := 365 * 86400 / s.b.GetEpochDuration().Uint64()
-	return (float64(EpochPerYear) * 100.0 / float64(totalCap.Div(totalCap, totalVoterReward).Uint64()))
+	voterRewardAYear := new(big.Int).Mul(holderReward, new(big.Int).SetUint64(EpochPerYear))
+
+	return 100.0 / float64(totalCap.Div(totalCap, voterRewardAYear).Uint64())
 }
