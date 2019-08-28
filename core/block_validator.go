@@ -231,7 +231,7 @@ func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox.TxMat
 		if tx.IsMatchingTransaction() {
 			txMatchBatch, err := tomox.DecodeTxMatchesBatch(tx.Data())
 			if err != nil {
-				return []tomox.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err.Error())
+				return []tomox.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
 			}
 			txMatchBatch.TxHash = tx.Hash()
 			txMatchBatchData = append(txMatchBatchData, txMatchBatch)
