@@ -144,7 +144,7 @@ func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interfac
 			log.Fatal("trc21Issuer Apply  ", token["name"].(string), err)
 		}
 		fmt.Println("wait 10s to applyIssuer ", token["name"].(string))
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 		nonce = nonce + 1
 
 	}
@@ -158,7 +158,7 @@ func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]
 			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
 		}
 		fmt.Println("wait 10s to applyTomoXListing ", token["name"].(string))
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 		nonce = nonce + 1
 	}
 }
@@ -176,6 +176,7 @@ func airdrop(auth *bind.TransactOpts, client *ethclient.Client, tokenList []map[
 				fmt.Printf("Transfer %v to %v failed!", token["name"].(string), address.String())
 				fmt.Println()
 			}
+			time.Sleep(5 * time.Second)
 			nonce = nonce + 1
 		}
 	}
