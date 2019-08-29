@@ -23,6 +23,7 @@ const (
 	TypeMarketOrder = "MO"
 	TypeLimitOrder  = "LO"
 
+	OrderStatusNew           = "NEW"
 	OrderStatusOpen          = "OPEN"
 	OrderStatusPartialFilled = "PARTIAL_FILLED"
 	OrderStatusFilled        = "FILLED"
@@ -57,11 +58,29 @@ type Order struct {
 	Key             string         `json:"key" bson:"key"`
 }
 
+// OrderRes use for api
+type OrderRes struct {
+	Total  int      `json:"total" bson:"total"`
+	Orders []*Order `json:"orders" bson:"orders"`
+}
+
+// OrderSpec contains field for filter
+type OrderSpec struct {
+	UserAddress string
+	BaseToken   string
+	QuoteToken  string
+	Status      string
+	Side        string
+	OrderType   string
+	DateFrom    int64
+	DateTo      int64
+}
+
 func (o *Order) String() string {
 	return fmt.Sprintf("Pair: %v, Pricepoint: %v, Hash: %v", o.PairName, o.PricePoint.String(), o.Hash.Hex())
 }
 
-// TODO: Verify userAddress, baseToken, quoteToken, etc. conditions are working
+// Validate Verify userAddress, baseToken, quoteToken, etc. conditions are working
 func (o *Order) Validate() error {
 	if o.ExchangeAddress != common.HexToAddress(app.Config.Ethereum["exchange_address"]) {
 		return errors.New("Order 'exchangeAddress' parameter is incorrect")
@@ -399,7 +418,6 @@ func (o *Order) MarshalJSON() ([]byte, error) {
 	if o.Nonce != nil {
 		order["nonce"] = o.Nonce.String()
 	}
-
 	if o.Signature != nil {
 		order["signature"] = map[string]interface{}{
 			"V": o.Signature.V,
@@ -407,7 +425,6 @@ func (o *Order) MarshalJSON() ([]byte, error) {
 			"S": o.Signature.S,
 		}
 	}
-
 	return json.Marshal(order)
 }
 
@@ -636,18 +653,16 @@ func (o *Order) SetBSON(raw bson.Raw) error {
 
 	createdAt, err := strconv.ParseInt(decoded.CreatedAt, 10, 64)
 	if err != nil {
-		logger.Error(err)
-		panic(err)
+		logger.Error("parse time error, set time to now", err)
+		createdAt = time.Now().Unix()
 	}
 	o.CreatedAt = time.Unix(createdAt, 0)
-
 	updatedAt, err := strconv.ParseInt(decoded.UpdatedAt, 10, 64)
 	if err != nil {
-		logger.Error(err)
-		panic(err)
+		logger.Error("parse time error, set time to now", err)
+		updatedAt = time.Now().Unix()
 	}
 	o.UpdatedAt = time.Unix(updatedAt, 0)
-
 	orderID, err := strconv.ParseInt(decoded.OrderID, 10, 64)
 	if err != nil {
 		logger.Error(err)

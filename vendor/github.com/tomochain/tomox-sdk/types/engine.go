@@ -111,10 +111,12 @@ func (m *Matches) Validate() error {
 	return nil
 }
 
+// EngineResponse engine message
 type EngineResponse struct {
 	Status            string     `json:"fillStatus,omitempty"`
 	Order             *Order     `json:"order,omitempty"`
 	StopOrder         *StopOrder `json:"stopOrder,omitempty"`
+	Trade             *Trade     `json: "trade, omitenpty"`
 	Matches           *Matches   `json:"matches,omitempty"`
 	RecoveredOrders   *[]*Order  `json:"recoveredOrders,omitempty"`
 	InvalidatedOrders *[]*Order  `json:"invalidatedOrders,omitempty"`
