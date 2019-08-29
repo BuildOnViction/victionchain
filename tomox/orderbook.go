@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
-	sdktypes "github.com/tomochain/tomox-sdk/types"
 )
 
 const (
@@ -329,8 +328,8 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun 
 	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
 	orderBook.Item.NextOrderID++
 
-	if order.Status == sdktypes.OrderStatusCancelled {
-		err := orderBook.CancelOrder(order, dryrun)
+	if order.Status == OrderStatusCancelled {
+		err := orderBook.CancelOrder(order, dryrun, blockHash)
 		switch err {
 		case ErrDoesNotExist:
 			log.Debug("Order doesn't exist in tree", "order", order)

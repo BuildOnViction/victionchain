@@ -19,6 +19,8 @@ package core
 import (
 	"encoding/hex"
 	"fmt"
+	"sort"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/posv"
@@ -27,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/tomox"
-	"sort"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -148,7 +149,7 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 		if err != nil {
 			return fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err)
 		}
-		if tomoXService.ExistProcessedOrderHash(order.Hash) {
+		if order.Status != tomox.OrderStatusCancelled && tomoXService.ExistProcessedOrderHash(order.Hash) {
 			log.Debug("This order has been processed", "hash", hex.EncodeToString(order.Hash.Bytes()))
 			continue
 		}
@@ -156,10 +157,10 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 
 
 		// Remove order from db pending.
-		if err := tomoXService.RemovePendingHash(order.Hash); err != nil {
+		if err := tomoXService.RemoveOrderFromPending(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
 			log.Debug("Fail to remove pending hash", "err", err)
 		}
-		if err := tomoXService.RemoveOrderPending(order.Hash); err != nil {
+		if err := tomoXService.RemoveOrderPendingFromDB(order.Hash); err != nil {
 			log.Debug("Fail to remove order pending", "err", err)
 		}
 
