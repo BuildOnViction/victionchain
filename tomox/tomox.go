@@ -1235,6 +1235,7 @@ func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash) error {
 			log.Error("Failed to mark order as processed", "err", err)
 			return err
 		}
+		log.Debug("Mark order as processed", "orderHash", hex.EncodeToString(hash.Bytes()))
 	}
 	tomox.db.InitDryRunMode()
 	return nil
