@@ -1235,7 +1235,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 						}
 					}
 				}
-				if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 {
+				if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 && !tomoXService.IsSDKNode() {
 					if err := tomoXService.Snapshot(block.Hash()); err != nil {
 						log.Error("Failed to snapshot tomox", "err", err)
 					}
@@ -1463,7 +1463,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 					}
 				}
 			}
-			if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 {
+			if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 && !tomoXService.IsSDKNode() {
 				if err := tomoXService.Snapshot(block.Hash()); err != nil {
 					log.Error("Failed to snapshot tomox", "err", err)
 				}
@@ -1960,7 +1960,6 @@ func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions
 	sort.Slice(txs, func(i, j int) bool {
 		return txMatchBatchData[txs[i].Hash()].Timestamp <= txMatchBatchData[txs[j].Hash()].Timestamp
 	})
-
 
 	for _, tx := range txs {
 		txMatchBatch, ok := txMatchBatchData[tx.Hash()]

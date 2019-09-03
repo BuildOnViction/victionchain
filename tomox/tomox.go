@@ -169,8 +169,10 @@ func New(cfg *Config) *TomoX {
 			}
 		},
 	}
-	if err := tomoX.loadSnapshot(common.Hash{}); err != nil {
-		log.Error("Failed to load tomox snapshot", "err", err)
+	if !tomoX.sdkNode {
+		if err := tomoX.loadSnapshot(common.Hash{}); err != nil {
+			log.Error("Failed to load tomox snapshot", "err", err)
+		}
 	}
 
 	return tomoX
@@ -1148,7 +1150,6 @@ func (tomox *TomoX) Snapshot(blockHash common.Hash) error {
 	var (
 		snap *Snapshot
 		err  error
-		blob interface{}
 	)
 	defer func(start time.Time) {
 		if err != nil {
@@ -1164,21 +1165,11 @@ func (tomox *TomoX) Snapshot(blockHash common.Hash) error {
 	if err = snap.store(tomox.db); err != nil {
 		return err
 	}
-	// get current snapshot hash in database
-	oldHash := common.Hash{}
-	if blob, err = tomox.db.Get([]byte(latestSnapshotKey), &common.Hash{}, false); err == nil && blob != nil {
-		oldHash = *blob.(*common.Hash)
-	}
+
 	if err = tomox.db.Put([]byte(latestSnapshotKey), &blockHash, false); err != nil {
 		return err
 	}
 
-	// remove old snapshot
-	if oldHash != (common.Hash{}) {
-		if err = tomox.db.Delete(append([]byte(snapshotPrefix), oldHash[:]...), false); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
