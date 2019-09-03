@@ -620,6 +620,7 @@ func (self *worker) commitNewWork() {
 					txMatchBytes, err := tomox.EncodeTxMatchesBatch(tomox.TxMatchBatch{
 						Data:      txMatches,
 						Timestamp: uint64(time.Now().UnixNano()),
+						TxHash:    common.Hash{},
 					})
 					if err != nil {
 						log.Error("Fail to marshal txMatch", "error", err)
