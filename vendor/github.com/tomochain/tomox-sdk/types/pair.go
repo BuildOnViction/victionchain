@@ -11,7 +11,7 @@ import (
 	"github.com/tomochain/tomox-sdk/utils/math"
 
 	"github.com/globalsign/mgo/bson"
-	"github.com/go-ozzo/ozzo-validation"
+	validation "github.com/go-ozzo/ozzo-validation"
 )
 
 // Pair struct is used to model the pair data in the system and DB
@@ -276,22 +276,23 @@ type PairRecord struct {
 }
 
 type PairData struct {
-	Pair               PairID   `json:"pair,omitempty" bson:"_id"`
-	Open               *big.Int `json:"open,omitempty" bson:"open"`
-	High               *big.Int `json:"high,omitempty" bson:"high"`
-	Low                *big.Int `json:"low,omitempty" bson:"low"`
-	Close              *big.Int `json:"close,omitempty" bson:"close"`
-	Volume             *big.Int `json:"volume,omitempty" bson:"volume"`
-	Count              *big.Int `json:"count,omitempty" bson:"count"`
-	Timestamp          int64    `json:"timestamp,omitempty" bson:"timestamp"`
-	OrderVolume        *big.Int `json:"orderVolume,omitempty" bson:"orderVolume"`
-	OrderCount         *big.Int `json:"orderCount,omitempty" bson:"orderCount"`
-	AverageOrderAmount *big.Int `json:"averageOrderAmount" bson:"averageOrderAmount"`
-	AverageTradeAmount *big.Int `json:"averageTradeAmount" bson:"averageTradeAmount"`
-	AskPrice           *big.Int `json:"askPrice,omitempty" bson:"askPrice"`
-	BidPrice           *big.Int `json:"bidPrice,omitempty" bson:"bidPrice"`
-	Price              *big.Int `json:"price,omitempty" bson:"price"`
-	Rank               int      `json:"rank,omitempty" bson:"rank"`
+	Pair               PairID     `json:"pair,omitempty" bson:"_id"`
+	Open               *big.Int   `json:"open,omitempty" bson:"open"`
+	High               *big.Int   `json:"high,omitempty" bson:"high"`
+	Low                *big.Int   `json:"low,omitempty" bson:"low"`
+	Close              *big.Int   `json:"close,omitempty" bson:"close"`
+	CloseBaseUsd       *big.Float `json:"closeBaseUsd,omitempty" bson:"closeBaseUsd"`
+	Volume             *big.Int   `json:"volume,omitempty" bson:"volume"`
+	Count              *big.Int   `json:"count,omitempty" bson:"count"`
+	Timestamp          int64      `json:"timestamp,omitempty" bson:"timestamp"`
+	OrderVolume        *big.Int   `json:"orderVolume,omitempty" bson:"orderVolume"`
+	OrderCount         *big.Int   `json:"orderCount,omitempty" bson:"orderCount"`
+	AverageOrderAmount *big.Int   `json:"averageOrderAmount" bson:"averageOrderAmount"`
+	AverageTradeAmount *big.Int   `json:"averageTradeAmount" bson:"averageTradeAmount"`
+	AskPrice           *big.Int   `json:"askPrice,omitempty" bson:"askPrice"`
+	BidPrice           *big.Int   `json:"bidPrice,omitempty" bson:"bidPrice"`
+	Price              *big.Int   `json:"price,omitempty" bson:"price"`
+	Rank               int        `json:"rank,omitempty" bson:"rank"`
 }
 
 func (p *PairData) MarshalJSON() ([]byte, error) {
@@ -323,6 +324,10 @@ func (p *PairData) MarshalJSON() ([]byte, error) {
 
 	if p.Close != nil {
 		pairData["close"] = p.Close.String()
+	}
+
+	if p.CloseBaseUsd != nil {
+		pairData["closeBaseUsd"] = p.CloseBaseUsd.String()
 	}
 
 	if p.Count != nil {

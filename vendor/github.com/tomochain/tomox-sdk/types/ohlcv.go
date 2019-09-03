@@ -2,7 +2,9 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/globalsign/mgo/bson"
@@ -11,14 +13,16 @@ import (
 
 // Tick is the format in which mongo aggregate pipeline returns data when queried for OHLCV data
 type Tick struct {
-	Pair      PairID   `json:"id,omitempty" bson:"_id"`
-	Open      *big.Int `json:"open,omitempty" bson:"open"`
-	Close     *big.Int `json:"close,omitempty" bson:"close"`
-	High      *big.Int `json:"high,omitempty" bson:"high"`
-	Low       *big.Int `json:"low,omitempty" bson:"low"`
-	Volume    *big.Int `json:"volume,omitempty" bson:"volume"`
-	Count     *big.Int `json:"count,omitempty" bson:"count"`
-	Timestamp int64    `json:"timestamp,omitempty" bson:"timestamp"`
+	Pair      PairID    `json:"id,omitempty" bson:"_id"`
+	Open      *big.Int  `json:"open,omitempty" bson:"open"`
+	Close     *big.Int  `json:"close,omitempty" bson:"close"`
+	High      *big.Int  `json:"high,omitempty" bson:"high"`
+	Low       *big.Int  `json:"low,omitempty" bson:"low"`
+	Volume    *big.Int  `json:"volume,omitempty" bson:"volume"`
+	Count     *big.Int  `json:"count,omitempty" bson:"count"`
+	Timestamp int64     `json:"timestamp,omitempty" bson:"timestamp"`
+	OpenTime  time.Time `json:"openTime" bson:"openTime"`
+	CloseTime time.Time `json:"closeTime" bson:"closeTime"`
 }
 
 // PairID is the subdocument for aggregate grouping for OHLCV data
@@ -28,6 +32,7 @@ type PairID struct {
 	QuoteToken common.Address `json:"quoteToken" bson:"quoteToken"`
 }
 
+// OHLCVParams struct
 type OHLCVParams struct {
 	Pair     []PairAddresses `json:"pair"`
 	From     int64           `json:"from"`
@@ -36,11 +41,12 @@ type OHLCVParams struct {
 	Units    string          `json:"units"`
 }
 
+// AveragePrice get price averge
 func (t *Tick) AveragePrice() *big.Int {
 	return math.Avg(t.Open, t.Close)
 }
 
-// RoundedVolume returns the value exchanged during this tick in the currency for which the 'exchangeRate' param
+// ConvertedVolume returns the value exchanged during this tick in the currency for which the 'exchangeRate' param
 // was provided.
 func (t *Tick) ConvertedVolume(p *Pair, exchangeRate float64) float64 {
 	valueAsToken := math.DivideToFloat(t.Volume, p.BaseTokenMultiplier())
@@ -83,6 +89,8 @@ func (t *Tick) MarshalJSON() ([]byte, error) {
 	if t.Count != nil {
 		tick["count"] = t.Count.String()
 	}
+	//tick["openTime"] = t.OpenTime
+	//tick["closeTime"] = t.CloseTime
 
 	bytes, err := json.Marshal(tick)
 	return bytes, err
@@ -134,9 +142,13 @@ func (t *Tick) UnmarshalJSON(b []byte) error {
 		t.Count = math.ToBigInt(tick["count"].(string))
 	}
 
+	t.OpenTime = tick["openTime"].(time.Time)
+	t.CloseTime = tick["closeTime"].(time.Time)
+
 	return nil
 }
 
+// GetBSON return Tick structure
 func (t *Tick) GetBSON() (interface{}, error) {
 	type PairID struct {
 		PairName   string `json:"pairName" bson:"pairName"`
@@ -168,6 +180,8 @@ func (t *Tick) GetBSON() (interface{}, error) {
 		Close     string          `json:"close" bson:"close"`
 		Volume    bson.Decimal128 `json:"volume" bson:"volume"`
 		Timestamp int64           `json:"timestamp" bson:"timestamp"`
+		OpenTime  time.Time       `json:"openTime" bson:"openTime"`
+		CloseTime time.Time       `json:"closeTime" bson:"closeTime"`
 	}{
 		ID: PairID{
 			t.Pair.PairName,
@@ -182,16 +196,21 @@ func (t *Tick) GetBSON() (interface{}, error) {
 		Volume:    v,
 		Count:     count,
 		Timestamp: t.Timestamp,
+		OpenTime:  t.OpenTime,
+		CloseTime: t.CloseTime,
 	}, nil
 }
 
+// SetBSON decode json
 func (t *Tick) SetBSON(raw bson.Raw) error {
 	type PairIDRecord struct {
 		PairName   string `json:"pairName" bson:"pairName"`
 		BaseToken  string `json:"baseToken" bson:"baseToken"`
 		QuoteToken string `json:"quoteToken" bson:"quoteToken"`
 	}
-
+	m := map[string]interface{}{}
+	raw.Unmarshal(&m)
+	fmt.Printf("RAW DATA: %+v\n", m)
 	decoded := new(struct {
 		Pair      PairIDRecord    `json:"pair,omitempty" bson:"_id"`
 		Count     bson.Decimal128 `json:"count" bson:"count"`
@@ -201,9 +220,13 @@ func (t *Tick) SetBSON(raw bson.Raw) error {
 		Close     string          `json:"close" bson:"close"`
 		Volume    bson.Decimal128 `json:"volume" bson:"volume"`
 		Timestamp int64           `json:"timestamp" bson:"timestamp"`
+		OpenTime  time.Time       `json:"openTime" bson:"openTime"`
+		CloseTime time.Time       `json:"closeTime" bson:"closeTime"`
 	})
 
 	err := raw.Unmarshal(decoded)
+	fmt.Println(decoded.OpenTime.String())
+	fmt.Println(decoded.CloseTime.String())
 	if err != nil {
 		return err
 	}
@@ -229,9 +252,12 @@ func (t *Tick) SetBSON(raw bson.Raw) error {
 	t.Volume = math.ToBigInt(v)
 
 	t.Timestamp = decoded.Timestamp
+	t.OpenTime = decoded.OpenTime
+	t.CloseTime = decoded.CloseTime
 	return nil
 }
 
+// AddressCode generate code from pair
 func (t *Tick) AddressCode() string {
 	code := t.Pair.BaseToken.Hex() + "::" + t.Pair.QuoteToken.Hex()
 	return code

@@ -442,12 +442,10 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		transactionRecord[TradedMaker] = headOrder.Item.UserAddress.String()
 		transactionRecord[TradedBaseToken] = headOrder.Item.BaseToken.String()
 		transactionRecord[TradedQuoteToken] = headOrder.Item.QuoteToken.String()
-		// matched price should be the better price
-		if order.Price.Cmp(headOrder.Item.Price) < 0 {
-			transactionRecord[TradedPrice] = order.Price.String()
-		} else {
-			transactionRecord[TradedPrice] = headOrder.Item.Price.String()
-		}
+		// maker price is actual price
+		// taker price is offer price
+		// tradedPrice is always actual price
+		transactionRecord[TradedPrice] = headOrder.Item.Price.String()
 
 		trades = append(trades, transactionRecord)
 	}
