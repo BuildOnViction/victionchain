@@ -79,6 +79,8 @@ type Backend interface {
 	GetVotersCap(checkpoint *big.Int, masterAddr common.Address, voters []common.Address) map[common.Address]*big.Int
 	GetEpochDuration() *big.Int
 	GetMasternodesCap(checkpoint uint64) map[common.Address]*big.Int
+	GetBlocksHashCache(blockNr uint64) []common.Hash
+	AreTwoBlockSamePath(newBlock common.Hash, oldBlock common.Hash) bool
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

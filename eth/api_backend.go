@@ -371,4 +371,10 @@ func (b *EthApiBackend) GetMasternodesCap(checkpoint uint64) map[common.Address]
 	}
 
 	return masternodesCap
+func (b *EthApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
+	return b.eth.blockchain.GetBlocksHashCache(blockNr)
+}
+
+func (b *EthApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bool {
+	return b.eth.blockchain.AreTwoBlockSamePath(bh1, bh2)
 }
