@@ -274,8 +274,8 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 
 	if side == Bid {
 		minPrice := orderBook.Asks.MinPrice(dryrun)
-		log.Debug("Min price in asks tree", "price", minPrice.String())
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() && price.Cmp(minPrice) >= 0 {
+			log.Debug("Min price in asks tree", "price", minPrice.String())
 			bestPriceAsks := orderBook.Asks.MinPriceList(dryrun)
 			log.Debug("Orderlist at min price", "orderlist", bestPriceAsks.Item)
 			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose, dryrun)
@@ -285,7 +285,6 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 			trades = append(trades, newTrades...)
 			log.Debug("New trade found", "newTrades", newTrades, "orderInBook", orderInBook, "quantityToTrade", quantityToTrade)
 			minPrice = orderBook.Asks.MinPrice(dryrun)
-			log.Debug("New min price in asks tree", "price", minPrice.String())
 		}
 
 		if quantityToTrade.Cmp(zero) > 0 {
@@ -301,8 +300,8 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 
 	} else {
 		maxPrice := orderBook.Bids.MaxPrice(dryrun)
-		log.Debug("Max price in bids tree", "price", maxPrice.String())
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() && price.Cmp(maxPrice) <= 0 {
+			log.Debug("Max price in bids tree", "price", maxPrice.String())
 			bestPriceBids := orderBook.Bids.MaxPriceList(dryrun)
 			log.Debug("Orderlist at max price", "orderlist", bestPriceBids.Item)
 			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose, dryrun)
@@ -312,7 +311,6 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 			trades = append(trades, newTrades...)
 			log.Debug("New trade found", "newTrades", newTrades, "orderInBook", orderInBook, "quantityToTrade", quantityToTrade)
 			maxPrice = orderBook.Bids.MaxPrice(dryrun)
-			log.Debug("New max price in bids tree", "price", maxPrice.String())
 		}
 
 		if quantityToTrade.Cmp(zero) > 0 {

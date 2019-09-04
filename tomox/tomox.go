@@ -49,7 +49,7 @@ const (
 	pendingHash          = "PENDING_HASH"
 	pendingPrefix        = "XP"
 	processedHash        = "PROCESSED_HASH"
-	orderProcessLimit    = 10
+	orderProcessLimit    = 20
 )
 
 type Config struct {
@@ -691,7 +691,6 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 			return err
 		}
 
-		log.Info("Process saved")
 		tomox.orderCount[order.UserAddress] = order.Nonce
 		if err := tomox.updateOrderCount(tomox.orderCount); err != nil {
 			log.Error("Failed to save orderCount", "err", err)

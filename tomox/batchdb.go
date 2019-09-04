@@ -94,7 +94,6 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 
 	if dryrun {
 		if value, ok := db.dryRunCache.Get(cacheKey); ok {
-			log.Debug("Debug get from dry-run cache", "cacheKey", cacheKey, "val", value)
 			return value, nil
 		}
 	}
@@ -132,12 +131,10 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 	cacheKey := db.getCacheKey(key)
 	if dryrun {
-		log.Debug("Debug put to dry-run cache", "cacheKey", cacheKey, "val", val)
 		db.dryRunCache.Add(cacheKey, val)
 		return nil
 	}
 
-	log.Debug("Debug DB put to cacheItems", "cacheKey", cacheKey,  "val", val)
 	db.cacheItems.Add(cacheKey, val)
 	value, err := EncodeBytesItem(val)
 	if err != nil {
@@ -153,12 +150,10 @@ func (db *BatchDatabase) Delete(key []byte, dryrun bool) error {
 
 	//mark it to nil in dryrun cache
 	if dryrun {
-		log.Debug("Debug DB delete from dry-run cache", "cacheKey", cacheKey)
 		db.dryRunCache.Add(cacheKey, nil)
 		return nil
 	}
 
-	log.Debug("Debug DB delete ", "cacheKey", cacheKey)
 	db.cacheItems.Remove(cacheKey)
 	return db.db.Delete(key)
 }
