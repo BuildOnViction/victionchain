@@ -149,15 +149,24 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 		// verify orderItem
 		order, err := txMatch.DecodeOrder()
 		if err != nil {
-			return []common.Hash{}, fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err.Error())
+			return []common.Hash{}, fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err)
 		}
 		if tomoXService.ExistProcessedOrderHash(order.Hash) {
 			log.Debug("This order has been processed", "hash", hex.EncodeToString(order.Hash.Bytes()))
-			continue
+			return  []common.Hash{}, fmt.Errorf("This order has been processed. Hash: %s ", hex.EncodeToString(order.Hash.Bytes()))
 		}
 		log.Debug("process tx match", "order", order)
 
 		processedHashes = append(processedHashes, order.Hash)
+
+
+		// Remove order from db pending.
+		if err := tomoXService.RemovePendingHash(order.Hash); err != nil {
+			log.Debug("Fail to remove pending hash", "err", err)
+		}
+		if err := tomoXService.RemoveOrderPending(order.Hash); err != nil {
+			log.Debug("Fail to remove order pending", "err", err)
+		}
 
 		// SDK node doesn't need to run ME
 		if tomoXService.IsSDKNode() {
