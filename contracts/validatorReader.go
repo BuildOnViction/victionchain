@@ -3,7 +3,6 @@ package contracts
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -50,13 +49,12 @@ func GetCandidateOwner(statedb *state.StateDB, candidate common.Address) common.
 	return common.HexToAddress(ret.Hex())
 }
 
-func GetCandidateCap(statedb *state.StateDB, parsed abi.ABI, candidate common.Address) string {
+func GetCandidateCap(statedb *state.StateDB, candidate common.Address) *big.Int {
 	slot := slotValidatorMapping["validatorsState"]
-	// validatorsState[_candidate].cap;
 	locValidatorsState := state.GetLocMappingAtKey(candidate.Hash(), slot)
 	locCandidateCap := locValidatorsState.Add(locValidatorsState, new(big.Int).SetUint64(uint64(1)))
 	ret := statedb.GetState(common.HexToAddress(common.MasternodeVotingSMC), common.BigToHash(locCandidateCap))
-	return ret.Hex()
+	return ret.Big()
 }
 
 func GetVoters(statedb *state.StateDB, candidate common.Address) []common.Address {

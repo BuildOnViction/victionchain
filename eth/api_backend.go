@@ -358,3 +358,17 @@ func (b *EthApiBackend) GetEpochDuration() *big.Int {
 
 	return secondToLastCheckpointBlockTime.Add(secondToLastCheckpointBlockTime, lastCheckpointBlockTime.Mul(lastCheckpointBlockTime, new(big.Int).SetInt64(-1)))
 }
+
+// GetMasternodesCap return a cap of all masternode at a checkpoint
+func (b *EthApiBackend) GetMasternodesCap(checkpoint uint64) map[common.Address]*big.Int {
+	checkpointBlock := b.eth.blockchain.GetBlockByNumber(checkpoint)
+	state, _ := b.eth.blockchain.StateAt(checkpointBlock.Root())
+	candicates := contracts.GetCandidates(state)
+
+	masternodesCap := map[common.Address]*big.Int{}
+	for _, candicate := range candicates {
+		masternodesCap[candicate] = contracts.GetCandidateCap(state, candicate)
+	}
+
+	return masternodesCap
+}
