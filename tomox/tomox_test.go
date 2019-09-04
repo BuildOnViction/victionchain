@@ -265,7 +265,7 @@ func TestDBPending(t *testing.T) {
 
 	// Test remove hash
 	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
-	tomox.removePendingHash(hash)
+	tomox.RemovePendingHash(hash)
 
 	if pHashes := tomox.getPendingHashes(); len(pHashes) != 2 {
 		t.Error("Expected: 2 pending hash", "Actual:", len(pHashes))

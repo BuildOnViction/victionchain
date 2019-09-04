@@ -769,12 +769,12 @@ func (tomox *TomoX) CancelOrder(order *OrderItem, dryrun bool) error {
 	if ob != nil && err == nil {
 
 		// remove order from pending list
-		if err := tomox.removePendingHash(order.Hash); err != nil {
+		if err := tomox.RemovePendingHash(order.Hash); err != nil {
 			return err
 		}
 
 		// remove order pending
-		if err := tomox.removeOrderPending(order.Hash); err != nil {
+		if err := tomox.RemoveOrderPending(order.Hash); err != nil {
 			return err
 		}
 
@@ -855,6 +855,17 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 						originalOrder.Quantity = CloneBigInt(order.Quantity)
 
 						trades, orderInBook, err := ob.ProcessOrder(order, true, true)
+
+						// Remove order from db pending.
+						if err := tomox.RemovePendingHash(orderHash); err != nil {
+							log.Debug("Fail to remove pending hash", "err", err)
+							continue
+						}
+						if err := tomox.RemoveOrderPending(orderHash); err != nil {
+							log.Debug("Fail to remove order pending", "err", err)
+							continue
+						}
+
 						if err != nil {
 							log.Error("Can't process order", "order", order, "err", err)
 							continue
@@ -951,7 +962,7 @@ func (tomox *TomoX) addOrderPending(order *OrderItem) error {
 	return nil
 }
 
-func (tomox *TomoX) removeOrderPending(orderHash common.Hash) error {
+func (tomox *TomoX) RemoveOrderPending(orderHash common.Hash) error {
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
 	log.Debug("Remove order pending", "orderHash", orderHash, "key", hex.EncodeToString(key))
@@ -987,7 +998,7 @@ func (tomox *TomoX) addPendingHash(orderHash common.Hash) error {
 	return nil
 }
 
-func (tomox *TomoX) removePendingHash(orderHash common.Hash) error {
+func (tomox *TomoX) RemovePendingHash(orderHash common.Hash) error {
 	log.Debug("Remove pending hash", "orderHash", orderHash)
 	pendingHashes := tomox.getPendingHashes()
 	if pendingHashes == nil {
@@ -1079,25 +1090,6 @@ func (tomox *TomoX) getProcessedOrderHash() []common.Hash {
 	}
 
 	return processedHashes
-}
-
-func (tomox *TomoX) MarkOrderAsProcessed(hash common.Hash) error {
-
-	if err := tomox.addProcessedOrderHash(hash, 1000); err != nil {
-		log.Error("Fail to save processed order hash", "err", err)
-		return err
-	}
-
-	// Remove order from db pending.
-	if err := tomox.removePendingHash(hash); err != nil {
-		log.Error("Fail to remove pending hash", "err", err)
-		return err
-	}
-	if err := tomox.removeOrderPending(hash); err != nil {
-		log.Error("Fail to remove order pending", "err", err)
-		return err
-	}
-	return nil
 }
 
 func (tomox *TomoX) updatePairs(pairs map[string]bool) error {
@@ -1223,7 +1215,7 @@ func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash) error {
 	}
 
 	for _, hash := range orderHashes {
-		if err := tomox.MarkOrderAsProcessed(hash); err != nil {
+		if err := tomox.addProcessedOrderHash(hash, 1000); err != nil {
 			log.Error("Failed to mark order as processed", "err", err)
 			return err
 		}
