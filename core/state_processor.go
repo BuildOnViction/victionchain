@@ -327,7 +327,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
 				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
 
-				log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
+				//log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
 
 				isTakerBuy := orderItem.Side == tomox.Bid
 				settleBalanceResult := tomox.SettleBalance(
@@ -343,12 +343,12 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 					price)
 
 				// TAKER
-				log.Debug("ApplyTomoXMatchedTransaction settle balance for taker",
-					"taker", takerAddr,
-					"inToken", settleBalanceResult[takerAddr][tomox.InToken].(common.Address), "inQuantity", settleBalanceResult[takerAddr][tomox.InQuantity].(*big.Int),
-					"inTotal", settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int),
-					"outToken", settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[takerAddr][tomox.OutQuantity].(*big.Int),
-					"outTotal", settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int))
+				//log.Debug("ApplyTomoXMatchedTransaction settle balance for taker",
+				//	"taker", takerAddr,
+				//	"inToken", settleBalanceResult[takerAddr][tomox.InToken].(common.Address), "inQuantity", settleBalanceResult[takerAddr][tomox.InQuantity].(*big.Int),
+				//	"inTotal", settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int),
+				//	"outToken", settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[takerAddr][tomox.OutQuantity].(*big.Int),
+				//	"outTotal", settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int))
 				err = tomox.AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
@@ -359,12 +359,12 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				}
 
 				// MAKER
-				log.Debug("ApplyTomoXMatchedTransaction settle balance for maker",
-					"maker", makerAddr,
-					"inToken", settleBalanceResult[makerAddr][tomox.InToken].(common.Address), "inQuantity", settleBalanceResult[makerAddr][tomox.InQuantity].(*big.Int),
-					"inTotal", settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int),
-					"outToken", settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[makerAddr][tomox.OutQuantity].(*big.Int),
-					"outTotal", settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int))
+				//log.Debug("ApplyTomoXMatchedTransaction settle balance for maker",
+				//	"maker", makerAddr,
+				//	"inToken", settleBalanceResult[makerAddr][tomox.InToken].(common.Address), "inQuantity", settleBalanceResult[makerAddr][tomox.InQuantity].(*big.Int),
+				//	"inTotal", settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int),
+				//	"outToken", settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[makerAddr][tomox.OutQuantity].(*big.Int),
+				//	"outTotal", settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int))
 				err = tomox.AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
@@ -375,11 +375,11 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 				}
 
 				// add balance for relayers
-				log.Debug("ApplyTomoXMatchedTransaction settle fee for relayers",
-					"takerRelayerOwner", takerExOwner,
-					"takerFeeToken", quoteToken, "takerFee", settleBalanceResult[takerAddr][tomox.Fee].(*big.Int),
-					"makerRelayerOwner", makerExOwner,
-					"makerFeeToken", quoteToken, "makerFee", settleBalanceResult[makerAddr][tomox.Fee].(*big.Int))
+				//log.Debug("ApplyTomoXMatchedTransaction settle fee for relayers",
+				//	"takerRelayerOwner", takerExOwner,
+				//	"takerFeeToken", quoteToken, "takerFee", settleBalanceResult[takerAddr][tomox.Fee].(*big.Int),
+				//	"makerRelayerOwner", makerExOwner,
+				//	"makerFeeToken", quoteToken, "makerFee", settleBalanceResult[makerAddr][tomox.Fee].(*big.Int))
 				// takerFee
 				err = tomox.AddTokenBalance(takerExOwner, settleBalanceResult[takerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
 				if err != nil {

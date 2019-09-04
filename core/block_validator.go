@@ -86,6 +86,7 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 
 	// validate matchedOrder txs
 	processedHashes := []common.Hash{}
+
 	// clear the previous dry-run cache
 	if tomoXService != nil {
 		tomoXService.GetDB().InitDryRunMode()
@@ -99,7 +100,7 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 			log.Error("tomox not found")
 			return tomox.ErrTomoXServiceNotFound
 		}
-		log.Debug("verify matching transaction", "txHash", txMatchBatch.TxHash)
+		log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash)
 		hashes, err := v.validateMatchingOrder(tomoXService, currentState, txMatchBatch)
 		if err != nil {
 			return err
