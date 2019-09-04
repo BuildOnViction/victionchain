@@ -244,6 +244,8 @@ func (b *LesApiBackend) GetEpochDuration() *big.Int {
 // GetMasternodesCap return a cap of all masternode at a checkpoint
 func (b *LesApiBackend) GetMasternodesCap(checkpoint uint64) map[common.Address]*big.Int {
 	return nil
+}
+
 func (b *LesApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
 	return []common.Hash{}
 }

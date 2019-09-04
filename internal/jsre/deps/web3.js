@@ -5346,11 +5346,10 @@ var methods = function () {
         name: 'getStakeROI',
         call: stakeROICall,
         params: 1,
-        // inputFormatter: [formatters.inputBlockNumberFormatter],
         inputFormatter: [function(val) {
-            return val ? formatters.inputBlockNumberFormatter(val) : null
+            return val ? formatters.inputAddressFormatter(val) : null
         }],
-        outputFormatter: formatters.outputBlockSignersFormatter
+        outputFormatter: formatters.formatOutputReal
     });
 
     var getBlockFinality = new Method({

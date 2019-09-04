@@ -1894,13 +1894,15 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 func (s *PublicBlockChainAPI) GetStakerROI() float64 {
 	blockNumber := s.b.CurrentBlock().Number().Uint64()
 	lastCheckpointNumber := blockNumber - (blockNumber % s.b.ChainConfig().Posv.Epoch) - s.b.ChainConfig().Posv.Epoch // calculate for 2 epochs ago
-
 	totalCap := new(big.Int).SetUint64(0)
+
 	mastersCap := s.b.GetMasternodesCap(lastCheckpointNumber)
+	if mastersCap == nil {
+		return 0
+	}
+
 	masternodeReward := new(big.Int).Mul(new(big.Int).SetUint64(s.b.ChainConfig().Posv.Reward), new(big.Int).SetUint64(params.Ether))
-	fmt.Println("masternodeReward ", masternodeReward)
-	// chainReward := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
-	// chainReward = rewardInflation(chainReward, lastCheckpointNumber, common.BlocksPerYear)
+	masternodeReward = masternodeReward.Div(masternodeReward, new(big.Int).SetUint64(uint64(len(mastersCap))))
 
 	for _, cap := range mastersCap {
 		totalCap.Add(totalCap, cap)
