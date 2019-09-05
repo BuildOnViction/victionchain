@@ -1903,10 +1903,21 @@ func (bc *BlockChain) UpdateM1() error {
 		return err
 	}
 	opts := new(bind.CallOpts)
-	candidates, err := validator.GetCandidates(opts)
+
+	var candidates []common.Address
+
+	// get candidates from slot of stateDB
+	// if can't get anything, request from contracts
+	stateDB, err := bc.State()
 	if err != nil {
-		return err
+		candidates, err = validator.GetCandidates(opts)
+		if err != nil {
+			return err
+		}
+	} else {
+		candidates = state.GetCandidates(stateDB)
 	}
+
 	var ms []posv.Masternode
 	for _, candidate := range candidates {
 		v, err := validator.GetCandidateCap(opts, candidate)

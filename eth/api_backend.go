@@ -19,6 +19,7 @@ package eth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -33,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
 	"github.com/ethereum/go-ethereum/core/state"
+	stateDatabase "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/downloader"
@@ -281,8 +283,13 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 	foundationWalletAddr := chain.Config().Posv.FoudationWalletAddr
 	lastCheckpointNumber := number - (number % b.ChainConfig().Posv.Epoch) - b.ChainConfig().Posv.Epoch // calculate for 2 epochs ago
 	lastCheckpointBlock := chain.GetBlockByNumber(lastCheckpointNumber)
-	state, _ := chain.StateAt(lastCheckpointBlock.Root())
 	rCheckpoint := chain.Config().Posv.RewardCheckpoint
+
+	state, err := chain.StateAt(lastCheckpointBlock.Root())
+	if err != nil {
+		fmt.Println("ERROR Trying to getting state at", lastCheckpointNumber, " Error ", err)
+		return nil
+	}
 
 	if foundationWalletAddr == (common.Address{}) {
 		log.Error("Foundation Wallet Address is empty", "error", foundationWalletAddr)
@@ -303,11 +310,13 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 
 	if err != nil {
 		log.Crit("Fail to get signers for reward checkpoint", "error", err)
+		return nil
 	}
 
 	rewardSigners, err := contracts.CalculateRewardForSigner(chainReward, signers, *totalSigner)
 	if err != nil {
 		log.Crit("Fail to calculate reward for signers", "error", err)
+		return nil
 	}
 
 	if len(signers) <= 0 {
@@ -318,9 +327,10 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 	var voterResults map[common.Address]*big.Int
 	for signer, calcReward := range rewardSigners {
 		if signer == masternodeAddr {
-			err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, state, signer, calcReward, number)
+			err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, state, masternodeAddr, calcReward, number)
 			if err != nil {
 				log.Crit("Fail to calculate reward for holders.", "error", err)
+				return nil
 			}
 			voterResults = rewards
 			break
@@ -335,11 +345,16 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 func (b *EthApiBackend) GetVotersCap(checkpoint *big.Int, masterAddr common.Address, voters []common.Address) map[common.Address]*big.Int {
 	chain := b.eth.blockchain
 	checkpointBlock := chain.GetBlockByNumber(checkpoint.Uint64())
-	state, _ := chain.StateAt(checkpointBlock.Root())
+	state, err := chain.StateAt(checkpointBlock.Root())
+
+	if err != nil {
+		fmt.Println("ERROR Trying to getting state at", checkpoint, " Error ", err)
+		return nil
+	}
 
 	voterCaps := make(map[common.Address]*big.Int)
 	for _, voteAddr := range voters {
-		voterCap := contracts.GetVoterCap(state, masterAddr, voteAddr)
+		voterCap := stateDatabase.GetVoterCap(state, masterAddr, voteAddr)
 		voterCaps[voteAddr] = voterCap
 	}
 	return voterCaps
@@ -358,6 +373,27 @@ func (b *EthApiBackend) GetEpochDuration() *big.Int {
 
 	return secondToLastCheckpointBlockTime.Add(secondToLastCheckpointBlockTime, lastCheckpointBlockTime.Mul(lastCheckpointBlockTime, new(big.Int).SetInt64(-1)))
 }
+
+// GetMasternodesCap return a cap of all masternode at a checkpoint
+func (b *EthApiBackend) GetMasternodesCap(checkpoint uint64) map[common.Address]*big.Int {
+	checkpointBlock := b.eth.blockchain.GetBlockByNumber(checkpoint)
+	state, err := b.eth.blockchain.StateAt(checkpointBlock.Root())
+
+	if err != nil {
+		fmt.Println("ERROR Trying to getting state at", checkpoint, " Error ", err)
+		return nil
+	}
+
+	candicates := stateDatabase.GetCandidates(state)
+
+	masternodesCap := map[common.Address]*big.Int{}
+	for _, candicate := range candicates {
+		masternodesCap[candicate] = stateDatabase.GetCandidateCap(state, candicate)
+	}
+
+	return masternodesCap
+}
+
 func (b *EthApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
 	return b.eth.blockchain.GetBlocksHashCache(blockNr)
 }
