@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/consensus/posv"
-	"github.com/ethereum/go-ethereum/contracts"
 	contractValidator "github.com/ethereum/go-ethereum/contracts/validator/contract"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -1143,7 +1142,7 @@ func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.
 	Extract signers from block
 */
 func (s *PublicBlockChainAPI) getSigners(ctx context.Context, block *types.Block, engine *posv.Posv) ([]common.Address, error) {
-	client, err := s.b.GetIPCClient()
+	var err error
 	var filterSigners []common.Address
 	var signers []common.Address
 	blockNumber := block.Number().Uint64()
@@ -1153,11 +1152,7 @@ func (s *PublicBlockChainAPI) getSigners(ctx context.Context, block *types.Block
 	checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpointNumber))
 
 	masternodes := engine.GetMasternodesFromCheckpointHeader(checkpointBlock.Header(), blockNumber, s.b.ChainConfig().Posv.Epoch)
-	if s.b.ChainConfig().IsTIPSigning(checkpointBlock.Number()) {
-		signers, err = GetSignersFromBlocks(s.b, block.NumberU64(), block.Hash(), masternodes)
-	} else {
-		signers, err = contracts.GetSignersByExecutingEVM(common.HexToAddress(common.BlockSigners), client, block.Hash())
-	}
+	signers, err = GetSignersFromBlocks(s.b, block.NumberU64(), block.Hash(), masternodes)
 	if err != nil {
 		log.Error("Fail to get signers from block signer SC.", "error", err)
 		return nil, err
