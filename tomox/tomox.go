@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -48,7 +49,7 @@ const (
 	activePairsKey       = "ACTIVE_PAIRS"
 	pendingHash          = "PENDING_HASH"
 	pendingPrefix        = "XP"
-	processedHash        = "PROCESSED_HASH"
+	orderProcessedLimit  = 1000
 	orderProcessLimit    = 20
 )
 
@@ -73,7 +74,7 @@ type TxDataMatch struct {
 type TxMatchBatch struct {
 	Data      []TxDataMatch
 	Timestamp uint64
-	TxHash common.Hash
+	TxHash    common.Hash
 }
 
 // DefaultConfig represents (shocker!) the default configuration.
@@ -96,6 +97,8 @@ type TomoX struct {
 
 	messageQueue chan *Envelope // Message queue for normal TomoX messages
 	p2pMsgQueue  chan *Envelope // Message queue for peer-to-peer messages (not to be forwarded any further)
+
+	processedOrderCache *lru.Cache // Caching processed orders
 
 	envelopes   map[common.Hash]*Envelope
 	expirations map[uint32]*set.SetNonTS // Message expiration pool
@@ -131,17 +134,19 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 }
 
 func New(cfg *Config) *TomoX {
+	poCache, _ := lru.New(orderProcessedLimit)
 	tomoX := &TomoX{
-		Orderbooks:    make(map[string]*OrderBook),
-		orderCount:    make(map[common.Address]*big.Int),
-		peers:         make(map[*Peer]struct{}),
-		quit:          make(chan struct{}),
-		envelopes:     make(map[common.Hash]*Envelope),
-		syncAllowance: DefaultSyncAllowance,
-		expirations:   make(map[uint32]*set.SetNonTS),
-		messageQueue:  make(chan *Envelope, messageQueueLimit),
-		p2pMsgQueue:   make(chan *Envelope, messageQueueLimit),
-		activePairs:   make(map[string]bool),
+		Orderbooks:          make(map[string]*OrderBook),
+		orderCount:          make(map[common.Address]*big.Int),
+		peers:               make(map[*Peer]struct{}),
+		quit:                make(chan struct{}),
+		envelopes:           make(map[common.Hash]*Envelope),
+		syncAllowance:       DefaultSyncAllowance,
+		expirations:         make(map[uint32]*set.SetNonTS),
+		messageQueue:        make(chan *Envelope, messageQueueLimit),
+		p2pMsgQueue:         make(chan *Envelope, messageQueueLimit),
+		activePairs:         make(map[string]bool),
+		processedOrderCache: poCache,
 	}
 	switch cfg.DBEngine {
 	case "leveldb":
@@ -679,7 +684,7 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string, dryrun bool) (*Ord
 }
 
 func (tomox *TomoX) InsertOrder(order *OrderItem) error {
-	if order.OrderID == 0 {
+	if order.OrderID == 0 && !tomox.ExistProcessedOrderHash(order.Hash) {
 		if err := tomox.verifyOrderNonce(order); err != nil {
 			return err
 		}
@@ -1039,56 +1044,16 @@ func (tomox *TomoX) getPendingHashes() []common.Hash {
 	return pendingHashes
 }
 
-func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash, limit int) error {
-	key := []byte(processedHash)
-
-	processedHashes := tomox.getProcessedOrderHash()
-	if len(processedHashes) >= limit {
-		// Remove first.
-		processedHashes = processedHashes[1:]
+func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash) error {
+	if tomox.processedOrderCache.Add(orderHash, true) {
+		return nil
+	} else {
+		return fmt.Errorf("Can't add processed order to cache: orderHash - %s", orderHash.Hex())
 	}
-	processedHashes = append(processedHashes, orderHash)
-
-	if err := tomox.db.Put(key, &processedHashes, false); err != nil {
-		log.Error("Fail to save processed order hashes", "err", err)
-		return err
-	}
-
-	return nil
 }
 
 func (tomox *TomoX) ExistProcessedOrderHash(orderHash common.Hash) bool {
-	processedHashes := tomox.getProcessedOrderHash()
-
-	for _, k := range processedHashes {
-		if k == orderHash {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (tomox *TomoX) getProcessedOrderHash() []common.Hash {
-	var (
-		val interface{}
-		err error
-	)
-
-	key := []byte(processedHash)
-	if ok, _ := tomox.db.Has(key, false); ok {
-		if val, err = tomox.db.Get(key, &[]common.Hash{}, false); err != nil {
-			log.Error("Failed to load processed order hashes", "err", err)
-			return nil
-		}
-	}
-
-	var processedHashes []common.Hash
-	if val != nil {
-		processedHashes = *val.(*[]common.Hash)
-	}
-
-	return processedHashes
+	return tomox.processedOrderCache.Contains(orderHash)
 }
 
 func (tomox *TomoX) updatePairs(pairs map[string]bool) error {
@@ -1214,7 +1179,7 @@ func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash) error {
 	}
 
 	for _, hash := range orderHashes {
-		if err := tomox.addProcessedOrderHash(hash, 1000); err != nil {
+		if err := tomox.addProcessedOrderHash(hash); err != nil {
 			log.Error("Failed to mark order as processed", "err", err)
 			return err
 		}
