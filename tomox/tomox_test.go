@@ -20,14 +20,17 @@ func buildOrder(nonce *big.Int) *OrderItem {
 	order := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(10)) * 1000000000000000000),
 		Price:           new(big.Int).SetUint64(uint64(rand.Intn(10)) * 100000000000000000),
-		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
-		UserAddress:     common.HexToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
-		BaseToken:       common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
-		QuoteToken:      common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		//Quantity: new(big.Int).SetUint64(uint64(5) * 1000000000000000000),
+		//Price:           new(big.Int).SetUint64(uint64(2) * 100000000000000000),
+		ExchangeAddress: common.HexToAddress("0x0342d186212b04E69eA682b3bed8e232b6b3361a"),
+		UserAddress:     common.HexToAddress("0x9ca1514E3Dc4059C29a1608AE3a3E3fd35900888"),
+		BaseToken:       common.HexToAddress("0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"),
+		QuoteToken:      common.HexToAddress("0xC2fa1BA90b15E3612E0067A0020192938784D9C5"),
 		Status:          "New",
 		Side:            lstBuySell[rand.Int()%len(lstBuySell)],
+		//Side: "SELL",
 		Type:            Limit,
-		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
+		PairName:        "0x4d7eA2cE949216D6b120f3AA10164173615A2b6C" + "::" + "0xC2fa1BA90b15E3612E0067A0020192938784D9C5",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash(nonce.String()),
 		Signature: &Signature{
@@ -81,7 +84,7 @@ func testCreateOrder(t *testing.T, nonce *big.Int) {
 }
 
 func TestCreate10Orders(t *testing.T) {
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= 100; i++ {
 		testCreateOrder(t, new(big.Int).SetUint64(uint64(i)))
 		time.Sleep(1 * time.Second)
 	}
@@ -375,46 +378,6 @@ func TestEncodeDecodeTXMatch(t *testing.T) {
 
 	if _, ok := decodeMatches[order.Hash]; !ok {
 		t.Error("marshal and unmarshal txMatches not valid", "mashal", txMatches[order.Hash], "unmarshal", decodeMatches[order.Hash])
-	}
-}
-
-func TestProcessedHash(t *testing.T) {
-	testDir := "TestProcessedHash"
-
-	tomox := &TomoX{
-		Orderbooks:  map[string]*OrderBook{},
-		activePairs: make(map[string]bool),
-		db: NewLDBEngine(&Config{
-			DataDir:  testDir,
-			DBEngine: "leveldb",
-		}),
-	}
-	defer os.RemoveAll(testDir)
-
-	if pHashes := tomox.getPendingHashes(); len(pHashes) != 0 {
-		t.Error("Expected: no pending hash", "Actual:", len(pHashes))
-	}
-
-	var hash common.Hash
-	hash = common.StringToHash("0x0000000000000000000000000000000000000000")
-	tomox.addProcessedOrderHash(hash, 3)
-	hash = common.StringToHash("0x0000000000000000000000000000000000000001")
-	tomox.addProcessedOrderHash(hash, 3)
-	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
-	tomox.addProcessedOrderHash(hash, 3)
-	hash = common.StringToHash("0x0000000000000000000000000000000000000003")
-	tomox.addProcessedOrderHash(hash, 3)
-	hash = common.StringToHash("0x0000000000000000000000000000000000000004")
-	tomox.addProcessedOrderHash(hash, 3)
-	hash = common.StringToHash("0x0000000000000000000000000000000000000005")
-	tomox.addProcessedOrderHash(hash, 3)
-	pHashes := tomox.getProcessedOrderHash()
-	if len(pHashes) != 3 {
-		t.Error("Expected: 3 processed hash", "Actual:", len(pHashes), "pHashes", pHashes)
-	}
-
-	if !tomox.ExistProcessedOrderHash(common.StringToHash("0x0000000000000000000000000000000000000004")) {
-		t.Error("Processed hash not exist")
 	}
 }
 
