@@ -598,6 +598,7 @@ func (self *worker) commitNewWork() {
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
+		var matchingTransaction *types.Transaction
 		tomoX := self.eth.GetTomoX()
 		if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
 			manager := self.eth.AccountManager()
@@ -632,11 +633,7 @@ func (self *worker) commitNewWork() {
 						if err != nil {
 							log.Error("Fail to create tx matches", "error", err)
 						} else {
-							// Add tx signed to local tx pool.
-							err = self.eth.TxPool().AddLocal(txM)
-							if err != nil {
-								log.Error("Fail to add tx matches to local pool.", "error", err)
-							}
+							matchingTransaction = txM
 						}
 					}
 
@@ -650,6 +647,11 @@ func (self *worker) commitNewWork() {
 			return
 		}
 		txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity)
+		if matchingTransaction != nil {
+			// force adding matching transaction to this block
+			specialTxs = append(specialTxs, matchingTransaction)
+		}
+
 	}
 	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
 
