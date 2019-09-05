@@ -276,11 +276,6 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 		return nil, 0, err, false
 	}
 	nonce := statedb.GetNonce(from)
-	if nonce < tx.Nonce() {
-		return nil, 0, ErrNonceTooHigh, false
-	} else if nonce > tx.Nonce() {
-		return nil, 0, ErrNonceTooLow, false
-	}
 
 	txMatchBatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
 	if err != nil || len(txMatchBatches.Data) == 0 {

@@ -593,12 +593,12 @@ func (self *worker) commitNewWork() {
 	}
 	// won't grasp txs at checkpoint
 	var (
-		txs        *types.TransactionsByPriceAndNonce
-		specialTxs types.Transactions
+		txs                 *types.TransactionsByPriceAndNonce
+		specialTxs          types.Transactions
+		matchingTransaction *types.Transaction
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
-		var matchingTransaction *types.Transaction
 		tomoX := self.eth.GetTomoX()
 		if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
 			manager := self.eth.AccountManager()
@@ -757,29 +757,32 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
+
 		nonce := env.state.GetNonce(from)
-		if nonce != tx.Nonce() {
+		if nonce != tx.Nonce() && !tx.IsMatchingTransaction() {
 			log.Trace("Skipping account with special transaction invalide nonce", "sender", from, "nonce", nonce, "tx nonce ", tx.Nonce(), "to", tx.To())
 			continue
 		}
 		err, logs, tokenFeeUsed, gas := env.commitTransaction(balanceFee, tx, bc, coinbase, gp)
-		switch err {
-		case core.ErrNonceTooLow:
-			// New head notification data race between the transaction pool and miner, shift
-			log.Trace("Skipping special transaction with low nonce", "sender", from, "nonce", tx.Nonce(), "to", tx.To())
+		if !tx.IsMatchingTransaction() {
+			switch err {
+			case core.ErrNonceTooLow:
+				// New head notification data race between the transaction pool and miner, shift
+				log.Trace("Skipping special transaction with low nonce", "sender", from, "nonce", tx.Nonce(), "to", tx.To())
 
-		case core.ErrNonceTooHigh:
-			// Reorg notification data race between the transaction pool and miner, skip account =
-			log.Trace("Skipping account with special transaction hight nonce", "sender", from, "nonce", tx.Nonce(), "to", tx.To())
-		case nil:
-			// Everything ok, collect the logs and shift in the next transaction from the same account
-			coalescedLogs = append(coalescedLogs, logs...)
-			env.tcount++
+			case core.ErrNonceTooHigh:
+				// Reorg notification data race between the transaction pool and miner, skip account =
+				log.Trace("Skipping account with special transaction hight nonce", "sender", from, "nonce", tx.Nonce(), "to", tx.To())
+			case nil:
+				// Everything ok, collect the logs and shift in the next transaction from the same account
+				coalescedLogs = append(coalescedLogs, logs...)
+				env.tcount++
 
-		default:
-			// Strange error, discard the transaction and get the next in line (note, the
-			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Add Special Transaction failed, account skipped", "hash", tx.Hash(), "sender", from, "nonce", tx.Nonce(), "to", tx.To(), "err", err)
+			default:
+				// Strange error, discard the transaction and get the next in line (note, the
+				// nonce-too-high clause will prevent us from executing in vain).
+				log.Debug("Add Special Transaction failed, account skipped", "hash", tx.Hash(), "sender", from, "nonce", tx.Nonce(), "to", tx.To(), "err", err)
+			}
 		}
 		if tokenFeeUsed {
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], new(big.Int).SetUint64(gas))
