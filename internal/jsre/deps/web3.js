@@ -5239,7 +5239,7 @@ var blockSignersCall = function (args) {
   return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "eth_getBlockSignersByHash" : "eth_getBlockSignersByNumber";
 };
 
-var stakeROICall = function (args) {
+var stakerROICall = function (args) {
   return utils.isString(args[0]) && args[0].indexOf('0x') === 0 ? "eth_getStakerROIMasternode" : "eth_getStakerROI";
 };
 
@@ -5342,9 +5342,9 @@ var methods = function () {
       outputFormatter: formatters.outputBlockSignersFormatter
     });
 
-    var getStakeROI = new Method({
-        name: 'getStakeROI',
-        call: stakeROICall,
+    var getStakerROI = new Method({
+        name: 'getStakerROI',
+        call: stakerROICall,
         params: 1,
         inputFormatter: [function(val) {
             return val ? formatters.inputAddressFormatter(val) : null
@@ -5506,7 +5506,7 @@ var methods = function () {
         getCode,
         getBlock,
         getBlockSigners,
-        getStakeROI,
+        getStakerROI,
         getBlockFinality,
         getCandidateStatus,
         getUncle,

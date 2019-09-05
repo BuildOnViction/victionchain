@@ -19,6 +19,7 @@ package eth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -286,7 +287,7 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 
 	state, err := chain.StateAt(lastCheckpointBlock.Root())
 	if err != nil {
-		log.Error("Trying to getting state at ", lastCheckpointNumber, "error", err)
+		fmt.Println("ERROR Trying to getting state at", lastCheckpointNumber, " Error ", err)
 		return nil
 	}
 
@@ -347,7 +348,7 @@ func (b *EthApiBackend) GetVotersCap(checkpoint *big.Int, masterAddr common.Addr
 	state, err := chain.StateAt(checkpointBlock.Root())
 
 	if err != nil {
-		log.Error("Trying to getting state at ", checkpoint, "error", err)
+		fmt.Println("ERROR Trying to getting state at", checkpoint, " Error ", err)
 		return nil
 	}
 
@@ -379,7 +380,7 @@ func (b *EthApiBackend) GetMasternodesCap(checkpoint uint64) map[common.Address]
 	state, err := b.eth.blockchain.StateAt(checkpointBlock.Root())
 
 	if err != nil {
-		log.Error("Trying to getting state at ", checkpoint, "error", err)
+		fmt.Println("ERROR Trying to getting state at", checkpoint, " Error ", err)
 		return nil
 	}
 
