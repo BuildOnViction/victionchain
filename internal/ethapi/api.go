@@ -651,7 +651,6 @@ func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockH
 		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
 		return uint(0), err
 	}
-	fmt.Println("before_calling_into_get_finality ")
 	return s.findFinalityOfBlock(ctx, block, masternodes)
 }
 
@@ -665,7 +664,6 @@ func (s *PublicBlockChainAPI) GetBlockFinalityByNumber(ctx context.Context, bloc
 		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
 		return uint(0), err
 	}
-	fmt.Println("before_calling_into_get_finality ")
 	return s.findFinalityOfBlock(ctx, block, masternodes)
 }
 
@@ -1059,12 +1057,11 @@ func (s *PublicBlockChainAPI) findNearestSignedBlock(ctx context.Context, b *typ
 	signedBlockNumber := blockNumber + (common.MergeSignRange - (blockNumber % common.MergeSignRange))
 	latestBlockNumber := s.b.CurrentBlock().Number()
 
-	if signedBlockNumber >= latestBlockNumber.Uint64() || !s.b.ChainConfig().IsTIP2019(b.Number()) {
+	if signedBlockNumber >= latestBlockNumber.Uint64() || !s.b.ChainConfig().IsTIPSigning(b.Number()) {
 		signedBlockNumber = blockNumber
 	}
 
-	// Get block epoc latest.
-	// TODO: check if this check needed or not
+	// Get block epoc latest
 	checkpointNumber := signedBlockNumber - (signedBlockNumber % s.b.ChainConfig().Posv.Epoch)
 	checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpointNumber))
 
@@ -1079,7 +1076,6 @@ func (s *PublicBlockChainAPI) findNearestSignedBlock(ctx context.Context, b *typ
 /*
 	findFinalityOfBlock return finality of a block
 	Use blocksHashCache for to keep track - refer core/blockchain.go for more detail
-	TODO: this function need refactoring because the content is not same abstraction
 */
 func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.Block, masternodes []common.Address) (uint, error) {
 	engine, _ := s.b.GetEngine().(*posv.Posv)
