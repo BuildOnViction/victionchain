@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -108,13 +107,13 @@ func GetCandidateOwner(statedb *StateDB, candidate common.Address) common.Addres
 	return common.HexToAddress(ret.Hex())
 }
 
-func GetCandidateCap(statedb *StateDB, parsed abi.ABI, candidate common.Address) string {
+func GetCandidateCap(statedb *StateDB, candidate common.Address) *big.Int {
 	slot := slotValidatorMapping["validatorsState"]
 	// validatorsState[_candidate].cap;
 	locValidatorsState := GetLocMappingAtKey(candidate.Hash(), slot)
 	locCandidateCap := locValidatorsState.Add(locValidatorsState, new(big.Int).SetUint64(uint64(1)))
 	ret := statedb.GetState(common.HexToAddress(common.MasternodeVotingSMC), common.BigToHash(locCandidateCap))
-	return ret.Hex()
+	return ret.Big()
 }
 
 func GetVoters(statedb *StateDB, candidate common.Address) []common.Address {

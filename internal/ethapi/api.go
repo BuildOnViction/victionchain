@@ -560,6 +560,7 @@ func (s *PublicBlockChainAPI) GetUncleByBlockNumberAndIndex(ctx context.Context,
 
 // GetUncleByBlockHashAndIndex returns the uncle block for the given block hash and index. When fullTx is true
 // all transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
+// DEPRECATED SINCE 1.0
 func (s *PublicBlockChainAPI) GetUncleByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint) (map[string]interface{}, error) {
 	block, err := s.b.GetBlock(ctx, blockHash)
 	if block != nil {
@@ -575,6 +576,7 @@ func (s *PublicBlockChainAPI) GetUncleByBlockHashAndIndex(ctx context.Context, b
 }
 
 // GetUncleCountByBlockNumber returns number of uncles in the block for the given block number
+// DEPRECATED SINCE 1.0
 func (s *PublicBlockChainAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) *hexutil.Uint {
 	if block, _ := s.b.BlockByNumber(ctx, blockNr); block != nil {
 		n := hexutil.Uint(len(block.Uncles()))
@@ -584,6 +586,7 @@ func (s *PublicBlockChainAPI) GetUncleCountByBlockNumber(ctx context.Context, bl
 }
 
 // GetUncleCountByBlockHash returns number of uncles in the block for the given block hash
+// DEPRECATED SINCE 1.0
 func (s *PublicBlockChainAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash common.Hash) *hexutil.Uint {
 	if block, _ := s.b.GetBlock(ctx, blockHash); block != nil {
 		n := hexutil.Uint(len(block.Uncles()))
@@ -1873,4 +1876,65 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 		}
 	}
 	return addrs, nil
+}
+
+// GetStakerROI Estimate ROI for stakers using the last epoc reward
+// then multiple by epoch per year, if the address is not masternode of last epoch - return 0
+// Formular:
+// 		ROI = average_latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
+func (s *PublicBlockChainAPI) GetStakerROI() float64 {
+	blockNumber := s.b.CurrentBlock().Number().Uint64()
+	lastCheckpointNumber := blockNumber - (blockNumber % s.b.ChainConfig().Posv.Epoch) - s.b.ChainConfig().Posv.Epoch // calculate for 2 epochs ago
+	totalCap := new(big.Int).SetUint64(0)
+
+	mastersCap := s.b.GetMasternodesCap(lastCheckpointNumber)
+	if mastersCap == nil {
+		return 0
+	}
+
+	masternodeReward := new(big.Int).Mul(new(big.Int).SetUint64(s.b.ChainConfig().Posv.Reward), new(big.Int).SetUint64(params.Ether))
+
+	for _, cap := range mastersCap {
+		totalCap.Add(totalCap, cap)
+	}
+
+	holderReward := new(big.Int).Div(masternodeReward, new(big.Int).SetUint64(2))
+	EpochPerYear := 365 * 86400 / s.b.GetEpochDuration().Uint64()
+	voterRewardAYear := new(big.Int).Mul(holderReward, new(big.Int).SetUint64(EpochPerYear))
+	
+	return 100.0 / float64(totalCap.Div(totalCap, voterRewardAYear).Uint64())
+}
+
+// GetStakerROIMasternode Estimate ROI for stakers of a specific masternode using the last epoc reward
+// then multiple by epoch per year, if the address is not masternode of last epoch - return 0
+// Formular:
+// 		ROI = latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
+func (s *PublicBlockChainAPI) GetStakerROIMasternode(masternode common.Address) float64 {
+	votersReward := s.b.GetVotersRewards(masternode)
+	if votersReward == nil {
+		return 0
+	}
+
+	masternodeReward := new(big.Int).SetUint64(0) // this includes all reward for this masternode
+	voters := []common.Address{}
+	for voter, reward := range votersReward {
+		voters = append(voters, voter)
+		masternodeReward.Add(masternodeReward, reward)
+	}
+
+	blockNumber := s.b.CurrentBlock().Number().Uint64()
+	lastCheckpointNumber := blockNumber - blockNumber%s.b.ChainConfig().Posv.Epoch
+	totalCap := new(big.Int).SetUint64(0)
+	votersCap := s.b.GetVotersCap(new(big.Int).SetUint64(lastCheckpointNumber), masternode, voters)
+
+	for _, cap := range votersCap {
+		totalCap.Add(totalCap, cap)
+	}
+
+	// holder reward = 50% total reward of a masternode
+	holderReward := new(big.Int).Div(masternodeReward, new(big.Int).SetUint64(2))
+	EpochPerYear := 365 * 86400 / s.b.GetEpochDuration().Uint64()
+	voterRewardAYear := new(big.Int).Mul(holderReward, new(big.Int).SetUint64(EpochPerYear))
+
+	return 100.0 / float64(totalCap.Div(totalCap, voterRewardAYear).Uint64())
 }

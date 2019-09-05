@@ -19,17 +19,22 @@ package eth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+
+	"github.com/ethereum/go-ethereum/consensus/posv"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/contracts"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
 	"github.com/ethereum/go-ethereum/core/state"
+	stateDatabase "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/downloader"
@@ -37,6 +42,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -259,6 +265,133 @@ func (s *EthApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{}
 		}
 	}
 	return make(map[string]interface{})
+}
+
+// GetVotersRewards return a map of voters of snapshot at given block hash
+// there is a function engine.HookReward nearly does the same thing but
+// it does change the stateDB too - so can't use it here
+// Steps:
+// 1. Checking back to state of last checkpoint
+// 2. Get list signers + reward at that checkpoint
+// 3. Find out the list signers_reward for input masternode's reward
+// 4. Calculate voters's rewards for input masternode
+func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[common.Address]*big.Int {
+	chain := b.eth.blockchain
+	block := chain.CurrentBlock()
+	number := block.Number().Uint64()
+	engine := b.GetEngine().(*posv.Posv)
+	foundationWalletAddr := chain.Config().Posv.FoudationWalletAddr
+	lastCheckpointNumber := number - (number % b.ChainConfig().Posv.Epoch) - b.ChainConfig().Posv.Epoch // calculate for 2 epochs ago
+	lastCheckpointBlock := chain.GetBlockByNumber(lastCheckpointNumber)
+	rCheckpoint := chain.Config().Posv.RewardCheckpoint
+
+	state, err := chain.StateAt(lastCheckpointBlock.Root())
+	if err != nil {
+		fmt.Println("ERROR Trying to getting state at", lastCheckpointNumber, " Error ", err)
+		return nil
+	}
+
+	if foundationWalletAddr == (common.Address{}) {
+		log.Error("Foundation Wallet Address is empty", "error", foundationWalletAddr)
+		return nil
+	}
+
+	if lastCheckpointNumber <= 0 || lastCheckpointNumber-rCheckpoint <= 0 || foundationWalletAddr == (common.Address{}) {
+		return nil
+	}
+
+	// Get signers in blockSigner smartcontract.
+	// Get reward inflation.
+	chainReward := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
+	chainReward = rewardInflation(chainReward, lastCheckpointNumber, common.BlocksPerYear)
+
+	totalSigner := new(uint64)
+	signers, err := contracts.GetRewardForCheckpoint(engine, chain, lastCheckpointBlock.Header(), rCheckpoint, totalSigner)
+
+	if err != nil {
+		log.Crit("Fail to get signers for reward checkpoint", "error", err)
+		return nil
+	}
+
+	rewardSigners, err := contracts.CalculateRewardForSigner(chainReward, signers, *totalSigner)
+	if err != nil {
+		log.Crit("Fail to calculate reward for signers", "error", err)
+		return nil
+	}
+
+	if len(signers) <= 0 {
+		return nil
+	}
+
+	// Add reward for coin voters of input masternode.
+	var voterResults map[common.Address]*big.Int
+	for signer, calcReward := range rewardSigners {
+		if signer == masternodeAddr {
+			err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, state, masternodeAddr, calcReward, number)
+			if err != nil {
+				log.Crit("Fail to calculate reward for holders.", "error", err)
+				return nil
+			}
+			voterResults = rewards
+			break
+		}
+	}
+
+	return voterResults
+
+}
+
+// GetVotersCap return all voters's capability at a checkpoint
+func (b *EthApiBackend) GetVotersCap(checkpoint *big.Int, masterAddr common.Address, voters []common.Address) map[common.Address]*big.Int {
+	chain := b.eth.blockchain
+	checkpointBlock := chain.GetBlockByNumber(checkpoint.Uint64())
+	state, err := chain.StateAt(checkpointBlock.Root())
+
+	if err != nil {
+		fmt.Println("ERROR Trying to getting state at", checkpoint, " Error ", err)
+		return nil
+	}
+
+	voterCaps := make(map[common.Address]*big.Int)
+	for _, voteAddr := range voters {
+		voterCap := stateDatabase.GetVoterCap(state, masterAddr, voteAddr)
+		voterCaps[voteAddr] = voterCap
+	}
+	return voterCaps
+}
+
+// GetEpochDuration return latest generating velocity epoch by minute
+// ie 30min for each epoch
+func (b *EthApiBackend) GetEpochDuration() *big.Int {
+	chain := b.eth.blockchain
+	block := chain.CurrentBlock()
+	number := block.Number().Uint64()
+	lastCheckpointNumber := number - (number % b.ChainConfig().Posv.Epoch)
+	lastCheckpointBlockTime := chain.GetBlockByNumber(lastCheckpointNumber).Time()
+	secondToLastCheckpointNumber := lastCheckpointNumber - b.ChainConfig().Posv.Epoch
+	secondToLastCheckpointBlockTime := chain.GetBlockByNumber(secondToLastCheckpointNumber).Time()
+
+	return secondToLastCheckpointBlockTime.Add(secondToLastCheckpointBlockTime, lastCheckpointBlockTime.Mul(lastCheckpointBlockTime, new(big.Int).SetInt64(-1)))
+}
+
+// GetMasternodesCap return a cap of all masternode at a checkpoint
+func (b *EthApiBackend) GetMasternodesCap(checkpoint uint64) map[common.Address]*big.Int {
+	checkpointBlock := b.eth.blockchain.GetBlockByNumber(checkpoint)
+	state, err := b.eth.blockchain.StateAt(checkpointBlock.Root())
+
+	if err != nil {
+		fmt.Println("ERROR Trying to getting state at", checkpoint, " Error ", err)
+		return nil
+	}
+
+	candicates := stateDatabase.GetCandidates(state)
+
+	masternodesCap := map[common.Address]*big.Int{}
+	for _, candicate := range candicates {
+		masternodesCap[candicate] = stateDatabase.GetCandidateCap(state, candicate)
+	}
+
+	return masternodesCap
 }
 
 func (b *EthApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
