@@ -613,12 +613,16 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		} else {
 			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
 		}
-	case ctx.GlobalBool(TestnetFlag.Name):
+	// case ctx.GlobalBool(TestnetFlag.Name):
+	// 	urls = params.TestnetBootnodes
+	// case ctx.GlobalBool(RinkebyFlag.Name):
+	// 	urls = params.RinkebyBootnodes
+	// case cfg.BootstrapNodes != nil:
+	// 	return // already set, don't apply defaults.
+	case !ctx.GlobalIsSet(BootnodesFlag.Name) && !ctx.GlobalBool(TomoTestnetFlag.Name):
+		urls = params.MainnetBootnodes
+	case ctx.GlobalBool(TomoTestnetFlag.Name):
 		urls = params.TestnetBootnodes
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
-	case cfg.BootstrapNodes != nil:
-		return // already set, don't apply defaults.
 	}
 
 	cfg.BootstrapNodes = make([]*discover.Node, 0, len(urls))
@@ -825,7 +829,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
 	setBootstrapNodes(ctx, cfg)
-	setBootstrapNodesV5(ctx, cfg)
+	// setBootstrapNodesV5(ctx, cfg)
 
 	lightClient := ctx.GlobalBool(LightModeFlag.Name) || ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := ctx.GlobalInt(LightServFlag.Name) != 0
