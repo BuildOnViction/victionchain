@@ -87,14 +87,14 @@ func (order *Order) String() string {
 		new(big.Int).SetBytes(order.Key), order.Item.Price, order.Item.Quantity, order.Item.ExchangeAddress.Hex())
 }
 
-func (order *Order) GetNextOrder(orderList *OrderList, dryrun bool) *Order {
-	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)
+func (order *Order) GetNextOrder(orderList *OrderList, dryrun bool, blockHash common.Hash) *Order {
+	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun, blockHash)
 
 	return nextOrder
 }
 
-func (order *Order) GetPrevOrder(orderList *OrderList, dryrun bool) *Order {
-	prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun)
+func (order *Order) GetPrevOrder(orderList *OrderList, dryrun bool, blockHash common.Hash) *Order {
+	prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun, blockHash)
 
 	return prevOrder
 }
@@ -115,9 +115,9 @@ func NewOrder(orderItem *OrderItem, orderListKey []byte) *Order {
 }
 
 // UpdateQuantity : update quantity of the order
-func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, newTimestamp uint64, dryrun bool) error {
+func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, newTimestamp uint64, dryrun bool, blockHash common.Hash) error {
 	if newQuantity.Cmp(order.Item.Quantity) > 0 && !bytes.Equal(orderList.Item.TailOrder, order.Key) {
-		if err := orderList.MoveToTail(order, dryrun); err != nil {
+		if err := orderList.MoveToTail(order, dryrun, blockHash); err != nil {
 			return err
 		}
 	}
@@ -126,10 +126,10 @@ func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, n
 	order.Item.UpdatedAt = newTimestamp
 	order.Item.Quantity = CloneBigInt(newQuantity)
 	log.Debug("QUANTITY", order.Item.Quantity.String())
-	if err := orderList.SaveOrder(order, dryrun); err != nil {
+	if err := orderList.SaveOrder(order, dryrun, blockHash); err != nil {
 		return err
 	}
-	if err := orderList.Save(dryrun); err != nil {
+	if err := orderList.Save(dryrun, blockHash); err != nil {
 		return err
 	}
 	return nil

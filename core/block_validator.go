@@ -83,13 +83,13 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	if err != nil {
 		return err
 	}
-
+	hashNoValidator := block.HashNoValidator()
 	// validate matchedOrder txs
 	processedHashes := []common.Hash{}
 
 	// clear the previous dry-run cache
 	if tomoXService != nil {
-		tomoXService.GetDB().InitDryRunMode()
+		tomoXService.GetDB().InitDryRunMode(hashNoValidator)
 	}
 	txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
 	if err != nil {
@@ -101,13 +101,12 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 			return tomox.ErrTomoXServiceNotFound
 		}
 		log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash)
-		hashes, err := v.validateMatchingOrder(tomoXService, currentState, txMatchBatch)
+		hashes, err := v.validateMatchingOrder(tomoXService, currentState, txMatchBatch, hashNoValidator)
 		if err != nil {
 			return err
 		}
 		processedHashes = append(processedHashes, hashes...)
 	}
-	hashNoValidator := block.HashNoValidator()
 	if _, ok := v.bc.processedOrderHashes.Get(hashNoValidator); !ok && len(processedHashes) > 0 {
 		v.bc.processedOrderHashes.Add(hashNoValidator, processedHashes)
 	}
@@ -142,7 +141,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, txMatchBatch tomox.TxMatchBatch) ([]common.Hash, error) {
+func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, txMatchBatch tomox.TxMatchBatch, blockHash common.Hash) ([]common.Hash, error) {
 	processedHashes := []common.Hash{}
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
 
@@ -178,7 +177,7 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 			return []common.Hash{}, err
 		}
 
-		ob, err := tomoXService.GetOrderBook(order.PairName, true)
+		ob, err := tomoXService.GetOrderBook(order.PairName, true, blockHash)
 		// if orderbook of this pairName has been updated by previous tx in this block, use it
 
 		if err != nil {
@@ -191,7 +190,7 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 		}
 
 		// process Matching Engine
-		if _, _, err := ob.ProcessOrder(order, true, true); err != nil {
+		if _, _, err := ob.ProcessOrder(order, true, true, blockHash); err != nil {
 			return []common.Hash{}, err
 		}
 

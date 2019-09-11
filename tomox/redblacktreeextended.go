@@ -5,6 +5,7 @@
 package tomox
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 )
 
@@ -27,8 +28,8 @@ func NewRedBlackTreeExtended(obdb OrderDao) *RedBlackTreeExtended {
 }
 
 // GetMin gets the min value and flag if found
-func (tree *RedBlackTreeExtended) GetMin(dryrun bool) (value []byte, found bool) {
-	node, found := tree.getMinFromNode(tree.Root(dryrun), dryrun)
+func (tree *RedBlackTreeExtended) GetMin(dryrun bool, blockHash common.Hash) (value []byte, found bool) {
+	node, found := tree.getMinFromNode(tree.Root(dryrun, blockHash), dryrun, blockHash)
 	if node != nil {
 		return node.Value(), found
 	}
@@ -36,8 +37,8 @@ func (tree *RedBlackTreeExtended) GetMin(dryrun bool) (value []byte, found bool)
 }
 
 // GetMax gets the max value and flag if found
-func (tree *RedBlackTreeExtended) GetMax(dryrun bool) (value []byte, found bool) {
-	node, found := tree.getMaxFromNode(tree.Root(dryrun), dryrun)
+func (tree *RedBlackTreeExtended) GetMax(dryrun bool, blockHash common.Hash) (value []byte, found bool) {
+	node, found := tree.getMaxFromNode(tree.Root(dryrun, blockHash), dryrun, blockHash)
 	if node != nil {
 		return node.Value(), found
 	}
@@ -45,11 +46,11 @@ func (tree *RedBlackTreeExtended) GetMax(dryrun bool) (value []byte, found bool)
 }
 
 // RemoveMin removes the min value and flag if found
-func (tree *RedBlackTreeExtended) RemoveMin(dryrun bool) (value []byte, deleted bool) {
-	node, found := tree.getMinFromNode(tree.Root(dryrun), dryrun)
+func (tree *RedBlackTreeExtended) RemoveMin(dryrun bool, blockHash common.Hash) (value []byte, deleted bool) {
+	node, found := tree.getMinFromNode(tree.Root(dryrun, blockHash), dryrun, blockHash)
 	// fmt.Println("found min", node)
 	if found {
-		tree.Remove(node.Key, false)
+		tree.Remove(node.Key, false, common.Hash{})
 		// fmt.Printf("%x\n", node.Key)
 		return node.Value(), found
 	}
@@ -57,35 +58,35 @@ func (tree *RedBlackTreeExtended) RemoveMin(dryrun bool) (value []byte, deleted 
 }
 
 // RemoveMax removes the max value and flag if found
-func (tree *RedBlackTreeExtended) RemoveMax(dryrun bool) (value []byte, deleted bool) {
+func (tree *RedBlackTreeExtended) RemoveMax(dryrun bool, blockHash common.Hash) (value []byte, deleted bool) {
 	// fmt.Println("found max with root", tree.Root())
-	node, found := tree.getMaxFromNode(tree.Root(dryrun), dryrun)
+	node, found := tree.getMaxFromNode(tree.Root(dryrun, blockHash), dryrun, blockHash)
 	// fmt.Println("found max", node)
 	if found {
-		tree.Remove(node.Key, false)
+		tree.Remove(node.Key, false, common.Hash{})
 		return node.Value(), found
 	}
 	return nil, false
 }
 
-func (tree *RedBlackTreeExtended) getMinFromNode(node *Node, dryrun bool) (foundNode *Node, found bool) {
+func (tree *RedBlackTreeExtended) getMinFromNode(node *Node, dryrun bool, blockHash common.Hash) (foundNode *Node, found bool) {
 	if node == nil {
 		return nil, false
 	}
-	nodeLeft := node.Left(tree.Tree, dryrun)
+	nodeLeft := node.Left(tree.Tree, dryrun, blockHash)
 	if nodeLeft == nil {
 		return node, true
 	}
-	return tree.getMinFromNode(nodeLeft, dryrun)
+	return tree.getMinFromNode(nodeLeft, dryrun, blockHash)
 }
 
-func (tree *RedBlackTreeExtended) getMaxFromNode(node *Node, dryrun bool) (foundNode *Node, found bool) {
+func (tree *RedBlackTreeExtended) getMaxFromNode(node *Node, dryrun bool, blockHash common.Hash) (foundNode *Node, found bool) {
 	if node == nil {
 		return nil, false
 	}
-	nodeRight := node.Right(tree.Tree, dryrun)
+	nodeRight := node.Right(tree.Tree, dryrun, blockHash)
 	if nodeRight == nil {
 		return node, true
 	}
-	return tree.getMaxFromNode(nodeRight, dryrun)
+	return tree.getMaxFromNode(nodeRight, dryrun, blockHash)
 }

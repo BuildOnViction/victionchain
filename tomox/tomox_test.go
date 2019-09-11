@@ -319,22 +319,22 @@ func TestTomoX_GetActivePairs(t *testing.T) {
 	// in db: there are 2 active pairs
 	// expected: tomox.listTokenPairs return 2
 	tomox.activePairs = map[string]bool{} // reset tomox.activePairsKey to simulate the case: a node was restarted
-	tomox.GetOrderBook("aaa/tomo", false)
+	tomox.GetOrderBook("aaa/tomo", false, common.Hash{})
 	if pairs := tomox.listTokenPairs(); len(pairs) != 2 {
 		t.Error("Expected: 2 active pairs", "Actual:", len(pairs))
 	}
 
 	// insert an order of existing pair: xxx/tomo
 	// expected: tomox.listTokenPairs return 2 pairs
-	tomox.GetOrderBook("xxx/tomo", false)
+	tomox.GetOrderBook("xxx/tomo", false, common.Hash{})
 	if pairs := tomox.listTokenPairs(); len(pairs) != 2 {
 		t.Error("Expected: 2 active pairs", "Actual:", len(pairs))
 	}
 
 	// now, activePairsKey in tomox.activePairsKey and db are same
 	// try to add one more pair to orderbook
-	tomox.GetOrderBook("xxx/tomo", false)
-	tomox.GetOrderBook("yyy/tomo", false)
+	tomox.GetOrderBook("xxx/tomo", false, common.Hash{})
+	tomox.GetOrderBook("yyy/tomo", false, common.Hash{})
 
 	if pairs := tomox.listTokenPairs(); len(pairs) != 3 {
 		t.Error("Expected: 3 active pairs", "Actual:", len(pairs))

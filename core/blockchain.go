@@ -1222,7 +1222,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				if processedCacheData, ok := bc.processedOrderHashes.Get(block.HashNoValidator()); ok && processedCacheData != nil {
 					processedOrderHashes := processedCacheData.([]common.Hash)
 					log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "hash", block.Hash(), "hash_novalidator", block.HashNoValidator())
-					if err = tomoXService.ApplyTxMatches(processedOrderHashes); err != nil {
+					if err = tomoXService.ApplyTxMatches(processedOrderHashes, block.HashNoValidator()); err != nil {
 						return i, events, coalescedLogs, err
 					}
 					bc.processedOrderHashes.Remove(block.HashNoValidator())
@@ -1450,7 +1450,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 			if processedCacheData, ok := bc.processedOrderHashes.Get(block.HashNoValidator()); ok && processedCacheData != nil {
 				processedOrderHashes := processedCacheData.([]common.Hash)
 				log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "hash", block.Hash(), "hash_novalidator", block.HashNoValidator())
-				if err = tomoXService.ApplyTxMatches(processedOrderHashes); err != nil {
+				if err = tomoXService.ApplyTxMatches(processedOrderHashes, block.HashNoValidator()); err != nil {
 					return events, coalescedLogs, err
 				}
 				bc.processedOrderHashes.Remove(block.HashNoValidator())

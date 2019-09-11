@@ -6,6 +6,7 @@ package tomox
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -67,13 +68,13 @@ func (node *Node) String(tree *Tree) string {
 	return fmt.Sprintf("%v -> %x, (%v)\n", tree.FormatBytes(node.Key), node.Value(), node.Item.Keys.String(tree))
 }
 
-func (node *Node) maximumNode(tree *Tree, dryrun bool) *Node {
+func (node *Node) maximumNode(tree *Tree, dryrun bool, blockHash common.Hash) *Node {
 	newNode := node
 	if newNode == nil {
 		return newNode
 	}
 	for !tree.IsEmptyKey(node.RightKey()) {
-		newNode = newNode.Right(tree, dryrun)
+		newNode = newNode.Right(tree, dryrun, blockHash)
 	}
 	return newNode
 }
@@ -117,10 +118,10 @@ func (node *Node) ParentKey(keys ...[]byte) []byte {
 	return node.Item.Keys.Parent
 }
 
-func (node *Node) Left(tree *Tree, dryrun bool) *Node {
+func (node *Node) Left(tree *Tree, dryrun bool, blockHash common.Hash) *Node {
 	key := node.LeftKey()
 
-	newNode, err := tree.GetNode(key, dryrun)
+	newNode, err := tree.GetNode(key, dryrun, blockHash)
 	if err != nil {
 		log.Error("Error at left", "err", err)
 	}
@@ -128,18 +129,18 @@ func (node *Node) Left(tree *Tree, dryrun bool) *Node {
 	return newNode
 }
 
-func (node *Node) Right(tree *Tree, dryrun bool) *Node {
+func (node *Node) Right(tree *Tree, dryrun bool, blockHash common.Hash) *Node {
 	key := node.RightKey()
-	newNode, err := tree.GetNode(key,dryrun)
+	newNode, err := tree.GetNode(key,dryrun, blockHash)
 	if err != nil {
 		fmt.Println(err)
 	}
 	return newNode
 }
 
-func (node *Node) Parent(tree *Tree, dryrun bool) *Node {
+func (node *Node) Parent(tree *Tree, dryrun bool, blockHash common.Hash) *Node {
 	key := node.ParentKey()
-	newNode, err := tree.GetNode(key, dryrun)
+	newNode, err := tree.GetNode(key, dryrun, blockHash)
 	if err != nil {
 		log.Error("Error at parent", "err", err)
 	}
@@ -150,33 +151,33 @@ func (node *Node) Value() []byte {
 	return node.Item.Value
 }
 
-func (node *Node) grandparent(tree *Tree, dryrun bool) *Node {
+func (node *Node) grandparent(tree *Tree, dryrun bool, blockHash common.Hash) *Node {
 	if node != nil && !tree.IsEmptyKey(node.ParentKey()) {
-		return node.Parent(tree, dryrun).Parent(tree, dryrun)
+		return node.Parent(tree, dryrun, blockHash).Parent(tree, dryrun, blockHash)
 	}
 	return nil
 }
 
-func (node *Node) uncle(tree *Tree, dryrun bool) *Node {
+func (node *Node) uncle(tree *Tree, dryrun bool, blockHash common.Hash) *Node {
 	if node == nil || tree.IsEmptyKey(node.ParentKey()) {
 		return nil
 	}
-	parent := node.Parent(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
 	// if tree.IsEmptyKey(parent.ParentKey()) {
 	// 	return nil
 	// }
 
-	return parent.sibling(tree, dryrun)
+	return parent.sibling(tree, dryrun, blockHash)
 }
 
-func (node *Node) sibling(tree *Tree, dryrun bool) *Node {
+func (node *Node) sibling(tree *Tree, dryrun bool, blockHash common.Hash) *Node {
 	if node == nil || tree.IsEmptyKey(node.ParentKey()) {
 		return nil
 	}
-	parent := node.Parent(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
 	// fmt.Printf("Parent: %s\n", parent)
 	if tree.Comparator(node.Key, parent.LeftKey()) == 0 {
-		return parent.Right(tree, dryrun)
+		return parent.Right(tree, dryrun, blockHash)
 	}
-	return parent.Left(tree, dryrun)
+	return parent.Left(tree, dryrun, blockHash)
 }

@@ -116,50 +116,50 @@ func NewOrderBook(name string, db OrderDao) *OrderBook {
 	return orderBook
 }
 
-func (orderBook *OrderBook) Save(dryrun bool) error {
+func (orderBook *OrderBook) Save(dryrun bool, blockHash common.Hash) error {
 
 	log.Debug("save orderbook asks")
-	if err := orderBook.Asks.Save(dryrun); err != nil {
+	if err := orderBook.Asks.Save(dryrun, blockHash); err != nil {
 		log.Error("can't save orderbook asks", "err", err)
 		return err
 	}
 
 	log.Debug("save orderbook bids")
-	if err := orderBook.Bids.Save(dryrun); err != nil {
+	if err := orderBook.Bids.Save(dryrun, blockHash); err != nil {
 		log.Error("can't save orderbook bids", "err", err)
 		return err
 	}
 
 	orderBookItemKey := append([]byte(orderbookItemPrefix), orderBook.Key...)
 	log.Debug("save orderbook", "key", hex.EncodeToString(orderBookItemKey))
-	return orderBook.db.Put(orderBookItemKey, orderBook.Item, dryrun)
+	return orderBook.db.Put(orderBookItemKey, orderBook.Item, dryrun, blockHash)
 }
 
-func (orderBook *OrderBook) Restore(dryrun bool) error {
-	if err := orderBook.Asks.Restore(dryrun); err != nil {
+func (orderBook *OrderBook) Restore(dryrun bool, blockHash common.Hash) error {
+	if err := orderBook.Asks.Restore(dryrun, blockHash); err != nil {
 		log.Error("can't restore orderbook asks", "err", err)
 		return err
 	}
 	// rootKey might change once restoring thus to be safe, we should save changes to DB
-	if err := orderBook.Asks.Save(dryrun); err != nil {
+	if err := orderBook.Asks.Save(dryrun, blockHash); err != nil {
 		log.Error("can't save asks changes to DB", "err", err)
 		return err
 	}
 	log.Debug("restored orderbook asks", "asks.Item", orderBook.Asks.Item)
 
-	if err := orderBook.Bids.Restore(dryrun); err != nil {
+	if err := orderBook.Bids.Restore(dryrun, blockHash); err != nil {
 		log.Error("can't restore orderbook bids", "err", err)
 		return err
 	}
 	// rootKey might change once restoring thus to be safe, we should save changes to DB
-	if err := orderBook.Bids.Save(dryrun); err != nil {
+	if err := orderBook.Bids.Save(dryrun, blockHash); err != nil {
 		log.Error("can't save bids changes to DB", "err", err)
 		return err
 	}
 	log.Debug("restored orderbook bids", "bids.Item", orderBook.Bids.Item)
 
 	orderBookItemKey := append([]byte(orderbookItemPrefix), orderBook.Key...)
-	val, err := orderBook.db.Get(orderBookItemKey, orderBook.Item, dryrun)
+	val, err := orderBook.db.Get(orderBookItemKey, orderBook.Item, dryrun, blockHash)
 	if err == nil {
 		orderBook.Item = val.(*OrderBookItem)
 		log.Debug("restored orderbook", "orderBook.Item", orderBook.Item)
@@ -178,12 +178,12 @@ func (orderBook *OrderBook) GetOrderIDFromKey(key []byte) []byte {
 	return common.BigToHash(Add(orderBook.Slot, orderSlot)).Bytes()
 }
 
-func (orderBook *OrderBook) GetOrder(storedKey, key []byte, dryrun bool) *Order {
+func (orderBook *OrderBook) GetOrder(storedKey, key []byte, dryrun bool, blockHash common.Hash) *Order {
 	if orderBook.db.IsEmptyKey(key) || orderBook.db.IsEmptyKey(storedKey) {
 		return nil
 	}
 	orderItem := &OrderItem{}
-	val, err := orderBook.db.Get(storedKey, orderItem, dryrun)
+	val, err := orderBook.db.Get(storedKey, orderItem, dryrun, blockHash)
 	if err != nil || val == nil {
 		log.Error("Key not found", "key", storedKey, "err", err)
 		return nil
@@ -203,27 +203,27 @@ func (orderBook *OrderBook) UpdateTime() {
 }
 
 // BestBid : get the best bid of the order book
-func (orderBook *OrderBook) BestBid(dryrun bool) (value *big.Int) {
-	return orderBook.Bids.MaxPrice(dryrun)
+func (orderBook *OrderBook) BestBid(dryrun bool, blockHash common.Hash) (value *big.Int) {
+	return orderBook.Bids.MaxPrice(dryrun, blockHash)
 }
 
 // BestAsk : get the best ask of the order book
-func (orderBook *OrderBook) BestAsk(dryrun bool) (value *big.Int) {
-	return orderBook.Asks.MinPrice(dryrun)
+func (orderBook *OrderBook) BestAsk(dryrun bool, blockHash common.Hash) (value *big.Int) {
+	return orderBook.Asks.MinPrice(dryrun, blockHash)
 }
 
 // WorstBid : get the worst bid of the order book
-func (orderBook *OrderBook) WorstBid(dryrun bool) (value *big.Int) {
-	return orderBook.Bids.MinPrice(dryrun)
+func (orderBook *OrderBook) WorstBid(dryrun bool, blockHash common.Hash) (value *big.Int) {
+	return orderBook.Bids.MinPrice(dryrun, blockHash)
 }
 
 // WorstAsk : get the worst ask of the order book
-func (orderBook *OrderBook) WorstAsk(dryrun bool) (value *big.Int) {
-	return orderBook.Asks.MaxPrice(dryrun)
+func (orderBook *OrderBook) WorstAsk(dryrun bool, blockHash common.Hash) (value *big.Int) {
+	return orderBook.Asks.MaxPrice(dryrun, blockHash)
 }
 
 // processMarketOrder : process the market order
-func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, dryrun bool) ([]map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *OrderItem, error) {
 	var (
 		trades      []map[string]string
 		newTrades   []map[string]string
@@ -236,8 +236,8 @@ func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, d
 	zero := Zero()
 	if side == Bid {
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() {
-			bestPriceAsks := orderBook.Asks.MinPriceList(dryrun)
-			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose, dryrun)
+			bestPriceAsks := orderBook.Asks.MinPriceList(dryrun, blockHash)
+			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose, dryrun, blockHash)
 			if err != nil {
 				return nil, orderInBook, err
 			}
@@ -245,8 +245,8 @@ func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, d
 		}
 	} else {
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() {
-			bestPriceBids := orderBook.Bids.MaxPriceList(dryrun)
-			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose, dryrun)
+			bestPriceBids := orderBook.Bids.MaxPriceList(dryrun, blockHash)
+			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose, dryrun, blockHash)
 			if err != nil {
 				return nil, orderInBook, err
 			}
@@ -258,7 +258,7 @@ func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, d
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dryrun bool) ([]map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *OrderItem, error) {
 	var (
 		trades      []map[string]string
 		newTrades   []map[string]string
@@ -273,25 +273,25 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 	zero := Zero()
 
 	if side == Bid {
-		minPrice := orderBook.Asks.MinPrice(dryrun)
+		minPrice := orderBook.Asks.MinPrice(dryrun, blockHash)
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Asks.NotEmpty() && price.Cmp(minPrice) >= 0 {
 			log.Debug("Min price in asks tree", "price", minPrice.String())
-			bestPriceAsks := orderBook.Asks.MinPriceList(dryrun)
+			bestPriceAsks := orderBook.Asks.MinPriceList(dryrun, blockHash)
 			log.Debug("Orderlist at min price", "orderlist", bestPriceAsks.Item)
-			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose, dryrun)
+			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Ask, bestPriceAsks, quantityToTrade, order, verbose, dryrun, blockHash)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
 			log.Debug("New trade found", "newTrades", newTrades, "orderInBook", orderInBook, "quantityToTrade", quantityToTrade)
-			minPrice = orderBook.Asks.MinPrice(dryrun)
+			minPrice = orderBook.Asks.MinPrice(dryrun, blockHash)
 		}
 
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
 			log.Debug("After matching, order (unmatched part) is now added to bids tree", "order", order)
-			if err := orderBook.Bids.InsertOrder(order, dryrun); err != nil {
+			if err := orderBook.Bids.InsertOrder(order, dryrun, blockHash); err != nil {
 				log.Error("Failed to insert order to bidTree", "pairName", order.PairName, "orderItem", order, "err", err)
 				return nil, nil, err
 			}
@@ -299,25 +299,25 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 		}
 
 	} else {
-		maxPrice := orderBook.Bids.MaxPrice(dryrun)
+		maxPrice := orderBook.Bids.MaxPrice(dryrun, blockHash)
 		for quantityToTrade.Cmp(zero) > 0 && orderBook.Bids.NotEmpty() && price.Cmp(maxPrice) <= 0 {
 			log.Debug("Max price in bids tree", "price", maxPrice.String())
-			bestPriceBids := orderBook.Bids.MaxPriceList(dryrun)
+			bestPriceBids := orderBook.Bids.MaxPriceList(dryrun, blockHash)
 			log.Debug("Orderlist at max price", "orderlist", bestPriceBids.Item)
-			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose, dryrun)
+			quantityToTrade, newTrades, orderInBook, err = orderBook.processOrderList(Bid, bestPriceBids, quantityToTrade, order, verbose, dryrun, blockHash)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
 			log.Debug("New trade found", "newTrades", newTrades, "orderInBook", orderInBook, "quantityToTrade", quantityToTrade)
-			maxPrice = orderBook.Bids.MaxPrice(dryrun)
+			maxPrice = orderBook.Bids.MaxPrice(dryrun, blockHash)
 		}
 
 		if quantityToTrade.Cmp(zero) > 0 {
 			order.OrderID = orderBook.Item.NextOrderID
 			order.Quantity = quantityToTrade
 			log.Debug("After matching, order (unmatched part) is now back to asks tree", "order", order)
-			if err := orderBook.Asks.InsertOrder(order, dryrun); err != nil {
+			if err := orderBook.Asks.InsertOrder(order, dryrun, blockHash); err != nil {
 				log.Error("Failed to insert order to askTree", "pairName", order.PairName, "orderItem", order, "err", err)
 				return nil, nil, err
 			}
@@ -328,7 +328,7 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 }
 
 // ProcessOrder : process the order
-func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun bool) ([]map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *OrderItem, error) {
 	var (
 		orderInBook *OrderItem
 		trades      []map[string]string
@@ -341,20 +341,20 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun 
 
 	if orderType == Market {
 		log.Debug("Process market order", "order", order)
-		trades, orderInBook, err = orderBook.processMarketOrder(order, verbose, dryrun)
+		trades, orderInBook, err = orderBook.processMarketOrder(order, verbose, dryrun, blockHash)
 		if err != nil {
 			return nil, nil, err
 		}
 	} else {
 		log.Debug("Process limit order", "order", order)
-		trades, orderInBook, err = orderBook.processLimitOrder(order, verbose, dryrun)
+		trades, orderInBook, err = orderBook.processLimitOrder(order, verbose, dryrun, blockHash)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
 	// update orderBook
-	if err := orderBook.Save(dryrun); err != nil {
+	if err := orderBook.Save(dryrun, blockHash); err != nil {
 		return nil, nil, err
 	}
 
@@ -362,7 +362,7 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun 
 }
 
 // processOrderList : process the order list
-func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool, dryrun bool) (*big.Int, []map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool, dryrun bool, blockHash common.Hash) (*big.Int, []map[string]string, *OrderItem, error) {
 	log.Debug("Process matching between order and orderlist")
 	quantityToTrade := CloneBigInt(quantityStillToTrade)
 	var (
@@ -373,7 +373,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 	zero := Zero()
 	for orderList.Item.Length > uint64(0) && quantityToTrade.Cmp(zero) > 0 {
 
-		headOrder := orderList.GetOrder(orderList.Item.HeadOrder, dryrun)
+		headOrder := orderList.GetOrder(orderList.Item.HeadOrder, dryrun, blockHash)
 		if headOrder == nil {
 			return nil, nil, nil, fmt.Errorf("headOrder is null")
 		}
@@ -390,7 +390,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			// Do the transaction
 			newBookQuantity = Sub(headOrder.Item.Quantity, quantityToTrade)
-			if err := headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt, dryrun); err != nil {
+			if err := headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt, dryrun, blockHash); err != nil {
 				return nil, nil, nil, err
 			}
 			log.Debug("Update quantity for head order", "headOrder", headOrder.Item)
@@ -399,12 +399,12 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		} else if IsEqual(quantityToTrade, headOrder.Item.Quantity) {
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			if side == Bid {
-				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
+				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList, dryrun, blockHash); err != nil {
 					return nil, nil, nil, err
 				}
 				log.Debug("Removed headOrder from bids orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side)
 			} else {
-				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
+				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList, dryrun, blockHash); err != nil {
 					return nil, nil, nil, err
 				}
 				log.Debug("Removed headOrder from asks orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side)
@@ -414,12 +414,12 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		} else {
 			tradedQuantity = CloneBigInt(headOrder.Item.Quantity)
 			if side == Bid {
-				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
+				if err := orderBook.Bids.RemoveOrderFromOrderList(headOrder, orderList, dryrun, blockHash); err != nil {
 					return nil, nil, nil, err
 				}
 				log.Debug("Removed headOrder from bids orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side)
 			} else {
-				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList, dryrun); err != nil {
+				if err := orderBook.Asks.RemoveOrderFromOrderList(headOrder, orderList, dryrun, blockHash); err != nil {
 					return nil, nil, nil, err
 				}
 				log.Debug("Removed headOrder from asks orderlist", "headOrder", headOrder.Item, "orderlist", orderList.Item, "side", side)
@@ -452,53 +452,53 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 
 // CancelOrder : cancel the order, just need ID, side and price, of course order must belong
 // to a price point as well
-func (orderBook *OrderBook) CancelOrder(order *OrderItem, dryrun bool) error {
+func (orderBook *OrderBook) CancelOrder(order *OrderItem, dryrun bool, blockHash common.Hash) error {
 	key := GetKeyFromBig(big.NewInt(int64(order.OrderID)))
 	if order.Side == Bid {
-		orderInDB := orderBook.Bids.GetOrder(key, order.Price, dryrun)
+		orderInDB := orderBook.Bids.GetOrder(key, order.Price, dryrun, blockHash)
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
 			return ErrDoesNotExist
 		}
-		if err := orderBook.Bids.RemoveOrder(orderInDB, dryrun); err != nil {
+		if err := orderBook.Bids.RemoveOrder(orderInDB, dryrun, blockHash); err != nil {
 			return err
 		}
 	} else {
-		orderInDB := orderBook.Asks.GetOrder(key, order.Price, dryrun)
+		orderInDB := orderBook.Asks.GetOrder(key, order.Price, dryrun, blockHash)
 		if orderInDB == nil || orderInDB.Item.Hash != order.Hash {
 			return ErrDoesNotExist
 		}
-		if err := orderBook.Asks.RemoveOrder(orderInDB, dryrun); err != nil {
+		if err := orderBook.Asks.RemoveOrder(orderInDB, dryrun, blockHash); err != nil {
 			return err
 		}
 	}
 
 	// snapshot orderbook
 	orderBook.UpdateTime()
-	if err := orderBook.Save(dryrun); err != nil {
+	if err := orderBook.Save(dryrun, blockHash); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (orderBook *OrderBook) UpdateOrder(order *OrderItem, dryrun bool) error {
-	return orderBook.ModifyOrder(order, order.OrderID, order.Price, dryrun)
+func (orderBook *OrderBook) UpdateOrder(order *OrderItem, dryrun bool, blockHash common.Hash) error {
+	return orderBook.ModifyOrder(order, order.OrderID, order.Price, dryrun, blockHash)
 }
 
 // ModifyOrder : modify the order
-func (orderBook *OrderBook) ModifyOrder(order *OrderItem, orderID uint64, price *big.Int, dryrun bool) error {
+func (orderBook *OrderBook) ModifyOrder(order *OrderItem, orderID uint64, price *big.Int, dryrun bool, blockHash common.Hash) error {
 	orderBook.UpdateTime()
 
 	key := GetKeyFromBig(new(big.Int).SetUint64(order.OrderID))
 	if order.Side == Bid {
 
-		if orderBook.Bids.OrderExist(key, price, dryrun) {
-			return orderBook.Bids.UpdateOrder(order, dryrun)
+		if orderBook.Bids.OrderExist(key, price, dryrun, blockHash) {
+			return orderBook.Bids.UpdateOrder(order, dryrun, blockHash)
 		}
 	} else {
 
-		if orderBook.Asks.OrderExist(key, price, dryrun) {
-			return orderBook.Asks.UpdateOrder(order, dryrun)
+		if orderBook.Asks.OrderExist(key, price, dryrun, blockHash) {
+			return orderBook.Asks.UpdateOrder(order, dryrun, blockHash)
 		}
 	}
 
@@ -506,18 +506,18 @@ func (orderBook *OrderBook) ModifyOrder(order *OrderItem, orderID uint64, price 
 }
 
 // VolumeAtPrice : get volume at the current price
-func (orderBook *OrderBook) VolumeAtPrice(side string, price *big.Int, dryrun bool) *big.Int {
+func (orderBook *OrderBook) VolumeAtPrice(side string, price *big.Int, dryrun bool, blockHash common.Hash) *big.Int {
 	volume := Zero()
 	if side == Bid {
-		if orderBook.Bids.PriceExist(price, dryrun) {
-			orderList := orderBook.Bids.PriceList(price, dryrun)
+		if orderBook.Bids.PriceExist(price, dryrun, blockHash) {
+			orderList := orderBook.Bids.PriceList(price, dryrun, blockHash)
 			// incase we use cache for PriceList
 			volume = CloneBigInt(orderList.Item.Volume)
 		}
 	} else {
 		// other case
-		if orderBook.Asks.PriceExist(price, dryrun) {
-			orderList := orderBook.Asks.PriceList(price, dryrun)
+		if orderBook.Asks.PriceExist(price, dryrun, blockHash) {
+			orderList := orderBook.Asks.PriceList(price, dryrun, blockHash)
 			volume = CloneBigInt(orderList.Item.Volume)
 		}
 	}
