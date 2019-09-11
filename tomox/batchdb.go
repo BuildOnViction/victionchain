@@ -3,10 +3,11 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
+	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/common"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 )
@@ -20,11 +21,13 @@ type BatchItem struct {
 }
 
 type BatchDatabase struct {
-	db             *ethdb.LDBDatabase
-	emptyKey       []byte
-	cacheItems     *lru.Cache // Cache for reading
-	dryRunCache    *lru.Cache
-	Debug          bool
+	db           *ethdb.LDBDatabase
+	emptyKey     []byte
+	cacheItems   *lru.Cache // Cache for reading
+	dryRunCaches map[common.Hash]*lru.Cache
+	lock         sync.RWMutex
+	cacheLimit   int
+	Debug        bool
 }
 
 // NewBatchDatabase use rlp as encoding
@@ -45,13 +48,13 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit int) *BatchDatabase {
 	}
 
 	cacheItems, _ := lru.New(itemCacheLimit)
-	dryRunCache, _ := lru.New(itemCacheLimit)
 
 	batchDB := &BatchDatabase{
-		db:             db,
-		cacheItems:     cacheItems,
-		emptyKey:       EmptyKey(), // pre alloc for comparison
-		dryRunCache:    dryRunCache,
+		db:           db,
+		cacheItems:   cacheItems,
+		emptyKey:     EmptyKey(), // pre alloc for comparison
+		dryRunCaches: make(map[common.Hash]*lru.Cache),
+		cacheLimit:   itemCacheLimit,
 	}
 
 	return batchDB
@@ -66,14 +69,17 @@ func (db *BatchDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *BatchDatabase) Has(key []byte, dryrun bool) (bool, error) {
+func (db *BatchDatabase) Has(key []byte, dryrun bool, blockHash common.Hash) (bool, error) {
 	if db.IsEmptyKey(key) {
 		return false, nil
 	}
 	cacheKey := db.getCacheKey(key)
 
 	if dryrun {
-		if db.dryRunCache.Contains(cacheKey) {
+		db.lock.Lock()
+		dryrunCache, ok := db.dryRunCaches[blockHash]
+		db.lock.Unlock()
+		if ok && dryrunCache.Len() >= 0 && db.dryRunCaches[blockHash].Contains(cacheKey) {
 			return true, nil
 		}
 	} else if db.cacheItems.Contains(cacheKey) {
@@ -84,17 +90,21 @@ func (db *BatchDatabase) Has(key []byte, dryrun bool) (bool, error) {
 	return db.db.Has(key)
 }
 
-func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interface{}, error) {
+func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error) {
 
 	if db.IsEmptyKey(key) {
 		return nil, nil
 	}
 
 	cacheKey := db.getCacheKey(key)
-
 	if dryrun {
-		if value, ok := db.dryRunCache.Get(cacheKey); ok {
-			return value, nil
+		db.lock.Lock()
+		dryrunCache, ok := db.dryRunCaches[blockHash]
+		db.lock.Unlock()
+		if ok && dryrunCache.Len() >= 0 {
+			if value, ok := db.dryRunCaches[blockHash].Get(cacheKey); ok {
+				return value, nil
+			}
 		}
 	}
 
@@ -128,10 +138,18 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool) (interfac
 	return val, nil
 }
 
-func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool) error {
+func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error {
 	cacheKey := db.getCacheKey(key)
 	if dryrun {
-		db.dryRunCache.Add(cacheKey, val)
+		db.lock.Lock()
+		dryrunCache, ok := db.dryRunCaches[blockHash]
+		db.lock.Unlock()
+		if !ok  {
+			log.Debug("BatchDB - Put: DryrunCache of this block is not initialized. Initialize now!", "blockHash", blockHash)
+			db.InitDryRunMode(blockHash)
+			dryrunCache, _ = db.dryRunCaches[blockHash]
+		}
+		dryrunCache.Add(cacheKey, val)
 		return nil
 	}
 
@@ -143,14 +161,22 @@ func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool) error {
 	return db.db.Put(key, value)
 }
 
-func (db *BatchDatabase) Delete(key []byte, dryrun bool) error {
+func (db *BatchDatabase) Delete(key []byte, dryrun bool, blockHash common.Hash) error {
 	// by default, we force delete both db and cache,
 	// for better performance, we can mark a Deleted flag, to do batch delete
 	cacheKey := db.getCacheKey(key)
 
 	//mark it to nil in dryrun cache
 	if dryrun {
-		db.dryRunCache.Add(cacheKey, nil)
+		db.lock.Lock()
+		dryrunCache, ok := db.dryRunCaches[blockHash]
+		db.lock.Unlock()
+		if !ok  {
+			log.Debug("BatchDB - Delete: DryrunCache of this block is not initialized. Initialize now!", "blockHash", blockHash)
+			db.InitDryRunMode(blockHash)
+			dryrunCache, _ = db.dryRunCaches[blockHash]
+		}
+		dryrunCache.Add(cacheKey, nil)
 		return nil
 	}
 
@@ -158,21 +184,30 @@ func (db *BatchDatabase) Delete(key []byte, dryrun bool) error {
 	return db.db.Delete(key)
 }
 
-func (db *BatchDatabase) InitDryRunMode() {
-	log.Debug("Start dry-run mode, clear old data")
-	db.dryRunCache.Purge()
+func (db *BatchDatabase) InitDryRunMode(blockHash common.Hash) {
+	log.Debug("Start dry-run mode, clear old data", "blockhash", blockHash)
+	delete(db.dryRunCaches, blockHash)
+	dryrunCache, _ := lru.New(db.cacheLimit)
+	db.dryRunCaches[blockHash] = dryrunCache
 }
 
-func (db *BatchDatabase) SaveDryRunResult() error {
-
+func (db *BatchDatabase) SaveDryRunResult(blockHash common.Hash) error {
+	log.Debug("Start saving dry-run result to DB ", "blockhash", blockHash)
+	db.lock.Lock()
+	dryrunCache, ok := db.dryRunCaches[blockHash]
+	db.lock.Unlock()
+	if !ok || dryrunCache.Len() == 0 {
+		log.Debug("Nothing to SaveDryRunResult. DryrunCache is empty.", "blockhash", blockHash)
+		return nil
+	}
 	batch := db.db.NewBatch()
-	for _, cacheKey := range db.dryRunCache.Keys() {
+	for _, cacheKey := range dryrunCache.Keys() {
 		key, err := hex.DecodeString(cacheKey.(string))
 		if err != nil {
 			log.Error("Can't save dry-run result (hex.DecodeString)", "err", err)
 			return err
 		}
-		val, ok := db.dryRunCache.Get(cacheKey)
+		val, ok := dryrunCache.Get(cacheKey)
 		if !ok {
 			err := errors.New("can't get item from dryrun cache")
 			log.Error("Can't save dry-run result (db.dryRunCache.Get)", "err", err)
@@ -196,10 +231,11 @@ func (db *BatchDatabase) SaveDryRunResult() error {
 			log.Error("Can't save dry-run result (batch.Put)", "err", err)
 			return err
 		}
-		log.Debug("Saved dry-run result to DB", "cacheKey", hex.EncodeToString(key), "value", ToJSON(val))
 	}
-	// purge cache data
-	db.dryRunCache.Purge()
+	log.Debug("Successfully saved dry-run result to DB ", "blockhash", blockHash)
+	db.lock.Lock()
+	delete(db.dryRunCaches, blockHash)
+	db.lock.Unlock()
 	// purge reading cache to refresh data from db
 	db.cacheItems.Purge()
 	return batch.Write()

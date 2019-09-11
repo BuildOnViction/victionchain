@@ -8,6 +8,7 @@ package tomox
 import (
 	"bytes"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ethereum/go-ethereum/log"
 	"encoding/hex"
@@ -39,8 +40,8 @@ func NewWithBytesComparator(db OrderDao) *Tree {
 	)
 }
 
-func (tree *Tree) Root(dryrun bool) *Node {
-	root, err := tree.GetNode(tree.rootKey, dryrun)
+func (tree *Tree) Root(dryrun bool, blockHash common.Hash) *Node {
+	root, err := tree.GetNode(tree.rootKey, dryrun, blockHash)
 	if err != nil {
 		log.Error("Can't get tree.Root", "rootKey", hex.EncodeToString(tree.rootKey), "err", err)
 		return nil
@@ -53,23 +54,22 @@ func (tree *Tree) IsEmptyKey(key []byte) bool {
 }
 
 func (tree *Tree) SetRootKey(key []byte, size uint64) {
-	log.Debug("Set root key - restore", "key", hex.EncodeToString(key), "size", size, "all keys", tree.KeysinString(true))
 	tree.rootKey = key
 	tree.size = size
 }
 
 // Put inserts node into the tree.
 // Key should adhere to the comparator's type assertion, otherwise method panics.
-func (tree *Tree) Put(key []byte, value []byte, dryrun bool) error {
+func (tree *Tree) Put(key []byte, value []byte, dryrun bool, blockHash common.Hash) error {
 	var insertedNode *Node
 	if tree.IsEmptyKey(tree.rootKey) {
 		// Assert key is of comparator's type for initial tree
 		item := &Item{Value: value, Color: red, Keys: &KeyMeta{}}
-		log.Debug("RootKey hasn't been set. Set it now", "rootkey", hex.EncodeToString(key), "all keys", tree.KeysinString(true))
+		log.Debug("RootKey hasn't been set. Set it now", "rootkey", hex.EncodeToString(key), "all keys", tree.KeysinString(true, blockHash))
 		tree.rootKey = key
 		insertedNode = &Node{Key: key, Item: item}
 	} else {
-		node := tree.Root(dryrun)
+		node := tree.Root(dryrun, blockHash)
 		if node == nil {
 			return fmt.Errorf("Error on inserting node into the tree. tree.Root() is nil")
 		}
@@ -81,52 +81,52 @@ func (tree *Tree) Put(key []byte, value []byte, dryrun bool) error {
 			case compare == 0:
 
 				node.Item.Value = value
-				tree.Save(node, dryrun)
+				tree.Save(node, dryrun, blockHash)
 				return nil
 			case compare < 0:
 				if tree.IsEmptyKey(node.LeftKey()) {
 					node.LeftKey(key)
-					tree.Save(node, dryrun)
+					tree.Save(node, dryrun, blockHash)
 					item := &Item{Value: value, Color: red, Keys: &KeyMeta{}}
 					nodeLeft := &Node{Key: key, Item: item}
 					insertedNode = nodeLeft
 					loop = false
 				} else {
-					node = node.Left(tree, dryrun)
+					node = node.Left(tree, dryrun, blockHash)
 				}
 			case compare > 0:
 
 				if tree.IsEmptyKey(node.RightKey()) {
 					node.RightKey(key)
-					tree.Save(node, dryrun)
+					tree.Save(node, dryrun, blockHash)
 					item := &Item{Value: value, Color: red, Keys: &KeyMeta{}}
 					nodeRight := &Node{Key: key, Item: item}
 					insertedNode = nodeRight
 					loop = false
 				} else {
-					node = node.Right(tree, dryrun)
+					node = node.Right(tree, dryrun, blockHash)
 				}
 
 			}
 		}
 
 		insertedNode.ParentKey(node.Key)
-		tree.Save(insertedNode, dryrun)
+		tree.Save(insertedNode, dryrun, blockHash)
 	}
 
-	tree.insertCase1(insertedNode, dryrun)
-	log.Debug("Put node", "insertedNode key", hex.EncodeToString(insertedNode.Key), "all keys", tree.KeysinString(true))
-	tree.Save(insertedNode, dryrun)
+	tree.insertCase1(insertedNode, dryrun, blockHash)
+	log.Debug("Put node", "insertedNode key", hex.EncodeToString(insertedNode.Key), "all keys", tree.KeysinString(true, blockHash))
+	tree.Save(insertedNode, dryrun, blockHash)
 
 	tree.size++
 	return nil
 }
 
-func (tree *Tree) GetNode(key []byte, dryrun bool) (*Node, error) {
+func (tree *Tree) GetNode(key []byte, dryrun bool, blockHash common.Hash) (*Node, error) {
 
 	item := &Item{}
 
-	val, err := tree.db.Get(key, item, dryrun)
+	val, err := tree.db.Get(key, item, dryrun, blockHash)
 
 	if err != nil || val == nil {
 		return nil, err
@@ -134,16 +134,16 @@ func (tree *Tree) GetNode(key []byte, dryrun bool) (*Node, error) {
 	return &Node{Key: key, Item: val.(*Item)}, err
 }
 
-func (tree *Tree) Has(key []byte, dryrun bool) (bool, error) {
-	return tree.db.Has(key, dryrun)
+func (tree *Tree) Has(key []byte, dryrun bool, blockHash common.Hash) (bool, error) {
+	return tree.db.Has(key, dryrun, blockHash)
 }
 
 // Get searches the node in the tree by key and returns its value or nil if key is not found in tree.
 // Second return parameter is true if key was found, otherwise false.
 // Key should adhere to the comparator's type assertion, otherwise method panics.
-func (tree *Tree) Get(key []byte, dryrun bool) (value []byte, found bool) {
+func (tree *Tree) Get(key []byte, dryrun bool, blockHash common.Hash) (value []byte, found bool) {
 
-	node, err := tree.GetNode(key, dryrun)
+	node, err := tree.GetNode(key, dryrun, blockHash)
 	if err != nil {
 		return nil, false
 	}
@@ -155,9 +155,9 @@ func (tree *Tree) Get(key []byte, dryrun bool) (value []byte, found bool) {
 
 // Remove remove the node from the tree by key.
 // Key should adhere to the comparator's type assertion, otherwise method panics.
-func (tree *Tree) Remove(key []byte, dryrun bool) {
+func (tree *Tree) Remove(key []byte, dryrun bool, blockHash common.Hash) {
 	var child *Node
-	node, err := tree.GetNode(key, dryrun)
+	node, err := tree.GetNode(key, dryrun, blockHash)
 	if err != nil {
 		log.Error("Can't remove node", "key", hex.EncodeToString(key), "err", err)
 		return
@@ -169,14 +169,14 @@ func (tree *Tree) Remove(key []byte, dryrun bool) {
 
 	var left, right *Node = nil, nil
 	if !tree.IsEmptyKey(node.LeftKey()) {
-		left = node.Left(tree, dryrun)
+		left = node.Left(tree, dryrun, blockHash)
 	}
 	if !tree.IsEmptyKey(node.RightKey()) {
-		right = node.Right(tree, dryrun)
+		right = node.Right(tree, dryrun, blockHash)
 	}
 
 	if left != nil && right != nil {
-		node = left.maximumNode(tree, dryrun)
+		node = left.maximumNode(tree, dryrun, blockHash)
 	}
 
 	if left == nil || right == nil {
@@ -186,42 +186,42 @@ func (tree *Tree) Remove(key []byte, dryrun bool) {
 			child = right
 		}
 		if child == nil {
-			parent := node.Parent(tree, dryrun)
+			parent := node.Parent(tree, dryrun, blockHash)
 			if parent != nil {
 				if !tree.IsEmptyKey(parent.LeftKey()) && bytes.Equal(parent.LeftKey(), node.Key) {
 					parent.Item.Keys.Left = EmptyKey()
 					log.Debug("Set parent.LeftKey() to nil", "parent.Key", parent.Item.Keys)
-					tree.Save(parent, dryrun)
+					tree.Save(parent, dryrun, blockHash)
 				} else if !tree.IsEmptyKey(parent.RightKey()) && bytes.Equal(parent.RightKey(), node.Key) {
 					parent.Item.Keys.Right = EmptyKey()
 					log.Debug("Set parent.RightKey() to nil", "parent.Key", parent.Item.Keys)
-					tree.Save(parent, dryrun)
+					tree.Save(parent, dryrun, blockHash)
 				} else {
 					log.Error("Parent doesn't have node as child", "node.Key", hex.EncodeToString(node.Key))
 					return
 				}
 			}
-			tree.deleteNode(node, dryrun)
-			log.Debug("Removed node with child = nil", "node", hex.EncodeToString(node.Key), "all keys", tree.KeysinString(true))
+			tree.deleteNode(node, dryrun, blockHash)
+			log.Debug("Removed node with child = nil", "node", hex.EncodeToString(node.Key), "all keys", tree.KeysinString(true, blockHash))
 		} else {
 			if node.Item.Color == black {
 				node.Item.Color = nodeColor(child)
-				tree.Save(node, dryrun)
+				tree.Save(node, dryrun, blockHash)
 
-				tree.deleteCase1(node, dryrun)
+				tree.deleteCase1(node, dryrun, blockHash)
 			}
 
-			tree.replaceNode(node, child, dryrun)
+			tree.replaceNode(node, child, dryrun, blockHash)
 
 			if tree.IsEmptyKey(node.ParentKey()) && child != nil {
 				child.Item.Color = black
-				tree.Save(child, dryrun)
+				tree.Save(child, dryrun, blockHash)
 			}
 		}
 	}
 
 	tree.size--
-	log.Debug("Deleted node", "node key", hex.EncodeToString(node.Key), "all keys", tree.KeysinString(true), "tree.size", tree.size)
+	log.Debug("Deleted node", "node key", hex.EncodeToString(node.Key), "all keys", tree.KeysinString(true, blockHash), "tree.size", tree.size)
 }
 
 // // Empty returns true if tree does not contain any nodes
@@ -235,52 +235,52 @@ func (tree *Tree) Size() uint64 {
 }
 
 // Keys returns all keys in-order
-func (tree *Tree) Keys(dryrun bool) [][]byte {
+func (tree *Tree) Keys(dryrun bool, blockHash common.Hash) [][]byte {
 	keys := make([][]byte, tree.size)
 	it := tree.Iterator()
-	for i := 0; it.Next(dryrun) && i < len(keys); i++ {
+	for i := 0; it.Next(dryrun, blockHash) && i < len(keys); i++ {
 		keys[i] = it.Key()
 	}
 	return keys
 }
 
-func (tree *Tree) KeysinString(dryrun bool) []string {
+func (tree *Tree) KeysinString(dryrun bool, blockHash common.Hash) []string {
 	keys := make([]string, tree.size)
 	it := tree.Iterator()
-	for i := 0; it.Next(dryrun) && i < len(keys); i++ {
+	for i := 0; it.Next(dryrun, blockHash) && i < len(keys); i++ {
 		keys[i] = hex.EncodeToString(it.Key())
 	}
 	return keys
 }
 
 // Values returns all values in-order based on the key.
-func (tree *Tree) Values(dryrun bool) [][]byte {
+func (tree *Tree) Values(dryrun bool, blockHash common.Hash) [][]byte {
 	values := make([][]byte, tree.size)
 	it := tree.Iterator()
-	for i := 0; it.Next(dryrun) && i < len(values); i++ {
+	for i := 0; it.Next(dryrun, blockHash) && i < len(values); i++ {
 		values[i] = it.Value()
 	}
 	return values
 }
 
 // Left returns the left-most (min) node or nil if tree is empty.
-func (tree *Tree) Left(dryrun bool) *Node {
+func (tree *Tree) Left(dryrun bool, blockHash common.Hash) *Node {
 	var parent *Node
-	current := tree.Root(dryrun)
+	current := tree.Root(dryrun, blockHash)
 	for current != nil {
 		parent = current
-		current = current.Left(tree, dryrun)
+		current = current.Left(tree, dryrun, blockHash)
 	}
 	return parent
 }
 
 // Right returns the right-most (max) node or nil if tree is empty.
-func (tree *Tree) Right(dryrun bool) *Node {
+func (tree *Tree) Right(dryrun bool, blockHash common.Hash) *Node {
 	var parent *Node
-	current := tree.Root(dryrun)
+	current := tree.Root(dryrun, blockHash)
 	for current != nil {
 		parent = current
-		current = current.Right(tree, dryrun)
+		current = current.Right(tree, dryrun, blockHash)
 	}
 	return parent
 }
@@ -293,19 +293,19 @@ func (tree *Tree) Right(dryrun bool) *Node {
 // all nodes in the tree are larger than the given node.
 //
 // Key should adhere to the comparator's type assertion, otherwise method panics.
-func (tree *Tree) Floor(key []byte, dryrun bool) (floor *Node, found bool) {
+func (tree *Tree) Floor(key []byte, dryrun bool, blockHash common.Hash) (floor *Node, found bool) {
 	found = false
-	node := tree.Root(dryrun)
+	node := tree.Root(dryrun, blockHash)
 	for node != nil {
 		compare := tree.Comparator(key, node.Key)
 		switch {
 		case compare == 0:
 			return node, true
 		case compare < 0:
-			node = node.Left(tree, dryrun)
+			node = node.Left(tree, dryrun, blockHash)
 		case compare > 0:
 			floor, found = node, true
-			node = node.Right(tree, dryrun)
+			node = node.Right(tree, dryrun, blockHash)
 		}
 	}
 	if found {
@@ -322,9 +322,9 @@ func (tree *Tree) Floor(key []byte, dryrun bool) (floor *Node, found bool) {
 // all nodes in the tree are smaller than the given node.
 //
 // Key should adhere to the comparator's type assertion, otherwise method panics.
-func (tree *Tree) Ceiling(key []byte, dryrun bool) (ceiling *Node, found bool) {
+func (tree *Tree) Ceiling(key []byte, dryrun bool, blockHash common.Hash) (ceiling *Node, found bool) {
 	found = false
-	node := tree.Root(dryrun)
+	node := tree.Root(dryrun, blockHash)
 	for node != nil {
 		compare := tree.Comparator(key, node.Key)
 		switch {
@@ -332,9 +332,9 @@ func (tree *Tree) Ceiling(key []byte, dryrun bool) (ceiling *Node, found bool) {
 			return node, true
 		case compare < 0:
 			ceiling, found = node, true
-			node = node.Left(tree, dryrun)
+			node = node.Left(tree, dryrun, blockHash)
 		case compare > 0:
-			node = node.Right(tree, dryrun)
+			node = node.Right(tree, dryrun, blockHash)
 		}
 	}
 	if found {
@@ -352,16 +352,16 @@ func (tree *Tree) Clear() {
 }
 
 // String returns a string representation of container
-func (tree *Tree) String(dryrun bool) string {
+func (tree *Tree) String(dryrun bool, blockHash common.Hash) string {
 	str := fmt.Sprintf("RedBlackTree, size: %d\n", tree.size)
 
 	// if !tree.Empty() {
-	output(tree, tree.Root(dryrun), "", true, &str, dryrun)
+	output(tree, tree.Root(dryrun, blockHash), "", true, &str, dryrun, blockHash)
 	// }
 	return str
 }
 
-func output(tree *Tree, node *Node, prefix string, isTail bool, str *string, dryrun bool) {
+func output(tree *Tree, node *Node, prefix string, isTail bool, str *string, dryrun bool, blockHash common.Hash) {
 	// fmt.Printf("Node : %v+\n", node)
 	if node == nil {
 		return
@@ -374,7 +374,7 @@ func output(tree *Tree, node *Node, prefix string, isTail bool, str *string, dry
 		} else {
 			newPrefix += "    "
 		}
-		output(tree, node.Right(tree, dryrun), newPrefix, false, str, dryrun)
+		output(tree, node.Right(tree, dryrun, blockHash), newPrefix, false, str, dryrun, blockHash)
 	}
 	*str += prefix
 	if isTail {
@@ -396,45 +396,45 @@ func output(tree *Tree, node *Node, prefix string, isTail bool, str *string, dry
 		} else {
 			newPrefix += "│   "
 		}
-		output(tree, node.Left(tree, dryrun), newPrefix, true, str, dryrun)
+		output(tree, node.Left(tree, dryrun, blockHash), newPrefix, true, str, dryrun, blockHash)
 	}
 }
 
-func (tree *Tree) rotateLeft(node *Node, dryrun bool) {
-	log.Debug("Rotate left - before", "Root key", hex.EncodeToString(tree.Root(dryrun).Key), "all keys", tree.KeysinString(true))
-	right := node.Right(tree, dryrun)
-	tree.replaceNode(node, right, dryrun)
+func (tree *Tree) rotateLeft(node *Node, dryrun bool, blockHash common.Hash) {
+	log.Debug("Rotate left - before", "Root key", hex.EncodeToString(tree.Root(dryrun, blockHash).Key), "all keys", tree.KeysinString(true, blockHash))
+	right := node.Right(tree, dryrun, blockHash)
+	tree.replaceNode(node, right, dryrun, blockHash)
 	node.RightKey(right.LeftKey())
 	if !tree.IsEmptyKey(right.LeftKey()) {
-		rightLeft := right.Left(tree, dryrun)
+		rightLeft := right.Left(tree, dryrun, blockHash)
 		rightLeft.ParentKey(node.Key)
-		tree.Save(rightLeft, dryrun)
+		tree.Save(rightLeft, dryrun, blockHash)
 	}
 	right.LeftKey(node.Key)
 	node.ParentKey(right.Key)
-	tree.Save(node, dryrun)
-	tree.Save(right, dryrun)
-	log.Debug("Rotate left - after", "Root key", hex.EncodeToString(tree.Root(dryrun).Key), "all keys", tree.KeysinString(true))
+	tree.Save(node, dryrun, blockHash)
+	tree.Save(right, dryrun, blockHash)
+	log.Debug("Rotate left - after", "Root key", hex.EncodeToString(tree.Root(dryrun, blockHash).Key), "all keys", tree.KeysinString(true, blockHash))
 }
 
-func (tree *Tree) rotateRight(node *Node, dryrun bool) {
-	log.Debug("Rotate right - before", "Root key", hex.EncodeToString(tree.Root(dryrun).Key), "all keys", tree.KeysinString(true))
-	left := node.Left(tree, dryrun)
-	tree.replaceNode(node, left, dryrun)
+func (tree *Tree) rotateRight(node *Node, dryrun bool, blockHash common.Hash) {
+	log.Debug("Rotate right - before", "Root key", hex.EncodeToString(tree.Root(dryrun, blockHash).Key), "all keys", tree.KeysinString(true, blockHash))
+	left := node.Left(tree, dryrun, blockHash)
+	tree.replaceNode(node, left, dryrun, blockHash)
 	node.LeftKey(left.RightKey())
 	if !tree.IsEmptyKey(left.RightKey()) {
-		leftRight := left.Right(tree, dryrun)
+		leftRight := left.Right(tree, dryrun, blockHash)
 		leftRight.ParentKey(node.Key)
-		tree.Save(leftRight, dryrun)
+		tree.Save(leftRight, dryrun, blockHash)
 	}
 	left.RightKey(node.Key)
 	node.ParentKey(left.Key)
-	tree.Save(node, dryrun)
-	tree.Save(left, dryrun)
-	log.Debug("Rotate right - after", "Root key", hex.EncodeToString(tree.Root(dryrun).Key), "all keys", tree.KeysinString(true))
+	tree.Save(node, dryrun, blockHash)
+	tree.Save(left, dryrun, blockHash)
+	log.Debug("Rotate right - after", "Root key", hex.EncodeToString(tree.Root(dryrun, blockHash).Key), "all keys", tree.KeysinString(true, blockHash))
 }
 
-func (tree *Tree) replaceNode(old *Node, new *Node, dryrun bool) {
+func (tree *Tree) replaceNode(old *Node, new *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("Replace node", "old", old, "new", new)
 
 	// we do not change any byte of Key so we can copy the reference to save directly to db
@@ -446,11 +446,11 @@ func (tree *Tree) replaceNode(old *Node, new *Node, dryrun bool) {
 	}
 
 	if tree.IsEmptyKey(old.ParentKey()) {
-		log.Debug("Set root key - replaceNode", "key", hex.EncodeToString(newKey), "size", tree.size, "all keys", tree.KeysinString(true))
+		log.Debug("Set root key - replaceNode", "key", hex.EncodeToString(newKey), "size", tree.size, "all keys", tree.KeysinString(true, blockHash))
 		tree.rootKey = newKey
 	} else {
 		// update left and right for oldParent
-		oldParent := old.Parent(tree, dryrun)
+		oldParent := old.Parent(tree, dryrun, blockHash)
 		if tree.Comparator(old.Key, oldParent.LeftKey()) == 0 {
 			oldParent.LeftKey(newKey)
 		} else {
@@ -459,73 +459,73 @@ func (tree *Tree) replaceNode(old *Node, new *Node, dryrun bool) {
 		}
 		// we can have case like: remove a node, then add it again
 		if oldParent != nil {
-			tree.Save(oldParent, dryrun)
+			tree.Save(oldParent, dryrun, blockHash)
 		}
 	}
 	if new != nil {
 		// here is the swap, not update key
 		// new.Parent = old.Parent
 		new.ParentKey(old.ParentKey())
-		tree.Save(new, dryrun)
+		tree.Save(new, dryrun, blockHash)
 	}
 
 }
 
-func (tree *Tree) insertCase1(node *Node, dryrun bool) {
+func (tree *Tree) insertCase1(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("Insert case 1", "node key", hex.EncodeToString(node.Key))
 	if tree.IsEmptyKey(node.ParentKey()) {
 		node.Item.Color = black
 	} else {
-		tree.insertCase2(node, dryrun)
+		tree.insertCase2(node, dryrun, blockHash)
 	}
 }
 
-func (tree *Tree) insertCase2(node *Node, dryrun bool) {
+func (tree *Tree) insertCase2(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("Insert case 2", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
 	if nodeColor(parent) == black {
 		return
 	}
 
-	tree.insertCase3(node, dryrun)
+	tree.insertCase3(node, dryrun, blockHash)
 }
 
-func (tree *Tree) insertCase3(node *Node, dryrun bool) {
+func (tree *Tree) insertCase3(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("Insert case 3", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
-	uncle := node.uncle(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
+	uncle := node.uncle(tree, dryrun, blockHash)
 	if nodeColor(uncle) == red {
 		parent.Item.Color = black
 		uncle.Item.Color = black
-		tree.Save(uncle, dryrun)
-		tree.Save(parent, dryrun)
-		grandparent := parent.Parent(tree, dryrun)
+		tree.Save(uncle, dryrun, blockHash)
+		tree.Save(parent, dryrun, blockHash)
+		grandparent := parent.Parent(tree, dryrun, blockHash)
 		tree.assertNotNull(grandparent, "grant parent")
 
 		grandparent.Item.Color = red
-		tree.insertCase1(grandparent, dryrun)
-		tree.Save(grandparent, dryrun)
+		tree.insertCase1(grandparent, dryrun, blockHash)
+		tree.Save(grandparent, dryrun, blockHash)
 	} else {
-		tree.insertCase4(node, dryrun)
+		tree.insertCase4(node, dryrun, blockHash)
 	}
 }
 
-func (tree *Tree) insertCase4(node *Node, dryrun bool) {
+func (tree *Tree) insertCase4(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("Insert case 4", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
-	grandparent := parent.Parent(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
+	grandparent := parent.Parent(tree, dryrun, blockHash)
 	tree.assertNotNull(grandparent, "grant parent")
 	if tree.Comparator(node.Key, parent.RightKey()) == 0 &&
 		tree.Comparator(parent.Key, grandparent.LeftKey()) == 0 {
-		tree.rotateLeft(parent, dryrun)
-		node = node.Left(tree, dryrun)
+		tree.rotateLeft(parent, dryrun, blockHash)
+		node = node.Left(tree, dryrun, blockHash)
 	} else if tree.Comparator(node.Key, parent.LeftKey()) == 0 &&
 		tree.Comparator(parent.Key, grandparent.RightKey()) == 0 {
-		tree.rotateRight(parent, dryrun)
-		node = node.Right(tree, dryrun)
+		tree.rotateRight(parent, dryrun, blockHash)
+		node = node.Right(tree, dryrun, blockHash)
 	}
 
-	tree.insertCase5(node, dryrun)
+	tree.insertCase5(node, dryrun, blockHash)
 }
 
 func (tree *Tree) assertNotNull(node *Node, name string) {
@@ -534,89 +534,89 @@ func (tree *Tree) assertNotNull(node *Node, name string) {
 	}
 }
 
-func (tree *Tree) insertCase5(node *Node, dryrun bool) {
+func (tree *Tree) insertCase5(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("Insert case 5", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
 	parent.Item.Color = black
-	tree.Save(parent, dryrun)
+	tree.Save(parent, dryrun, blockHash)
 
-	grandparent := parent.Parent(tree, dryrun)
+	grandparent := parent.Parent(tree, dryrun, blockHash)
 	tree.assertNotNull(grandparent, "grant parent")
 	grandparent.Item.Color = red
-	tree.Save(grandparent, dryrun)
+	tree.Save(grandparent, dryrun, blockHash)
 
 	if tree.Comparator(node.Key, parent.LeftKey()) == 0 &&
 		tree.Comparator(parent.Key, grandparent.LeftKey()) == 0 {
-		tree.rotateRight(grandparent, dryrun)
+		tree.rotateRight(grandparent, dryrun, blockHash)
 	} else if tree.Comparator(node.Key, parent.RightKey()) == 0 &&
 		tree.Comparator(parent.Key, grandparent.RightKey()) == 0 {
-		tree.rotateLeft(grandparent, dryrun)
+		tree.rotateLeft(grandparent, dryrun, blockHash)
 	}
 
 }
 
-func (tree *Tree) Save(node *Node, dryrun bool) error {
+func (tree *Tree) Save(node *Node, dryrun bool, blockHash common.Hash) error {
 	log.Debug("Save node", "node", node, "key", hex.EncodeToString(node.Key))
-	return tree.db.Put(node.Key, node.Item, dryrun)
+	return tree.db.Put(node.Key, node.Item, dryrun, blockHash)
 }
 
-func (tree *Tree) deleteCase1(node *Node, dryrun bool) {
+func (tree *Tree) deleteCase1(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("delete case 1", "node key", hex.EncodeToString(node.Key))
 	if tree.IsEmptyKey(node.ParentKey()) {
-		//tree.deleteNode(node, dryrun)
+		//tree.deleteNode(node, dryrun, blockHash)
 		return
 	}
 
-	tree.deleteCase2(node, dryrun)
+	tree.deleteCase2(node, dryrun, blockHash)
 }
 
-func (tree *Tree) deleteCase2(node *Node, dryrun bool) {
+func (tree *Tree) deleteCase2(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("delete case 2", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
-	sibling := node.sibling(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
+	sibling := node.sibling(tree, dryrun, blockHash)
 
 	if nodeColor(sibling) == red {
 		parent.Item.Color = red
 		sibling.Item.Color = black
-		tree.Save(parent, dryrun)
-		tree.Save(sibling, dryrun)
+		tree.Save(parent, dryrun, blockHash)
+		tree.Save(sibling, dryrun, blockHash)
 		if tree.Comparator(node.Key, parent.LeftKey()) == 0 {
-			tree.rotateLeft(parent, dryrun)
+			tree.rotateLeft(parent, dryrun, blockHash)
 		} else {
-			tree.rotateRight(parent, dryrun)
+			tree.rotateRight(parent, dryrun, blockHash)
 		}
 	}
 
-	tree.deleteCase3(node, dryrun)
+	tree.deleteCase3(node, dryrun, blockHash)
 }
 
-func (tree *Tree) deleteCase3(node *Node, dryrun bool) {
+func (tree *Tree) deleteCase3(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("delete case 3", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
-	sibling := node.sibling(tree, dryrun)
-	siblingLeft := sibling.Left(tree, dryrun)
-	siblingRight := sibling.Right(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
+	sibling := node.sibling(tree, dryrun, blockHash)
+	siblingLeft := sibling.Left(tree, dryrun, blockHash)
+	siblingRight := sibling.Right(tree, dryrun, blockHash)
 
 	if nodeColor(parent) == black &&
 		nodeColor(sibling) == black &&
 		nodeColor(siblingLeft) == black &&
 		nodeColor(siblingRight) == black {
 		sibling.Item.Color = red
-		tree.Save(sibling, dryrun)
-		tree.deleteCase1(parent, dryrun)
-		//tree.deleteNode(node, dryrun)
+		tree.Save(sibling, dryrun, blockHash)
+		tree.deleteCase1(parent, dryrun, blockHash)
+		//tree.deleteNode(node, dryrun, blockHash)
 	} else {
-		tree.deleteCase4(node, dryrun)
+		tree.deleteCase4(node, dryrun, blockHash)
 	}
 
 }
 
-func (tree *Tree) deleteCase4(node *Node, dryrun bool) {
+func (tree *Tree) deleteCase4(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("delete case 4", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
-	sibling := node.sibling(tree, dryrun)
-	siblingLeft := sibling.Left(tree, dryrun)
-	siblingRight := sibling.Right(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
+	sibling := node.sibling(tree, dryrun, blockHash)
+	siblingLeft := sibling.Left(tree, dryrun, blockHash)
+	siblingRight := sibling.Right(tree, dryrun, blockHash)
 
 	if nodeColor(parent) == red &&
 		nodeColor(sibling) == black &&
@@ -624,19 +624,19 @@ func (tree *Tree) deleteCase4(node *Node, dryrun bool) {
 		nodeColor(siblingRight) == black {
 		sibling.Item.Color = red
 		parent.Item.Color = black
-		tree.Save(sibling, dryrun)
-		tree.Save(parent, dryrun)
+		tree.Save(sibling, dryrun, blockHash)
+		tree.Save(parent, dryrun, blockHash)
 	} else {
-		tree.deleteCase5(node, dryrun)
+		tree.deleteCase5(node, dryrun, blockHash)
 	}
 }
 
-func (tree *Tree) deleteCase5(node *Node, dryrun bool) {
+func (tree *Tree) deleteCase5(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("delete case 5", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
-	sibling := node.sibling(tree, dryrun)
-	siblingLeft := sibling.Left(tree, dryrun)
-	siblingRight := sibling.Right(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
+	sibling := node.sibling(tree, dryrun, blockHash)
+	siblingLeft := sibling.Left(tree, dryrun, blockHash)
+	siblingRight := sibling.Right(tree, dryrun, blockHash)
 
 	if tree.Comparator(node.Key, parent.LeftKey()) == 0 &&
 		nodeColor(sibling) == black &&
@@ -645,10 +645,10 @@ func (tree *Tree) deleteCase5(node *Node, dryrun bool) {
 		sibling.Item.Color = red
 		siblingLeft.Item.Color = black
 
-		tree.Save(sibling, dryrun)
-		tree.Save(siblingLeft, dryrun)
+		tree.Save(sibling, dryrun, blockHash)
+		tree.Save(siblingLeft, dryrun, blockHash)
 
-		tree.rotateRight(sibling, dryrun)
+		tree.rotateRight(sibling, dryrun, blockHash)
 
 	} else if tree.Comparator(node.Key, parent.RightKey()) == 0 &&
 		nodeColor(sibling) == black &&
@@ -657,41 +657,41 @@ func (tree *Tree) deleteCase5(node *Node, dryrun bool) {
 		sibling.Item.Color = red
 		siblingRight.Item.Color = black
 
-		tree.Save(sibling, dryrun)
-		tree.Save(siblingRight, dryrun)
+		tree.Save(sibling, dryrun, blockHash)
+		tree.Save(siblingRight, dryrun, blockHash)
 
-		tree.rotateLeft(sibling, dryrun)
+		tree.rotateLeft(sibling, dryrun, blockHash)
 
 	}
 
-	tree.deleteCase6(node, dryrun)
+	tree.deleteCase6(node, dryrun, blockHash)
 }
 
-func (tree *Tree) deleteCase6(node *Node, dryrun bool) {
+func (tree *Tree) deleteCase6(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("delete case 6", "node key", hex.EncodeToString(node.Key))
-	parent := node.Parent(tree, dryrun)
-	sibling := node.sibling(tree, dryrun)
-	siblingLeft := sibling.Left(tree, dryrun)
-	siblingRight := sibling.Right(tree, dryrun)
+	parent := node.Parent(tree, dryrun, blockHash)
+	sibling := node.sibling(tree, dryrun, blockHash)
+	siblingLeft := sibling.Left(tree, dryrun, blockHash)
+	siblingRight := sibling.Right(tree, dryrun, blockHash)
 
 	sibling.Item.Color = nodeColor(parent)
 	parent.Item.Color = black
 
-	tree.Save(sibling, dryrun)
-	tree.Save(parent, dryrun)
+	tree.Save(sibling, dryrun, blockHash)
+	tree.Save(parent, dryrun, blockHash)
 
 	if tree.Comparator(node.Key, parent.LeftKey()) == 0 && nodeColor(siblingRight) == red {
 		siblingRight.Item.Color = black
-		tree.Save(siblingRight, dryrun)
-		tree.rotateLeft(parent, dryrun)
+		tree.Save(siblingRight, dryrun, blockHash)
+		tree.rotateLeft(parent, dryrun, blockHash)
 	} else if nodeColor(siblingLeft) == red {
 		siblingLeft.Item.Color = black
-		tree.Save(siblingLeft, dryrun)
-		tree.rotateRight(parent, dryrun)
+		tree.Save(siblingLeft, dryrun, blockHash)
+		tree.rotateRight(parent, dryrun, blockHash)
 	}
 
 	// update the parent meta then delete the current node from db
-	//tree.deleteNode(node, dryrun)
+	//tree.deleteNode(node, dryrun, blockHash)
 }
 
 func nodeColor(node *Node) bool {
@@ -701,7 +701,7 @@ func nodeColor(node *Node) bool {
 	return node.Item.Color
 }
 
-func (tree *Tree) deleteNode(node *Node, dryrun bool) {
+func (tree *Tree) deleteNode(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("Delete node", "node key", hex.EncodeToString(node.Key))
-	tree.db.Delete(node.Key, dryrun)
+	tree.db.Delete(node.Key, dryrun, blockHash)
 }

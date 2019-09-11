@@ -46,7 +46,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
-	}, false)
+	}, false, common.Hash{})
 
 	// insert order to bid tree: price 98
 	price = CloneBigInt(ether)
@@ -74,7 +74,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
-	}, false)
+	}, false, common.Hash{})
 	if err != nil {
 		return ob, err
 	}
@@ -105,7 +105,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
-	}, false)
+	}, false, common.Hash{})
 
 	// insert order to ask tree: price 102
 	price = CloneBigInt(ether)
@@ -133,7 +133,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		TakeFee:      new(big.Int).SetUint64(4000000000000000),
 		CreatedAt:    uint64(time.Now().Unix()),
 		UpdatedAt:    uint64(time.Now().Unix()),
-	}, false)
+	}, false, common.Hash{})
 	return ob, nil
 }
 
@@ -174,7 +174,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to create orderbook", err)
 	}
-	if err := ob.Save(false); err != nil {
+	if err := ob.Save(false, common.Hash{}); err != nil {
 		t.Error(err)
 	}
 	tomox.activePairs[pair] = true
@@ -189,13 +189,13 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// remove order whose OrderId = 1 (bid order)
 	price := CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(99))
-	if err = ob.Bids.orderDB.Delete(ob.Bids.getKeyFromPrice(price),false); err != nil {
+	if err = ob.Bids.orderDB.Delete(ob.Bids.getKeyFromPrice(price),false, common.Hash{}); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 	// remove order whose OrderId = 4 (ask order)
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(102))
-	if err = ob.Asks.orderDB.Delete(ob.Asks.getKeyFromPrice(price),false); err != nil {
+	if err = ob.Asks.orderDB.Delete(ob.Asks.getKeyFromPrice(price),false, common.Hash{}); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 
@@ -266,7 +266,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// loading snapshot process should put it back
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(99))
-	order := bidTree.GetOrder(GetKeyFromBig(big.NewInt(1)), price, false)
+	order := bidTree.GetOrder(GetKeyFromBig(big.NewInt(1)), price, false, common.Hash{})
 	if order == nil {
 		t.Error("Can not find order", "price", price)
 	} else if order.Item.Quantity.Cmp(big.NewInt(100)) != 0 {
@@ -276,7 +276,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// verify bid  order, orderId = 2, price = 98
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(98))
-	order = bidTree.GetOrder(GetKeyFromBig(big.NewInt(2)), price, false)
+	order = bidTree.GetOrder(GetKeyFromBig(big.NewInt(2)), price, false, common.Hash{})
 	if order == nil {
 		t.Error("Can not find order", "price", price)
 	} else if order.Item.Quantity.Cmp(big.NewInt(50)) != 0 {
@@ -286,7 +286,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// verify ask order, orderId =3, price = 101
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(101))
-	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(3)), price, false)
+	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(3)), price, false, common.Hash{})
 	if order == nil {
 		t.Error("Can not find order", "price", price)
 	} else if order.Item.Quantity.Cmp(big.NewInt(200)) != 0 {
@@ -298,7 +298,7 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// loading snapshot should put it back
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(102))
-	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(4)), price, false)
+	order = askTree.GetOrder(GetKeyFromBig(big.NewInt(4)), price, false, common.Hash{})
 	if order == nil {
 		t.Error("Can not find order", "price", price)
 	} else if order.Item.Quantity.Cmp(big.NewInt(300)) != 0 {

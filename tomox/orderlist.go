@@ -77,26 +77,26 @@ func NewOrderListWithItem(item *OrderListItem, orderTree *OrderTree) *OrderList 
 	return orderList
 }
 
-func (orderList *OrderList) GetOrder(key []byte, dryrun bool) *Order {
+func (orderList *OrderList) GetOrder(key []byte, dryrun bool, blockHash common.Hash) *Order {
 	storedKey := orderList.GetOrderIDFromKey(key)
 	log.Debug("Get order from key", "storedKey", hex.EncodeToString(storedKey))
-	return orderList.orderTree.orderBook.GetOrder(storedKey, key, dryrun)
+	return orderList.orderTree.orderBook.GetOrder(storedKey, key, dryrun, blockHash)
 }
 
 func (orderList *OrderList) isEmptyKey(key []byte) bool {
 	return orderList.orderTree.PriceTree.IsEmptyKey(key)
 }
 
-func (orderList *OrderList) Head(dryrun bool) *Order {
-	return orderList.GetOrder(orderList.Item.HeadOrder, dryrun)
+func (orderList *OrderList) Head(dryrun bool, blockHash common.Hash) *Order {
+	return orderList.GetOrder(orderList.Item.HeadOrder, dryrun, blockHash)
 }
 
-func (orderList *OrderList) Tail(dryrun bool) *Order {
-	return orderList.GetOrder(orderList.Item.TailOrder, dryrun)
+func (orderList *OrderList) Tail(dryrun bool, blockHash common.Hash) *Order {
+	return orderList.GetOrder(orderList.Item.TailOrder, dryrun, blockHash)
 }
 
 // String : travel the list to print it in nice format
-func (orderList *OrderList) String(startDepth int, dryrun bool) string {
+func (orderList *OrderList) String(startDepth int, dryrun bool, blockHash common.Hash) string {
 
 	if orderList == nil {
 		return "<nil>"
@@ -110,7 +110,7 @@ func (orderList *OrderList) String(startDepth int, dryrun bool) string {
 	buffer.WriteString("\n\t")
 	buffer.WriteString(tabs)
 	buffer.WriteString("Head:")
-	linkedList := orderList.Head(dryrun)
+	linkedList := orderList.Head(dryrun, blockHash)
 	depth := 0
 	for linkedList != nil {
 		depth++
@@ -121,7 +121,7 @@ func (orderList *OrderList) String(startDepth int, dryrun bool) string {
 			break
 		}
 		buffer.WriteString(fmt.Sprintf("\n\t%s%s |-> %s", tabs, spaces, linkedList.String()))
-		linkedList = orderList.GetOrder(linkedList.Item.NextOrder, dryrun)
+		linkedList = orderList.GetOrder(linkedList.Item.NextOrder, dryrun, blockHash)
 	}
 	if depth == 0 {
 		buffer.WriteString(" <nil>")
@@ -129,7 +129,7 @@ func (orderList *OrderList) String(startDepth int, dryrun bool) string {
 	buffer.WriteString("\n\t")
 	buffer.WriteString(tabs)
 	buffer.WriteString("Tail:")
-	linkedList = orderList.Tail(dryrun)
+	linkedList = orderList.Tail(dryrun, blockHash)
 	depth = 0
 	for linkedList != nil {
 		depth++
@@ -140,7 +140,7 @@ func (orderList *OrderList) String(startDepth int, dryrun bool) string {
 			break
 		}
 		buffer.WriteString(fmt.Sprintf("\n\t%s%s <-| %s", tabs, spaces, linkedList.String()))
-		linkedList = orderList.GetOrder(linkedList.Item.PrevOrder, dryrun)
+		linkedList = orderList.GetOrder(linkedList.Item.PrevOrder, dryrun, blockHash)
 	}
 	if depth == 0 {
 		buffer.WriteString(" <nil>")
@@ -157,8 +157,8 @@ func (orderList *OrderList) Less(than *OrderList) bool {
 	return IsStrictlySmallerThan(orderList.Item.Price, than.Item.Price)
 }
 
-func (orderList *OrderList) Save(dryrun bool) error {
-	return orderList.orderTree.SaveOrderList(orderList, dryrun)
+func (orderList *OrderList) Save(dryrun bool, blockHash common.Hash) error {
+	return orderList.orderTree.SaveOrderList(orderList, dryrun, blockHash)
 }
 
 // return the input orderID
@@ -182,21 +182,21 @@ func (orderList *OrderList) GetOrderID(order *Order) []byte {
 }
 
 // OrderExist search order in orderlist
-func (orderList *OrderList) OrderExist(key []byte, dryrun bool) bool {
+func (orderList *OrderList) OrderExist(key []byte, dryrun bool, blockHash common.Hash) bool {
 	orderKey := orderList.GetOrderIDFromKey(key)
-	found, _ := orderList.orderTree.orderDB.Has(orderKey, dryrun)
+	found, _ := orderList.orderTree.orderDB.Has(orderKey, dryrun, blockHash)
 	return found
 }
 
-func (orderList *OrderList) SaveOrder(order *Order, dryrun bool) error {
+func (orderList *OrderList) SaveOrder(order *Order, dryrun bool, blockHash common.Hash) error {
 	key := orderList.GetOrderID(order)
 	log.Debug("Save order ", "key", hex.EncodeToString(key), "value", ToJSON(order.Item))
 
-	return orderList.orderTree.orderDB.Put(key, order.Item, dryrun)
+	return orderList.orderTree.orderDB.Put(key, order.Item, dryrun, blockHash)
 }
 
 // AppendOrder : append order into the order list
-func (orderList *OrderList) AppendOrder(order *Order, dryrun bool) error {
+func (orderList *OrderList) AppendOrder(order *Order, dryrun bool, blockHash common.Hash) error {
 
 	if orderList.Item.Length == uint64(0) {
 		order.Item.NextOrder = EmptyKey()
@@ -207,7 +207,7 @@ func (orderList *OrderList) AppendOrder(order *Order, dryrun bool) error {
 	}
 
 	// save into database first
-	if err := orderList.SaveOrder(order, dryrun); err != nil {
+	if err := orderList.SaveOrder(order, dryrun, blockHash); err != nil {
 		return err
 	}
 
@@ -215,11 +215,11 @@ func (orderList *OrderList) AppendOrder(order *Order, dryrun bool) error {
 		orderList.Item.HeadOrder = order.Key
 		orderList.Item.TailOrder = order.Key
 	} else {
-		tailOrder := orderList.GetOrder(orderList.Item.TailOrder, dryrun)
+		tailOrder := orderList.GetOrder(orderList.Item.TailOrder, dryrun, blockHash)
 		if tailOrder != nil {
 			tailOrder.Item.NextOrder = order.Key
 			orderList.Item.TailOrder = order.Key
-			if err := orderList.SaveOrder(tailOrder, dryrun); err != nil {
+			if err := orderList.SaveOrder(tailOrder, dryrun, blockHash); err != nil {
 				return err
 			}
 		}
@@ -229,13 +229,13 @@ func (orderList *OrderList) AppendOrder(order *Order, dryrun bool) error {
 	return nil
 }
 
-func (orderList *OrderList) DeleteOrder(order *Order, dryrun bool) error {
+func (orderList *OrderList) DeleteOrder(order *Order, dryrun bool, blockHash common.Hash) error {
 	key := orderList.GetOrderID(order)
-	return orderList.orderTree.orderDB.Delete(key, dryrun)
+	return orderList.orderTree.orderDB.Delete(key, dryrun, blockHash)
 }
 
 // RemoveOrder : remove order from the order list
-func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
+func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool, blockHash common.Hash) error {
 
 	if orderList.Item.Length == uint64(0) {
 		// empty mean nothing to delete
@@ -243,13 +243,13 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 	}
 
 	//remove order from DB
-	if err := orderList.DeleteOrder(order, dryrun); err != nil {
+	if err := orderList.DeleteOrder(order, dryrun, blockHash); err != nil {
 		return err
 	}
 
-	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)
+	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun, blockHash)
 	log.Debug("Orderlist remove order debug", "nextOrder", nextOrder)
-	prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun)
+	prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun, blockHash)
 	log.Debug("Orderlist remove order debug", "prevOrder", prevOrder)
 
 	orderList.Item.Volume = Sub(orderList.Item.Volume, order.Item.Quantity)
@@ -259,10 +259,10 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 		nextOrder.Item.PrevOrder = prevOrder.Key
 		prevOrder.Item.NextOrder = nextOrder.Key
 
-		if err := orderList.SaveOrder(nextOrder, dryrun); err != nil {
+		if err := orderList.SaveOrder(nextOrder, dryrun, blockHash); err != nil {
 			return err
 		}
-		if err := orderList.SaveOrder(prevOrder, dryrun); err != nil {
+		if err := orderList.SaveOrder(prevOrder, dryrun, blockHash); err != nil {
 			return err
 		}
 	} else if nextOrder != nil {
@@ -270,14 +270,14 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 		nextOrder.Item.PrevOrder = EmptyKey()
 		orderList.Item.HeadOrder = nextOrder.Key
 
-		if err := orderList.SaveOrder(nextOrder, dryrun); err != nil {
+		if err := orderList.SaveOrder(nextOrder, dryrun, blockHash); err != nil {
 			return err
 		}
 	} else if prevOrder != nil {
 		prevOrder.Item.NextOrder = EmptyKey()
 		orderList.Item.TailOrder = prevOrder.Key
 
-		if err := orderList.SaveOrder(prevOrder, dryrun); err != nil {
+		if err := orderList.SaveOrder(prevOrder, dryrun, blockHash); err != nil {
 			return err
 		}
 	} else {
@@ -289,12 +289,12 @@ func (orderList *OrderList) RemoveOrder(order *Order, dryrun bool) error {
 }
 
 // MoveToTail : move order to the end of the order list
-func (orderList *OrderList) MoveToTail(order *Order, dryrun bool) error {
+func (orderList *OrderList) MoveToTail(order *Order, dryrun bool, blockHash common.Hash) error {
 	if !orderList.isEmptyKey(order.Item.PrevOrder) { // This Order is not the first Order in the OrderList
-		prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun)
+		prevOrder := orderList.GetOrder(order.Item.PrevOrder, dryrun, blockHash)
 		if prevOrder != nil {
 			prevOrder.Item.NextOrder = order.Item.NextOrder // Link the previous Order to the next Order, then move the Order to tail
-			if err := orderList.SaveOrder(prevOrder, dryrun); err != nil {
+			if err := orderList.SaveOrder(prevOrder, dryrun, blockHash); err != nil {
 				return err
 			}
 		}
@@ -303,25 +303,25 @@ func (orderList *OrderList) MoveToTail(order *Order, dryrun bool) error {
 		orderList.Item.HeadOrder = order.Item.NextOrder // Make next order the first
 	}
 
-	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun)
+	nextOrder := orderList.GetOrder(order.Item.NextOrder, dryrun, blockHash)
 	if nextOrder != nil {
 		nextOrder.Item.PrevOrder = order.Item.PrevOrder
-		if err := orderList.SaveOrder(nextOrder, dryrun); err != nil {
+		if err := orderList.SaveOrder(nextOrder, dryrun, blockHash); err != nil {
 			return err
 		}
 	}
 
 	// Move Order to the last position. Link up the previous last position Order.
-	tailOrder := orderList.GetOrder(orderList.Item.TailOrder, dryrun)
+	tailOrder := orderList.GetOrder(orderList.Item.TailOrder, dryrun, blockHash)
 	if tailOrder != nil {
 		tailOrder.Item.NextOrder = order.Key
-		if err := orderList.SaveOrder(tailOrder, dryrun); err != nil {
+		if err := orderList.SaveOrder(tailOrder, dryrun, blockHash); err != nil {
 			return err
 		}
 	}
 
 	orderList.Item.TailOrder = order.Key
-	return orderList.Save(dryrun)
+	return orderList.Save(dryrun, blockHash)
 }
 
 func (orderList *OrderList) Hash() (common.Hash, error) {

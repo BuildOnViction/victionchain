@@ -31,7 +31,7 @@ var sampleTestOrder = &OrderItem{
 	CreatedAt:    uint64(time.Now().Unix()),
 	UpdatedAt:    uint64(time.Now().Unix()),
 }
-
+var testingBlockHash = common.HexToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0")
 func initTestOrderBook(testDir, pairName string) *OrderBook {
 	tomox := &TomoX{
 		Orderbooks: map[string]*OrderBook{},
@@ -41,7 +41,7 @@ func initTestOrderBook(testDir, pairName string) *OrderBook {
 			DBEngine: "leveldb",
 		}),
 	}
-	ob, _ := tomox.GetOrderBook(pairName, true)
+	ob, _ := tomox.GetOrderBook(pairName, true, testingBlockHash)
 	return ob
 }
 
@@ -56,7 +56,7 @@ func TestOrderBook_ProcessLimitOrder_InsertToOrderTree(t *testing.T) {
 	*order1 = *sampleTestOrder
 	order1.Price = big.NewInt(1000) // ask order, price = 1000
 	order1.Quantity = big.NewInt(1000)
-	trades, _, err := ob.processLimitOrder(order1, true, true)
+	trades, _, err := ob.processLimitOrder(order1, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -70,7 +70,7 @@ func TestOrderBook_ProcessLimitOrder_InsertToOrderTree(t *testing.T) {
 	*order2 = *sampleTestOrder
 	order2.Price = big.NewInt(2000) // ask order, price = 2000
 	order2.Quantity = big.NewInt(1000)
-	trades, _, err = ob.ProcessOrder(order2, true, true)
+	trades, _, err = ob.ProcessOrder(order2, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -85,7 +85,7 @@ func TestOrderBook_ProcessLimitOrder_InsertToOrderTree(t *testing.T) {
 	order3.Side = Bid
 	order3.Price = big.NewInt(500) // bid order, price = 500
 	order3.Quantity = big.NewInt(1000)
-	trades, _, err = ob.ProcessOrder(order3, true, true)
+	trades, _, err = ob.ProcessOrder(order3, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -115,7 +115,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case1(t *test
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(100) // ask order, price = 100
-	trades, _, err := ob.ProcessOrder(order1, true, true)
+	trades, _, err := ob.ProcessOrder(order1, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -130,7 +130,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case1(t *test
 	order2.Side = Bid
 	order2.Quantity = big.NewInt(900)
 	order2.Price = big.NewInt(101) // bid order, price = 101
-	trades, _, err = ob.ProcessOrder(order2, true, true)
+	trades, _, err = ob.ProcessOrder(order2, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -144,7 +144,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case1(t *test
 	if trades[0]["quantity"] != "900" {
 		t.Error("Wrong tradedQuantity, expected: 900", "actual", trades[0]["quantity"])
 	}
-	remainingOrder := ob.Asks.GetOrder(GetKeyFromBig(big.NewInt(1)), big.NewInt(100), true)
+	remainingOrder := ob.Asks.GetOrder(GetKeyFromBig(big.NewInt(1)), big.NewInt(100), true, testingBlockHash)
 	if remainingOrder.Item.Quantity.Cmp(big.NewInt(100)) != 0 {
 		t.Error("Wrong remaining quantity")
 	}
@@ -164,7 +164,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case2(t *test
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(100) // ask order, price = 100
-	trades, _, err := ob.ProcessOrder(order1, true, true)
+	trades, _, err := ob.ProcessOrder(order1, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -179,7 +179,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case2(t *test
 	order2.Side = Bid
 	order2.Quantity = big.NewInt(1000) // same as order1's quantity
 	order2.Price = big.NewInt(101) // bid order, price = 101
-	trades, _, err = ob.ProcessOrder(order2, true, true)
+	trades, _, err = ob.ProcessOrder(order2, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -193,7 +193,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case2(t *test
 	if trades[0]["quantity"] != "1000" {
 		t.Error("Wrong tradedQuantity, expected: 1000", "actual", trades[0]["quantity"])
 	}
-	if remainingOrder := ob.Asks.GetOrder(GetKeyFromBig(big.NewInt(1)), big.NewInt(100), true); remainingOrder != nil {
+	if remainingOrder := ob.Asks.GetOrder(GetKeyFromBig(big.NewInt(1)), big.NewInt(100), true, testingBlockHash); remainingOrder != nil {
 		t.Error("Expected: fully matched with order in the orderTree")
 	}
 }
@@ -210,7 +210,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_PartialMatching(t *testing
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(100) // ask order, price = 100
-	trades, _, err := ob.ProcessOrder(order1, true, true)
+	trades, _, err := ob.ProcessOrder(order1, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -225,7 +225,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_PartialMatching(t *testing
 	order2.Side = Bid
 	order2.Quantity = big.NewInt(1200)
 	order2.Price = big.NewInt(101) // bid order, price = 101
-	trades, _, err = ob.ProcessOrder(order2, true, true)
+	trades, _, err = ob.ProcessOrder(order2, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -239,7 +239,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_PartialMatching(t *testing
 	if trades[0]["quantity"] != "1000" {
 		t.Error("Wrong tradedQuantity, expected: 1000", "actual", trades[0]["quantity"])
 	}
-	remainingOrder := ob.Bids.GetOrder(GetKeyFromBig(big.NewInt(2)), big.NewInt(101), true)
+	remainingOrder := ob.Bids.GetOrder(GetKeyFromBig(big.NewInt(2)), big.NewInt(101), true, testingBlockHash)
 	if remainingOrder.Item.Quantity.Cmp(big.NewInt(200)) != 0 {
 		t.Error("Wrong remaining quantity")
 	}
@@ -256,7 +256,7 @@ func TestOrderBook_ProcessLimitOrder_OneToManyMatching(t *testing.T) {
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(98) // ask order, price = 98
-	trades, _, err := ob.ProcessOrder(order1, true, true)
+	trades, _, err := ob.ProcessOrder(order1, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -271,7 +271,7 @@ func TestOrderBook_ProcessLimitOrder_OneToManyMatching(t *testing.T) {
 	order2.Side = Ask
 	order2.Quantity = big.NewInt(1000)
 	order2.Price = big.NewInt(99) // ask order, price = 99
-	trades, _, err = ob.ProcessOrder(order2, true, true)
+	trades, _, err = ob.ProcessOrder(order2, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -286,7 +286,7 @@ func TestOrderBook_ProcessLimitOrder_OneToManyMatching(t *testing.T) {
 	order3.Side = Bid
 	order3.Quantity = big.NewInt(1600)
 	order3.Price = big.NewInt(100)
-	trades, _, err = ob.ProcessOrder(order3, true, true)
+	trades, _, err = ob.ProcessOrder(order3, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -300,7 +300,7 @@ func TestOrderBook_ProcessLimitOrder_OneToManyMatching(t *testing.T) {
 		t.Log("Expected: Trade[0][quantity] = 1000", "actual", trades[0]["quantity"])
 		t.Log("Expected: Trade[1][quantity] = 600", "actual", trades[1]["quantity"])
 	}
-	remainingOrder := ob.Asks.GetOrder(GetKeyFromBig(big.NewInt(2)), big.NewInt(99), true)
+	remainingOrder := ob.Asks.GetOrder(GetKeyFromBig(big.NewInt(2)), big.NewInt(99), true, testingBlockHash)
 	if remainingOrder.Item.Quantity.Cmp(big.NewInt(400)) != 0 {
 		t.Error("Wrong remaining quantity. Expected: 400. Actual:", remainingOrder.Item.Quantity.Uint64())
 	}
@@ -317,7 +317,7 @@ func TestOrderBook_ProcessMarketOrder_FullMatching(t *testing.T) {
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(98) // ask order, price = 98
-	trades, _, err := ob.ProcessOrder(order1, true, true)
+	trades, _, err := ob.ProcessOrder(order1, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -332,7 +332,7 @@ func TestOrderBook_ProcessMarketOrder_FullMatching(t *testing.T) {
 	order2.Side = Ask
 	order2.Quantity = big.NewInt(1000)
 	order2.Price = big.NewInt(99) // ask order, price = 99
-	trades, _, err = ob.ProcessOrder(order2, true, true)
+	trades, _, err = ob.ProcessOrder(order2, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -347,7 +347,7 @@ func TestOrderBook_ProcessMarketOrder_FullMatching(t *testing.T) {
 	order3.Side = Bid
 	order3.Quantity = big.NewInt(2500)
 	order3.Type = Market
-	trades, _, err = ob.ProcessOrder(order3, true, true)
+	trades, _, err = ob.ProcessOrder(order3, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -380,7 +380,7 @@ func TestOrderBook_ProcessMarketOrder_PartialMatching(t *testing.T) {
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(98) // ask order, price = 98
-	trades, _, err := ob.ProcessOrder(order1, true, true)
+	trades, _, err := ob.ProcessOrder(order1, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -395,7 +395,7 @@ func TestOrderBook_ProcessMarketOrder_PartialMatching(t *testing.T) {
 	order2.Side = Ask
 	order2.Quantity = big.NewInt(1000)
 	order2.Price = big.NewInt(99) // ask order, price = 99
-	trades, _, err = ob.ProcessOrder(order2, true, true)
+	trades, _, err = ob.ProcessOrder(order2, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -410,7 +410,7 @@ func TestOrderBook_ProcessMarketOrder_PartialMatching(t *testing.T) {
 	order3.Side = Bid
 	order3.Quantity = big.NewInt(1300)
 	order3.Type = Market
-	trades, _, err = ob.ProcessOrder(order3, true, true)
+	trades, _, err = ob.ProcessOrder(order3, true, true, testingBlockHash)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -425,7 +425,7 @@ func TestOrderBook_ProcessMarketOrder_PartialMatching(t *testing.T) {
 		t.Log("Expected: Trade[1][quantity] = 300", "actual", trades[1]["quantity"])
 	}
 	// verify remaining orders
-	remainingOrder := ob.Asks.GetOrder(GetKeyFromBig(big.NewInt(2)), big.NewInt(99), true)
+	remainingOrder := ob.Asks.GetOrder(GetKeyFromBig(big.NewInt(2)), big.NewInt(99), true, testingBlockHash)
 	if remainingOrder.Item.Quantity.Cmp(big.NewInt(700)) != 0 {
 		t.Error("Wrong remaining quantity. Expected: 700. Actual:", remainingOrder.Item.Quantity.Uint64())
 	}
