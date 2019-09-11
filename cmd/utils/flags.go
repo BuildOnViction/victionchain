@@ -564,6 +564,16 @@ var (
 		Usage: "Database engine for TomoX (leveldb, mongodb)",
 		Value: "leveldb",
 	}
+	TomoXDBNameFlag = cli.StringFlag{
+		Name:  "tomox.dbName",
+		Usage: "Database name for TomoX",
+		Value: "tomodex",
+	}
+	TomoXDBConnectionUrlFlag = cli.StringFlag{
+		Name:  "tomox.dbConnectionUrl",
+		Usage: "ConnectionUrl to database if dbEngine is mongodb",
+		Value: "mongodb://localhost:27017",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1051,6 +1061,12 @@ func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
 	}
 	if ctx.GlobalIsSet(TomoXDBEngineFlag.Name) {
 		cfg.DBEngine = ctx.GlobalString(TomoXDBEngineFlag.Name)
+	}
+	if ctx.GlobalIsSet(TomoXDBNameFlag.Name) {
+		cfg.DBName = ctx.GlobalString(TomoXDBNameFlag.Name)
+	}
+	if ctx.GlobalIsSet(TomoXDBConnectionUrlFlag.Name) {
+		cfg.ConnectionUrl = ctx.GlobalString(TomoXDBConnectionUrlFlag.Name)
 	}
 }
 

@@ -20,9 +20,9 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/hashicorp/golang-lru"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
-	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -56,6 +56,7 @@ const (
 type Config struct {
 	DataDir       string `toml:",omitempty"`
 	DBEngine      string `toml:",omitempty"`
+	DBName        string `toml:",omitempty"`
 	ConnectionUrl string `toml:",omitempty"`
 }
 
@@ -123,7 +124,7 @@ func NewLDBEngine(cfg *Config) *BatchDatabase {
 }
 
 func NewMongoDBEngine(cfg *Config) *MongoDatabase {
-	mongoDB, err := NewMongoDatabase(nil, cfg.ConnectionUrl, 0)
+	mongoDB, err := NewMongoDatabase(nil, cfg.DBName, cfg.ConnectionUrl, 0)
 
 	if err != nil {
 		log.Error(err.Error())
