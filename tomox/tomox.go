@@ -109,8 +109,6 @@ type TomoX struct {
 	lightClient bool // indicates is this node is pure light client (does not forward any messages)
 	sdkNode     bool
 
-	statsMu sync.Mutex // guard stats
-
 	settings syncmap.Map // holds configuration settings that can be dynamically changed
 
 	activePairs map[string]bool // hold active pairs
@@ -452,8 +450,6 @@ func (tomox *TomoX) add(envelope *Envelope, isP2P bool) (bool, error) {
 		log.Trace("tomoX envelope already cached", "hash", envelope.Hash().Hex())
 	} else {
 		log.Trace("cached tomoX envelope", "hash", envelope.Hash().Hex())
-		tomox.statsMu.Lock()
-		tomox.statsMu.Unlock()
 		err := tomox.postEvent(envelope, isP2P) // notify the local node about the new message
 		if err != nil {
 			return false, err
@@ -491,12 +487,12 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 			return nil
 		default:
 			log.Error("Can't cancel order", "order", order, "err", err)
-			return err
+			return nil
 		}
 	} else {
 		if err := tomox.InsertOrder(order); err != nil {
 			log.Error("Can't insert order", "order", order, "err", err)
-			return err
+			return nil
 		}
 		log.Debug("Inserted order", "order", order)
 	}
