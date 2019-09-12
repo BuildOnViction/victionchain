@@ -3,6 +3,7 @@ package tomox
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,10 +14,10 @@ import (
 func (o *OrderItem) GetBSON() (interface{}, error) {
 	or := OrderItemBSON{
 		PairName:        o.PairName,
-		ExchangeAddress: o.ExchangeAddress.Hex(),
-		UserAddress:     o.UserAddress.Hex(),
-		BaseToken:       o.BaseToken.Hex(),
-		QuoteToken:      o.QuoteToken.Hex(),
+		ExchangeAddress: strings.ToLower(o.ExchangeAddress.Hex()),
+		UserAddress:     strings.ToLower(o.UserAddress.Hex()),
+		BaseToken:       strings.ToLower(o.BaseToken.Hex()),
+		QuoteToken:      strings.ToLower(o.QuoteToken.Hex()),
 		Status:          o.Status,
 		Side:            o.Side,
 		Type:            o.Type,
