@@ -1050,12 +1050,6 @@
 			"versionExact": "features/tomox-integration"
 		},
 		{
-			"checksumSHA1": "j9bd2buGoaboTa2RF8ytHGOhcvE=",
-			"path": "github.com/tomochain/tomox-sdk/types",
-			"revision": "b667b88191c73f813fe444acfdc2d32f92765fd6",
-			"revisionTime": "2019-08-28T09:08:31Z"
-		},
-		{
 			"checksumSHA1": "XaGVZ2wDwsqQOKVvLAR+u8YhW4k=",
 			"path": "github.com/tomochain/tomox-sdk/utils",
 			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
