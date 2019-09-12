@@ -128,8 +128,7 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 	mongoDB, err := NewMongoDatabase(nil, cfg.DBName, cfg.ConnectionUrl, cfg.ReplicaSetName, 0)
 
 	if err != nil {
-		log.Error(err.Error())
-		return &MongoDatabase{}
+		log.Crit("Failed to init mongodb engine", "err", err)
 	}
 
 	return mongoDB
