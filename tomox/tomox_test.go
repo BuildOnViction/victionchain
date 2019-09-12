@@ -405,7 +405,8 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 
 	storedOrderCountMap := make(map[common.Address]*big.Int)
 	storedOrderCountMap[common.HexToAddress("0x00011")] = big.NewInt(5)
-	if err := tomox.updateOrderCount(storedOrderCountMap); err != nil {
+	tomox.orderCount = storedOrderCountMap
+	if err := tomox.UpdateOrderCount(order.UserAddress, order.Nonce); err != nil {
 		t.Error("Failed to save orderCount", "err", err)
 	}
 

@@ -84,8 +84,6 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 		return err
 	}
 	hashNoValidator := block.HashNoValidator()
-	// validate matchedOrder txs
-	processedHashes := []common.Hash{}
 
 	// clear the previous dry-run cache
 	if tomoXService != nil {
@@ -101,15 +99,12 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 			return tomox.ErrTomoXServiceNotFound
 		}
 		log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash)
-		hashes, err := v.validateMatchingOrder(tomoXService, currentState, txMatchBatch, hashNoValidator)
+		err := v.validateMatchingOrder(tomoXService, currentState, txMatchBatch, hashNoValidator)
 		if err != nil {
 			return err
 		}
-		processedHashes = append(processedHashes, hashes...)
 	}
-	if _, ok := v.bc.processedOrderHashes.Get(hashNoValidator); !ok && len(processedHashes) > 0 {
-		v.bc.processedOrderHashes.Add(hashNoValidator, processedHashes)
-	}
+
 	return nil
 }
 
@@ -141,23 +136,20 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, txMatchBatch tomox.TxMatchBatch, blockHash common.Hash) ([]common.Hash, error) {
-	processedHashes := []common.Hash{}
+func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, txMatchBatch tomox.TxMatchBatch, blockHash common.Hash) error {
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
 
 	for _, txMatch := range txMatchBatch.Data {
 		// verify orderItem
 		order, err := txMatch.DecodeOrder()
 		if err != nil {
-			return []common.Hash{}, fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err)
+			return fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err)
 		}
 		if tomoXService.ExistProcessedOrderHash(order.Hash) {
 			log.Debug("This order has been processed", "hash", hex.EncodeToString(order.Hash.Bytes()))
 			continue
 		}
 		log.Debug("process tx match", "order", order)
-
-		processedHashes = append(processedHashes, order.Hash)
 
 
 		// Remove order from db pending.
@@ -174,33 +166,33 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 			continue
 		}
 		if err := order.VerifyMatchedOrder(currentState); err != nil {
-			return []common.Hash{}, err
+			return err
 		}
 
 		ob, err := tomoXService.GetOrderBook(order.PairName, true, blockHash)
 		// if orderbook of this pairName has been updated by previous tx in this block, use it
 
 		if err != nil {
-			return []common.Hash{}, err
+			return err
 		}
 
 		// verify old state: orderbook hash, bidTree hash, askTree hash
 		if err := txMatch.VerifyOldTomoXState(ob); err != nil {
-			return []common.Hash{}, err
+			return err
 		}
 
 		// process Matching Engine
 		if _, _, err := ob.ProcessOrder(order, true, true, blockHash); err != nil {
-			return []common.Hash{}, err
+			return err
 		}
 
 		// verify new state
 		if err := txMatch.VerifyNewTomoXState(ob); err != nil {
-			return []common.Hash{}, err
+			return err
 		}
 	}
 
-	return processedHashes, nil
+	return nil
 }
 
 // CalcGasLimit computes the gas limit of the next block after parent.
