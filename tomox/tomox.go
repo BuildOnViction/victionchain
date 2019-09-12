@@ -1244,8 +1244,8 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 
 		// 2.a. put to trades
 		tradeSDK := &Trade{}
-		quantity := ToBigInt(trade[TradedQuantity])
-		price := ToBigInt(trade[TradedPrice])
+		quantity := ToBigInt(trade[TradeQuantity])
+		price := ToBigInt(trade[TradePrice])
 		if price.Cmp(big.NewInt(0)) <= 0 || quantity.Cmp(big.NewInt(0)) <= 0 {
 			return fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity)
 		}
@@ -1256,11 +1256,13 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		tradeSDK.QuoteToken = order.QuoteToken
 		tradeSDK.Status = TradeStatusSuccess
 		tradeSDK.Taker = order.UserAddress
-		tradeSDK.Maker = common.HexToAddress(trade[TradedMaker])
+		tradeSDK.Maker = common.HexToAddress(trade[TradeMaker])
 		tradeSDK.TakerOrderHash = order.Hash
-		tradeSDK.MakerOrderHash = common.HexToHash(trade[TradedMakerOrderHash])
+		tradeSDK.MakerOrderHash = common.HexToHash(trade[TradeMakerOrderHash])
 		tradeSDK.TxHash = txHash
 		tradeSDK.TakerOrderSide = order.Side
+		tradeSDK.TakerExchange = order.ExchangeAddress
+		tradeSDK.MakerExchange = common.HexToAddress(trade[TradeMakerExchange])
 
 		// feeAmount: all fees are calculated in quoteToken
 		quoteTokenQuantity := big.NewInt(0).Mul(quantity, price)
@@ -1269,7 +1271,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		takerFee = big.NewInt(0).Div(takerFee, common.TomoXBaseFee)
 		tradeSDK.TakeFee = takerFee
 
-		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, GetExRelayerFee(common.HexToAddress(trade[TradedMakerExchangeAddress]), statedb))
+		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, GetExRelayerFee(common.HexToAddress(trade[TradeMakerExchange]), statedb))
 		makerFee = big.NewInt(0).Div(makerFee, common.TomoXBaseFee)
 		tradeSDK.MakeFee = makerFee
 
@@ -1282,10 +1284,10 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		// 2.b. update status and filledAmount
 		filledAmount := quantity
 		// update order status of relating orders
-		if err := tomox.updateStatusOfMatchedOrder(trade[TradedMakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateStatusOfMatchedOrder(trade[TradeMakerOrderHash], filledAmount); err != nil {
 			return err
 		}
-		if err := tomox.updateStatusOfMatchedOrder(trade[TradedTakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateStatusOfMatchedOrder(trade[TradeTakerOrderHash], filledAmount); err != nil {
 			return err
 		}
 	}

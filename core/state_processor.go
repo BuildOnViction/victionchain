@@ -296,16 +296,16 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, statedb *state.Sta
 		baseFee := common.TomoXBaseFee
 
 		for i := 0; i < len(txMatch.Trades); i++ {
-			price := tomox.ToBigInt(txMatch.Trades[i][tomox.TradedPrice])
-			quantityString := txMatch.Trades[i][tomox.TradedQuantity]
+			price := tomox.ToBigInt(txMatch.Trades[i][tomox.TradePrice])
+			quantityString := txMatch.Trades[i][tomox.TradeQuantity]
 			quantity := tomox.ToBigInt(quantityString)
 			if price.Cmp(big.NewInt(0)) <= 0 || quantity.Cmp(big.NewInt(0)) <= 0 {
 				return nil, 0, fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity), false
 			}
-			makerExAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradedMakerExchangeAddress])
+			makerExAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradeMakerExchange])
 			makerExfee := tomox.GetExRelayerFee(makerExAddr, statedb)
 			makerExOwner := tomox.GetRelayerOwner(makerExAddr, statedb)
-			makerAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradedMaker])
+			makerAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradeMaker])
 			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
 			if makerExAddr != (common.Address{}) && makerAddr != (common.Address{}) {
 				// take relayer fee
