@@ -20,9 +20,9 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/hashicorp/golang-lru"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
-	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -696,9 +696,8 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 			return err
 		}
 
-		tomox.orderCount[order.UserAddress] = order.Nonce
-		if err := tomox.updateOrderCount(tomox.orderCount); err != nil {
-			log.Error("Failed to save orderCount", "err", err)
+		if err := tomox.UpdateOrderCount(order.UserAddress, order.Nonce); err != nil {
+			log.Error("Failed to update orderCount", "err", err)
 		}
 
 	} else {
@@ -757,13 +756,17 @@ func (tomox *TomoX) loadOrderCount() error {
 }
 
 // update orderCount to persistent storage
-func (tomox *TomoX) updateOrderCount(orderCount map[common.Address]*big.Int) error {
-	blob, err := json.Marshal(orderCount)
-	if err != nil {
-		return err
-	}
-	if err := tomox.db.Put([]byte(orderCountKey), &blob, false, common.Hash{}); err != nil {
-		return err
+func (tomox *TomoX) UpdateOrderCount(userAddress common.Address, newCount *big.Int) error {
+	orderCountList := tomox.orderCount
+	if count, ok := orderCountList[userAddress]; !ok || newCount.Cmp(count) > 0 {
+		orderCountList[userAddress] = newCount
+		blob, err := json.Marshal(orderCountList)
+		if err != nil {
+			return err
+		}
+		if err := tomox.db.Put([]byte(orderCountKey), &blob, false, common.Hash{}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1171,7 +1174,7 @@ func (tomox *TomoX) loadSnapshot(hash common.Hash) error {
 
 // save orderbook after matching orders
 // update order pending list, processed list
-func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash, blockHash common.Hash) error {
+func (tomox *TomoX) ApplyTxMatches(orders []*OrderItem, blockHash common.Hash) error {
 	if !tomox.IsSDKNode() {
 		if err := tomox.db.SaveDryRunResult(blockHash); err != nil {
 			log.Error("Failed to save dry-run result")
@@ -1179,11 +1182,14 @@ func (tomox *TomoX) ApplyTxMatches(orderHashes []common.Hash, blockHash common.H
 		}
 	}
 
-	for _, hash := range orderHashes {
-		if err := tomox.addProcessedOrderHash(hash); err != nil {
+	for _, order := range orders {
+		if err := tomox.addProcessedOrderHash(order.Hash); err != nil {
 			log.Error("Failed to mark order as processed", "err", err)
 		}
-		log.Debug("Mark order as processed", "orderHash", hex.EncodeToString(hash.Bytes()))
+		log.Debug("Mark order as processed", "orderHash", hex.EncodeToString(order.Hash.Bytes()))
+		if err := tomox.UpdateOrderCount(order.UserAddress, order.Nonce); err != nil {
+			log.Error("Update orderNonce via ApplyTxMatches failed", "err", err)
+		}
 	}
 	tomox.db.InitDryRunMode(blockHash)
 	return nil

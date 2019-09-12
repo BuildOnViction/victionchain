@@ -129,7 +129,6 @@ type BlockChain struct {
 	blockCache           *lru.Cache     // Cache for the most recent entire blocks
 	futureBlocks         *lru.Cache     // future blocks are blocks added for later processing
 	resultProcess        *lru.Cache     // Cache for processed blocks
-	processedOrderHashes *lru.Cache     // Cache for processedOrderHashes
 	calculatingBlock     *lru.Cache     // Cache for processing blocks
 	downloadingBlock     *lru.Cache     // Cache for downloading blocks (avoid duplication from fetcher)
 	quit                 chan struct{}  // blockchain quit channel
@@ -164,7 +163,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
 	resultProcess, _ := lru.New(blockCacheLimit)
-	matchedOrderHashes, _ := lru.New(blockCacheLimit)
 	preparingBlock, _ := lru.New(blockCacheLimit)
 	downloadingBlock, _ := lru.New(blockCacheLimit)
 	bc := &BlockChain{
@@ -179,7 +177,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		blockCache:           blockCache,
 		futureBlocks:         futureBlocks,
 		resultProcess:        resultProcess,
-		processedOrderHashes: matchedOrderHashes,
 		calculatingBlock:     preparingBlock,
 		downloadingBlock:     downloadingBlock,
 		engine:               engine,
@@ -1217,23 +1214,27 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
+			txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+			if err != nil {
+				return i, events, coalescedLogs, err
+			}
 
-			if tomoXService != nil {
-				if processedCacheData, ok := bc.processedOrderHashes.Get(block.HashNoValidator()); ok && processedCacheData != nil {
-					processedOrderHashes := processedCacheData.([]common.Hash)
-					log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "hash", block.Hash(), "hash_novalidator", block.HashNoValidator())
-					if err = tomoXService.ApplyTxMatches(processedOrderHashes, block.HashNoValidator()); err != nil {
+			processedOrders, err := getProcessedOrders(txMatchBatchData)
+			if err != nil {
+				return i, events, coalescedLogs, err
+			}
+			if tomoXService != nil && len(processedOrders) > 0 {
+				log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "hash", block.Hash(), "hash_novalidator", block.HashNoValidator())
+				if err = tomoXService.ApplyTxMatches(processedOrders, block.HashNoValidator()); err != nil {
+					return i, events, coalescedLogs, err
+				}
+				if tomoXService.IsSDKNode() {
+					currentState, err := bc.State()
+					if err != nil {
 						return i, events, coalescedLogs, err
 					}
-					bc.processedOrderHashes.Remove(block.HashNoValidator())
-					if tomoXService.IsSDKNode() {
-						currentState, err := bc.State()
-						if err != nil {
-							return i, events, coalescedLogs, err
-						}
-						if err := logDataToSdkNode(tomoXService, block.Transactions(), currentState); err != nil {
-							return i, events, coalescedLogs, err
-						}
+					if err := logDataToSdkNode(tomoXService, txMatchBatchData, currentState); err != nil {
+						return i, events, coalescedLogs, err
 					}
 				}
 				if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 && !tomoXService.IsSDKNode() {
@@ -1446,22 +1447,31 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 
 		engine := bc.Engine().(*posv.Posv)
 		tomoXService := engine.GetTomoXService()
-		if tomoXService != nil {
-			if processedCacheData, ok := bc.processedOrderHashes.Get(block.HashNoValidator()); ok && processedCacheData != nil {
-				processedOrderHashes := processedCacheData.([]common.Hash)
-				log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "hash", block.Hash(), "hash_novalidator", block.HashNoValidator())
-				if err = tomoXService.ApplyTxMatches(processedOrderHashes, block.HashNoValidator()); err != nil {
+		txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+		if err != nil {
+			return events, coalescedLogs, err
+		}
+
+		processedOrders, err := getProcessedOrders(txMatchBatchData)
+		if err != nil {
+			return events, coalescedLogs, err
+		}
+		if tomoXService != nil && len(processedOrders) > 0 {
+			log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "hash", block.Hash(), "hash_novalidator", block.HashNoValidator())
+			if err = tomoXService.ApplyTxMatches(processedOrders, block.HashNoValidator()); err != nil {
+				return events, coalescedLogs, err
+			}
+			if tomoXService.IsSDKNode() {
+				currentState, err := bc.State()
+				if err != nil {
 					return events, coalescedLogs, err
 				}
-				bc.processedOrderHashes.Remove(block.HashNoValidator())
-				if tomoXService.IsSDKNode() {
-					currentState, err := bc.State()
-					if err != nil {
-						return events, coalescedLogs, err
-					}
-					if err := logDataToSdkNode(tomoXService, block.Transactions(), currentState); err != nil {
-						return events, coalescedLogs, err
-					}
+				txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+				if err != nil {
+					return events, coalescedLogs, err
+				}
+				if err := logDataToSdkNode(tomoXService, txMatchBatchData, currentState); err != nil {
+					return events, coalescedLogs, err
 				}
 			}
 			if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 && !tomoXService.IsSDKNode() {
@@ -1945,12 +1955,22 @@ func (bc *BlockChain) UpdateM1() error {
 	return nil
 }
 
-func logDataToSdkNode(tomoXService *tomox.TomoX, transactions types.Transactions, statedb *state.StateDB) error {
-	txMatchBatchData, err := ExtractMatchingTransactions(transactions)
-	if err != nil {
-		return err
+func getProcessedOrders(txMatchBatchData []tomox.TxMatchBatch) ([]*tomox.OrderItem, error) {
+	orders := []*tomox.OrderItem{}
+	for _, txMatchBatch := range txMatchBatchData {
+		for _, txMatch := range txMatchBatch.Data {
+			order, err := txMatch.DecodeOrder()
+			if err != nil {
+				log.Error("Decode order failed", "txMatch", txMatch)
+				return []*tomox.OrderItem{}, fmt.Errorf("decode order failed")
+			}
+			orders = append(orders, order)
+		}
 	}
+	return orders, nil
+}
 
+func logDataToSdkNode(tomoXService *tomox.TomoX, txMatchBatchData []tomox.TxMatchBatch, statedb *state.StateDB) error {
 	for _, txMatchBatch := range txMatchBatchData {
 		for _, txMatch := range txMatchBatch.Data {
 			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, statedb); err != nil {
