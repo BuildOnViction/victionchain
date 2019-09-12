@@ -54,10 +54,11 @@ const (
 )
 
 type Config struct {
-	DataDir       string `toml:",omitempty"`
-	DBEngine      string `toml:",omitempty"`
-	DBName        string `toml:",omitempty"`
-	ConnectionUrl string `toml:",omitempty"`
+	DataDir        string `toml:",omitempty"`
+	DBEngine       string `toml:",omitempty"`
+	DBName         string `toml:",omitempty"`
+	ConnectionUrl  string `toml:",omitempty"`
+	ReplicaSetName string `toml:",omitempty"`
 }
 
 type TxDataMatch struct {
@@ -124,7 +125,7 @@ func NewLDBEngine(cfg *Config) *BatchDatabase {
 }
 
 func NewMongoDBEngine(cfg *Config) *MongoDatabase {
-	mongoDB, err := NewMongoDatabase(nil, cfg.DBName, cfg.ConnectionUrl, 0)
+	mongoDB, err := NewMongoDatabase(nil, cfg.DBName, cfg.ConnectionUrl, cfg.ReplicaSetName, 0)
 
 	if err != nil {
 		log.Error(err.Error())

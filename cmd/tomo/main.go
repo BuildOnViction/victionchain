@@ -74,6 +74,7 @@ var (
 		utils.TomoXDataDirFlag,
 		utils.TomoXDBEngineFlag,
 		utils.TomoXDBConnectionUrlFlag,
+		utils.TomoXDBReplicaSetNameFlag,
 		utils.TomoXDBNameFlag,
 		utils.TxPoolNoLocalsFlag,
 		utils.TxPoolJournalFlag,

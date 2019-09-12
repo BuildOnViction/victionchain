@@ -234,9 +234,8 @@ func makeFullNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	stack, cfg := makeConfigNode(ctx)
 
 	// Register TomoX's OrderBook service if requested.
-	if ctx.GlobalBool(utils.TomoXEnabledFlag.Name) {
-		utils.RegisterTomoXService(stack, &cfg.TomoX)
-	}
+	// enable in default
+	utils.RegisterTomoXService(stack, &cfg.TomoX)
 
 	utils.RegisterEthService(stack, &cfg.Eth)
 
