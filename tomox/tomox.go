@@ -723,7 +723,7 @@ func (tomox *TomoX) verifyOrderNonce(order *OrderItem) error {
 		}
 	}
 	if orderCount, ok = tomox.orderCount[order.UserAddress]; !ok {
-		orderCount = big.NewInt(0)
+		orderCount = big.NewInt(-1)
 	}
 
 	if order.Nonce.Cmp(orderCount) <= 0 {
