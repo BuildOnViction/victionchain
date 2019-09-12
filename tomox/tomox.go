@@ -491,12 +491,12 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 			return nil
 		default:
 			log.Error("Can't cancel order", "order", order, "err", err)
-			return err
+			return nil
 		}
 	} else {
 		if err := tomox.InsertOrder(order); err != nil {
 			log.Error("Can't insert order", "order", order, "err", err)
-			return err
+			return nil
 		}
 		log.Debug("Inserted order", "order", order)
 	}
