@@ -1047,10 +1047,10 @@ func (tomox *TomoX) getPendingHashes() []common.Hash {
 func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash) error {
 	if !tomox.processedOrderCache.Add(orderHash, true) {
 		if err := tomox.RemovePendingHash(orderHash); err != nil {
-			log.Error("Double check pending order at addProcessedOrderHash. Failed to remove pending hash", "err", err, "orderHash", orderHash)
+			log.Warn("Double check pending order at addProcessedOrderHash. Failed to remove pending hash", "err", err, "orderHash", orderHash)
 		}
 		if err := tomox.RemoveOrderPending(orderHash); err != nil {
-			log.Error("Double check pending order at addProcessedOrderHash. Failed to remove pending order", "err", err, "orderHash", orderHash)
+			log.Warn("Double check pending order at addProcessedOrderHash. Failed to remove pending order", "err", err, "orderHash", orderHash)
 		}
 		return nil
 	} else {
