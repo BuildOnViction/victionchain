@@ -1074,14 +1074,6 @@
 			"versionExact": "features/tomox-integration"
 		},
 		{
-			"checksumSHA1": "dDS1eIhHsV1nCPrwmBgh0PMIx8o=",
-			"path": "github.com/tomochain/tomox-sdk/utils/math",
-			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",
-			"revisionTime": "2019-06-28T07:30:16Z",
-			"version": "features/tomox-integration",
-			"versionExact": "features/tomox-integration"
-		},
-		{
 			"checksumSHA1": "m1cmPEJ4ClQ+UXsLprXZjVpOzU0=",
 			"path": "github.com/tomochain/tomox-sdk/ws",
 			"revision": "4e6a1c86bb6a3f96f07e55f28a16bb2c6d8980d6",

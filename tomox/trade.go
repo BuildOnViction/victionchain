@@ -4,7 +4,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/globalsign/mgo/bson"
-	"github.com/tomochain/tomox-sdk/utils/math"
 	"math/big"
 	"strings"
 	"time"
@@ -120,11 +119,11 @@ func (t *Trade) SetBSON(raw bson.Raw) error {
 	t.Hash = common.HexToHash(decoded.Hash)
 	t.TxHash = common.HexToHash(decoded.TxHash)
 	t.Status = decoded.Status
-	t.Amount = math.ToBigInt(decoded.Amount)
-	t.PricePoint = math.ToBigInt(decoded.PricePoint)
+	t.Amount = ToBigInt(decoded.Amount)
+	t.PricePoint = ToBigInt(decoded.PricePoint)
 
-	t.MakeFee = math.ToBigInt(decoded.MakeFee)
-	t.TakeFee = math.ToBigInt(decoded.TakeFee)
+	t.MakeFee = ToBigInt(decoded.MakeFee)
+	t.TakeFee = ToBigInt(decoded.TakeFee)
 
 	t.CreatedAt = decoded.CreatedAt
 	t.UpdatedAt = decoded.UpdatedAt
