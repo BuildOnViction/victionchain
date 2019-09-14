@@ -76,8 +76,11 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 
-	engine, _ := v.engine.(*posv.Posv)
-	tomoXService := engine.GetTomoXService()
+	var tomoXService *tomox.TomoX
+	engine, ok := v.engine.(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
 
 	currentState, err := v.bc.State()
 	if err != nil {

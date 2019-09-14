@@ -509,8 +509,10 @@ func (bc *BlockChain) insert(block *types.Block) {
 
 	// save cache BlockSigners
 	if bc.chainConfig.Posv != nil && !bc.chainConfig.IsTIPSigning(block.Number()) {
-		engine := bc.Engine().(*posv.Posv)
-		engine.CacheData(block.Header(), block.Transactions(), bc.GetReceiptsByHash(block.Hash()))
+		engine, ok := bc.Engine().(*posv.Posv)
+		if ok {
+			engine.CacheData(block.Header(), block.Transactions(), bc.GetReceiptsByHash(block.Hash()))
+		}
 	}
 
 	// If the block is better than our head or is on a different chain, force update heads
@@ -1022,8 +1024,10 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	}
 	// save cache BlockSigners
 	if bc.chainConfig.Posv != nil && bc.chainConfig.IsTIPSigning(block.Number()) {
-		engine := bc.Engine().(*posv.Posv)
-		engine.CacheSigner(block.Header().Hash(), block.Transactions())
+		engine, ok := bc.Engine().(*posv.Posv)
+		if ok {
+			engine.CacheSigner(block.Header().Hash(), block.Transactions())
+		}
 	}
 	bc.futureBlocks.Remove(block.Hash())
 	return status, nil
@@ -1045,8 +1049,11 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
 func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*types.Log, error) {
-	engine := bc.Engine().(*posv.Posv)
-	tomoXService := engine.GetTomoXService()
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
 
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
@@ -1445,8 +1452,11 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		// Only count canonical blocks for GC processing time
 		bc.gcproc += result.proctime
 
-		engine := bc.Engine().(*posv.Posv)
-		tomoXService := engine.GetTomoXService()
+		var tomoXService *tomox.TomoX
+		engine, ok := bc.Engine().(*posv.Posv)
+		if ok {
+			tomoXService = engine.GetTomoXService()
+		}
 		txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
 		if err != nil {
 			return events, coalescedLogs, err
@@ -1898,10 +1908,10 @@ func (bc *BlockChain) GetClient() (*ethclient.Client, error) {
 }
 
 func (bc *BlockChain) UpdateM1() error {
-	if bc.Config().Posv == nil {
+	engine, ok := bc.Engine().(*posv.Posv)
+	if bc.Config().Posv == nil || !ok {
 		return ErrNotPoSV
 	}
-	engine := bc.Engine().(*posv.Posv)
 	log.Info("It's time to update new set of masternodes for the next epoch...")
 	// get masternodes information from smart contract
 	client, err := bc.GetClient()
