@@ -670,6 +670,12 @@ web3._extend({
             name: 'getOrders',
             call: 'tomoX_getOrders',
             params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getOrderNonce',
+            call: 'tomoX_getOrderNonce',
+            params: 1,
+            inputFormatter: [web3._extend.formatters.inputAddressFormatter]
         })
 	]
 });

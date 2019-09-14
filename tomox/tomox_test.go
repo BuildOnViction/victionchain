@@ -385,7 +385,7 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	testDir := "test_VerifyOrderNonce"
 
 	tomox := &TomoX{
-		orderCount: make(map[common.Address]*big.Int),
+		orderNonce: make(map[common.Address]*big.Int),
 	}
 	tomox.db = NewLDBEngine(&Config{
 		DataDir:  testDir,
@@ -393,7 +393,7 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	})
 	defer os.RemoveAll(testDir)
 
-	// initial: orderCount is empty
+	// initial: orderNonce is empty
 	// verifyOrderNonce should PASS
 	order := &OrderItem{
 		Nonce:       big.NewInt(1),
@@ -405,9 +405,9 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 
 	storedOrderCountMap := make(map[common.Address]*big.Int)
 	storedOrderCountMap[common.HexToAddress("0x00011")] = big.NewInt(5)
-	tomox.orderCount = storedOrderCountMap
-	if err := tomox.UpdateOrderCount(order.UserAddress, order.Nonce); err != nil {
-		t.Error("Failed to save orderCount", "err", err)
+	tomox.orderNonce = storedOrderCountMap
+	if err := tomox.UpdateOrderNonce(order.UserAddress, order.Nonce); err != nil {
+		t.Error("Failed to save orderNonce", "err", err)
 	}
 
 	// set duplicated nonce
