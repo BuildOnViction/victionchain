@@ -186,9 +186,21 @@ func (db *BatchDatabase) Delete(key []byte, dryrun bool, blockHash common.Hash) 
 
 func (db *BatchDatabase) InitDryRunMode(blockHash common.Hash) {
 	log.Debug("Start dry-run mode, clear old data", "blockhash", blockHash)
-	delete(db.dryRunCaches, blockHash)
-	dryrunCache, _ := lru.New(db.cacheLimit)
+	db.lock.Lock()
+	dryrunCache, ok := db.dryRunCaches[blockHash]
+	db.lock.Unlock()
+
+	// if the dryrunCache of this blockHash already existed, purge it
+	// otherwise, initialize new cache for it
+	// Finally, assign the cache to db.dryRunCaches
+	if ok && dryrunCache != nil {
+		dryrunCache.Purge()
+	} else {
+		dryrunCache, _ = lru.New(db.cacheLimit)
+	}
+	db.lock.Lock()
 	db.dryRunCaches[blockHash] = dryrunCache
+	db.lock.Unlock()
 }
 
 func (db *BatchDatabase) SaveDryRunResult(blockHash common.Hash) error {
@@ -233,6 +245,7 @@ func (db *BatchDatabase) SaveDryRunResult(blockHash common.Hash) error {
 		}
 	}
 	log.Debug("Successfully saved dry-run result to DB ", "blockhash", blockHash)
+	dryrunCache.Purge()
 	db.lock.Lock()
 	delete(db.dryRunCaches, blockHash)
 	db.lock.Unlock()
