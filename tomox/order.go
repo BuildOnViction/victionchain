@@ -9,6 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+const (
+	OrderStatusNew           = "NEW"
+	OrderStatusOpen          = "OPEN"
+	OrderStatusPartialFilled = "PARTIAL_FILLED"
+	OrderStatusFilled        = "FILLED"
+	OrderStatusCancelled     = "CANCELLED"
+)
+
 // Signature struct
 type Signature struct {
 	V byte

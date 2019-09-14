@@ -3,24 +3,24 @@ package tomox
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/globalsign/mgo/bson"
-	"github.com/tomochain/tomox-sdk/utils/math"
 )
 
 func (o *OrderItem) GetBSON() (interface{}, error) {
 	or := OrderItemBSON{
 		PairName:        o.PairName,
-		ExchangeAddress: o.ExchangeAddress.Hex(),
-		UserAddress:     o.UserAddress.Hex(),
-		BaseToken:       o.BaseToken.Hex(),
-		QuoteToken:      o.QuoteToken.Hex(),
+		ExchangeAddress: strings.ToLower(o.ExchangeAddress.Hex()),
+		UserAddress:     strings.ToLower(o.UserAddress.Hex()),
+		BaseToken:       strings.ToLower(o.BaseToken.Hex()),
+		QuoteToken:      strings.ToLower(o.QuoteToken.Hex()),
 		Status:          o.Status,
 		Side:            o.Side,
 		Type:            o.Type,
-		Hash:            o.Hash.Hex(),
+		Hash:            strings.ToLower(o.Hash.Hex()),
 		Quantity:        o.Quantity.String(),
 		Price:           o.Price.String(),
 		Nonce:           o.Nonce.String(),
@@ -82,25 +82,25 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	o.UserAddress = common.HexToAddress(decoded.UserAddress)
 	o.BaseToken = common.HexToAddress(decoded.BaseToken)
 	o.QuoteToken = common.HexToAddress(decoded.QuoteToken)
-	o.FilledAmount = math.ToBigInt(decoded.FilledAmount)
-	o.Nonce = math.ToBigInt(decoded.Nonce)
-	o.MakeFee = math.ToBigInt(decoded.MakeFee)
-	o.TakeFee = math.ToBigInt(decoded.TakeFee)
+	o.FilledAmount = ToBigInt(decoded.FilledAmount)
+	o.Nonce = ToBigInt(decoded.Nonce)
+	o.MakeFee = ToBigInt(decoded.MakeFee)
+	o.TakeFee = ToBigInt(decoded.TakeFee)
 	o.Status = decoded.Status
 	o.Side = decoded.Side
 	o.Type = decoded.Type
 	o.Hash = common.HexToHash(decoded.Hash)
 
 	if decoded.Quantity != "" {
-		o.Quantity = math.ToBigInt(decoded.Quantity)
+		o.Quantity = ToBigInt(decoded.Quantity)
 	}
 
 	if decoded.FilledAmount != "" {
-		o.FilledAmount = math.ToBigInt(decoded.FilledAmount)
+		o.FilledAmount = ToBigInt(decoded.FilledAmount)
 	}
 
 	if decoded.Price != "" {
-		o.Price = math.ToBigInt(decoded.Price)
+		o.Price = ToBigInt(decoded.Price)
 	}
 
 	if decoded.Signature != nil {

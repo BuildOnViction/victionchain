@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/core/state"
-	sdktypes "github.com/tomochain/tomox-sdk/types"
 	"math/big"
 	"runtime"
 	"strings"
@@ -1232,7 +1231,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		log.Error("SDK node decode order failed", "txDataMatch", txDataMatch)
 		return fmt.Errorf("SDK node decode order failed")
 	}
-	order.Status = sdktypes.OrderStatusOpen
+	order.Status = OrderStatusOpen
 	log.Debug("Put processed order", "order", order)
 	if err := db.Put(order.Hash.Bytes(), order, false, common.Hash{}); err != nil {
 		return fmt.Errorf("SDKNode: failed to put processed order. Error: %s", err.Error())
@@ -1244,9 +1243,9 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 	for _, trade := range trades {
 
 		// 2.a. put to trades
-		tradeSDK := &sdktypes.Trade{}
-		quantity := ToBigInt(trade[TradedQuantity])
-		price := ToBigInt(trade[TradedPrice])
+		tradeSDK := &Trade{}
+		quantity := ToBigInt(trade[TradeQuantity])
+		price := ToBigInt(trade[TradePrice])
 		if price.Cmp(big.NewInt(0)) <= 0 || quantity.Cmp(big.NewInt(0)) <= 0 {
 			return fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity)
 		}
@@ -1255,13 +1254,15 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		tradeSDK.PairName = order.PairName
 		tradeSDK.BaseToken = order.BaseToken
 		tradeSDK.QuoteToken = order.QuoteToken
-		tradeSDK.Status = sdktypes.TradeStatusSuccess
+		tradeSDK.Status = TradeStatusSuccess
 		tradeSDK.Taker = order.UserAddress
-		tradeSDK.Maker = common.HexToAddress(trade[TradedMaker])
+		tradeSDK.Maker = common.HexToAddress(trade[TradeMaker])
 		tradeSDK.TakerOrderHash = order.Hash
-		tradeSDK.MakerOrderHash = common.HexToHash(trade[TradedMakerOrderHash])
+		tradeSDK.MakerOrderHash = common.HexToHash(trade[TradeMakerOrderHash])
 		tradeSDK.TxHash = txHash
 		tradeSDK.TakerOrderSide = order.Side
+		tradeSDK.TakerExchange = order.ExchangeAddress
+		tradeSDK.MakerExchange = common.HexToAddress(trade[TradeMakerExchange])
 
 		// feeAmount: all fees are calculated in quoteToken
 		quoteTokenQuantity := big.NewInt(0).Mul(quantity, price)
@@ -1270,7 +1271,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		takerFee = big.NewInt(0).Div(takerFee, common.TomoXBaseFee)
 		tradeSDK.TakeFee = takerFee
 
-		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, GetExRelayerFee(common.HexToAddress(trade[TradedMakerExchangeAddress]), statedb))
+		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, GetExRelayerFee(common.HexToAddress(trade[TradeMakerExchange]), statedb))
 		makerFee = big.NewInt(0).Div(makerFee, common.TomoXBaseFee)
 		tradeSDK.MakeFee = makerFee
 
@@ -1283,10 +1284,10 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		// 2.b. update status and filledAmount
 		filledAmount := quantity
 		// update order status of relating orders
-		if err := tomox.updateStatusOfMatchedOrder(trade[TradedMakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateStatusOfMatchedOrder(trade[TradeMakerOrderHash], filledAmount); err != nil {
 			return err
 		}
-		if err := tomox.updateStatusOfMatchedOrder(trade[TradedTakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateStatusOfMatchedOrder(trade[TradeTakerOrderHash], filledAmount); err != nil {
 			return err
 		}
 	}
@@ -1304,10 +1305,10 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		if data != nil && err == nil {
 			existingOrderInDB = data.(*OrderItem)
 			log.Debug("OrderInBook found in database", "order", existingOrderInDB)
-			if existingOrderInDB.Status == sdktypes.OrderStatusFilled {
+			if existingOrderInDB.Status == OrderStatusFilled {
 				log.Debug("Update status to PARTIAL_FILLED", "order", existingOrderInDB)
 				// if order already matched but still exist in orderbook, then update status to OrderStatusPartialFilled
-				existingOrderInDB.Status = sdktypes.OrderStatusPartialFilled
+				existingOrderInDB.Status = OrderStatusPartialFilled
 				if err = db.Put(key, existingOrderInDB, false, common.Hash{}); err != nil {
 					return fmt.Errorf("SDKNode: failed to update status to %s %s", existingOrderInDB.Status, err.Error())
 				}
@@ -1328,7 +1329,7 @@ func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *
 		return fmt.Errorf("SDKNode: failed to get order. Key: %s", hashString)
 	}
 	matchedOrder := val.(*OrderItem)
-	matchedOrder.Status = sdktypes.OrderStatusFilled
+	matchedOrder.Status = OrderStatusFilled
 	matchedOrder.UpdatedAt = uint64(time.Now().Unix())
 	updatedFillAmount := new(big.Int)
 	updatedFillAmount.Add(matchedOrder.FilledAmount, filledAmount)

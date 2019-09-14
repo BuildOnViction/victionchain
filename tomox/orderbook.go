@@ -24,17 +24,6 @@ const (
 	// as sequential id
 	SlotSegment         = common.AddressLength
 	orderbookItemPrefix = "OB"
-
-	// trade struct field
-	TradedTakerOrderHash       = "takerOrderHash"
-	TradedMakerOrderHash       = "makerOrderHash"
-	TradedTimestamp            = "timestamp"
-	TradedQuantity             = "quantity"
-	TradedMakerExchangeAddress = "makerExAddr"
-	TradedMaker                = "uAddr"
-	TradedBaseToken            = "bToken"
-	TradedQuoteToken           = "qToken"
-	TradedPrice                = "tradedPrice"
 )
 
 var ErrDoesNotExist = errors.New("order doesn't exist in ordertree")
@@ -432,18 +421,18 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		}
 
 		transactionRecord := make(map[string]string)
-		transactionRecord[TradedTakerOrderHash] = hex.EncodeToString(order.Hash.Bytes())
-		transactionRecord[TradedMakerOrderHash] = hex.EncodeToString(headOrder.Item.Hash.Bytes())
-		transactionRecord[TradedTimestamp] = strconv.FormatUint(orderBook.Timestamp, 10)
-		transactionRecord[TradedQuantity] = tradedQuantity.String()
-		transactionRecord[TradedMakerExchangeAddress] = headOrder.Item.ExchangeAddress.String()
-		transactionRecord[TradedMaker] = headOrder.Item.UserAddress.String()
-		transactionRecord[TradedBaseToken] = headOrder.Item.BaseToken.String()
-		transactionRecord[TradedQuoteToken] = headOrder.Item.QuoteToken.String()
+		transactionRecord[TradeTakerOrderHash] = hex.EncodeToString(order.Hash.Bytes())
+		transactionRecord[TradeMakerOrderHash] = hex.EncodeToString(headOrder.Item.Hash.Bytes())
+		transactionRecord[TradeTimestamp] = strconv.FormatUint(orderBook.Timestamp, 10)
+		transactionRecord[TradeQuantity] = tradedQuantity.String()
+		transactionRecord[TradeMakerExchange] = headOrder.Item.ExchangeAddress.String()
+		transactionRecord[TradeMaker] = headOrder.Item.UserAddress.String()
+		transactionRecord[TradeBaseToken] = headOrder.Item.BaseToken.String()
+		transactionRecord[TradeQuoteToken] = headOrder.Item.QuoteToken.String()
 		// maker price is actual price
 		// taker price is offer price
 		// tradedPrice is always actual price
-		transactionRecord[TradedPrice] = headOrder.Item.Price.String()
+		transactionRecord[TradePrice] = headOrder.Item.Price.String()
 
 		trades = append(trades, transactionRecord)
 	}

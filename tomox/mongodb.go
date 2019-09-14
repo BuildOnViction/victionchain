@@ -8,7 +8,6 @@ import (
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	"github.com/hashicorp/golang-lru"
-	"github.com/tomochain/tomox-sdk/types"
 	"strings"
 	"time"
 )
@@ -157,9 +156,9 @@ func (db *MongoDatabase) Put(key []byte, val interface{}, dryrun bool, blockHash
 	db.cacheItems.Add(cacheKey, val)
 
 	switch val.(type) {
-	case *types.Trade:
+	case *Trade:
 		// Put trade into "trades" collection
-		if err := db.CommitTrade(val.(*types.Trade)); err != nil {
+		if err := db.CommitTrade(val.(*Trade)); err != nil {
 			log.Error(err.Error())
 			return err
 		}
@@ -265,7 +264,7 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 	return nil
 }
 
-func (db *MongoDatabase) CommitTrade(t *types.Trade) error {
+func (db *MongoDatabase) CommitTrade(t *Trade) error {
 
 	sc := db.Session.Copy()
 	defer sc.Close()
