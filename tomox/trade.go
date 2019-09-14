@@ -5,7 +5,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/globalsign/mgo/bson"
 	"math/big"
-	"strings"
 	"time"
 )
 
@@ -75,14 +74,14 @@ func (t *Trade) GetBSON() (interface{}, error) {
 	tr := TradeBSON{
 		ID:             t.ID,
 		PairName:       t.PairName,
-		Maker:          strings.ToLower(t.Maker.Hex()),
-		Taker:          strings.ToLower(t.Taker.Hex()),
-		BaseToken:      strings.ToLower(t.BaseToken.Hex()),
-		QuoteToken:     strings.ToLower(t.QuoteToken.Hex()),
+		Maker:          t.Maker.Hex(),
+		Taker:          t.Taker.Hex(),
+		BaseToken:      t.BaseToken.Hex(),
+		QuoteToken:     t.QuoteToken.Hex(),
 		MakerOrderHash: t.MakerOrderHash.Hex(),
 		TakerOrderHash: t.TakerOrderHash.Hex(),
-		MakerExchange:  strings.ToLower(t.MakerExchange.Hex()),
-		TakerExchange:  strings.ToLower(t.TakerExchange.Hex()),
+		MakerExchange:  t.MakerExchange.Hex(),
+		TakerExchange:  t.TakerExchange.Hex(),
 		Hash:           t.Hash.Hex(),
 		TxHash:         t.TxHash.Hex(),
 		CreatedAt:      t.CreatedAt,
