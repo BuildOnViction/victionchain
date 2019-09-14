@@ -9,6 +9,7 @@ import (
 	"github.com/globalsign/mgo/bson"
 	"github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomox-sdk/types"
+	"strings"
 	"time"
 )
 
@@ -30,16 +31,19 @@ type MongoDatabase struct {
 }
 
 // InitSession initializes a new session with mongodb
-func NewMongoDatabase(session *mgo.Session, mongoURL string, cacheLimit int) (*MongoDatabase, error) {
-	dbName := "tomodex"
-	mongoURL = "mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0"
+func NewMongoDatabase(session *mgo.Session, dbName string, mongoURL string, replicaSetName string, cacheLimit int) (*MongoDatabase, error) {
 	if session == nil {
-		// Initialize new session
-		ns, err := mgo.Dial(mongoURL)
+		// in case of multiple database instances
+		hosts := strings.Split(mongoURL, ",")
+		dbInfo := &mgo.DialInfo{
+			Addrs:          hosts,
+			Database:       dbName,
+			ReplicaSetName: replicaSetName,
+		}
+		ns, err := mgo.DialWithInfo(dbInfo)
 		if err != nil {
 			return nil, err
 		}
-
 		session = ns
 	}
 	itemCacheLimit := defaultCacheLimit

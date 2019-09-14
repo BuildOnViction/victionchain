@@ -564,6 +564,20 @@ var (
 		Usage: "Database engine for TomoX (leveldb, mongodb)",
 		Value: "leveldb",
 	}
+	TomoXDBNameFlag = cli.StringFlag{
+		Name:  "tomox.dbName",
+		Usage: "Database name for TomoX",
+		Value: "tomodex",
+	}
+	TomoXDBConnectionUrlFlag = cli.StringFlag{
+		Name:  "tomox.dbConnectionUrl",
+		Usage: "ConnectionUrl to database if dbEngine is mongodb. Host:port. If there are multiple instances, separated by comma. Eg: localhost:27017,localhost:27018",
+		Value: "localhost:27017",
+	}
+	TomoXDBReplicaSetNameFlag = cli.StringFlag{
+		Name:  "tomox.dbReplicaSetName",
+		Usage: "ReplicaSetName if Master-Slave is setup",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1048,9 +1062,26 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
 	if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
 		cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
+	} else {
+		cfg.DataDir = TomoXDataDirFlag.Value.String()
 	}
 	if ctx.GlobalIsSet(TomoXDBEngineFlag.Name) {
 		cfg.DBEngine = ctx.GlobalString(TomoXDBEngineFlag.Name)
+	} else {
+		cfg.DBEngine = TomoXDBEngineFlag.Value
+	}
+	if ctx.GlobalIsSet(TomoXDBNameFlag.Name) {
+		cfg.DBName = ctx.GlobalString(TomoXDBNameFlag.Name)
+	} else {
+		cfg.DBName = TomoXDBNameFlag.Value
+	}
+	if ctx.GlobalIsSet(TomoXDBConnectionUrlFlag.Name) {
+		cfg.ConnectionUrl = ctx.GlobalString(TomoXDBConnectionUrlFlag.Name)
+	} else {
+		cfg.ConnectionUrl = TomoXDBConnectionUrlFlag.Value
+	}
+	if ctx.GlobalIsSet(TomoXDBReplicaSetNameFlag.Name) {
+		cfg.ReplicaSetName = ctx.GlobalString(TomoXDBReplicaSetNameFlag.Name)
 	}
 }
 
