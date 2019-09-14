@@ -36,16 +36,16 @@ const (
 	p2pMessageCode       = 127 // peer-to-peer message (to be consumed by the peer, but not forwarded any further)
 	NumberOfMessageCodes = 128
 	DefaultTTL           = 50 // seconds
-	DefaultSyncAllowance = 10 // seconds
-	messageQueueLimit    = 1024
-	overflowIdx                // Indicator of message queue overflow
+	DefaultSyncAllowance  = 10 // seconds
+	messageQueueLimit        = 1024
+	overflowIdx                          // Indicator of message queue overflow
 	signatureLength      = 65  // in bytes
 	padSizeLimit         = 256 // just an arbitrary number, could be changed without breaking the protocol
 	flagsLength          = 1
 	SizeMask             = byte(3) // mask used to extract the size of payload size field from the flags
 	TopicLength          = 86      // in bytes
 	keyIDSize            = 32      // in bytes
-	orderCountKey        = "ORDER_COUNT"
+	orderNonceKey        = "ORDER_NONCES"
 	activePairsKey       = "ACTIVE_PAIRS"
 	pendingHash          = "PENDING_HASH"
 	pendingPrefix        = "XP"
@@ -88,7 +88,7 @@ type TomoX struct {
 	// Order related
 	Orderbooks map[string]*OrderBook
 	db         OrderDao
-	orderCount map[common.Address]*big.Int
+	orderNonce map[common.Address]*big.Int
 
 	// P2P messaging related
 	protocol p2p.Protocol
@@ -136,7 +136,7 @@ func New(cfg *Config) *TomoX {
 	poCache, _ := lru.New(orderProcessedLimit)
 	tomoX := &TomoX{
 		Orderbooks:          make(map[string]*OrderBook),
-		orderCount:          make(map[common.Address]*big.Int),
+		orderNonce:          make(map[common.Address]*big.Int),
 		peers:               make(map[*Peer]struct{}),
 		quit:                make(chan struct{}),
 		envelopes:           make(map[common.Hash]*Envelope),
@@ -693,8 +693,8 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 			return err
 		}
 
-		if err := tomox.UpdateOrderCount(order.UserAddress, order.Nonce); err != nil {
-			log.Error("Failed to update orderCount", "err", err)
+		if err := tomox.UpdateOrderNonce(order.UserAddress, order.Nonce); err != nil {
+			log.Error("Failed to update orderNonce", "err", err)
 		}
 
 	} else {
@@ -706,62 +706,74 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 
 func (tomox *TomoX) verifyOrderNonce(order *OrderItem) error {
 	var (
-		orderCount *big.Int
+		orderNonce *big.Int
 		ok         bool
 	)
 
 	// in case of restarting nodes, data in memory has lost
 	// should load from persistent storage
-	if len(tomox.orderCount) == 0 {
-		if err := tomox.loadOrderCount(); err != nil {
-			// if a node has just started, its database doesn't have orderCount information
+	if len(tomox.orderNonce) == 0 {
+		if err := tomox.loadOrderNonce(); err != nil {
+			// if a node has just started, its database doesn't have orderNonce information
 			// Hence, we should not throw error here
-			log.Debug("orderCount is empty in leveldb", "err", err)
+			log.Debug("orderNonce is empty in leveldb", "err", err)
 		}
 	}
-	if orderCount, ok = tomox.orderCount[order.UserAddress]; !ok {
-		orderCount = big.NewInt(-1)
+	if orderNonce, ok = tomox.orderNonce[order.UserAddress]; !ok {
+		orderNonce = big.NewInt(-1)
 	}
 
-	if order.Nonce.Cmp(orderCount) <= 0 {
+	if order.Nonce.Cmp(orderNonce) <= 0 {
 		return ErrOrderNonceTooLow
 	}
-	distance := Sub(order.Nonce, orderCount)
+	distance := Sub(order.Nonce, orderNonce)
 	if distance.Cmp(new(big.Int).SetUint64(LimitThresholdOrderNonceInQueue)) > 0 {
 		return ErrOrderNonceTooHigh
 	}
 	return nil
 }
 
-// load orderCount from persistent storage
-func (tomox *TomoX) loadOrderCount() error {
+func (tomox *TomoX) GetOrderNonce(address common.Address) (*big.Int, error) {
+	if len(tomox.orderNonce) == 0 {
+		if err := tomox.loadOrderNonce(); err != nil {
+			return big.NewInt(-1), err
+		}
+	}
+	orderNonce, ok := tomox.orderNonce[address]
+	if !ok {
+		return big.NewInt(0), nil
+	}
+	return orderNonce, nil
+}
+// load orderNonce from persistent storage
+func (tomox *TomoX) loadOrderNonce() error {
 	var (
-		orderCount map[common.Address]*big.Int
+		orderNonce map[common.Address]*big.Int
 		err        error
 		val        interface{}
 	)
-	val, err = tomox.db.Get([]byte(orderCountKey), &[]byte{}, false, common.Hash{})
+	val, err = tomox.db.Get([]byte(orderNonceKey), &[]byte{}, false, common.Hash{})
 	if err != nil {
 		return err
 	}
 	b := *val.(*[]byte)
-	if err = json.Unmarshal(b, &orderCount); err != nil {
+	if err = json.Unmarshal(b, &orderNonce); err != nil {
 		return err
 	}
-	tomox.orderCount = orderCount
+	tomox.orderNonce = orderNonce
 	return nil
 }
 
-// update orderCount to persistent storage
-func (tomox *TomoX) UpdateOrderCount(userAddress common.Address, newCount *big.Int) error {
-	orderCountList := tomox.orderCount
-	if count, ok := orderCountList[userAddress]; !ok || newCount.Cmp(count) > 0 {
-		orderCountList[userAddress] = newCount
-		blob, err := json.Marshal(orderCountList)
+// update orderNonce to persistent storage
+func (tomox *TomoX) UpdateOrderNonce(userAddress common.Address, newCount *big.Int) error {
+	orderNonceList := tomox.orderNonce
+	if orderNonce, ok := orderNonceList[userAddress]; !ok || newCount.Cmp(orderNonce) > 0 {
+		orderNonceList[userAddress] = newCount
+		blob, err := json.Marshal(orderNonceList)
 		if err != nil {
 			return err
 		}
-		if err := tomox.db.Put([]byte(orderCountKey), &blob, false, common.Hash{}); err != nil {
+		if err := tomox.db.Put([]byte(orderNonceKey), &blob, false, common.Hash{}); err != nil {
 			return err
 		}
 	}
@@ -1190,7 +1202,7 @@ func (tomox *TomoX) ApplyTxMatches(orders []*OrderItem, blockHash common.Hash) e
 			log.Error("Failed to mark order as processed", "err", err)
 		}
 		log.Debug("Mark order as processed", "orderHash", hex.EncodeToString(order.Hash.Bytes()))
-		if err := tomox.UpdateOrderCount(order.UserAddress, order.Nonce); err != nil {
+		if err := tomox.UpdateOrderNonce(order.UserAddress, order.Nonce); err != nil {
 			log.Error("Update orderNonce via ApplyTxMatches failed", "err", err)
 		}
 	}

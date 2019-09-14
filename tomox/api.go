@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -368,4 +369,10 @@ func (api *PublicTomoXAPI) NewTopic(req Criteria) (string, error) {
 	api.mu.Unlock()
 
 	return id, nil
+}
+
+
+// GetOrderNonce returns the latest orderNonce of the given address
+func (api *PublicTomoXAPI) GetOrderNonce(address common.Address) (*big.Int, error) {
+	return api.t.GetOrderNonce(address)
 }
