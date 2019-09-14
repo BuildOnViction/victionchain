@@ -19,7 +19,7 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 		Status:          o.Status,
 		Side:            o.Side,
 		Type:            o.Type,
-		Hash:            strings.ToLower(o.Hash.Hex()),
+		Hash:            o.Hash.Hex(),
 		Quantity:        o.Quantity.String(),
 		Price:           o.Price.String(),
 		Nonce:           o.Nonce.String(),
