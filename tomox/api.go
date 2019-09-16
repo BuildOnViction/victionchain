@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -375,4 +376,53 @@ func (api *PublicTomoXAPI) NewTopic(req Criteria) (string, error) {
 // GetOrderNonce returns the latest orderNonce of the given address
 func (api *PublicTomoXAPI) GetOrderNonce(address common.Address) (*big.Int, error) {
 	return api.t.GetOrderNonce(address)
+}
+
+// GetBestBid returns the bestBid price of the given pair
+func (api *PublicTomoXAPI) GetBestBid(pairName string) (*big.Int, error) {
+	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	return ob.BestBid(false, common.Hash{}), nil
+}
+
+// GetBestAsk returns the bestAsk price of the given pair
+func (api *PublicTomoXAPI) GetBestAsk(pairName string) (*big.Int, error) {
+	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	return ob.BestAsk(false, common.Hash{}), nil
+}
+
+// GetNumBidOrders returns the number of BidOrders of the given pair
+func (api *PublicTomoXAPI) GetNumBidOrders(pairName string) (uint64, error) {
+	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
+	if err != nil {
+		return 0, err
+	}
+	return ob.Bids.Item.NumOrders, nil
+}
+
+// GetNumAskOrders returns the number of AskOrders of the given pair
+func (api *PublicTomoXAPI) GetNumAskOrders(pairName string) (uint64, error) {
+	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
+	if err != nil {
+		return 0, err
+	}
+	return ob.Asks.Item.NumOrders, nil
+}
+
+// GetPendingOrders returns pending orders of the given pair
+func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, error) {
+	result := []*OrderItem{}
+	pendingHashes := api.t.getPendingHashes()
+	for _, hash := range pendingHashes {
+		order := api.t.getOrderPending(hash)
+		if order != nil && strings.ToLower(order.PairName) == strings.ToLower(pairName) {
+			result = append(result, order)
+		}
+	}
+	return result, nil
 }
