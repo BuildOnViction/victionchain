@@ -416,8 +416,9 @@ func (api *PublicTomoXAPI) GetAskTree(pairName string) (*OrderTreeItem, error) {
 // GetPendingOrders returns pending orders of the given pair
 func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, error) {
 	result := []*OrderItem{}
-	pendingHashes := api.t.getPendingHashes()
-	for _, hash := range pendingHashes {
+	pending := api.t.getPendingOrders()
+	for _, p := range pending {
+		hash := p.hash
 		order := api.t.getOrderPending(hash)
 		if order != nil && strings.ToLower(order.PairName) == strings.ToLower(pairName) {
 			result = append(result, order)
