@@ -326,8 +326,14 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 				//log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
 
 				isTakerBuy := orderItem.Side == tomox.Bid
-				engine := bc.Engine().(*posv.Posv)
-				tomoXService := engine.GetTomoXService()
+				engine, ok := bc.Engine().(*posv.Posv)
+				var tomoXService *tomox.TomoX
+				if ok {
+					tomoXService = engine.GetTomoXService()
+				}
+				if tomoXService == nil {
+					return nil, 0, tomox.ErrTomoXServiceNotFound, false
+				}
 				settleBalanceResult, err := tomoXService.SettleBalance(
 					bc.IPCEndpoint,
 					makerAddr,
