@@ -328,6 +328,21 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun 
 	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
 	orderBook.Item.NextOrderID++
 
+	if order.Status == OrderStatusCancelled {
+		err := orderBook.CancelOrder(order, dryrun, blockHash)
+		switch err {
+		case ErrDoesNotExist:
+			log.Debug("Order doesn't exist in tree", "order", order)
+			return nil, nil, nil
+		case nil:
+			log.Debug("Cancelled order", "order", order)
+			return nil, nil, nil
+		default:
+			log.Error("Can't cancel order", "order", order, "err", err)
+			return nil, nil, err
+		}
+	}
+
 	if orderType == Market {
 		log.Debug("Process market order", "order", order)
 		trades, orderInBook, err = orderBook.processMarketOrder(order, verbose, dryrun, blockHash)

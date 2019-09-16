@@ -263,32 +263,32 @@ func TestDBPending(t *testing.T) {
 	}
 	defer os.RemoveAll(testDir)
 
-	if pHashes := tomox.getPendingHashes(); len(pHashes) != 0 {
-		t.Error("Expected: no pending hash", "Actual:", len(pHashes))
+	if pending := tomox.getPendingOrders(); len(pending) != 0 {
+		t.Error("Expected: no pending hash", "Actual:", len(pending))
 	}
 
 	var hash common.Hash
 	hash = common.StringToHash("0x0000000000000000000000000000000000000000")
-	tomox.addPendingHash(hash)
+	tomox.addOrderToPending(hash, false)
 	hash = common.StringToHash("0x0000000000000000000000000000000000000001")
-	tomox.addPendingHash(hash)
+	tomox.addOrderToPending(hash, false)
 	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
-	tomox.addPendingHash(hash)
+	tomox.addOrderToPending(hash, true)
 	// getPendingHashes from cache
-	if pHashes := tomox.getPendingHashes(); len(pHashes) != 3 {
-		t.Error("Expected: 3 pending hash", "Actual:", len(pHashes))
+	if pending := tomox.getPendingOrders(); len(pending) != 3 {
+		t.Error("Expected: 3 pending hash", "Actual:", len(pending))
 	}
 
 	// Test remove hash
 	hash = common.StringToHash("0x0000000000000000000000000000000000000002")
-	tomox.RemovePendingHash(hash)
+	tomox.RemoveOrderFromPending(hash, true)
 
-	if pHashes := tomox.getPendingHashes(); len(pHashes) != 2 {
-		t.Error("Expected: 2 pending hash", "Actual:", len(pHashes))
+	if pending := tomox.getPendingOrders(); len(pending) != 2 {
+		t.Error("Expected: 2 pending hash", "Actual:", len(pending))
 	}
 
 	order := buildOrder(new(big.Int).SetInt64(1))
-	tomox.addOrderPending(order)
+	tomox.saveOrderPendingToDB(order)
 	od := tomox.getOrderPending(order.Hash)
 	if od != nil && order.Hash.String() != od.Hash.String() {
 		t.Error("Fail to add order pending", "orderOld", order, "orderNew", od)
