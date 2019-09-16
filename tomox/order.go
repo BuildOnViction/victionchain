@@ -45,8 +45,6 @@ type OrderItem struct {
 	Signature       *Signature     `json:"signature,omitempty"`
 	FilledAmount    *big.Int       `json:"filledAmount,omitempty"`
 	Nonce           *big.Int       `json:"nonce,omitempty"`
-	MakeFee         *big.Int       `json:"makeFee,omitempty"`
-	TakeFee         *big.Int       `json:"takeFee,omitempty"`
 	PairName        string         `json:"pairName,omitempty"`
 	CreatedAt       uint64         `json:"createdAt,omitempty"`
 	UpdatedAt       uint64         `json:"updatedAt,omitempty"`

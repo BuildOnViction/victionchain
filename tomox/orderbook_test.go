@@ -26,8 +26,6 @@ var sampleTestOrder = &OrderItem{
 	},
 	FilledAmount: new(big.Int).SetUint64(0),
 	Nonce:        new(big.Int).SetUint64(1),
-	MakeFee:      new(big.Int).SetUint64(4000000000000000),
-	TakeFee:      new(big.Int).SetUint64(4000000000000000),
 	CreatedAt:    uint64(time.Now().Unix()),
 	UpdatedAt:    uint64(time.Now().Unix()),
 }

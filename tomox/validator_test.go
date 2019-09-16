@@ -92,8 +92,6 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 		QuoteToken: common.HexToAddress("0x0aaad186212b04E6933682b3bed8e232b6b3361a"),
 		UserAddress: addr,
 		Nonce:       big.NewInt(1),
-		MakeFee:     big.NewInt(1),
-		TakeFee:     big.NewInt(1),
 	}
 
 	// failed due to no timestamp

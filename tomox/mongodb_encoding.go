@@ -23,8 +23,6 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 		Quantity:        o.Quantity.String(),
 		Price:           o.Price.String(),
 		Nonce:           o.Nonce.String(),
-		MakeFee:         o.MakeFee.String(),
-		TakeFee:         o.TakeFee.String(),
 		CreatedAt:       strconv.FormatUint(o.CreatedAt, 10),
 		UpdatedAt:       strconv.FormatUint(o.UpdatedAt, 10),
 		OrderID:         strconv.FormatUint(o.OrderID, 10),
@@ -83,8 +81,6 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	o.QuoteToken = common.HexToAddress(decoded.QuoteToken)
 	o.FilledAmount = ToBigInt(decoded.FilledAmount)
 	o.Nonce = ToBigInt(decoded.Nonce)
-	o.MakeFee = ToBigInt(decoded.MakeFee)
-	o.TakeFee = ToBigInt(decoded.TakeFee)
 	o.Status = decoded.Status
 	o.Side = decoded.Side
 	o.Type = decoded.Type
