@@ -372,7 +372,6 @@ func (api *PublicTomoXAPI) NewTopic(req Criteria) (string, error) {
 	return id, nil
 }
 
-
 // GetOrderNonce returns the latest orderNonce of the given address
 func (api *PublicTomoXAPI) GetOrderNonce(address common.Address) (*big.Int, error) {
 	return api.t.GetOrderNonce(address)
@@ -396,22 +395,22 @@ func (api *PublicTomoXAPI) GetBestAsk(pairName string) (*big.Int, error) {
 	return ob.BestAsk(false, common.Hash{}), nil
 }
 
-// GetNumBidOrders returns the number of BidOrders of the given pair
-func (api *PublicTomoXAPI) GetNumBidOrders(pairName string) (uint64, error) {
+// GetBidTree returns the bidTreeItem of the given pair
+func (api *PublicTomoXAPI) GetBidTree(pairName string) (*OrderTreeItem, error) {
 	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return ob.Bids.Item.NumOrders, nil
+	return ob.Bids.Item, nil
 }
 
-// GetNumAskOrders returns the number of AskOrders of the given pair
-func (api *PublicTomoXAPI) GetNumAskOrders(pairName string) (uint64, error) {
+// GetAskTree returns the askTreeItem of the given pair
+func (api *PublicTomoXAPI) GetAskTree(pairName string) (*OrderTreeItem, error) {
 	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return ob.Asks.Item.NumOrders, nil
+	return ob.Asks.Item, nil
 }
 
 // GetPendingOrders returns pending orders of the given pair
@@ -422,6 +421,18 @@ func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, erro
 		order := api.t.getOrderPending(hash)
 		if order != nil && strings.ToLower(order.PairName) == strings.ToLower(pairName) {
 			result = append(result, order)
+		}
+	}
+	return result, nil
+}
+
+// GetProcessedHashes returns hashes which already processed
+func (api *PublicTomoXAPI) GetProcessedHashes() ([]common.Hash, error) {
+	result := []common.Hash{}
+	for _, val := range api.t.processedOrderCache.Keys() {
+		hash, ok := val.(common.Hash)
+		if ok {
+			result = append(result, hash)
 		}
 	}
 	return result, nil

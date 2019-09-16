@@ -676,7 +676,37 @@ web3._extend({
             call: 'tomoX_getOrderNonce',
             params: 1,
             inputFormatter: [web3._extend.formatters.inputAddressFormatter]
-        })
+        }),
+		new web3._extend.Method({
+            name: 'getBestBid',
+            call: 'tomoX_getBestBid',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getBestAsk',
+            call: 'tomoX_getBestAsk',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'GetBidTree',
+            call: 'tomoX_getBidTree',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'GetAskTree',
+            call: 'tomoX_getAskTree',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getPendingOrders',
+            call: 'tomoX_getPendingOrders',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getProcessedHashes',
+            call: 'tomoX_getProcessedHashes',
+            params: 0
+        }),
 	]
 });
 `
