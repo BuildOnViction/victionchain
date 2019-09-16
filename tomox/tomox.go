@@ -738,7 +738,7 @@ func (tomox *TomoX) verifyOrderNonce(order *OrderItem) error {
 func (tomox *TomoX) GetOrderNonce(address common.Address) (*big.Int, error) {
 	if len(tomox.orderNonce) == 0 {
 		if err := tomox.loadOrderNonce(); err != nil {
-			return big.NewInt(-1), err
+			return big.NewInt(0), nil
 		}
 	}
 	orderNonce, ok := tomox.orderNonce[address]
