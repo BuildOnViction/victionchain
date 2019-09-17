@@ -698,7 +698,7 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 				log.Error("Failed to update orderNonce", "err", err)
 			}
 		}
-		order.CreatedAt = uint64(time.Now().Unix())
+		order.CreatedAt = time.Now()
 		if err := tomox.saveOrderPendingToDB(order); err != nil {
 			return err
 		}
@@ -1324,7 +1324,7 @@ func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *
 	}
 	matchedOrder := val.(*OrderItem)
 	matchedOrder.Status = OrderStatusFilled
-	matchedOrder.UpdatedAt = uint64(time.Now().Unix())
+	matchedOrder.UpdatedAt = time.Now()
 	updatedFillAmount := new(big.Int)
 	updatedFillAmount.Add(matchedOrder.FilledAmount, filledAmount)
 	matchedOrder.FilledAmount = updatedFillAmount

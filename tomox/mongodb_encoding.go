@@ -23,8 +23,8 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 		Quantity:        o.Quantity.String(),
 		Price:           o.Price.String(),
 		Nonce:           o.Nonce.String(),
-		CreatedAt:       strconv.FormatUint(o.CreatedAt, 10),
-		UpdatedAt:       strconv.FormatUint(o.UpdatedAt, 10),
+		CreatedAt:       o.CreatedAt,
+		UpdatedAt:       o.UpdatedAt,
 		OrderID:         strconv.FormatUint(o.OrderID, 10),
 		Key:             o.Key,
 	}
@@ -106,8 +106,8 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		}
 	}
 
-	o.CreatedAt = uint64(decoded.CreatedAt.Unix())
-	o.UpdatedAt = uint64(decoded.UpdatedAt.Unix())
+	o.CreatedAt = decoded.CreatedAt
+	o.UpdatedAt = decoded.UpdatedAt
 	orderID, err := strconv.ParseInt(decoded.OrderID, 10, 64)
 	if err == nil {
 		fmt.Printf("%d of type %T", orderID, orderID)

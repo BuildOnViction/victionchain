@@ -26,8 +26,8 @@ var sampleTestOrder = &OrderItem{
 	},
 	FilledAmount: new(big.Int).SetUint64(0),
 	Nonce:        new(big.Int).SetUint64(1),
-	CreatedAt:    uint64(time.Now().Unix()),
-	UpdatedAt:    uint64(time.Now().Unix()),
+	CreatedAt:    time.Now(),
+	UpdatedAt:    time.Now(),
 }
 var testingBlockHash = common.HexToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0")
 func initTestOrderBook(testDir, pairName string) *OrderBook {
