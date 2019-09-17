@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -371,8 +372,69 @@ func (api *PublicTomoXAPI) NewTopic(req Criteria) (string, error) {
 	return id, nil
 }
 
-
 // GetOrderNonce returns the latest orderNonce of the given address
 func (api *PublicTomoXAPI) GetOrderNonce(address common.Address) (*big.Int, error) {
 	return api.t.GetOrderNonce(address)
+}
+
+// GetBestBid returns the bestBid price of the given pair
+func (api *PublicTomoXAPI) GetBestBid(pairName string) (*big.Int, error) {
+	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	return ob.BestBid(false, common.Hash{}), nil
+}
+
+// GetBestAsk returns the bestAsk price of the given pair
+func (api *PublicTomoXAPI) GetBestAsk(pairName string) (*big.Int, error) {
+	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	return ob.BestAsk(false, common.Hash{}), nil
+}
+
+// GetBidTree returns the bidTreeItem of the given pair
+func (api *PublicTomoXAPI) GetBidTree(pairName string) (*OrderTreeItem, error) {
+	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
+	if err != nil {
+		return nil, err
+	}
+	return ob.Bids.Item, nil
+}
+
+// GetAskTree returns the askTreeItem of the given pair
+func (api *PublicTomoXAPI) GetAskTree(pairName string) (*OrderTreeItem, error) {
+	ob, err := api.t.getAndCreateIfNotExisted(pairName, false, common.Hash{})
+	if err != nil {
+		return nil, err
+	}
+	return ob.Asks.Item, nil
+}
+
+// GetPendingOrders returns pending orders of the given pair
+func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, error) {
+	result := []*OrderItem{}
+	pending := api.t.getPendingOrders()
+	for _, p := range pending {
+		hash := p.hash
+		order := api.t.getOrderPending(hash)
+		if order != nil && strings.ToLower(order.PairName) == strings.ToLower(pairName) {
+			result = append(result, order)
+		}
+	}
+	return result, nil
+}
+
+// GetProcessedHashes returns hashes which already processed
+func (api *PublicTomoXAPI) GetProcessedHashes() ([]common.Hash, error) {
+	result := []common.Hash{}
+	for _, val := range api.t.processedOrderCache.Keys() {
+		hash, ok := val.(common.Hash)
+		if ok {
+			result = append(result, hash)
+		}
+	}
+	return result, nil
 }
