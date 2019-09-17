@@ -679,6 +679,9 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string, dryrun bool, block
 }
 
 func (tomox *TomoX) InsertOrder(order *OrderItem) error {
+	if err := order.VerifyBasicOrderInfo(); err != nil {
+		return err
+	}
 	if order.OrderID == 0 || order.Status == OrderStatusCancelled {
 		if order.Status == OrderStatusCancelled {
 			if err := tomox.addOrderToPending(order.Hash, true); err != nil {

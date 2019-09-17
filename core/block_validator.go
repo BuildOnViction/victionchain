@@ -169,7 +169,7 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 			log.Debug("SDK node ignore running matching engine")
 			continue
 		}
-		if err := order.VerifyMatchedOrder(currentState); err != nil {
+		if err := order.VerifyOrder(currentState); err != nil {
 			return err
 		}
 
