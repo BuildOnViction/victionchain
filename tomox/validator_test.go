@@ -79,11 +79,10 @@ func TestOrderItem_VerifyBalance(t *testing.T) {
 }
 
 // test full-verify orderItem
-// VerifyMatchedOrder consists of some partial tests:
+// VerifyOrder consists of some partial tests:
 // verifyTimestamp, verifyOrderSide, verifyOrderType, verifyRelayer, verifyBalance, verifySignature
 // in this test, we sequentially make each test PASS
-func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
-	stateDb, _ := state.New(common.Hash{}, state.NewDatabase(fakeDb))
+func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 	addr := common.HexToAddress("0x0332d186212b04E6933682b3bed8e232b6b3361a")
 
 	order := &OrderItem{
@@ -92,17 +91,18 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 		QuoteToken: common.HexToAddress("0x0aaad186212b04E6933682b3bed8e232b6b3361a"),
 		UserAddress: addr,
 		Nonce:       big.NewInt(1),
+		Quantity: big.NewInt(1000),
 	}
 
 	// failed due to no timestamp
-	if err := order.VerifyMatchedOrder(stateDb); err != errNoTimestamp {
+	if err := order.VerifyBasicOrderInfo(); err != errNoTimestamp {
 		t.Error(err)
 	}
 
 	// failed due to future order
 	order.CreatedAt = uint64(time.Now().Unix()) + 1000 // future time
 	order.UpdatedAt = uint64(time.Now().Unix()) + 1000 // future time
-	if err := order.VerifyMatchedOrder(stateDb); err != errFutureOrder {
+	if err := order.VerifyBasicOrderInfo(); err != errFutureOrder {
 		t.Error(err)
 	}
 
@@ -111,7 +111,7 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 	order.UpdatedAt = uint64(time.Now().Unix()) - 1000 // passed time
 
 	// after verifyTimestamp PASS, order should fail the next step: verifyOrderSide
-	if err := order.VerifyMatchedOrder(stateDb); err != errInvalidOrderSide {
+	if err := order.VerifyBasicOrderInfo(); err != errInvalidOrderSide {
 		t.Error(err)
 	}
 
@@ -119,42 +119,15 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 	order.Side = Ask
 
 	// after verifyOrderSide PASS, order should fail the next step: verifyOrderType
-	if err := order.VerifyMatchedOrder(stateDb); err != errInvalidOrderType {
+	if err := order.VerifyBasicOrderInfo(); err != errInvalidOrderType {
 		t.Error(err)
 	}
 
 	// set valid orderType
 	order.Type = Limit
 
-	// after verifyOrderType PASS, order should fail the next step: verifyRelayer
-	if err := order.VerifyMatchedOrder(stateDb); err != errInvalidRelayer {
-		t.Error(err)
-	}
-
-	// set relayer and mock state to make it valid
-	order.ExchangeAddress = common.HexToAddress("0x0342d186212b04E69eA682b3bed8e232b6b3361a")
-	slotKec := crypto.Keccak256(order.ExchangeAddress.Hash().Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"])).Bytes())
-	locRelayerState := new(big.Int).SetBytes(slotKec)
-	stateDb.SetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(2500)))
-
-	// set price
-	order.Price = big.NewInt(1)
-
-	// set quantity: // the amount which SDK send to masternodes is multiplied 10^18
-	order.Quantity = new(big.Int).SetUint64(0).Mul(new(big.Int).SetUint64(100), common.BasePrice)
-
-	// failed due to not enough balance
-	if err := order.VerifyMatchedOrder(stateDb); err != errNotEnoughBalance {
-		t.Error(err)
-	}
-
-	// mock state to make order pass verifyBalance
-	// balance should greater than or equal 100 TOMO
-	stateDb.SetBalance(addr, big.NewInt(0).Mul(big.NewInt(105), common.BasePrice))
-
-	// after pass verifyBalance, order should fail verifySignature
 	// wrong hash
-	if err := order.VerifyMatchedOrder(stateDb); err != errWrongHash {
+	if err := order.VerifyBasicOrderInfo(); err != errWrongHash {
 		t.Error(err)
 	}
 
@@ -166,8 +139,6 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 
 	copy(addr[:], crypto.Keccak256(pubKeyBytes[1:])[12:])
 	order.UserAddress = addr
-	// since userAddress has been updated, we should update balance for the user to pass verifyBalance
-	stateDb.SetBalance(addr, big.NewInt(0).Mul(big.NewInt(105), common.BasePrice))
 
 	// set valid hash
 	order.Hash = order.computeHash()
@@ -181,7 +152,7 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 	order.Signature = sig
 
 	// wrong signature
-	if err := order.VerifyMatchedOrder(stateDb); err != errInvalidSignature {
+	if err := order.VerifyBasicOrderInfo(); err != errInvalidSignature {
 		t.Error(err)
 	}
 
@@ -200,7 +171,7 @@ func TestOrderItem_VerifyMatchedOrder(t *testing.T) {
 	order.Signature = sig
 
 	// Finally, we have a valid order
-	if err := order.VerifyMatchedOrder(stateDb); err != nil {
+	if err := order.VerifyBasicOrderInfo(); err != nil {
 		t.Error(err)
 	}
 

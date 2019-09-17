@@ -36,14 +36,8 @@ var (
 )
 
 // verify orderItem
-func (o *OrderItem) VerifyMatchedOrder(state *state.StateDB) error {
-	if err := o.verifyTimestamp(); err != nil {
-		return err
-	}
-	if err := o.verifyOrderSide(); err != nil {
-		return err
-	}
-	if err := o.verifyOrderType(); err != nil {
+func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
+	if err := o.VerifyBasicOrderInfo(); err != nil {
 		return err
 	}
 	if err := o.verifyRelayer(state); err != nil {
@@ -55,6 +49,20 @@ func (o *OrderItem) VerifyMatchedOrder(state *state.StateDB) error {
 		}
 	}
 
+
+	return nil
+}
+
+func (o *OrderItem) VerifyBasicOrderInfo() error {
+	if err := o.verifyTimestamp(); err != nil {
+		return err
+	}
+	if err := o.verifyOrderSide(); err != nil {
+		return err
+	}
+	if err := o.verifyOrderType(); err != nil {
+		return err
+	}
 	if err := o.verifySignature(); err != nil {
 		return err
 	}
@@ -112,7 +120,9 @@ func (o *OrderItem) computeHash() common.Hash {
 	sha.Write(o.BaseToken.Bytes())
 	sha.Write(o.QuoteToken.Bytes())
 	sha.Write(common.BigToHash(o.Quantity).Bytes())
-	sha.Write(common.BigToHash(o.Price).Bytes())
+	if o.Price != nil {
+		sha.Write(common.BigToHash(o.Price).Bytes())
+	}
 	sha.Write(common.BigToHash(o.encodedSide()).Bytes())
 	sha.Write(common.BigToHash(o.Nonce).Bytes())
 	return common.BytesToHash(sha.Sum(nil))
