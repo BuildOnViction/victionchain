@@ -372,6 +372,23 @@ func (api *PublicTomoXAPI) NewTopic(req Criteria) (string, error) {
 	return id, nil
 }
 
+// TODO: for testing purpose only, remove in production
+// PurgePendingOrders remove all pending orders
+func (api *PublicTomoXAPI) PurgePendingOrders() error {
+	pending := api.t.getPendingOrders()
+	for _, p := range pending {
+		if err := api.t.RemoveOrderFromPending(p.hash, p.cancel); err != nil {
+			log.Error("Failed to purge pending hash", "err", err)
+			return err
+		}
+		if err := api.t.RemoveOrderPendingFromDB(p.hash); err != nil {
+			log.Error("Failed to purge pending orders", "err", err)
+			return err
+		}
+	}
+	return nil
+}
+
 // GetOrderNonce returns the latest orderNonce of the given address
 func (api *PublicTomoXAPI) GetOrderNonce(address common.Address) (*big.Int, error) {
 	return api.t.GetOrderNonce(address)
@@ -425,6 +442,13 @@ func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, erro
 		}
 	}
 	return result, nil
+}
+
+
+// GetAllPendingHashes returns all pending order hashes
+func (api *PublicTomoXAPI) GetAllPendingHashes() ([]OrderPending, error) {
+	pending := api.t.getPendingOrders()
+	return pending, nil
 }
 
 // GetProcessedHashes returns hashes which already processed

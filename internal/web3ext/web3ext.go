@@ -688,12 +688,12 @@ web3._extend({
             params: 1
         }),
 		new web3._extend.Method({
-            name: 'GetBidTree',
+            name: 'getBidTree',
             call: 'tomoX_getBidTree',
             params: 1
         }),
 		new web3._extend.Method({
-            name: 'GetAskTree',
+            name: 'getAskTree',
             call: 'tomoX_getAskTree',
             params: 1
         }),
@@ -701,6 +701,16 @@ web3._extend({
             name: 'getPendingOrders',
             call: 'tomoX_getPendingOrders',
             params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getAllPendingHashes',
+            call: 'tomoX_getAllPendingHashes',
+            params: 0
+        }),
+		new web3._extend.Method({
+            name: 'purgePendingOrders',
+            call: 'tomoX_purgePendingOrders',
+            params: 0
         }),
 		new web3._extend.Method({
             name: 'getProcessedHashes',
