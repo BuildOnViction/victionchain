@@ -37,7 +37,13 @@ var (
 
 // verify orderItem
 func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
-	if err := o.VerifyBasicOrderInfo(); err != nil {
+	if err := o.verifyOrderSide(); err != nil {
+		return err
+	}
+	if err := o.verifyOrderType(); err != nil {
+		return err
+	}
+	if err := o.verifySignature(); err != nil {
 		return err
 	}
 	if err := o.verifyRelayer(state); err != nil {
