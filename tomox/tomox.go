@@ -492,7 +492,7 @@ func (tomox *TomoX) postEvent(envelope *Envelope, isP2P bool) error {
 
 	if err := tomox.InsertOrder(order); err != nil {
 		log.Error("Can't insert order", "order", order, "err", err)
-		return err
+		return nil
 	}
 	log.Debug("Inserted order to pending", "order", order)
 	return nil
