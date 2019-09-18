@@ -40,8 +40,8 @@ func buildOrder(nonce *big.Int) *OrderItem {
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
 		Nonce:        nonce,
-		CreatedAt:    uint64(time.Now().Unix()),
-		UpdatedAt:    uint64(time.Now().Unix()),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 	return order
 }
@@ -152,8 +152,8 @@ func TestOrderMatching1To1(t *testing.T) {
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
 		Nonce:        new(big.Int).SetUint64(1),
-		CreatedAt:    uint64(time.Now().Unix()),
-		UpdatedAt:    uint64(time.Now().Unix()),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
 	topic := buy.BaseToken.Hex() + "::" + buy.QuoteToken.Hex()
@@ -208,8 +208,8 @@ func TestOrderMatching1To1(t *testing.T) {
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
 		Nonce:        new(big.Int).SetUint64(2),
-		CreatedAt:    uint64(time.Now().Unix()),
-		UpdatedAt:    uint64(time.Now().Unix()),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
 	topic = sell.BaseToken.Hex() + "::" + sell.QuoteToken.Hex()

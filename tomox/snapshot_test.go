@@ -42,8 +42,8 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
 		Nonce:        new(big.Int).SetUint64(1),
-		CreatedAt:    uint64(time.Now().Unix()),
-		UpdatedAt:    uint64(time.Now().Unix()),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}, false, common.Hash{})
 
 	// insert order to bid tree: price 98
@@ -68,8 +68,8 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
 		Nonce:        new(big.Int).SetUint64(1),
-		CreatedAt:    uint64(time.Now().Unix()),
-		UpdatedAt:    uint64(time.Now().Unix()),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}, false, common.Hash{})
 	if err != nil {
 		return ob, err
@@ -97,8 +97,8 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
 		Nonce:        new(big.Int).SetUint64(1),
-		CreatedAt:    uint64(time.Now().Unix()),
-		UpdatedAt:    uint64(time.Now().Unix()),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}, false, common.Hash{})
 
 	// insert order to ask tree: price 102
@@ -123,8 +123,8 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		},
 		FilledAmount: new(big.Int).SetUint64(0),
 		Nonce:        new(big.Int).SetUint64(1),
-		CreatedAt:    uint64(time.Now().Unix()),
-		UpdatedAt:    uint64(time.Now().Unix()),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}, false, common.Hash{})
 	return ob, nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -46,8 +47,8 @@ type OrderItem struct {
 	FilledAmount    *big.Int       `json:"filledAmount,omitempty"`
 	Nonce           *big.Int       `json:"nonce,omitempty"`
 	PairName        string         `json:"pairName,omitempty"`
-	CreatedAt       uint64         `json:"createdAt,omitempty"`
-	UpdatedAt       uint64         `json:"updatedAt,omitempty"`
+	CreatedAt       time.Time      `json:"createdAt,omitempty"`
+	UpdatedAt       time.Time      `json:"updatedAt,omitempty"`
 	OrderID         uint64         `json:"orderID,omitempty"`
 	// *OrderMeta
 	NextOrder []byte `json:"-"`
@@ -70,11 +71,9 @@ type OrderItemBSON struct {
 	Signature       *SignatureRecord `json:"signature,omitempty" bson:"signature"`
 	FilledAmount    string           `json:"filledAmount,omitempty" bson:"filledAmount"`
 	Nonce           string           `json:"nonce,omitempty" bson:"nonce"`
-	MakeFee         string           `json:"makeFee,omitempty" bson:"makeFee"`
-	TakeFee         string           `json:"takeFee,omitempty" bson:"takeFee"`
 	PairName        string           `json:"pairName,omitempty" bson:"pairName"`
-	CreatedAt       string           `json:"createdAt,omitempty" bson:"createdAt"`
-	UpdatedAt       string           `json:"updatedAt,omitempty" bson:"updatedAt"`
+	CreatedAt       time.Time        `json:"createdAt,omitempty" bson:"createdAt"`
+	UpdatedAt       time.Time        `json:"updatedAt,omitempty" bson:"updatedAt"`
 	OrderID         string           `json:"orderID,omitempty" bson:"orderID"`
 	NextOrder       string           `json:"nextOrder,omitempty" bson:"nextOrder"`
 	PrevOrder       string           `json:"prevOrder,omitempty" bson:"prevOrder"`
@@ -121,7 +120,7 @@ func NewOrder(orderItem *OrderItem, orderListKey []byte) *Order {
 }
 
 // UpdateQuantity : update quantity of the order
-func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, newTimestamp uint64, dryrun bool, blockHash common.Hash) error {
+func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, newTimestamp time.Time, dryrun bool, blockHash common.Hash) error {
 	if newQuantity.Cmp(order.Item.Quantity) > 0 && !bytes.Equal(orderList.Item.TailOrder, order.Key) {
 		if err := orderList.MoveToTail(order, dryrun, blockHash); err != nil {
 			return err

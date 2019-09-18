@@ -100,15 +100,15 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 	}
 
 	// failed due to future order
-	order.CreatedAt = uint64(time.Now().Unix()) + 1000 // future time
-	order.UpdatedAt = uint64(time.Now().Unix()) + 1000 // future time
+	order.CreatedAt = time.Now().Add(1000) // future time
+	order.UpdatedAt = time.Now().Add(1000) // future time
 	if err := order.VerifyBasicOrderInfo(); err != errFutureOrder {
 		t.Error(err)
 	}
 
 	// set valid timestamp to order
-	order.CreatedAt = uint64(time.Now().Unix()) - 1000 // passed time
-	order.UpdatedAt = uint64(time.Now().Unix()) - 1000 // passed time
+	order.CreatedAt = time.Now() // passed time
+	order.UpdatedAt = time.Now() // passed time
 
 	// after verifyTimestamp PASS, order should fail the next step: verifyOrderSide
 	if err := order.VerifyBasicOrderInfo(); err != errInvalidOrderSide {

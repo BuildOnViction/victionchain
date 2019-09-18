@@ -180,11 +180,11 @@ func (o *OrderItem) verifyOrderSide() error {
 //verify timestamp
 func (o *OrderItem) verifyTimestamp() error {
 	// check timestamp of buyOrder
-	if o.CreatedAt == 0 || o.UpdatedAt == 0 {
+	if o.CreatedAt.IsZero() || o.UpdatedAt.IsZero() {
 		log.Debug("No timestamp found in order")
 		return errNoTimestamp
 	}
-	if o.CreatedAt > uint64(time.Now().Unix()) || o.UpdatedAt > uint64(time.Now().Unix()) {
+	if o.CreatedAt.After(time.Now()) || o.UpdatedAt.After(time.Now()) {
 		log.Debug("Received future order")
 		return errFutureOrder
 	}
