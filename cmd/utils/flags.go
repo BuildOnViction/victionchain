@@ -623,8 +623,9 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		urls = params.MainnetBootnodes
 	case ctx.GlobalBool(TomoTestnetFlag.Name):
 		urls = params.TestnetBootnodes
+	default:
+		urls = params.MainnetBootnodes
 	}
-
 	cfg.BootstrapNodes = make([]*discover.Node, 0, len(urls))
 	for _, url := range urls {
 		node, err := discover.ParseNode(url)
