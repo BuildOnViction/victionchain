@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
-	"time"
 )
 
 var (
@@ -37,13 +36,7 @@ var (
 
 // verify orderItem
 func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
-	if err := o.verifyOrderSide(); err != nil {
-		return err
-	}
-	if err := o.verifyOrderType(); err != nil {
-		return err
-	}
-	if err := o.verifySignature(); err != nil {
+	if err := o.VerifyBasicOrderInfo(); err != nil {
 		return err
 	}
 	if err := o.verifyRelayer(state); err != nil {
@@ -60,9 +53,6 @@ func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 }
 
 func (o *OrderItem) VerifyBasicOrderInfo() error {
-	if err := o.verifyTimestamp(); err != nil {
-		return err
-	}
 	if err := o.verifyOrderSide(); err != nil {
 		return err
 	}
@@ -179,20 +169,6 @@ func (o *OrderItem) verifyOrderSide() error {
 	if o.Side != Bid && o.Side != Ask {
 		log.Debug("Invalid orderSide", "side", o.Side)
 		return errInvalidOrderSide
-	}
-	return nil
-}
-
-//verify timestamp
-func (o *OrderItem) verifyTimestamp() error {
-	// check timestamp of buyOrder
-	if o.CreatedAt.IsZero() || o.UpdatedAt.IsZero() {
-		log.Debug("No timestamp found in order")
-		return errNoTimestamp
-	}
-	if o.CreatedAt.After(time.Now()) || o.UpdatedAt.After(time.Now()) {
-		log.Debug("Received future order")
-		return errFutureOrder
 	}
 	return nil
 }
