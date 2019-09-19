@@ -377,11 +377,11 @@ func (api *PublicTomoXAPI) NewTopic(req Criteria) (string, error) {
 func (api *PublicTomoXAPI) PurgePendingOrders() error {
 	pending := api.t.getPendingOrders()
 	for _, p := range pending {
-		if err := api.t.RemoveOrderFromPending(p.hash, p.cancel); err != nil {
+		if err := api.t.RemoveOrderFromPending(p.Hash, p.Cancel); err != nil {
 			log.Error("Failed to purge pending hash", "err", err)
 			return err
 		}
-		if err := api.t.RemoveOrderPendingFromDB(p.hash); err != nil {
+		if err := api.t.RemoveOrderPendingFromDB(p.Hash); err != nil {
 			log.Error("Failed to purge pending orders", "err", err)
 			return err
 		}
@@ -435,7 +435,7 @@ func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, erro
 	result := []*OrderItem{}
 	pending := api.t.getPendingOrders()
 	for _, p := range pending {
-		hash := p.hash
+		hash := p.Hash
 		order := api.t.getOrderPending(hash)
 		if order != nil && strings.ToLower(order.PairName) == strings.ToLower(pairName) {
 			result = append(result, order)
