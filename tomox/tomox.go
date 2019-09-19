@@ -679,6 +679,7 @@ func (tomox *TomoX) getAndCreateIfNotExisted(pairName string, dryrun bool, block
 }
 
 func (tomox *TomoX) InsertOrder(order *OrderItem) error {
+	// TODO: after cache relayer information, please update full verify here
 	if err := order.VerifyBasicOrderInfo(); err != nil {
 		return err
 	}

@@ -169,9 +169,6 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 			log.Debug("SDK node ignore running matching engine")
 			continue
 		}
-		if err := order.VerifyOrder(currentState); err != nil {
-			return err
-		}
 
 		ob, err := tomoXService.GetOrderBook(order.PairName, true, blockHash)
 		// if orderbook of this pairName has been updated by previous tx in this block, use it
