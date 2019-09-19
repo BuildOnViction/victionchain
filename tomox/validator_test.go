@@ -44,6 +44,7 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 		UserAddress: addr,
 		Nonce:       big.NewInt(1),
 		Quantity:    big.NewInt(1000),
+		Price:       big.NewInt(1100),
 	}
 
 	if err := order.VerifyBasicOrderInfo(); err != errInvalidOrderSide {

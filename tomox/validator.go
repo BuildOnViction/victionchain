@@ -14,11 +14,8 @@ import (
 
 var (
 	// errors
-	errFutureOrder           = errors.New("verify order: future order")
-	errNoTimestamp           = errors.New("verify order: no timestamp")
 	errWrongHash             = errors.New("verify order: wrong hash")
 	errInvalidSignature      = errors.New("verify order: invalid signature")
-	errNotEnoughBalance      = errors.New("verify order: not enough balance")
 	errInvalidPrice          = errors.New("verify order: invalid price")
 	errInvalidQuantity       = errors.New("verify order: invalid quantity")
 	errInvalidRelayer        = errors.New("verify order: invalid relayer")
@@ -46,6 +43,14 @@ func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 }
 
 func (o *OrderItem) VerifyBasicOrderInfo() error {
+	if o.Type == Limit {
+		if err := o.verifyPrice(); err != nil {
+			return err
+		}
+	}
+	if err := o.verifyQuantity(); err != nil {
+		return err
+	}
 	if err := o.verifyOrderSide(); err != nil {
 		return err
 	}
@@ -136,6 +141,24 @@ func (o *OrderItem) encodedSide() *big.Int {
 		return big.NewInt(0)
 	}
 	return big.NewInt(1)
+}
+
+// verifyPrice make sure price is a positive number
+func (o *OrderItem) verifyPrice() error {
+	if o.Price == nil || o.Price.Cmp(big.NewInt(0)) <= 0 {
+		log.Debug("Invalid price", "price", o.Price.String())
+		return errInvalidPrice
+	}
+	return nil
+}
+
+// verifyQuantity make sure quantity is a positive number
+func (o *OrderItem) verifyQuantity() error {
+	if o.Quantity == nil || o.Quantity.Cmp(big.NewInt(0)) <= 0 {
+		log.Debug("Invalid quantity", "quantity", o.Quantity.String())
+		return errInvalidQuantity
+	}
+	return nil
 }
 
 func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
