@@ -30,53 +30,6 @@ func TestIsValidRelayer(t *testing.T) {
 	}
 }
 
-func TestOrderItem_VerifyBalance(t *testing.T) {
-	stateDb, _ := state.New(common.Hash{}, state.NewDatabase(fakeDb))
-	addr := common.HexToAddress("userAddress")
-
-	// native tomo
-	// sell 100 TOMO
-	// user should have at least 100 TOMO
-	order1 := &OrderItem{
-		UserAddress: addr,
-		Side:        Ask,
-		PairName:    "TOMO/WETH",
-		BaseToken:   common.HexToAddress(common.TomoNativeAddress),
-		QuoteToken:  common.HexToAddress("weth"),
-		Quantity:    big.NewInt(100),
-		Price:       big.NewInt(1),
-	}
-	stateDb.SetBalance(addr, big.NewInt(105))
-
-	if err := order1.verifyBalance(stateDb); err != nil {
-		t.Error(err.Error())
-	}
-
-	// Test TRC token
-	// buy 100 TOMO
-	// user should have at least 100 TOMO
-	order2 := &OrderItem{
-		UserAddress: addr,
-		Side:        Bid,
-		PairName:    "TOMO/WETH",
-		BaseToken:   common.Address{},
-		QuoteToken:  common.HexToAddress("weth"),
-		Quantity:    new(big.Int).SetUint64(0).Mul(big.NewInt(100), common.BasePrice), // the amount which SDK send to masternodes is multiplied 10^18
-		Price:       big.NewInt(1),
-	}
-	locBalance := new(big.Int)
-	locBalance.SetBytes(crypto.Keccak256(addr.Hash().Bytes(), common.BigToHash(big.NewInt(0)).Bytes()))
-	stateDb.SetState(common.HexToAddress("weth"), common.BigToHash(locBalance), common.BigToHash(big.NewInt(98)))
-
-	if balance := GetTokenBalance(stateDb, addr, common.HexToAddress("weth")); balance.Cmp(big.NewInt(98)) != 0 {
-		t.Error("TestGetTokenBalance FAILED. Expected 98", "actual", balance)
-	}
-
-	if err := order2.verifyBalance(stateDb); err == nil {
-		t.Error("It should be failed because balance is less than ordervalue")
-	}
-}
-
 // test full-verify orderItem
 // VerifyOrder consists of some partial tests:
 // verifyTimestamp, verifyOrderSide, verifyOrderType, verifyRelayer, verifyBalance, verifySignature

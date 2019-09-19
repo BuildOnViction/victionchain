@@ -42,12 +42,6 @@ func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 	if err := o.verifyRelayer(state); err != nil {
 		return err
 	}
-	if o.Type == Limit {
-		if err := o.verifyBalance(state); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -60,41 +54,6 @@ func (o *OrderItem) VerifyBasicOrderInfo() error {
 	}
 	if err := o.verifySignature(); err != nil {
 		return err
-	}
-	return nil
-}
-
-// verify token balance make sure that user has enough balance
-func (o *OrderItem) verifyBalance(state *state.StateDB) error {
-	orderValueByQuoteToken := Zero()
-	balance := Zero()
-	outTokenAddr := common.Address{}
-
-	if o.Price == nil || o.Price.Cmp(Zero()) <= 0 {
-		return errInvalidPrice
-	}
-	if o.Quantity == nil || o.Quantity.Cmp(Zero()) <= 0 {
-		return errInvalidQuantity
-	}
-	quantity := o.Quantity
-	if o.Side == Bid {
-		outTokenAddr = o.QuoteToken
-		orderValueByQuoteToken = orderValueByQuoteToken.Mul(quantity, o.Price)
-		orderValueByQuoteToken = orderValueByQuoteToken.Div(orderValueByQuoteToken, common.BasePrice)
-	} else {
-		outTokenAddr = o.BaseToken
-		orderValueByQuoteToken = quantity
-	}
-	if outTokenAddr.String() == common.TomoNativeAddress {
-		// native TOMO
-		balance = state.GetBalance(o.UserAddress)
-	} else {
-		// query balance from tokenContract
-		balance = GetTokenBalance(state, o.UserAddress, outTokenAddr)
-	}
-	if balance.Cmp(orderValueByQuoteToken) < 0 {
-		log.Debug("Not enough balance:", "token", outTokenAddr.String(), "balance", balance)
-		return errNotEnoughBalance
 	}
 	return nil
 }
