@@ -14,18 +14,18 @@ import (
 
 var (
 	// errors
-	errFutureOrder           = errors.New("verify matched order: future order")
-	errNoTimestamp           = errors.New("verify matched order: no timestamp")
-	errWrongHash             = errors.New("verify matched order: wrong hash")
-	errInvalidSignature      = errors.New("verify matched order: invalid signature")
-	errNotEnoughBalance      = errors.New("verify matched order: not enough balance")
-	errInvalidPrice          = errors.New("verify matched order: invalid price")
-	errInvalidQuantity       = errors.New("verify matched order: invalid quantity")
-	errInvalidRelayer        = errors.New("verify matched order: invalid relayer")
-	errInvalidOrderType      = errors.New("verify matched order: unsupported order type")
-	errInvalidOrderSide      = errors.New("verify matched order: invalid order side")
-	errOrderBookHashNotMatch = errors.New("verify matched order: orderbook hash not match")
-	errOrderTreeHashNotMatch = errors.New("verify matched order: ordertree hash not match")
+	errFutureOrder           = errors.New("verify order: future order")
+	errNoTimestamp           = errors.New("verify order: no timestamp")
+	errWrongHash             = errors.New("verify order: wrong hash")
+	errInvalidSignature      = errors.New("verify order: invalid signature")
+	errNotEnoughBalance      = errors.New("verify order: not enough balance")
+	errInvalidPrice          = errors.New("verify order: invalid price")
+	errInvalidQuantity       = errors.New("verify order: invalid quantity")
+	errInvalidRelayer        = errors.New("verify order: invalid relayer")
+	errInvalidOrderType      = errors.New("verify order: unsupported order type")
+	errInvalidOrderSide      = errors.New("verify order: invalid order side")
+	errOrderBookHashNotMatch = errors.New("verify order: orderbook hash not match")
+	errOrderTreeHashNotMatch = errors.New("verify order: ordertree hash not match")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
@@ -47,7 +47,6 @@ func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 			return err
 		}
 	}
-
 
 	return nil
 }
@@ -127,8 +126,8 @@ func (o *OrderItem) computeHash() common.Hash {
 //verify signatures
 func (o *OrderItem) verifySignature() error {
 	var (
-		hash           common.Hash
-		err            error
+		hash common.Hash
+		err  error
 	)
 	hash = o.computeHash()
 	if hash != o.Hash {
@@ -136,7 +135,7 @@ func (o *OrderItem) verifySignature() error {
 		return errWrongHash
 	}
 	message := crypto.Keccak256(
-		[]byte("\x19Ethereum Signed Message:\n32"), 	// FIXME: Signature signed by EtherJS library, update this one if order is signed by other standards
+		[]byte("\x19Ethereum Signed Message:\n32"), // FIXME: Signature signed by EtherJS library, update this one if order is signed by other standards
 		hash.Bytes(),
 	)
 
