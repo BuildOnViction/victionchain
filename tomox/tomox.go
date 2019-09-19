@@ -61,8 +61,8 @@ type Config struct {
 }
 
 type OrderPending struct {
-	hash   common.Hash
-	cancel bool
+	Hash   common.Hash
+	Cancel bool
 }
 
 type OrderProcessed struct {
@@ -811,9 +811,9 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 	if len(pendingOrders) > 0 {
 		for i, pendingOrder := range pendingOrders {
 			if i < orderProcessLimit {
-				order := tomox.getOrderPending(pendingOrder.hash)
+				order := tomox.getOrderPending(pendingOrder.Hash)
 				if order != nil {
-					if pendingOrder.cancel || !tomox.ExistProcessedOrderHash(pendingOrder.hash) {
+					if pendingOrder.Cancel || !tomox.ExistProcessedOrderHash(pendingOrder.Hash) {
 						var (
 							ob  *OrderBook
 							err error
@@ -847,7 +847,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 						*originalOrder = *order
 						originalOrder.Quantity = CloneBigInt(order.Quantity)
 
-						if pendingOrder.cancel {
+						if pendingOrder.Cancel {
 							order.Status = OrderStatusCancelled
 						}
 
@@ -913,7 +913,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 						txMatches = append(txMatches, txMatch)
 					}
 				} else {
-					log.Error("Fail to get order pending from db", "hash", pendingOrder.hash)
+					log.Error("Fail to get order pending from db", "hash", pendingOrder.Hash)
 				}
 			}
 		}
@@ -978,12 +978,12 @@ func (tomox *TomoX) addOrderToPending(orderHash common.Hash, cancel bool) error 
 	}
 	find := false
 	for _, v := range pendingOrders {
-		if v.hash == orderHash && v.cancel == cancel {
+		if v.Hash == orderHash && v.Cancel == cancel {
 			find = true
 		}
 	}
 	if !find {
-		pendingOrders = append(pendingOrders, OrderPending{hash: orderHash, cancel: cancel})
+		pendingOrders = append(pendingOrders, OrderPending{Hash: orderHash, Cancel: cancel})
 	}
 	// Store pending hash.
 	key := []byte(pendingOrder)
@@ -1002,7 +1002,7 @@ func (tomox *TomoX) RemoveOrderFromPending(orderHash common.Hash, cancel bool) e
 		return nil
 	}
 	for i, v := range pendingOrders {
-		if v.hash == orderHash && v.cancel == cancel {
+		if v.Hash == orderHash && v.Cancel == cancel {
 			pendingOrders = append(pendingOrders[:i], pendingOrders[i+1:]...)
 			break
 		}
