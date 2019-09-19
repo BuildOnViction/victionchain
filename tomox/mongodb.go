@@ -242,6 +242,11 @@ func (db *MongoDatabase) CancelOrder(orderHash common.Hash) error {
 
 func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 
+	if o.CreatedAt.IsZero() {
+		o.CreatedAt = time.Now()
+	}
+	o.UpdatedAt = time.Now()
+
 	sc := db.Session.Copy()
 	defer sc.Close()
 

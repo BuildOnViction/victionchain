@@ -120,7 +120,7 @@ func NewOrder(orderItem *OrderItem, orderListKey []byte) *Order {
 }
 
 // UpdateQuantity : update quantity of the order
-func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, newTimestamp time.Time, dryrun bool, blockHash common.Hash) error {
+func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, dryrun bool, blockHash common.Hash) error {
 	if newQuantity.Cmp(order.Item.Quantity) > 0 && !bytes.Equal(orderList.Item.TailOrder, order.Key) {
 		if err := orderList.MoveToTail(order, dryrun, blockHash); err != nil {
 			return err
@@ -128,7 +128,6 @@ func (order *Order) UpdateQuantity(orderList *OrderList, newQuantity *big.Int, n
 	}
 	// update volume and modified timestamp
 	orderList.Item.Volume = Sub(orderList.Item.Volume, Sub(order.Item.Quantity, newQuantity))
-	order.Item.UpdatedAt = newTimestamp
 	order.Item.Quantity = CloneBigInt(newQuantity)
 	log.Debug("QUANTITY", order.Item.Quantity.String())
 	if err := orderList.SaveOrder(order, dryrun, blockHash); err != nil {

@@ -13,6 +13,7 @@ import (
 
 	"encoding/hex"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -21,7 +22,6 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
-	"github.com/ethereum/go-ethereum/core/state"
 )
 
 const (
@@ -35,9 +35,9 @@ const (
 	p2pMessageCode       = 127 // peer-to-peer message (to be consumed by the peer, but not forwarded any further)
 	NumberOfMessageCodes = 128
 	DefaultTTL           = 50 // seconds
-	DefaultSyncAllowance  = 10 // seconds
-	messageQueueLimit        = 1024
-	overflowIdx                          // Indicator of message queue overflow
+	DefaultSyncAllowance = 10 // seconds
+	messageQueueLimit    = 1024
+	overflowIdx                // Indicator of message queue overflow
 	signatureLength      = 65  // in bytes
 	padSizeLimit         = 256 // just an arbitrary number, could be changed without breaking the protocol
 	flagsLength          = 1
@@ -158,7 +158,7 @@ func New(cfg *Config) *TomoX {
 		p2pMsgQueue:         make(chan *Envelope, messageQueueLimit),
 		activePairs:         make(map[string]bool),
 		processedOrderCache: poCache,
-		tokenDecimalCache: tokenDecimalCache,
+		tokenDecimalCache:   tokenDecimalCache,
 	}
 	switch cfg.DBEngine {
 	case "leveldb":
@@ -698,7 +698,6 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 				log.Error("Failed to update orderNonce", "err", err)
 			}
 		}
-		order.CreatedAt = time.Now()
 		if err := tomox.saveOrderPendingToDB(order); err != nil {
 			return err
 		}
@@ -750,6 +749,7 @@ func (tomox *TomoX) GetOrderNonce(address common.Address) (*big.Int, error) {
 	}
 	return orderNonce, nil
 }
+
 // load orderNonce from persistent storage
 func (tomox *TomoX) loadOrderNonce() error {
 	var (
@@ -1324,7 +1324,6 @@ func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *
 	}
 	matchedOrder := val.(*OrderItem)
 	matchedOrder.Status = OrderStatusFilled
-	matchedOrder.UpdatedAt = time.Now()
 	updatedFillAmount := new(big.Int)
 	updatedFillAmount.Add(matchedOrder.FilledAmount, filledAmount)
 	matchedOrder.FilledAmount = updatedFillAmount

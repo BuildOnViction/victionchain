@@ -394,7 +394,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 			tradedQuantity = CloneBigInt(quantityToTrade)
 			// Do the transaction
 			newBookQuantity = Sub(headOrder.Item.Quantity, quantityToTrade)
-			if err := headOrder.UpdateQuantity(orderList, newBookQuantity, headOrder.Item.UpdatedAt, dryrun, blockHash); err != nil {
+			if err := headOrder.UpdateQuantity(orderList, newBookQuantity, dryrun, blockHash); err != nil {
 				return nil, nil, nil, err
 			}
 			log.Debug("Update quantity for head order", "headOrder", headOrder.Item)
