@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"math/big"
 	"testing"
-	"time"
 )
 
 var fakeDb, _ = ethdb.NewMemDatabase()
@@ -87,30 +86,13 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 
 	order := &OrderItem{
 		PairName:    "TOMO/WETH",
-		BaseToken: common.HexToAddress(common.TomoNativeAddress),
-		QuoteToken: common.HexToAddress("0x0aaad186212b04E6933682b3bed8e232b6b3361a"),
+		BaseToken:   common.HexToAddress(common.TomoNativeAddress),
+		QuoteToken:  common.HexToAddress("0x0aaad186212b04E6933682b3bed8e232b6b3361a"),
 		UserAddress: addr,
 		Nonce:       big.NewInt(1),
-		Quantity: big.NewInt(1000),
+		Quantity:    big.NewInt(1000),
 	}
 
-	// failed due to no timestamp
-	if err := order.VerifyBasicOrderInfo(); err != errNoTimestamp {
-		t.Error(err)
-	}
-
-	// failed due to future order
-	order.CreatedAt = time.Now().Add(1000) // future time
-	order.UpdatedAt = time.Now().Add(1000) // future time
-	if err := order.VerifyBasicOrderInfo(); err != errFutureOrder {
-		t.Error(err)
-	}
-
-	// set valid timestamp to order
-	order.CreatedAt = time.Now() // passed time
-	order.UpdatedAt = time.Now() // passed time
-
-	// after verifyTimestamp PASS, order should fail the next step: verifyOrderSide
 	if err := order.VerifyBasicOrderInfo(); err != errInvalidOrderSide {
 		t.Error(err)
 	}
