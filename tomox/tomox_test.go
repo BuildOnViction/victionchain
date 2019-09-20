@@ -18,11 +18,11 @@ func buildOrder(nonce *big.Int) *OrderItem {
 	v := []byte(string(rand.Intn(999)))
 	lstBuySell := []string{"BUY", "SELL"}
 	order := &OrderItem{
-		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(10)) * 1000000000000000000),
-		Price:           new(big.Int).SetUint64(uint64(rand.Intn(10)) * 100000000000000000),
+		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 1000000000000000000),
+		Price:           new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 100000000000000000),
 		//Quantity: new(big.Int).SetUint64(uint64(5) * 1000000000000000000),
 		//Price:           new(big.Int).SetUint64(uint64(2) * 100000000000000000),
-		ExchangeAddress: common.HexToAddress("0x0342d186212b04E69eA682b3bed8e232b6b3361a"),
+		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
 		UserAddress:     common.HexToAddress("0x9ca1514E3Dc4059C29a1608AE3a3E3fd35900888"),
 		BaseToken:       common.HexToAddress("0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"),
 		QuoteToken:      common.HexToAddress("0xC2fa1BA90b15E3612E0067A0020192938784D9C5"),
@@ -30,7 +30,7 @@ func buildOrder(nonce *big.Int) *OrderItem {
 		Side:            lstBuySell[rand.Int()%len(lstBuySell)],
 		//Side: "SELL",
 		Type:            Limit,
-		PairName:        "0x4d7eA2cE949216D6b120f3AA10164173615A2b6C" + "::" + "0xC2fa1BA90b15E3612E0067A0020192938784D9C5",
+		PairName:        "BTC/ETH",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash(nonce.String()),
 		Signature: &Signature{
@@ -86,9 +86,9 @@ func TestCreate10Orders(t *testing.T) {
 	// disable this test in travis CI
 	t.SkipNow()
 
-	for i := 1; i <= 100; i++ {
+	for i := 1001; i <= 2000; i++ {
 		testCreateOrder(t, new(big.Int).SetUint64(uint64(i)))
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
