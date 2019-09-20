@@ -79,7 +79,6 @@ func (tree *Tree) Put(key []byte, value []byte, dryrun bool, blockHash common.Ha
 			compare := tree.Comparator(key, node.Key)
 			switch {
 			case compare == 0:
-
 				node.Item.Value = value
 				tree.Save(node, dryrun, blockHash)
 				return nil
@@ -95,7 +94,6 @@ func (tree *Tree) Put(key []byte, value []byte, dryrun bool, blockHash common.Ha
 					node = node.Left(tree, dryrun, blockHash)
 				}
 			case compare > 0:
-
 				if tree.IsEmptyKey(node.RightKey()) {
 					node.RightKey(key)
 					tree.Save(node, dryrun, blockHash)
@@ -200,6 +198,9 @@ func (tree *Tree) Remove(key []byte, dryrun bool, blockHash common.Hash) {
 					log.Error("Parent doesn't have node as child", "node.Key", hex.EncodeToString(node.Key))
 					return
 				}
+			} else {
+				// this node is root
+				tree.rootKey = EmptyKey()
 			}
 			tree.deleteNode(node, dryrun, blockHash)
 			log.Debug("Removed node with child = nil", "node", hex.EncodeToString(node.Key), "all keys", tree.KeysinString(true, blockHash))
