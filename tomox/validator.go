@@ -10,23 +10,19 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
-	"time"
 )
 
 var (
 	// errors
-	errFutureOrder           = errors.New("verify matched order: future order")
-	errNoTimestamp           = errors.New("verify matched order: no timestamp")
-	errWrongHash             = errors.New("verify matched order: wrong hash")
-	errInvalidSignature      = errors.New("verify matched order: invalid signature")
-	errNotEnoughBalance      = errors.New("verify matched order: not enough balance")
-	errInvalidPrice          = errors.New("verify matched order: invalid price")
-	errInvalidQuantity       = errors.New("verify matched order: invalid quantity")
-	errInvalidRelayer        = errors.New("verify matched order: invalid relayer")
-	errInvalidOrderType      = errors.New("verify matched order: unsupported order type")
-	errInvalidOrderSide      = errors.New("verify matched order: invalid order side")
-	errOrderBookHashNotMatch = errors.New("verify matched order: orderbook hash not match")
-	errOrderTreeHashNotMatch = errors.New("verify matched order: ordertree hash not match")
+	errWrongHash             = errors.New("verify order: wrong hash")
+	errInvalidSignature      = errors.New("verify order: invalid signature")
+	errInvalidPrice          = errors.New("verify order: invalid price")
+	errInvalidQuantity       = errors.New("verify order: invalid quantity")
+	errInvalidRelayer        = errors.New("verify order: invalid relayer")
+	errInvalidOrderType      = errors.New("verify order: unsupported order type")
+	errInvalidOrderSide      = errors.New("verify order: invalid order side")
+	errOrderBookHashNotMatch = errors.New("verify order: orderbook hash not match")
+	errOrderTreeHashNotMatch = errors.New("verify order: ordertree hash not match")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
@@ -37,30 +33,22 @@ var (
 
 // verify orderItem
 func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
-	if err := o.verifyOrderSide(); err != nil {
-		return err
-	}
-	if err := o.verifyOrderType(); err != nil {
-		return err
-	}
-	if err := o.verifySignature(); err != nil {
+	if err := o.VerifyBasicOrderInfo(); err != nil {
 		return err
 	}
 	if err := o.verifyRelayer(state); err != nil {
 		return err
 	}
-	if o.Type == Limit {
-		if err := o.verifyBalance(state); err != nil {
-			return err
-		}
-	}
-
-
 	return nil
 }
 
 func (o *OrderItem) VerifyBasicOrderInfo() error {
-	if err := o.verifyTimestamp(); err != nil {
+	if o.Type == Limit {
+		if err := o.verifyPrice(); err != nil {
+			return err
+		}
+	}
+	if err := o.verifyQuantity(); err != nil {
 		return err
 	}
 	if err := o.verifyOrderSide(); err != nil {
@@ -71,41 +59,6 @@ func (o *OrderItem) VerifyBasicOrderInfo() error {
 	}
 	if err := o.verifySignature(); err != nil {
 		return err
-	}
-	return nil
-}
-
-// verify token balance make sure that user has enough balance
-func (o *OrderItem) verifyBalance(state *state.StateDB) error {
-	orderValueByQuoteToken := Zero()
-	balance := Zero()
-	outTokenAddr := common.Address{}
-
-	if o.Price == nil || o.Price.Cmp(Zero()) <= 0 {
-		return errInvalidPrice
-	}
-	if o.Quantity == nil || o.Quantity.Cmp(Zero()) <= 0 {
-		return errInvalidQuantity
-	}
-	quantity := o.Quantity
-	if o.Side == Bid {
-		outTokenAddr = o.QuoteToken
-		orderValueByQuoteToken = orderValueByQuoteToken.Mul(quantity, o.Price)
-		orderValueByQuoteToken = orderValueByQuoteToken.Div(orderValueByQuoteToken, common.BasePrice)
-	} else {
-		outTokenAddr = o.BaseToken
-		orderValueByQuoteToken = quantity
-	}
-	if outTokenAddr.String() == common.TomoNativeAddress {
-		// native TOMO
-		balance = state.GetBalance(o.UserAddress)
-	} else {
-		// query balance from tokenContract
-		balance = GetTokenBalance(state, o.UserAddress, outTokenAddr)
-	}
-	if balance.Cmp(orderValueByQuoteToken) < 0 {
-		log.Debug("Not enough balance:", "token", outTokenAddr.String(), "balance", balance)
-		return errNotEnoughBalance
 	}
 	return nil
 }
@@ -137,8 +90,8 @@ func (o *OrderItem) computeHash() common.Hash {
 //verify signatures
 func (o *OrderItem) verifySignature() error {
 	var (
-		hash           common.Hash
-		err            error
+		hash common.Hash
+		err  error
 	)
 	hash = o.computeHash()
 	if hash != o.Hash {
@@ -146,7 +99,7 @@ func (o *OrderItem) verifySignature() error {
 		return errWrongHash
 	}
 	message := crypto.Keccak256(
-		[]byte("\x19Ethereum Signed Message:\n32"), 	// FIXME: Signature signed by EtherJS library, update this one if order is signed by other standards
+		[]byte("\x19Ethereum Signed Message:\n32"), // FIXME: Signature signed by EtherJS library, update this one if order is signed by other standards
 		hash.Bytes(),
 	)
 
@@ -183,25 +136,29 @@ func (o *OrderItem) verifyOrderSide() error {
 	return nil
 }
 
-//verify timestamp
-func (o *OrderItem) verifyTimestamp() error {
-	// check timestamp of buyOrder
-	if o.CreatedAt.IsZero() || o.UpdatedAt.IsZero() {
-		log.Debug("No timestamp found in order")
-		return errNoTimestamp
-	}
-	if o.CreatedAt.After(time.Now()) || o.UpdatedAt.After(time.Now()) {
-		log.Debug("Received future order")
-		return errFutureOrder
-	}
-	return nil
-}
-
 func (o *OrderItem) encodedSide() *big.Int {
 	if o.Side == Bid {
 		return big.NewInt(0)
 	}
 	return big.NewInt(1)
+}
+
+// verifyPrice make sure price is a positive number
+func (o *OrderItem) verifyPrice() error {
+	if o.Price == nil || o.Price.Cmp(big.NewInt(0)) <= 0 {
+		log.Debug("Invalid price", "price", o.Price.String())
+		return errInvalidPrice
+	}
+	return nil
+}
+
+// verifyQuantity make sure quantity is a positive number
+func (o *OrderItem) verifyQuantity() error {
+	if o.Quantity == nil || o.Quantity.Cmp(big.NewInt(0)) <= 0 {
+		log.Debug("Invalid quantity", "quantity", o.Quantity.String())
+		return errInvalidQuantity
+	}
+	return nil
 }
 
 func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
