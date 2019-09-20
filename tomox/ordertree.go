@@ -306,8 +306,7 @@ func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem, dryrun bool, block
 	} else {
 		quantity := orderItem.Quantity
 		//timestamp, _ := strconv.ParseInt(quote["timestamp"], 10, 64)
-		timestamp := orderItem.CreatedAt
-		if err := order.UpdateQuantity(orderList, quantity, timestamp, dryrun, blockHash); err != nil {
+		if err := order.UpdateQuantity(orderList, quantity, dryrun, blockHash); err != nil {
 			return err
 		}
 	}
