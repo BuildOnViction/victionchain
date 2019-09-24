@@ -133,7 +133,7 @@ func (node *Node) Right(tree *Tree, dryrun bool, blockHash common.Hash) *Node {
 	key := node.RightKey()
 	newNode, err := tree.GetNode(key,dryrun, blockHash)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("Error at right", "err", err)
 	}
 	return newNode
 }

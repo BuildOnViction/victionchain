@@ -102,7 +102,7 @@ func (peer *Peer) update() {
 
 		case <-transmit.C:
 			if err := peer.broadcast(); err != nil {
-				log.Debug("broadcast failed", "reason", err, "peer", peer.ID())
+				log.Trace("broadcast failed", "reason", err, "peer", peer.ID())
 				return
 			}
 
@@ -161,7 +161,7 @@ func (peer *Peer) broadcast() error {
 			peer.mark(e)
 		}
 
-		log.Debug("broadcast", "num. messages", len(bundle))
+		log.Trace("broadcast", "num. messages", len(bundle))
 	}
 	return nil
 }
