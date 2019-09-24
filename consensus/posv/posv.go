@@ -268,6 +268,9 @@ func (c *Posv) Author(header *types.Header) (common.Address, error) {
 	return ecrecover(header, c.signatures)
 }
 
+// Get signer coinbase
+func (c *Posv) Signer() common.Address { return c.signer }
+
 // VerifyHeader checks whether a header conforms to the consensus rules.
 func (c *Posv) VerifyHeader(chain consensus.ChainReader, header *types.Header, fullVerify bool) error {
 	return c.verifyHeaderWithCache(chain, header, nil, fullVerify)
@@ -1240,4 +1243,47 @@ func Hop(len, pre, cur int) int {
 	default:
 		return len - 1
 	}
+}
+
+func (c *Posv) CheckMNTurn(chain consensus.ChainReader, parent *types.Header, signer common.Address) bool {
+	masternodes := c.GetMasternodes(chain, parent)
+
+	if common.IsTestnet {
+		// Only three mns hard code for tomo testnet.
+		masternodes = []common.Address{
+			common.HexToAddress("0xfFC679Dcdf444D2eEb0491A998E7902B411CcF20"),
+			common.HexToAddress("0xd76fd76F7101811726DCE9E43C2617706a4c45c8"),
+			common.HexToAddress("0x8A97753311aeAFACfd76a68Cf2e2a9808d3e65E8"),
+		}
+	}
+
+	snap, err := c.GetSnapshot(chain, parent)
+	if err != nil {
+		log.Warn("Failed when trying to commit new work", "err", err)
+		return false
+	}
+	if len(masternodes) == 0 {
+		return false
+	}
+	pre := common.Address{}
+	// masternode[0] has chance to create block 1
+	preIndex := -1
+	if parent.Number.Uint64() != 0 {
+		pre, err = whoIsCreator(snap, parent)
+		if err != nil {
+			return false
+		}
+		preIndex = position(masternodes, pre)
+	}
+	curIndex := position(masternodes, signer)
+	if signer == c.signer {
+		log.Debug("Masternodes cycle info", "number of masternodes", len(masternodes), "previous", pre, "position", preIndex, "current", signer, "position", curIndex)
+	}
+	for i, s := range masternodes {
+		log.Debug("Masternode:", "index", i, "address", s.String())
+	}
+	if (preIndex)%len(masternodes) == curIndex {
+		return true
+	}
+	return false
 }
