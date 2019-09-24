@@ -1295,6 +1295,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 	if order.Status != OrderStatusCancelled {
 		order.Status = OrderStatusOpen
 	}
+	order.TxHash = txHash
 
 	log.Debug("PutObject processed order", "order", order)
 	if err := db.PutObject(order.Hash.Bytes(), order, false, common.Hash{}); err != nil {
@@ -1303,7 +1304,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 	if order.Status == OrderStatusCancelled {
 		return nil
 	}
-
+	order.TxHash = txHash
 	// 2. put trades to db and update status to FILLED
 	trades := txDataMatch.GetTrades()
 	log.Debug("Got trades", "number", len(trades), "trades", trades)
