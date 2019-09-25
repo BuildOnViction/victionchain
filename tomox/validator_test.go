@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"testing"
 )
@@ -13,11 +14,11 @@ import (
 var fakeDb, _ = ethdb.NewMemDatabase()
 
 func TestIsValidRelayer(t *testing.T) {
-	order := &OrderItem{
+	order := &tomox_state.OrderItem{
 		ExchangeAddress: common.HexToAddress("relayer1"),
 	}
 	var stateDb, _ = state.New(common.Hash{}, state.NewDatabase(fakeDb))
-	slotKec := crypto.Keccak256(order.ExchangeAddress.Hash().Bytes(), common.BigToHash(new(big.Int).SetUint64(RelayerMappingSlot["RELAYER_LIST"])).Bytes())
+	slotKec := crypto.Keccak256(order.ExchangeAddress.Hash().Bytes(), common.BigToHash(new(big.Int).SetUint64(tomox_state.RelayerMappingSlot["RELAYER_LIST"])).Bytes())
 	locRelayerState := new(big.Int).SetBytes(slotKec)
 	stateDb.SetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(locRelayerState), common.BigToHash(new(big.Int).SetUint64(0)))
 	if valid := IsValidRelayer(stateDb, order.ExchangeAddress); valid {
@@ -37,7 +38,7 @@ func TestIsValidRelayer(t *testing.T) {
 func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 	addr := common.HexToAddress("0x0332d186212b04E6933682b3bed8e232b6b3361a")
 
-	order := &OrderItem{
+	order := &tomox_state.OrderItem{
 		PairName:    "TOMO/WETH",
 		BaseToken:   common.HexToAddress(common.TomoNativeAddress),
 		QuoteToken:  common.HexToAddress("0x0aaad186212b04E6933682b3bed8e232b6b3361a"),
@@ -47,7 +48,7 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 		Price:       big.NewInt(1100),
 	}
 
-	if err := order.VerifyBasicOrderInfo(); err != errInvalidOrderSide {
+	if err := order.VerifyBasicOrderInfo(); err != tomox_state.ErrInvalidOrderSide {
 		t.Error(err)
 	}
 
@@ -55,7 +56,7 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 	order.Side = Ask
 
 	// after verifyOrderSide PASS, order should fail the next step: verifyOrderType
-	if err := order.VerifyBasicOrderInfo(); err != errInvalidOrderType {
+	if err := order.VerifyBasicOrderInfo(); err != tomox_state.ErrInvalidOrderType {
 		t.Error(err)
 	}
 
@@ -63,7 +64,7 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 	order.Type = Limit
 
 	// wrong hash
-	if err := order.VerifyBasicOrderInfo(); err != errWrongHash {
+	if err := order.VerifyBasicOrderInfo(); err != tomox_state.ErrWrongHash {
 		t.Error(err)
 	}
 
@@ -77,10 +78,10 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 	order.UserAddress = addr
 
 	// set valid hash
-	order.Hash = order.computeHash()
+	order.Hash = order.ComputeHash()
 
 	signatureBytes, _ := crypto.Sign(common.StringToHash("invalid hash").Bytes(), privKey)
-	sig := &Signature{
+	sig := &tomox_state.Signature{
 		R: common.BytesToHash(signatureBytes[0:32]),
 		S: common.BytesToHash(signatureBytes[32:64]),
 		V: signatureBytes[64] + 27,
@@ -88,7 +89,7 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 	order.Signature = sig
 
 	// wrong signature
-	if err := order.VerifyBasicOrderInfo(); err != errInvalidSignature {
+	if err := order.VerifyBasicOrderInfo(); err != tomox_state.ErrInvalidSignature {
 		t.Error(err)
 	}
 
@@ -99,7 +100,7 @@ func TestOrderItem_VerifyBasicOrderInfo(t *testing.T) {
 
 	// set valid signature
 	signatureBytes, _ = crypto.Sign(message, privKey)
-	sig = &Signature{
+	sig = &tomox_state.Signature{
 		R: common.BytesToHash(signatureBytes[0:32]),
 		S: common.BytesToHash(signatureBytes[32:64]),
 		V: signatureBytes[64] + 27,
@@ -122,7 +123,7 @@ func TestTxDataMatch_DecodeOrder(t *testing.T) {
 		t.Error("It should fail")
 	}
 
-	orderItem := &OrderItem{
+	orderItem := &tomox_state.OrderItem{
 		PairName:        "TOMO/WETH",
 		Price:           big.NewInt(1),
 		Quantity:        big.NewInt(100),
@@ -130,7 +131,7 @@ func TestTxDataMatch_DecodeOrder(t *testing.T) {
 		Side:            Bid,
 		UserAddress:     common.HexToAddress("aaa"),
 		ExchangeAddress: common.HexToAddress("bbb"),
-		Signature:       &Signature{},
+		Signature:       &tomox_state.Signature{},
 	}
 	b, err := EncodeBytesItem(orderItem)
 	if err != nil {

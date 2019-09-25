@@ -17,13 +17,12 @@
 package core
 
 import (
-	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/posv"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -76,39 +75,6 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
-
-	var tomoXService *tomox.TomoX
-	engine, ok := v.engine.(*posv.Posv)
-	if ok {
-		tomoXService = engine.GetTomoXService()
-	}
-
-	currentState, err := v.bc.State()
-	if err != nil {
-		return err
-	}
-	hashNoValidator := block.HashNoValidator()
-
-	// clear the previous dry-run cache
-	if tomoXService != nil {
-		tomoXService.GetDB().InitDryRunMode(hashNoValidator)
-	}
-	txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
-	if err != nil {
-		return err
-	}
-	for _, txMatchBatch := range txMatchBatchData {
-		if tomoXService == nil {
-			log.Error("tomox not found")
-			return tomox.ErrTomoXServiceNotFound
-		}
-		log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash)
-		err := v.validateMatchingOrder(tomoXService, currentState, txMatchBatch, hashNoValidator)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -140,7 +106,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, currentState *state.StateDB, txMatchBatch tomox.TxMatchBatch, blockHash common.Hash) error {
+func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox.TxMatchBatch, blockHash common.Hash) error {
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
 
 	for _, txMatch := range txMatchBatch.Data {
@@ -149,12 +115,11 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 		if err != nil {
 			return fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err)
 		}
-		if order.Status != tomox.OrderStatusCancelled && tomoXService.ExistProcessedOrderHash(order.Hash) {
-			log.Debug("This order has been processed", "hash", hex.EncodeToString(order.Hash.Bytes()))
-			continue
-		}
+		//if order.Status != tomox.OrderStatusCancelled && tomoXService.ExistProcessedOrderHash(order.Hash) {
+		//	log.Debug("This order has been processed", "hash", hex.EncodeToString(order.Hash.Bytes()))
+		//	continue
+		//}
 		log.Debug("process tx match", "order", order)
-
 
 		// Remove order from db pending.
 		if err := tomoXService.RemoveOrderFromPending(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
@@ -170,27 +135,30 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 			continue
 		}
 
-		ob, err := tomoXService.GetOrderBook(order.PairName, true, blockHash)
+		//ob, err := tomoXService.GetOrderBook(order.PairName, true, blockHash)
 		// if orderbook of this pairName has been updated by previous tx in this block, use it
 
-		if err != nil {
-			return err
-		}
+		//if err != nil {
+		//	return err
+		//}
 
 		// verify old state: orderbook hash, bidTree hash, askTree hash
-		if err := txMatch.VerifyOldTomoXState(ob); err != nil {
-			return err
-		}
-
+		//if err := txMatch.VerifyOldTomoXState(ob); err != nil {
+		//	return err
+		//}
+		//// process Matching Engine
+		//if _, _, err := ob.ProcessOrder(order, true, true, blockHash); err != nil {
+		//	return err
+		//}
+		//obHash, err := ob.Hash()
 		// process Matching Engine
-		if _, _, err := ob.ProcessOrder(order, true, true, blockHash); err != nil {
+		if _, _, err := tomox.ProcessOrder(statedb, tomoxStatedb, common.StringToHash(order.PairName), order); err != nil {
 			return err
 		}
-
-		// verify new state
-		if err := txMatch.VerifyNewTomoXState(ob); err != nil {
-			return err
-		}
+		//// verify new state
+		//if err := txMatch.VerifyNewTomoXState(ob); err != nil {
+		//	return err
+		//}
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
 	"math/big"
 	"math/rand"
 	"os"
@@ -12,15 +13,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func buildOrder(nonce *big.Int) *OrderItem {
+func buildOrder(nonce *big.Int) *tomox_state.OrderItem {
 	rand.Seed(time.Now().UTC().UnixNano())
 	v := []byte(string(rand.Intn(999)))
-	lstBuySell := []string{"BUY", "SELL"}
-	order := &OrderItem{
-		Quantity: new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 1000000000000000000),
-		Price:    new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 100000000000000000),
+	lstBuySell := []string{Ask, Bid}
+	order := &tomox_state.OrderItem{
+		Quantity: new(big.Int).SetUint64(uint64(rand.Intn(9) + 1)),
+		Price:    new(big.Int).SetUint64(uint64(rand.Intn(9) + 1)),
 		//Quantity: new(big.Int).SetUint64(uint64(5) * 1000000000000000000),
 		//Price:           new(big.Int).SetUint64(uint64(2) * 100000000000000000),
 		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
@@ -28,13 +33,13 @@ func buildOrder(nonce *big.Int) *OrderItem {
 		BaseToken:       common.HexToAddress("0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"),
 		QuoteToken:      common.HexToAddress("0xC2fa1BA90b15E3612E0067A0020192938784D9C5"),
 		Status:          "New",
-		Side:            lstBuySell[rand.Int()%len(lstBuySell)],
+		Side:            lstBuySell[rand.Intn(2)],
 		//Side: "SELL",
 		Type:     Limit,
 		PairName: "BTC/ETH",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash(nonce.String()),
-		Signature: &Signature{
+		Signature: &tomox_state.Signature{
 			V: v[0],
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
@@ -86,10 +91,11 @@ func TestCreate10Orders(t *testing.T) {
 	//FIXME
 	// disable this test in travis CI
 	t.SkipNow()
-
-	for i := 1001; i <= 2000; i++ {
+	i := 1
+	for true {
 		testCreateOrder(t, new(big.Int).SetUint64(uint64(i)))
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
+		i++
 	}
 }
 
@@ -132,7 +138,7 @@ func TestOrderMatching1To1(t *testing.T) {
 	t.SkipNow()
 
 	v := []byte(string(rand.Intn(999)))
-	buy := &OrderItem{
+	buy := &tomox_state.OrderItem{
 		Quantity:        new(big.Int).SetUint64(1000000000000000000),
 		Price:           new(big.Int).SetUint64(100000000000000000),
 		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
@@ -145,7 +151,7 @@ func TestOrderMatching1To1(t *testing.T) {
 		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash("1"),
-		Signature: &Signature{
+		Signature: &tomox_state.Signature{
 			V: v[0],
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
@@ -188,7 +194,7 @@ func TestOrderMatching1To1(t *testing.T) {
 		t.Error("rpcClient.Call tomox_createOrder failed", "err", err)
 	}
 
-	sell := &OrderItem{
+	sell := &tomox_state.OrderItem{
 		Quantity:        new(big.Int).SetUint64(2500000000000000000),
 		Price:           new(big.Int).SetUint64(100000000000000000),
 		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
@@ -201,7 +207,7 @@ func TestOrderMatching1To1(t *testing.T) {
 		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash("2"),
-		Signature: &Signature{
+		Signature: &tomox_state.Signature{
 			V: v[0],
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
@@ -402,7 +408,7 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 
 	// initial: orderNonce is empty
 	// verifyOrderNonce should PASS
-	order := &OrderItem{
+	order := &tomox_state.OrderItem{
 		Nonce:       big.NewInt(1),
 		UserAddress: common.HexToAddress("0x00011"),
 	}
@@ -418,7 +424,7 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	}
 
 	// set duplicated nonce
-	order = &OrderItem{
+	order = &tomox_state.OrderItem{
 		Nonce:       big.NewInt(5), //duplicated nonce
 		UserAddress: common.HexToAddress("0x00011"),
 	}

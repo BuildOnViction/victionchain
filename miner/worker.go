@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"math/big"
 	"os"
 	"sync"
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/tomox"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -79,11 +81,12 @@ type Work struct {
 	config *params.ChainConfig
 	signer types.Signer
 
-	state     *state.StateDB // apply state changes here
-	ancestors *set.Set       // ancestor set (used for checking uncle parent validity)
-	family    *set.Set       // family set (used for checking uncle invalidity)
-	uncles    *set.Set       // uncle set
-	tcount    int            // tx count in cycle
+	state      *state.StateDB // apply state changes here
+	tomoxState *tomox_state.TomoXStateDB
+	ancestors  *set.Set // ancestor set (used for checking uncle parent validity)
+	family     *set.Set // family set (used for checking uncle invalidity)
+	uncles     *set.Set // uncle set
+	tcount     int      // tx count in cycle
 
 	Block *types.Block // the new block
 
@@ -351,7 +354,7 @@ func (self *worker) wait() {
 			for _, log := range work.state.Logs() {
 				log.BlockHash = block.Hash()
 			}
-			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state)
+			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state, work.tomoxState)
 			if err != nil {
 				log.Error("Failed writing block to chain", "err", err)
 				continue
@@ -446,15 +449,26 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	if err != nil {
 		return err
 	}
+	var tomoxState *tomox_state.TomoXStateDB
+	if self.config.Posv != nil {
+		tomoX := self.eth.GetTomoX()
+		tomoxState, err = tomoX.GetTomoxState(parent)
+		if err != nil {
+			log.Error("Failed to create mining context", "err", err)
+			return err
+		}
+	}
+
 	work := &Work{
-		config:    self.config,
-		signer:    types.NewEIP155Signer(self.config.ChainId),
-		state:     state,
-		ancestors: set.New(),
-		family:    set.New(),
-		uncles:    set.New(),
-		header:    header,
-		createdAt: time.Now(),
+		config:     self.config,
+		signer:     types.NewEIP155Signer(self.config.ChainId),
+		state:      state,
+		tomoxState: tomoxState,
+		ancestors:  set.New(),
+		family:     set.New(),
+		uncles:     set.New(),
+		header:     header,
+		createdAt:  time.Now(),
 	}
 
 	if self.config.Posv == nil {
@@ -615,52 +629,49 @@ func (self *worker) commitNewWork() {
 						account = accts[0]
 					}
 				}
-
 				log.Debug("Start processing order pending")
 				orderPending, err := self.eth.OrderPool().Pending()
 				if err == nil {
 					log.Debug("Start processing order pending", "len", len(orderPending))
-					txMatches := tomoX.ProcessOrderPending(orderPending)
-					if len(txMatches) > 0 {
-						log.Debug("transaction matches found", "txMatches", len(txMatches))
-						// put all TxMatchesData into only one tx
-						txMatchBytes, err := tomox.EncodeTxMatchesBatch(tomox.TxMatchBatch{
-							Data:      txMatches,
-							Timestamp: uint64(time.Now().UnixNano()),
-							TxHash:    common.Hash{},
-						})
+					txMatches := tomoX.ProcessOrderPending(orderPending, work.state, work.tomoxState)
+					log.Debug("transaction matches found", "txMatches", len(txMatches))
+					// put all TxMatchesData into only one tx
+					txMatchBytes, err := tomox.EncodeTxMatchesBatch(tomox.TxMatchBatch{
+						Data:      txMatches,
+						Timestamp: uint64(time.Now().UnixNano()),
+						TxHash:    common.Hash{},
+						StateRoot: work.tomoxState.IntermediateRoot(),
+					})
+					if err != nil {
+						log.Error("Fail to marshal txMatch", "error", err)
+					} else {
+						// Create and send tx to smart contract for sign validate block.
+						nonce := self.eth.TxPool().State().GetNonce(account.Address)
+						tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
+						txM, err := wallet.SignTx(account, tx, self.config.ChainId)
 						if err != nil {
-							log.Error("Fail to marshal txMatch", "error", err)
+							log.Error("Fail to create tx matches", "error", err)
 						} else {
-							// Create and send tx to smart contract for sign validate block.
-							nonce := self.eth.TxPool().State().GetNonce(account.Address)
-							tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
-							txM, err := wallet.SignTx(account, tx, self.config.ChainId)
-							if err != nil {
-								log.Error("Fail to create tx matches", "error", err)
-							} else {
-								matchingTransaction = txM
-							}
+							matchingTransaction = txM
 						}
-
 					}
 				}
-
 			}
-		}
 
-		pending, err := self.eth.TxPool().Pending()
-		if err != nil {
-			log.Error("Failed to fetch pending transactions", "err", err)
-			return
 		}
-		txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity)
-		if matchingTransaction != nil {
-			// force adding matching transaction to this block
-			specialTxs = append(specialTxs, matchingTransaction)
-		}
-
 	}
+
+	pending, err := self.eth.TxPool().Pending()
+	if err != nil {
+		log.Error("Failed to fetch pending transactions", "err", err)
+		return
+	}
+	txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity)
+	if matchingTransaction != nil {
+		// force adding matching transaction to this block
+		specialTxs = append(specialTxs, matchingTransaction)
+	}
+
 	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
 
 	// compute uncles for the new block.

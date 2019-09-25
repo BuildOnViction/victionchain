@@ -2,6 +2,7 @@ package tomox
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"math/rand"
 	"os"
@@ -22,7 +23,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 
 	// insert order to bid tree: price 99
 	price := CloneBigInt(ether)
-	err = ob.Bids.InsertOrder(&OrderItem{
+	err = ob.Bids.InsertOrder(&tomox_state.OrderItem{
 		OrderID:         uint64(1),
 		Quantity:        big.NewInt(100),
 		Price:           price.Mul(price, big.NewInt(99)),
@@ -35,7 +36,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		Type:            "LO",
 		PairName:        "aaa/tomo",
 		Hash:            common.StringToHash(string(rand.Intn(1000))),
-		Signature: &Signature{
+		Signature: &tomox_state.Signature{
 			V: v[0],
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
@@ -48,7 +49,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 
 	// insert order to bid tree: price 98
 	price = CloneBigInt(ether)
-	err = ob.Bids.InsertOrder(&OrderItem{
+	err = ob.Bids.InsertOrder(&tomox_state.OrderItem{
 		OrderID:         uint64(2),
 		Quantity:        big.NewInt(50),
 		Price:           price.Mul(price, big.NewInt(98)),
@@ -61,7 +62,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		Type:            "LO",
 		PairName:        "aaa/tomo",
 		Hash:            common.StringToHash(string(rand.Intn(1000))),
-		Signature: &Signature{
+		Signature: &tomox_state.Signature{
 			V: v[0],
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
@@ -77,7 +78,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 
 	// insert order to ask tree: price 101
 	price = CloneBigInt(ether)
-	err = ob.Asks.InsertOrder(&OrderItem{
+	err = ob.Asks.InsertOrder(&tomox_state.OrderItem{
 		OrderID:         uint64(3),
 		Quantity:        big.NewInt(200),
 		Price:           price.Mul(price, big.NewInt(101)),
@@ -90,7 +91,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		Type:            "LO",
 		PairName:        "aaa/tomo",
 		Hash:            common.StringToHash(string(rand.Intn(1000))),
-		Signature: &Signature{
+		Signature: &tomox_state.Signature{
 			V: v[0],
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
@@ -103,7 +104,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 
 	// insert order to ask tree: price 102
 	price = CloneBigInt(ether)
-	err = ob.Asks.InsertOrder(&OrderItem{
+	err = ob.Asks.InsertOrder(&tomox_state.OrderItem{
 		OrderID:         uint64(4),
 		Quantity:        big.NewInt(300),
 		Price:           price.Mul(price, big.NewInt(102)),
@@ -116,7 +117,7 @@ func prepareOrderbookData(pair string, db OrderDao) (*OrderBook, error) {
 		Type:            "LO",
 		PairName:        "aaa/tomo",
 		Hash:            common.StringToHash(string(rand.Intn(1000))),
-		Signature: &Signature{
+		Signature: &tomox_state.Signature{
 			V: v[0],
 			R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 			S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
@@ -181,13 +182,13 @@ func TestTomoX_Snapshot(t *testing.T) {
 	// remove order whose OrderId = 1 (bid order)
 	price := CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(99))
-	if err = ob.Bids.orderDB.Delete(ob.Bids.getKeyFromPrice(price),false, common.Hash{}); err != nil {
+	if err = ob.Bids.orderDB.DeleteObject(ob.Bids.getKeyFromPrice(price),false, common.Hash{}); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 	// remove order whose OrderId = 4 (ask order)
 	price = CloneBigInt(ether)
 	price = price.Mul(price, big.NewInt(102))
-	if err = ob.Asks.orderDB.Delete(ob.Asks.getKeyFromPrice(price),false, common.Hash{}); err != nil {
+	if err = ob.Asks.orderDB.DeleteObject(ob.Asks.getKeyFromPrice(price),false, common.Hash{}); err != nil {
 		t.Error("Failed to delete order", "price", price)
 	}
 

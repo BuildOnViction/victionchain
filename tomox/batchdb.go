@@ -69,7 +69,7 @@ func (db *BatchDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *BatchDatabase) Has(key []byte, dryrun bool, blockHash common.Hash) (bool, error) {
+func (db *BatchDatabase) HasObject(key []byte, dryrun bool, blockHash common.Hash) (bool, error) {
 	if db.IsEmptyKey(key) {
 		return false, nil
 	}
@@ -90,7 +90,7 @@ func (db *BatchDatabase) Has(key []byte, dryrun bool, blockHash common.Hash) (bo
 	return db.db.Has(key)
 }
 
-func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error) {
+func (db *BatchDatabase) GetObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error) {
 
 	if db.IsEmptyKey(key) {
 		return nil, nil
@@ -138,14 +138,14 @@ func (db *BatchDatabase) Get(key []byte, val interface{}, dryrun bool, blockHash
 	return val, nil
 }
 
-func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error {
+func (db *BatchDatabase) PutObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error {
 	cacheKey := db.getCacheKey(key)
 	if dryrun {
 		db.lock.Lock()
 		dryrunCache, ok := db.dryRunCaches[blockHash]
 		db.lock.Unlock()
-		if !ok  {
-			log.Debug("BatchDB - Put: DryrunCache of this block is not initialized. Initialize now!", "blockHash", blockHash)
+		if !ok {
+			log.Debug("BatchDB - PutObject: DryrunCache of this block is not initialized. Initialize now!", "blockHash", blockHash)
 			db.InitDryRunMode(blockHash)
 			dryrunCache, _ = db.dryRunCaches[blockHash]
 		}
@@ -161,7 +161,7 @@ func (db *BatchDatabase) Put(key []byte, val interface{}, dryrun bool, blockHash
 	return db.db.Put(key, value)
 }
 
-func (db *BatchDatabase) Delete(key []byte, dryrun bool, blockHash common.Hash) error {
+func (db *BatchDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.Hash) error {
 	// by default, we force delete both db and cache,
 	// for better performance, we can mark a Deleted flag, to do batch delete
 	cacheKey := db.getCacheKey(key)
@@ -171,8 +171,8 @@ func (db *BatchDatabase) Delete(key []byte, dryrun bool, blockHash common.Hash) 
 		db.lock.Lock()
 		dryrunCache, ok := db.dryRunCaches[blockHash]
 		db.lock.Unlock()
-		if !ok  {
-			log.Debug("BatchDB - Delete: DryrunCache of this block is not initialized. Initialize now!", "blockHash", blockHash)
+		if !ok {
+			log.Debug("BatchDB - DeleteObject: DryrunCache of this block is not initialized. Initialize now!", "blockHash", blockHash)
 			db.InitDryRunMode(blockHash)
 			dryrunCache, _ = db.dryRunCaches[blockHash]
 		}
@@ -222,12 +222,12 @@ func (db *BatchDatabase) SaveDryRunResult(blockHash common.Hash) error {
 		val, ok := dryrunCache.Get(cacheKey)
 		if !ok {
 			err := errors.New("can't get item from dryrun cache")
-			log.Error("Can't save dry-run result (db.dryRunCache.Get)", "err", err)
+			log.Error("Can't save dry-run result (db.dryRunCache.GetObject)", "err", err)
 			return err
 		}
 		if val == nil {
 			if err := db.db.Delete(key); err != nil {
-				log.Error("Can't save dry-run result (db.db.Delete)", "err", err)
+				log.Error("Can't save dry-run result (db.db.DeleteObject)", "err", err)
 				return err
 			}
 			continue
@@ -240,7 +240,7 @@ func (db *BatchDatabase) SaveDryRunResult(blockHash common.Hash) error {
 		}
 
 		if err := batch.Put(key, value); err != nil {
-			log.Error("Can't save dry-run result (batch.Put)", "err", err)
+			log.Error("Can't save dry-run result (batch.PutObject)", "err", err)
 			return err
 		}
 	}
@@ -252,4 +252,32 @@ func (db *BatchDatabase) SaveDryRunResult(blockHash common.Hash) error {
 	// purge reading cache to refresh data from db
 	db.cacheItems.Purge()
 	return batch.Write()
+}
+
+func (db *BatchDatabase) CancelOrder(hash common.Hash) error {
+	return nil
+}
+
+func (db *BatchDatabase) Put(key []byte, val []byte) error {
+	return db.db.Put(key, val)
+}
+
+func (db *BatchDatabase) Delete(key []byte) error {
+	return db.db.Delete(key)
+}
+
+func (db *BatchDatabase) Has(key []byte) (bool, error) {
+	return db.db.Has(key)
+}
+
+func (db *BatchDatabase) Get(key []byte) ([]byte, error) {
+	return db.db.Get(key)
+}
+
+func (db *BatchDatabase) Close() {
+	db.db.Close()
+}
+
+func (db *BatchDatabase) NewBatch() ethdb.Batch {
+	return db.db.NewBatch()
 }

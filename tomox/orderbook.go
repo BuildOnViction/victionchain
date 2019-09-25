@@ -2,6 +2,7 @@ package tomox
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"strconv"
 	"time"
@@ -121,7 +122,7 @@ func (orderBook *OrderBook) Save(dryrun bool, blockHash common.Hash) error {
 
 	orderBookItemKey := append([]byte(orderbookItemPrefix), orderBook.Key...)
 	log.Debug("save orderbook", "key", hex.EncodeToString(orderBookItemKey))
-	return orderBook.db.Put(orderBookItemKey, orderBook.Item, dryrun, blockHash)
+	return orderBook.db.PutObject(orderBookItemKey, orderBook.Item, dryrun, blockHash)
 }
 
 func (orderBook *OrderBook) Restore(dryrun bool, blockHash common.Hash) error {
@@ -148,7 +149,7 @@ func (orderBook *OrderBook) Restore(dryrun bool, blockHash common.Hash) error {
 	log.Debug("restored orderbook bids", "bids.Item", orderBook.Bids.Item)
 
 	orderBookItemKey := append([]byte(orderbookItemPrefix), orderBook.Key...)
-	val, err := orderBook.db.Get(orderBookItemKey, orderBook.Item, dryrun, blockHash)
+	val, err := orderBook.db.GetObject(orderBookItemKey, orderBook.Item, dryrun, blockHash)
 	if err == nil {
 		orderBook.Item = val.(*OrderBookItem)
 		log.Debug("restored orderbook", "orderBook.Item", orderBook.Item)
@@ -171,15 +172,15 @@ func (orderBook *OrderBook) GetOrder(storedKey, key []byte, dryrun bool, blockHa
 	if orderBook.db.IsEmptyKey(key) || orderBook.db.IsEmptyKey(storedKey) {
 		return nil
 	}
-	orderItem := &OrderItem{}
-	val, err := orderBook.db.Get(storedKey, orderItem, dryrun, blockHash)
+	orderItem := &tomox_state.OrderItem{}
+	val, err := orderBook.db.GetObject(storedKey, orderItem, dryrun, blockHash)
 	if err != nil || val == nil {
 		log.Error("Key not found", "key", storedKey, "err", err)
 		return nil
 	}
 
 	order := &Order{
-		Item: val.(*OrderItem),
+		Item: val.(*tomox_state.OrderItem),
 		Key:  key,
 	}
 	return order
@@ -212,11 +213,11 @@ func (orderBook *OrderBook) WorstAsk(dryrun bool, blockHash common.Hash) (value 
 }
 
 // processMarketOrder : process the market order
-func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) processMarketOrder(order *tomox_state.OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *tomox_state.OrderItem, error) {
 	var (
 		trades      []map[string]string
 		newTrades   []map[string]string
-		orderInBook *OrderItem
+		orderInBook *tomox_state.OrderItem
 		err         error
 	)
 	quantityToTrade := order.Quantity
@@ -247,11 +248,11 @@ func (orderBook *OrderBook) processMarketOrder(order *OrderItem, verbose bool, d
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) processLimitOrder(order *tomox_state.OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *tomox_state.OrderItem, error) {
 	var (
 		trades      []map[string]string
 		newTrades   []map[string]string
-		orderInBook *OrderItem
+		orderInBook *tomox_state.OrderItem
 		err         error
 	)
 	quantityToTrade := order.Quantity
@@ -317,9 +318,9 @@ func (orderBook *OrderBook) processLimitOrder(order *OrderItem, verbose bool, dr
 }
 
 // ProcessOrder : process the order
-func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) ProcessOrder(order *tomox_state.OrderItem, verbose bool, dryrun bool, blockHash common.Hash) ([]map[string]string, *tomox_state.OrderItem, error) {
 	var (
-		orderInBook *OrderItem
+		orderInBook *tomox_state.OrderItem
 		trades      []map[string]string
 		err         error
 	)
@@ -366,12 +367,12 @@ func (orderBook *OrderBook) ProcessOrder(order *OrderItem, verbose bool, dryrun 
 }
 
 // processOrderList : process the order list
-func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *OrderItem, verbose bool, dryrun bool, blockHash common.Hash) (*big.Int, []map[string]string, *OrderItem, error) {
+func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, quantityStillToTrade *big.Int, order *tomox_state.OrderItem, verbose bool, dryrun bool, blockHash common.Hash) (*big.Int, []map[string]string, *tomox_state.OrderItem, error) {
 	log.Debug("Process matching between order and orderlist")
 	quantityToTrade := CloneBigInt(quantityStillToTrade)
 	var (
 		trades      []map[string]string
-		orderInBook *OrderItem
+		orderInBook *tomox_state.OrderItem
 	)
 	// speedup the comparison, do not assign because it is pointer
 	zero := Zero()
@@ -381,7 +382,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 		if headOrder == nil {
 			return nil, nil, nil, fmt.Errorf("headOrder is null")
 		}
-		log.Debug("Get head order in the orderlist", "headOrder", headOrder.Item)
+		log.Debug("GetObject head order in the orderlist", "headOrder", headOrder.Item)
 
 		tradedPrice := CloneBigInt(headOrder.Item.Price)
 
@@ -456,7 +457,7 @@ func (orderBook *OrderBook) processOrderList(side string, orderList *OrderList, 
 
 // CancelOrder : cancel the order, just need ID, side and price, of course order must belong
 // to a price point as well
-func (orderBook *OrderBook) CancelOrder(order *OrderItem, dryrun bool, blockHash common.Hash) error {
+func (orderBook *OrderBook) CancelOrder(order *tomox_state.OrderItem, dryrun bool, blockHash common.Hash) error {
 	key := GetKeyFromBig(big.NewInt(int64(order.OrderID)))
 	if order.Side == Bid {
 		orderInDB := orderBook.Bids.GetOrder(key, order.Price, dryrun, blockHash)
@@ -485,12 +486,12 @@ func (orderBook *OrderBook) CancelOrder(order *OrderItem, dryrun bool, blockHash
 	return nil
 }
 
-func (orderBook *OrderBook) UpdateOrder(order *OrderItem, dryrun bool, blockHash common.Hash) error {
+func (orderBook *OrderBook) UpdateOrder(order *tomox_state.OrderItem, dryrun bool, blockHash common.Hash) error {
 	return orderBook.ModifyOrder(order, order.OrderID, order.Price, dryrun, blockHash)
 }
 
 // ModifyOrder : modify the order
-func (orderBook *OrderBook) ModifyOrder(order *OrderItem, orderID uint64, price *big.Int, dryrun bool, blockHash common.Hash) error {
+func (orderBook *OrderBook) ModifyOrder(order *tomox_state.OrderItem, orderID uint64, price *big.Int, dryrun bool, blockHash common.Hash) error {
 	orderBook.UpdateTime()
 
 	key := GetKeyFromBig(new(big.Int).SetUint64(order.OrderID))

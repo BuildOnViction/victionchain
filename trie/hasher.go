@@ -172,7 +172,7 @@ func (h *hasher) store(n Node, db *Database, force bool) (Node, error) {
 	}
 	if db != nil {
 		// We are pooling the trie nodes into an intermediate memory cache
-		db.lock.Lock()
+		db.Lock.Lock()
 
 		hash := common.BytesToHash(hash)
 		db.insert(hash, h.tmp.Bytes())
@@ -190,7 +190,7 @@ func (h *hasher) store(n Node, db *Database, force bool) (Node, error) {
 				}
 			}
 		}
-		db.lock.Unlock()
+		db.Lock.Unlock()
 
 		// Track external references from account->storage trie
 		if h.onleaf != nil {

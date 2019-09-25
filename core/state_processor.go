@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/tomox"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 )
 import (
@@ -291,7 +292,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 	nonce := statedb.GetNonce(from)
 
 	txMatchBatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
-	if err != nil || len(txMatchBatches.Data) == 0 {
+	if err != nil {
 		return nil, 0, err, false
 	}
 	gasUsed := big.NewInt(0)
@@ -302,10 +303,10 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 		}
 		takerAddr := orderItem.UserAddress
 		takerExAddr := orderItem.ExchangeAddress
-		takerExOwner := tomox.GetRelayerOwner(orderItem.ExchangeAddress, statedb)
+		takerExOwner := tomox_state.GetRelayerOwner(orderItem.ExchangeAddress, statedb)
 		baseToken := orderItem.BaseToken
 		quoteToken := orderItem.QuoteToken
-		takerExfee := tomox.GetExRelayerFee(orderItem.ExchangeAddress, statedb)
+		takerExfee := tomox_state.GetExRelayerFee(orderItem.ExchangeAddress, statedb)
 		baseFee := common.TomoXBaseFee
 
 		for i := 0; i < len(txMatch.Trades); i++ {
@@ -316,17 +317,17 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 				return nil, 0, fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity), false
 			}
 			makerExAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradeMakerExchange])
-			makerExfee := tomox.GetExRelayerFee(makerExAddr, statedb)
-			makerExOwner := tomox.GetRelayerOwner(makerExAddr, statedb)
+			makerExfee := tomox_state.GetExRelayerFee(makerExAddr, statedb)
+			makerExOwner := tomox_state.GetRelayerOwner(makerExAddr, statedb)
 			makerAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradeMaker])
 			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
 			if makerExAddr != (common.Address{}) && makerAddr != (common.Address{}) {
 				// take relayer fee
-				err := tomox.SubRelayerFee(takerExAddr, common.RelayerFee, statedb)
+				err := tomox_state.SubRelayerFee(takerExAddr, common.RelayerFee, statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
-				err = tomox.SubRelayerFee(makerExAddr, common.RelayerFee, statedb)
+				err = tomox_state.SubRelayerFee(makerExAddr, common.RelayerFee, statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
@@ -368,11 +369,11 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 				//	"inTotal", settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int),
 				//	"outToken", settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[takerAddr][tomox.OutQuantity].(*big.Int),
 				//	"outTotal", settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int))
-				err = tomox.AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
+				err = tomox_state.AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
-				err = tomox.SubTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), statedb)
+				err = tomox_state.SubTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
@@ -384,11 +385,11 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 				//	"inTotal", settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int),
 				//	"outToken", settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[makerAddr][tomox.OutQuantity].(*big.Int),
 				//	"outTotal", settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int))
-				err = tomox.AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
+				err = tomox_state.AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
-				err = tomox.SubTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), statedb)
+				err = tomox_state.SubTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
@@ -400,12 +401,12 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 				//	"makerRelayerOwner", makerExOwner,
 				//	"makerFeeToken", quoteToken, "makerFee", settleBalanceResult[makerAddr][tomox.Fee].(*big.Int))
 				// takerFee
-				err = tomox.AddTokenBalance(takerExOwner, settleBalanceResult[takerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
+				err = tomox_state.AddTokenBalance(takerExOwner, settleBalanceResult[takerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
 				// makerFee
-				err = tomox.AddTokenBalance(makerExOwner, settleBalanceResult[makerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
+				err = tomox_state.AddTokenBalance(makerExOwner, settleBalanceResult[makerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
 				if err != nil {
 					return nil, 0, err, false
 				}
