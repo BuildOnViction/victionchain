@@ -15,7 +15,6 @@ func TestTxMatchesBatch(t *testing.T) {
 		{
 			Order:       []byte("order1"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash11"}, {"takerOrderHash": "hash12"}},
-			OrderInBook: []byte("order1'"),
 			ObOld:       common.StringToHash("ObOld1"),
 			ObNew:       common.StringToHash("ObNew1"),
 			AskOld:      common.StringToHash("AskOld1"),
@@ -26,7 +25,6 @@ func TestTxMatchesBatch(t *testing.T) {
 		{
 			Order:       []byte("order2"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash21"}, {"takerOrderHash": "hash22"}},
-			OrderInBook: []byte("order2'"),
 			ObOld:       common.StringToHash("ObOld2"),
 			ObNew:       common.StringToHash("ObNew2"),
 			AskOld:      common.StringToHash("AskOld2"),
@@ -37,7 +35,6 @@ func TestTxMatchesBatch(t *testing.T) {
 		{
 			Order:       []byte("order3"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash31"}, {"takerOrderHash": "hash32"}},
-			OrderInBook: []byte("order3'"),
 			ObOld:       common.StringToHash("ObOld3"),
 			ObNew:       common.StringToHash("ObNew3"),
 			AskOld:      common.StringToHash("AskOld3"),

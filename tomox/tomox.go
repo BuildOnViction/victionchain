@@ -74,7 +74,6 @@ type OrderProcessed struct {
 type TxDataMatch struct {
 	Order       []byte // serialized data of order has been processed in this tx
 	Trades      []map[string]string
-	OrderInBook []byte // serialized data of order which remaining after matching
 	ObOld       common.Hash
 	ObNew       common.Hash
 	AskOld      common.Hash
@@ -853,7 +852,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 							order.Status = OrderStatusCancelled
 						}
 
-						trades, orderInBook, err := ob.ProcessOrder(order, true, true, blockHash)
+						trades, _, err := ob.ProcessOrder(order, true, true, blockHash)
 
 						// remove order from pending list
 						if err := tomox.RemoveOrderFromPending(order.Hash, order.Status == OrderStatusCancelled); err != nil {
@@ -892,19 +891,10 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 							log.Error("Can't encode", "order", originalOrder, "err", err)
 							continue
 						}
-						orderInBookValue := []byte{}
-						if orderInBook != nil {
-							orderInBookValue, err = EncodeBytesItem(orderInBook)
-							if err != nil {
-								log.Error("Can't encode orderInBook", "orderInBook", orderInBook, "err", err)
-								continue
-							}
-						}
 						log.Debug("Process OrderPending completed", "orderNonce", order.Nonce, "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
 						txMatch := TxDataMatch{
 							Order:       originalOrderValue,
 							Trades:      trades,
-							OrderInBook: orderInBookValue,
 							ObOld:       obOld,
 							ObNew:       obNew,
 							AskOld:      askOld,
