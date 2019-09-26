@@ -48,6 +48,7 @@ const (
 	activePairsKey       = "ACTIVE_PAIRS"
 	pendingOrder         = "PENDING_ORDER"
 	pendingPrefix        = "XP"
+	pendingCancelPrefix  = "XPCANCEL"
 	orderProcessedLimit  = 1000
 	orderProcessLimit    = 20
 )
@@ -699,7 +700,7 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 				log.Error("Failed to update orderNonce", "err", err)
 			}
 		}
-		if err := tomox.saveOrderPendingToDB(order); err != nil {
+		if err := tomox.saveOrderPendingToDB(order, order.Status == OrderStatusCancelled); err != nil {
 			return err
 		}
 	} else {
@@ -812,7 +813,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 	if len(pendingOrders) > 0 {
 		for i, pendingOrder := range pendingOrders {
 			if i < orderProcessLimit {
-				order := tomox.getOrderPending(pendingOrder.Hash)
+				order := tomox.getOrderPendingFromDB(pendingOrder.Hash, pendingOrder.Cancel)
 				if order != nil {
 					if pendingOrder.Cancel || !tomox.ExistProcessedOrderHash(pendingOrder.Hash) {
 						var (
@@ -860,7 +861,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 						}
 
 						// remove order pending
-						if err := tomox.RemoveOrderPendingFromDB(order.Hash); err != nil {
+						if err := tomox.RemoveOrderPendingFromDB(order.Hash, order.Status == OrderStatusCancelled); err != nil {
 							continue
 						}
 
@@ -923,12 +924,15 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 	return txMatches
 }
 
-func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
+func (tomox *TomoX) getOrderPendingFromDB(orderHash common.Hash, cancel bool) *OrderItem {
 	var (
 		val interface{}
 		err error
 	)
 	prefix := []byte(pendingPrefix)
+	if cancel {
+		prefix = []byte(pendingCancelPrefix)
+	}
 	key := append(prefix, orderHash.Bytes()...)
 	log.Debug("Get order pending", "order", orderHash, "key", hex.EncodeToString(key))
 	if ok, _ := tomox.db.Has(key, false, common.Hash{}); ok {
@@ -947,8 +951,11 @@ func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
 	return val.(*OrderItem)
 }
 
-func (tomox *TomoX) saveOrderPendingToDB(order *OrderItem) error {
+func (tomox *TomoX) saveOrderPendingToDB(order *OrderItem, cancel bool) error {
 	prefix := []byte(pendingPrefix)
+	if cancel {
+		prefix = []byte(pendingCancelPrefix)
+	}
 	key := append(prefix, order.Hash.Bytes()...)
 	// Insert new order pending.
 	log.Debug("Add order pending", "order", order, "key", hex.EncodeToString(key))
@@ -960,13 +967,24 @@ func (tomox *TomoX) saveOrderPendingToDB(order *OrderItem) error {
 	return nil
 }
 
-func (tomox *TomoX) RemoveOrderPendingFromDB(orderHash common.Hash) error {
+func (tomox *TomoX) RemoveOrderPendingFromDB(orderHash common.Hash, cancel bool) error {
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
 	log.Debug("Remove order pending", "orderHash", orderHash, "key", hex.EncodeToString(key))
 	if err := tomox.db.Delete(key, false, common.Hash{}); err != nil {
-		log.Error("Fail to delete order pending", "err", err)
+		log.Error("Fail to delete order pending", "with prefix", pendingPrefix, "err", err)
 		return err
+	}
+
+	// cancel will remove both pendingprefix and pendingcancelprefix data.
+	if cancel {
+		prefix = []byte(pendingCancelPrefix)
+		key := append(prefix, orderHash.Bytes()...)
+		log.Debug("Remove order pending", "orderHash", orderHash, "key", hex.EncodeToString(key))
+		if err := tomox.db.Delete(key, false, common.Hash{}); err != nil {
+			log.Error("Fail to delete order pending", "with prefix", pendingCancelPrefix,"err", err)
+			return err
+		}
 	}
 	return nil
 }
@@ -1046,7 +1064,7 @@ func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash, cancel bool) er
 		}
 
 		// remove order pending
-		if err := tomox.RemoveOrderPendingFromDB(orderHash); err != nil {
+		if err := tomox.RemoveOrderPendingFromDB(orderHash, cancel); err != nil {
 			log.Warn("Double check pending order at addProcessedOrderHash. Failed to remove pending order", "err", err, "orderHash", orderHash)
 		}
 		return nil
@@ -1219,17 +1237,16 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		return fmt.Errorf("SDK node decode order failed")
 	}
 
-	if order.Status == OrderStatusCancelled {
-		if err := tomox.db.CancelOrder(order.Hash); err != nil {
-			return err
-		}
-		return nil
+	if order.Status != OrderStatusCancelled {
+		order.Status = OrderStatusOpen
 	}
-	order.Status = OrderStatusOpen
 
 	log.Debug("Put processed order", "order", order)
 	if err := db.Put(order.Hash.Bytes(), order, false, common.Hash{}); err != nil {
 		return fmt.Errorf("SDKNode: failed to put processed order. Error: %s", err.Error())
+	}
+	if order.Status == OrderStatusCancelled {
+		return nil
 	}
 
 	// 2. put trades to db and update status to FILLED
