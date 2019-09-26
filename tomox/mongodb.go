@@ -236,8 +236,7 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 		o.Key = cacheKey
 	}
 
-	//query := bson.M{"key": cacheKey}
-	query := bson.M{"hash": o.Hash}
+	query := bson.M{"hash": o.Hash.Hex()}
 
 	_, err := sc.DB(db.dbName).C("orders").Upsert(query, o)
 
@@ -260,7 +259,7 @@ func (db *MongoDatabase) CommitTrade(t *Trade) error {
 	t.CreatedAt = time.Now()
 	t.UpdatedAt = time.Now()
 
-	query := bson.M{"hash": t.Hash}
+	query := bson.M{"hash": t.Hash.Hex()}
 
 	_, err := sc.DB(db.dbName).C("trades").Upsert(query, t)
 
