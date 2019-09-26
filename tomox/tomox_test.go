@@ -282,8 +282,8 @@ func TestDBPending(t *testing.T) {
 	}
 
 	order := buildOrder(new(big.Int).SetInt64(1))
-	tomox.saveOrderPendingToDB(order)
-	od := tomox.getOrderPending(order.Hash)
+	tomox.saveOrderPendingToDB(order, false)
+	od := tomox.getOrderPendingFromDB(order.Hash, false)
 	if od != nil && order.Hash.String() != od.Hash.String() {
 		t.Error("Fail to add order pending", "orderOld", order, "orderNew", od)
 	}

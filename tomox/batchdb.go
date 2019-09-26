@@ -253,7 +253,3 @@ func (db *BatchDatabase) SaveDryRunResult(blockHash common.Hash) error {
 	db.cacheItems.Purge()
 	return batch.Write()
 }
-
-func (db *BatchDatabase) CancelOrder(hash common.Hash) error {
-	return nil
-}
