@@ -226,9 +226,12 @@ func (c *ChainConfig) IsTIPRandomize(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsTIPTomoX(num *big.Int) bool {
-	return isForked(common.TIPTomoX, num)
+	if common.IsTestnet {
+		return isForked(common.TIPTomoXTestnet, num)
+	} else {
+		return isForked(common.TIPTomoX, num)
+	}
 }
-
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
