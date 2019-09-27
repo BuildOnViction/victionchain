@@ -174,7 +174,8 @@ func TestCallTracer(t *testing.T) {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
 			st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
-			if _, _, _, err = st.TransitionDb(); err != nil {
+			owner := common.Address{}
+			if _, _, _, err = st.TransitionDb(owner); err != nil {
 				t.Fatalf("failed to execute transaction: %v", err)
 			}
 			// Retrieve the trace result and compare against the etalon

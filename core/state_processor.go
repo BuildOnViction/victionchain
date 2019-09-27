@@ -203,8 +203,20 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
+
+	// If we don't have an explicit author (i.e. not mining), extract from the header
+	var beneficiary common.Address
+	if author == nil {
+		beneficiary, _ = bc.Engine().Author(header) // Ignore error, we're past header validation
+	} else {
+		beneficiary = *author
+	}
+
+	coinbaseOwner := statedb.GetOwner(beneficiary)
+
 	// Apply the transaction to the current state (included in the env)
-	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	_, gas, failed, err := ApplyMessage(vmenv, msg, gp, coinbaseOwner)
+
 	if err != nil {
 		return nil, 0, err, false
 	}
