@@ -74,7 +74,6 @@ type OrderProcessed struct {
 type TxDataMatch struct {
 	Order       []byte // serialized data of order has been processed in this tx
 	Trades      []map[string]string
-	OrderInBook []byte // serialized data of order which remaining after matching
 	ObOld       common.Hash
 	ObNew       common.Hash
 	AskOld      common.Hash
@@ -853,7 +852,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 							order.Status = OrderStatusCancelled
 						}
 
-						trades, orderInBook, err := ob.ProcessOrder(order, true, true, blockHash)
+						trades, _, err := ob.ProcessOrder(order, true, true, blockHash)
 
 						// remove order from pending list
 						if err := tomox.RemoveOrderFromPending(order.Hash, order.Status == OrderStatusCancelled); err != nil {
@@ -892,19 +891,10 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 							log.Error("Can't encode", "order", originalOrder, "err", err)
 							continue
 						}
-						orderInBookValue := []byte{}
-						if orderInBook != nil {
-							orderInBookValue, err = EncodeBytesItem(orderInBook)
-							if err != nil {
-								log.Error("Can't encode orderInBook", "orderInBook", orderInBook, "err", err)
-								continue
-							}
-						}
 						log.Debug("Process OrderPending completed", "orderNonce", order.Nonce, "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
 						txMatch := TxDataMatch{
 							Order:       originalOrderValue,
 							Trades:      trades,
-							OrderInBook: orderInBookValue,
 							ObOld:       obOld,
 							ObNew:       obNew,
 							AskOld:      askOld,
@@ -1219,14 +1209,13 @@ func (tomox *TomoX) ApplyTxMatches(orders []*OrderItem, blockHash common.Hash) e
 // 2. txMatchData.Trades: includes information of matched orders.
 // 		a. Put them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
-// 3. txMatchData.OrderInBook: remaining order after matching. If order has been matched but still remain in orderbook, update status to sdktypes.OrderStatusPartialFilled
 func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Hash, statedb *state.StateDB) error {
 	// apply for SDK nodes only
 	if !tomox.IsSDKNode() {
 		return nil
 	}
 	var (
-		order, orderInBook *OrderItem
+		order *OrderItem
 		err                error
 	)
 	db := tomox.GetDB()
@@ -1296,41 +1285,17 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		// 2.b. update status and filledAmount
 		filledAmount := quantity
 		// update order status of relating orders
-		if err := tomox.updateStatusOfMatchedOrder(trade[TradeMakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateMatchedOrder(trade[TradeMakerOrderHash], filledAmount); err != nil {
 			return err
 		}
-		if err := tomox.updateStatusOfMatchedOrder(trade[TradeTakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateMatchedOrder(trade[TradeTakerOrderHash], filledAmount); err != nil {
 			return err
-		}
-	}
-
-	// 3. in case of remaining order in orderTree, the status of order should be partial_filled
-	if orderInBook, err = txDataMatch.DecodeOrderInBook(); err != nil {
-		log.Error("SDK node decode orderInBook failed", "txDataMatch", txDataMatch)
-		return fmt.Errorf("SDK node decode orderInBook failed")
-	}
-	log.Debug("OrderInBook found in blockdata", "order", orderInBook)
-	if orderInBook != nil {
-		existingOrderInDB := &OrderItem{}
-		key := orderInBook.Hash.Bytes()
-		data, err := tomox.db.Get(key, &OrderItem{}, false, common.Hash{})
-		if data != nil && err == nil {
-			existingOrderInDB = data.(*OrderItem)
-			log.Debug("OrderInBook found in database", "order", existingOrderInDB)
-			if existingOrderInDB.Status == OrderStatusFilled {
-				log.Debug("Update status to PARTIAL_FILLED", "order", existingOrderInDB)
-				// if order already matched but still exist in orderbook, then update status to OrderStatusPartialFilled
-				existingOrderInDB.Status = OrderStatusPartialFilled
-				if err = db.Put(key, existingOrderInDB, false, common.Hash{}); err != nil {
-					return fmt.Errorf("SDKNode: failed to update status to %s %s", existingOrderInDB.Status, err.Error())
-				}
-			}
 		}
 	}
 	return nil
 }
 
-func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *big.Int) error {
+func (tomox *TomoX) updateMatchedOrder(hashString string, filledAmount *big.Int) error {
 	db := tomox.GetDB()
 	orderHashBytes, err := hex.DecodeString(hashString)
 	if err != nil {
@@ -1341,10 +1306,14 @@ func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *
 		return fmt.Errorf("SDKNode: failed to get order. Key: %s", hashString)
 	}
 	matchedOrder := val.(*OrderItem)
-	matchedOrder.Status = OrderStatusFilled
 	updatedFillAmount := new(big.Int)
 	updatedFillAmount.Add(matchedOrder.FilledAmount, filledAmount)
 	matchedOrder.FilledAmount = updatedFillAmount
+	if matchedOrder.FilledAmount.Cmp(matchedOrder.Quantity) < 0 {
+		matchedOrder.Status = OrderStatusPartialFilled
+	} else {
+		matchedOrder.Status = OrderStatusFilled
+	}
 	if err = db.Put(matchedOrder.Hash.Bytes(), matchedOrder, false, common.Hash{}); err != nil {
 		return fmt.Errorf("SDKNode: failed to update matchedOrder to sdkNode %s", err.Error())
 	}
