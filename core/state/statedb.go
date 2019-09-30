@@ -634,3 +634,12 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 	log.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
 }
+
+func (s *StateDB) GetOwner(candidate common.Address) common.Address {
+	slot := slotValidatorMapping["validatorsState"]
+	// validatorsState[_candidate].owner;
+	locValidatorsState := GetLocMappingAtKey(candidate.Hash(), slot)
+	locCandidateOwner := locValidatorsState.Add(locValidatorsState, new(big.Int).SetUint64(uint64(0)))
+	ret := s.GetState(common.HexToAddress(common.MasternodeVotingSMC), common.BigToHash(locCandidateOwner))
+	return common.HexToAddress(ret.Hex())
+}

@@ -865,7 +865,8 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
-	res, gas, failed, err := core.ApplyMessage(evm, msg, gp)
+	owner := common.Address{}
+	res, gas, failed, err := core.ApplyMessage(evm, msg, gp, owner)
 	if err := vmError(); err != nil {
 		return nil, 0, false, err
 	}
@@ -1901,7 +1902,7 @@ func (s *PublicBlockChainAPI) GetStakerROI() float64 {
 	holderReward := new(big.Int).Div(masternodeReward, new(big.Int).SetUint64(2))
 	EpochPerYear := 365 * 86400 / s.b.GetEpochDuration().Uint64()
 	voterRewardAYear := new(big.Int).Mul(holderReward, new(big.Int).SetUint64(EpochPerYear))
-	
+
 	return 100.0 / float64(totalCap.Div(totalCap, voterRewardAYear).Uint64())
 }
 
