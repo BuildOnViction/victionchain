@@ -163,6 +163,10 @@ func (b *EthApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	return b.eth.txPool.AddLocal(signedTx)
 }
 
+func (b *EthApiBackend) SendOrderTx(ctx context.Context, signedTx *types.Transaction) error {
+	return b.eth.orderPool.AddLocal(signedTx)
+}
+
 func (b *EthApiBackend) GetPoolTransactions() (types.Transactions, error) {
 	pending, err := b.eth.txPool.Pending()
 	if err != nil {

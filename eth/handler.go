@@ -20,11 +20,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/golang-lru"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -70,6 +71,7 @@ type ProtocolManager struct {
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
 
 	txpool      txPool
+	orderpool   orderPool
 	blockchain  *core.BlockChain
 	chainconfig *params.ChainConfig
 	maxPeers    int
@@ -82,7 +84,9 @@ type ProtocolManager struct {
 
 	eventMux      *event.TypeMux
 	txCh          chan core.TxPreEvent
+	orderTxCh     chan core.TxPreEvent
 	txSub         event.Subscription
+	orderTxSub    event.Subscription
 	minedBlockSub *event.TypeMuxSubscription
 
 	// channels for fetcher, syncer, txsyncLoop
@@ -99,13 +103,14 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the ethereum network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, orderpool orderPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
 	knownTxs, _ := lru.New(maxKnownTxs)
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkId:   networkId,
 		eventMux:    mux,
 		txpool:      txpool,
+		orderpool:   orderpool,
 		blockchain:  blockchain,
 		chainconfig: config,
 		peers:       newPeerSet(),
@@ -219,6 +224,11 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast transactions
 	pm.txCh = make(chan core.TxPreEvent, txChanSize)
 	pm.txSub = pm.txpool.SubscribeTxPreEvent(pm.txCh)
+
+	pm.orderTxCh = make(chan core.TxPreEvent, txChanSize)
+
+	pm.orderTxSub = pm.orderpool.SubscribeTxPreEvent(pm.orderTxCh)
+
 	go pm.txBroadcastLoop()
 
 	// broadcast mined blocks
@@ -680,6 +690,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		var unkownTxs []*types.Transaction
+
+		var orderTxs []*types.Transaction
+		var transTxs []*types.Transaction
+
 		for i, tx := range txs {
 			// Validate and mark the remote transaction
 			if tx == nil {
@@ -692,8 +706,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			} else {
 				log.Trace("Discard known tx", "hash", tx.Hash(), "nonce", tx.Nonce(), "to", tx.To())
 			}
+			if tx.To().Hex() == core.AddressOrderTransaction {
+				log.Info("protocol handle order recv")
+				orderTxs = append(orderTxs, tx)
+			} else {
+				log.Info("protocol handle tx recv")
+				transTxs = append(transTxs, tx)
+			}
 		}
-		pm.txpool.AddRemotes(txs)
+		pm.txpool.AddRemotes(transTxs)
+		pm.orderpool.AddRemotes(orderTxs)
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
@@ -763,8 +785,13 @@ func (self *ProtocolManager) txBroadcastLoop() {
 		case event := <-self.txCh:
 			self.BroadcastTx(event.Tx.Hash(), event.Tx)
 
+		case event := <-self.orderTxCh:
+			self.BroadcastTx(event.Tx.Hash(), event.Tx)
+
 			// Err() channel will be closed when unsubscribing.
 		case <-self.txSub.Err():
+			return
+		case <-self.orderTxSub.Err():
 			return
 		}
 	}

@@ -1538,6 +1538,15 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	return tx.Hash(), nil
 }
 
+// submitTransaction is a helper function that submits tx to txPool and logs a message.
+func submitOrderTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+
+	if err := b.SendOrderTx(ctx, tx); err != nil {
+		return common.Hash{}, err
+	}
+	return tx.Hash(), nil
+}
+
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
@@ -1583,6 +1592,16 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	return submitTransaction(ctx, s.b, tx)
+}
+
+// SendOrderRawTransaction will add the signed transaction to the transaction pool.
+// The sender is responsible for signing the transaction and using the correct nonce.
+func (s *PublicTransactionPoolAPI) SendOrderRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	tx := new(types.Transaction)
+	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
+		return common.Hash{}, err
+	}
+	return submitOrderTransaction(ctx, s.b, tx)
 }
 
 // Sign calculates an ECDSA signature for:
@@ -1901,7 +1920,7 @@ func (s *PublicBlockChainAPI) GetStakerROI() float64 {
 	holderReward := new(big.Int).Div(masternodeReward, new(big.Int).SetUint64(2))
 	EpochPerYear := 365 * 86400 / s.b.GetEpochDuration().Uint64()
 	voterRewardAYear := new(big.Int).Mul(holderReward, new(big.Int).SetUint64(EpochPerYear))
-	
+
 	return 100.0 / float64(totalCap.Div(totalCap, voterRewardAYear).Uint64())
 }
 

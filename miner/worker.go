@@ -20,12 +20,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/tomox"
 	"math/big"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/ethereum/go-ethereum/tomox"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -601,6 +602,7 @@ func (self *worker) commitNewWork() {
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		tomoX := self.eth.GetTomoX()
+
 		if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
 			manager := self.eth.AccountManager()
 			if manager != nil {

@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -578,8 +579,10 @@ func opSload(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *St
 }
 
 func opSstore(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	loc := common.BigToHash(stack.pop())
+	s := stack.pop()
+	loc := common.BigToHash(s)
 	val := stack.pop()
+	log.Info("opSstore", "contract", contract.Address().Hex(), "slot", s, "value", val, "loc", loc, "v", common.BigToHash(val))
 	evm.StateDB.SetState(contract.Address(), loc, common.BigToHash(val))
 
 	evm.interpreter.intPool.put(val)

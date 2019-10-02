@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"math/big"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/contracts/tomox"
 	"github.com/ethereum/go-ethereum/contracts/tomox/simulation"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"log"
-	"math/big"
-	"time"
 )
 
 func main() {
@@ -77,7 +78,7 @@ func main() {
 	applyTomoXListing(tomoxListing, tokenList, currentNonce)
 
 	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
-	airdrop(auth, client, tokenList, simulation.TeamAddresses, currentNonce)
+	//airdrop(auth, client, tokenList, simulation.TeamAddresses, currentNonce)
 
 	// relayer registration
 	ownerRelayer := bind.NewKeyedTransactor(simulation.OwnerRelayerKey)

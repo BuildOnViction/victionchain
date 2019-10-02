@@ -20,13 +20,14 @@ import (
 	"container/heap"
 	"errors"
 	"fmt"
+	"io"
+	"math/big"
+	"sync/atomic"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"io"
-	"math/big"
-	"sync/atomic"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -177,12 +178,12 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Data() []byte        { return common.CopyBytes(tx.data.Payload) }
-func (tx *Transaction) Gas() uint64         { return tx.data.GasLimit }
-func (tx *Transaction) GasPrice() *big.Int  { return new(big.Int).Set(tx.data.Price) }
-func (tx *Transaction) Value() *big.Int     { return new(big.Int).Set(tx.data.Amount) }
-func (tx *Transaction) Nonce() uint64       { return tx.data.AccountNonce }
-func (tx *Transaction) CheckNonce() bool    { return true }
+func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
+func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
+func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
+func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
+func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
+func (tx *Transaction) CheckNonce() bool   { return true }
 
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.

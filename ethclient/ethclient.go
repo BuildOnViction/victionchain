@@ -476,6 +476,18 @@ func (ec *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	return ec.c.CallContext(ctx, nil, "eth_sendRawTransaction", common.ToHex(data))
 }
 
+// SendOrderTransaction injects a signed transaction into the pending pool for execution.
+//
+// If the transaction was a contract creation use the TransactionReceipt method to get the
+// contract address after the transaction has been mined.
+func (ec *Client) SendOrderTransaction(ctx context.Context, tx *types.Transaction) error {
+	data, err := rlp.EncodeToBytes(tx)
+	if err != nil {
+		return err
+	}
+	return ec.c.CallContext(ctx, nil, "eth_sendOrderRawTransaction", common.ToHex(data))
+}
+
 func toCallArg(msg ethereum.CallMsg) interface{} {
 	arg := map[string]interface{}{
 		"from": msg.From,

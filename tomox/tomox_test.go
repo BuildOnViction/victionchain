@@ -1,16 +1,23 @@
 package tomox
 
 import (
+	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
+	"log"
 	"math/big"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 func buildOrder(nonce *big.Int) *OrderItem {
@@ -18,8 +25,8 @@ func buildOrder(nonce *big.Int) *OrderItem {
 	v := []byte(string(rand.Intn(999)))
 	lstBuySell := []string{"BUY", "SELL"}
 	order := &OrderItem{
-		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 1000000000000000000),
-		Price:           new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 100000000000000000),
+		Quantity: new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 1000000000000000000),
+		Price:    new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 100000000000000000),
 		//Quantity: new(big.Int).SetUint64(uint64(5) * 1000000000000000000),
 		//Price:           new(big.Int).SetUint64(uint64(2) * 100000000000000000),
 		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
@@ -29,8 +36,8 @@ func buildOrder(nonce *big.Int) *OrderItem {
 		Status:          "New",
 		Side:            lstBuySell[rand.Int()%len(lstBuySell)],
 		//Side: "SELL",
-		Type:            Limit,
-		PairName:        "BTC/ETH",
+		Type:     Limit,
+		PairName: "BTC/ETH",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash(nonce.String()),
 		Signature: &Signature{
@@ -96,7 +103,6 @@ func TestCancelOrder(t *testing.T) {
 	//FIXME
 	// disable this test in travis CI
 	t.SkipNow()
-
 
 	order := buildOrder(new(big.Int).SetInt64(1))
 	topic := order.BaseToken.Hex() + "::" + order.QuoteToken.Hex()
@@ -441,5 +447,73 @@ func TestTomoX_VerifyOrderNonce(t *testing.T) {
 	order.UserAddress = common.HexToAddress("0x0022")
 	if err := tomox.verifyOrderNonce(order); err != nil {
 		t.Error("Expected: no error")
+	}
+}
+
+func transaction(t *testing.T, nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {
+	return pricedTransaction(t, nonce, gaslimit, big.NewInt(1), key)
+}
+func pricedTransaction(t *testing.T, nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
+	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, nil), types.HomesteadSigner{}, key)
+	return tx
+}
+func TestOrderPoolTx(t *testing.T) {
+
+	client, err := ethclient.Dial("http://127.0.0.1:8501")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	privateKey, err := crypto.HexToECDSA("73b5236e8c0781fc9ce40d71f5bcdd2187753b2653410c5e6fdf4a2a961737fd")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	nonce := uint64(1)
+
+	value := big.NewInt(0) // in wei (1 eth)
+	gasLimit := uint64(0)  // in units
+	gasPrice := big.NewInt(0)
+
+	toAddress := common.HexToAddress("0x0000000000000000000000000000000000000070")
+	var data []byte
+
+	buy := &OrderItem{
+		Quantity:        new(big.Int).SetUint64(1000000000000000000),
+		Price:           new(big.Int).SetUint64(100000000000000000),
+		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		UserAddress:     common.HexToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
+		BaseToken:       common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		QuoteToken:      common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		Status:          "New",
+		Side:            "BUY",
+		Type:            "LO",
+		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
+		Hash:            common.StringToHash("1"),
+
+		FilledAmount: new(big.Int).SetUint64(0),
+		Nonce:        new(big.Int).SetUint64(1),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	data, err = json.Marshal(buy)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+
+	chainID := big.NewInt(1515)
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = client.SendOrderTransaction(context.Background(), signedTx)
+	if err != nil {
+		log.Fatal(err)
 	}
 }

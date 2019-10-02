@@ -20,7 +20,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/tomox"
 	"io"
 	"math/big"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/ethereum/go-ethereum/tomox"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -105,9 +106,10 @@ type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
-	db     ethdb.Database // Low level persistent database to store final content in
-	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
+	db ethdb.Database // Low level persistent database to store final content in
+
+	triegc *prque.Prque  // Priority queue mapping block numbers to tries to gc
+	gcproc time.Duration // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
 	rmLogsFeed    event.Feed
@@ -417,6 +419,26 @@ func (bc *BlockChain) State() (*state.StateDB, error) {
 // StateAt returns a new mutable state based on a particular point in time.
 func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 	return state.New(root, bc.stateCache)
+}
+
+// OrderStateAt returns a new mutable state based on a particular point in time.
+func (bc *BlockChain) OrderStateAt(root common.Hash) (*state.OrderState, error) {
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+
+		if engine.GetTomoXService != nil {
+			tomoXService = engine.GetTomoXService()
+			noncels := make(map[common.Address]*big.Int)
+			noncels, err := tomoXService.LoadOrderNonce()
+			if err != nil {
+			}
+			log.Info("OrderStateAt", "len", len(noncels))
+			return state.NewOrderState(noncels), nil
+		}
+
+	}
+	return nil, errors.New("cannot get GetTomoXService")
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.
@@ -1300,6 +1322,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// epoch block
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 				CheckpointCh <- 1
+				epochNumber := block.NumberU64() / bc.chainConfig.Posv.Epoch
+				log.Info("Set fee cache", "epoch", epochNumber)
+				relayerFeeList := tomox.GetCoinbaseFeeList(statedb)
+				if tomoXService != nil {
+					tomoXService.SetFeeCache(epochNumber, relayerFeeList)
+				}
+
 			}
 			// prepare set of masternodes for the next epoch
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == (bc.chainConfig.Posv.Epoch - bc.chainConfig.Posv.Gap) {
@@ -1564,6 +1593,18 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		// epoch block
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 			CheckpointCh <- 1
+			epochNumber := block.NumberU64() / bc.chainConfig.Posv.Epoch
+			log.Info("Set fee cache", "epoch", epochNumber)
+			relayerFeeList := tomox.GetCoinbaseFeeList(result.state)
+			var tomoXService *tomox.TomoX
+			engine, ok := bc.Engine().(*posv.Posv)
+			if ok {
+				tomoXService = engine.GetTomoXService()
+				if tomoXService != nil {
+					tomoXService.SetFeeCache(epochNumber, relayerFeeList)
+				}
+			}
+
 		}
 		// prepare set of masternodes for the next epoch
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == (bc.chainConfig.Posv.Epoch - bc.chainConfig.Posv.Gap) {

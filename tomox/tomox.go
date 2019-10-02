@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"encoding/hex"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/sync/syncmap"
 	"gopkg.in/fatih/set.v0"
 )
@@ -125,6 +126,8 @@ type TomoX struct {
 	activePairs map[string]bool // hold active pairs
 
 	tokenDecimalCache *lru.Cache
+	relayerFeeCache   map[uint64]map[common.Address]*big.Int // cache relayer fee by epoch number
+
 }
 
 func NewLDBEngine(cfg *Config) *BatchDatabase {
@@ -159,6 +162,7 @@ func New(cfg *Config) *TomoX {
 		activePairs:         make(map[string]bool),
 		processedOrderCache: poCache,
 		tokenDecimalCache:   tokenDecimalCache,
+		relayerFeeCache:     make(map[uint64]map[common.Address]*big.Int),
 	}
 	switch cfg.DBEngine {
 	case "leveldb":
@@ -751,6 +755,24 @@ func (tomox *TomoX) GetOrderNonce(address common.Address) (*big.Int, error) {
 	return orderNonce, nil
 }
 
+// LoadOrderNonce load order storage
+func (tomox *TomoX) LoadOrderNonce() (map[common.Address]*big.Int, error) {
+	var (
+		orderNonce map[common.Address]*big.Int
+		err        error
+		val        interface{}
+	)
+	val, err = tomox.db.Get([]byte(orderNonceKey), &[]byte{}, false, common.Hash{})
+	if err != nil {
+		return nil, err
+	}
+	b := *val.(*[]byte)
+	if err = json.Unmarshal(b, &orderNonce); err != nil {
+		return nil, err
+	}
+	return orderNonce, nil
+}
+
 // load orderNonce from persistent storage
 func (tomox *TomoX) loadOrderNonce() error {
 	var (
@@ -1332,4 +1354,23 @@ func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *
 		return fmt.Errorf("SDKNode: failed to update matchedOrder to sdkNode %s", err.Error())
 	}
 	return nil
+}
+
+// SetFeeCache set cache by epoch
+func (tomox *TomoX) SetFeeCache(epochNumber uint64, mapFee map[common.Address]*big.Int) {
+	tomox.relayerFeeCache[epochNumber] = mapFee
+}
+
+// GetFeeCache get Fee by epoch and coinbase address
+func (tomox *TomoX) GetFeeCache(epochNumber uint64, coinBase common.Address) (*big.Int, error) {
+	if listCoinbaseFee, ok := tomox.relayerFeeCache[epochNumber]; ok {
+		if fee, ok := listCoinbaseFee[coinBase]; ok {
+			return fee, nil
+		} else {
+			return nil, errors.New("coinBase cache not found")
+		}
+	} else {
+		return nil, errors.New("epoch number cache not found")
+	}
+	return nil, nil
 }

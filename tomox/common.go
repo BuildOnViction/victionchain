@@ -3,8 +3,9 @@ package tomox
 import (
 	"encoding/json"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Comparator func(a, b []byte) int
@@ -17,23 +18,25 @@ const (
 	FalseByte = byte(0)
 	decimals  = 18
 )
+
 var (
 	TokenMappingSlot = map[string]uint64{
 		"balances": 0,
 	}
 	RelayerMappingSlot = map[string]uint64{
-		"CONTRACT_OWNER":   0,
-		"MaximumRelayers":  1,
-		"MaximumTokenList": 2,
-		"RELAYER_LIST":     3,
-		"OWNER_LIST":       4,
+		"CONTRACT_OWNER":    0,
+		"MaximumRelayers":   1,
+		"MaximumTokenList":  2,
+		"RELAYER_LIST":      3,
+		"OWNER_LIST":        4,
+		"RelayerCount":      7,
+		"RELAYER_COINBASES": 3,
 	}
 	RelayerStructMappingSlot = map[string]*big.Int{
 		"_deposit": big.NewInt(0),
 		"_fee":     big.NewInt(1),
 	}
 )
-
 
 var (
 	// errors

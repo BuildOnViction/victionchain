@@ -676,6 +676,12 @@ web3._extend({
             call: 'tomoX_getOrderNonce',
             params: 1,
             inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
+		new web3._extend.Method({
+            name: 'GetFeeByEpoch',
+            call: 'tomoX_GetFeeByEpoch',
+            params: 1,
+            inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]
         }),
 		new web3._extend.Method({
             name: 'getBestBid',

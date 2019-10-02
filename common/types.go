@@ -36,7 +36,7 @@ const (
 	FoudationAddr          = "0x0000000000000000000000000000000000000068"
 	TeamAddr               = "0x0000000000000000000000000000000000000099"
 	TomoXAddr              = "0x0000000000000000000000000000000000000091"
-	RelayerRegistrationSMC = "0x82c41f368c6df8ac52fd2ab159b5860a89a85fe3"
+	RelayerRegistrationSMC = "0x0342d186212b04E69eA682b3bed8e232b6b3361a"
 	TomoNativeAddress      = "0x0000000000000000000000000000000000000001"
 	VoteMethod             = "0x6dd7d8ea"
 	UnvoteMethod           = "0x02aa9be2"

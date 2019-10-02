@@ -1,10 +1,11 @@
 package simulation
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"os"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var (
@@ -19,8 +20,8 @@ var (
 	TRC21TokenFee = big.NewInt(100)
 
 	// TOMOX
-	MaxRelayers  = big.NewInt(200)
-	MaxTokenList = big.NewInt(200)
+	MaxRelayers  = uint16(100)
+	MaxTokenList = big.NewInt(150)
 	MinDeposit   = big.NewInt(25000) // 25000 TOMO
 	TradeFee     = uint16(1)
 

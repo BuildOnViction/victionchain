@@ -21,7 +21,7 @@ const (
 	DefaultMinGasPrice         = 2500
 	MergeSignRange             = 15
 	RangeReturnSigner          = 150
-	MinimunMinerBlockPerEpoch  = 1
+	MinimunMinerBlockPerEpoch  = 2
 	TomoXSnapshotInterval      = 100 // 100 blocks
 )
 

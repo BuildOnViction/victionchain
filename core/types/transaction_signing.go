@@ -269,3 +269,41 @@ func CacheSigner(signer Signer, tx *Transaction) {
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
 }
+
+// OrderSigner signer
+type OrderSigner struct{}
+
+// Equal compare two signer
+func (ordersign OrderSigner) Equal(s2 Signer) bool {
+	_, ok := s2.(OrderSigner)
+	return ok
+}
+
+//SignatureValues returns signature values. This signature needs to be in the [R || S || V] format where V is 0 or 1.
+func (ordersign OrderSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
+	if len(sig) != 65 {
+		panic(fmt.Sprintf("wrong size for signature: got %d, want 65", len(sig)))
+	}
+	r = new(big.Int).SetBytes(sig[:32])
+	s = new(big.Int).SetBytes(sig[32:64])
+	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	return r, s, v, nil
+}
+
+// Hash returns the hash to be signed by the sender.
+// It does not uniquely identify the transaction.
+func (ordersign OrderSigner) Hash(tx *Transaction) common.Hash {
+	return rlpHash([]interface{}{
+		tx.data.AccountNonce,
+		tx.data.Price,
+		tx.data.GasLimit,
+		tx.data.Recipient,
+		tx.data.Amount,
+		tx.data.Payload,
+	})
+}
+
+// Sender get signer from
+func (ordersign OrderSigner) Sender(tx *Transaction) (common.Address, error) {
+	return recoverPlain(ordersign.Hash(tx), tx.data.R, tx.data.S, tx.data.V, false)
+}
