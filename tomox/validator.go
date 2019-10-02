@@ -243,17 +243,6 @@ func (tx TxDataMatch) GetTrades() []map[string]string {
 	return tx.Trades
 }
 
-func (tx TxDataMatch) DecodeOrderInBook() (*OrderItem, error) {
-	if len(tx.OrderInBook) == 0 {
-		return nil, nil
-	}
-	orderInBook := &OrderItem{}
-	if err := DecodeBytesItem(tx.OrderInBook, orderInBook); err != nil {
-		return orderInBook, err
-	}
-	return orderInBook, nil
-}
-
 // MarshalSignature marshals the signature struct to []byte
 func (s *Signature) MarshalSignature() ([]byte, error) {
 	sigBytes1 := s.R.Bytes()

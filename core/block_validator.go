@@ -160,7 +160,7 @@ func (v *BlockValidator) validateMatchingOrder(tomoXService *tomox.TomoX, curren
 		if err := tomoXService.RemoveOrderFromPending(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
 			log.Debug("Fail to remove pending hash", "err", err)
 		}
-		if err := tomoXService.RemoveOrderPendingFromDB(order.Hash); err != nil {
+		if err := tomoXService.RemoveOrderPendingFromDB(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
 			log.Debug("Fail to remove order pending", "err", err)
 		}
 

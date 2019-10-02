@@ -221,25 +221,6 @@ func (db *MongoDatabase) SaveDryRunResult(hash common.Hash) error {
 	return nil
 }
 
-func (db *MongoDatabase) CancelOrder(orderHash common.Hash) error {
-	sc := db.Session.Copy()
-	defer sc.Close()
-	query := bson.M{"hash": orderHash.Hex()}
-	var result *OrderItem
-	if err := sc.DB(db.dbName).C("orders").Find(query).One(&result); err != nil {
-		if err == mgo.ErrNotFound {
-			//cancel done
-			return nil
-		}
-		return err
-	}
-	result.Status = Cancel
-	if _, err := sc.DB(db.dbName).C("orders").Upsert(query, result); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 
 	if o.CreatedAt.IsZero() {
@@ -255,7 +236,7 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 		o.Key = cacheKey
 	}
 
-	query := bson.M{"key": cacheKey}
+	query := bson.M{"hash": o.Hash.Hex()}
 
 	_, err := sc.DB(db.dbName).C("orders").Upsert(query, o)
 
@@ -264,7 +245,7 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *OrderItem) error {
 		return err
 	}
 
-	log.Debug("Save orderItem", "cacheKey", cacheKey, "value", ToJSON(o))
+	log.Debug("Save orderItem", "cacheKey", cacheKey, "orderhash", hex.EncodeToString(o.Hash.Bytes()), "value", ToJSON(o))
 
 	return nil
 }
@@ -278,7 +259,7 @@ func (db *MongoDatabase) CommitTrade(t *Trade) error {
 	t.CreatedAt = time.Now()
 	t.UpdatedAt = time.Now()
 
-	query := bson.M{"hash": t.Hash}
+	query := bson.M{"hash": t.Hash.Hex()}
 
 	_, err := sc.DB(db.dbName).C("trades").Upsert(query, t)
 

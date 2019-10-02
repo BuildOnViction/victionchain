@@ -49,6 +49,7 @@ const (
 	activePairsKey       = "ACTIVE_PAIRS"
 	pendingOrder         = "PENDING_ORDER"
 	pendingPrefix        = "XP"
+	pendingCancelPrefix  = "XPCANCEL"
 	orderProcessedLimit  = 1000
 	orderProcessLimit    = 20
 )
@@ -74,7 +75,6 @@ type OrderProcessed struct {
 type TxDataMatch struct {
 	Order       []byte // serialized data of order has been processed in this tx
 	Trades      []map[string]string
-	OrderInBook []byte // serialized data of order which remaining after matching
 	ObOld       common.Hash
 	ObNew       common.Hash
 	AskOld      common.Hash
@@ -703,7 +703,7 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 				log.Error("Failed to update orderNonce", "err", err)
 			}
 		}
-		if err := tomox.saveOrderPendingToDB(order); err != nil {
+		if err := tomox.saveOrderPendingToDB(order, order.Status == OrderStatusCancelled); err != nil {
 			return err
 		}
 	} else {
@@ -834,7 +834,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 	if len(pendingOrders) > 0 {
 		for i, pendingOrder := range pendingOrders {
 			if i < orderProcessLimit {
-				order := tomox.getOrderPending(pendingOrder.Hash)
+				order := tomox.getOrderPendingFromDB(pendingOrder.Hash, pendingOrder.Cancel)
 				if order != nil {
 					if pendingOrder.Cancel || !tomox.ExistProcessedOrderHash(pendingOrder.Hash) {
 						var (
@@ -874,7 +874,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 							order.Status = OrderStatusCancelled
 						}
 
-						trades, orderInBook, err := ob.ProcessOrder(order, true, true, blockHash)
+						trades, _, err := ob.ProcessOrder(order, true, true, blockHash)
 
 						// remove order from pending list
 						if err := tomox.RemoveOrderFromPending(order.Hash, order.Status == OrderStatusCancelled); err != nil {
@@ -882,7 +882,7 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 						}
 
 						// remove order pending
-						if err := tomox.RemoveOrderPendingFromDB(order.Hash); err != nil {
+						if err := tomox.RemoveOrderPendingFromDB(order.Hash, order.Status == OrderStatusCancelled); err != nil {
 							continue
 						}
 
@@ -913,19 +913,10 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 							log.Error("Can't encode", "order", originalOrder, "err", err)
 							continue
 						}
-						orderInBookValue := []byte{}
-						if orderInBook != nil {
-							orderInBookValue, err = EncodeBytesItem(orderInBook)
-							if err != nil {
-								log.Error("Can't encode orderInBook", "orderInBook", orderInBook, "err", err)
-								continue
-							}
-						}
 						log.Debug("Process OrderPending completed", "orderNonce", order.Nonce, "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
 						txMatch := TxDataMatch{
 							Order:       originalOrderValue,
 							Trades:      trades,
-							OrderInBook: orderInBookValue,
 							ObOld:       obOld,
 							ObNew:       obNew,
 							AskOld:      askOld,
@@ -945,12 +936,15 @@ func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
 	return txMatches
 }
 
-func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
+func (tomox *TomoX) getOrderPendingFromDB(orderHash common.Hash, cancel bool) *OrderItem {
 	var (
 		val interface{}
 		err error
 	)
 	prefix := []byte(pendingPrefix)
+	if cancel {
+		prefix = []byte(pendingCancelPrefix)
+	}
 	key := append(prefix, orderHash.Bytes()...)
 	log.Debug("Get order pending", "order", orderHash, "key", hex.EncodeToString(key))
 	if ok, _ := tomox.db.Has(key, false, common.Hash{}); ok {
@@ -969,8 +963,11 @@ func (tomox *TomoX) getOrderPending(orderHash common.Hash) *OrderItem {
 	return val.(*OrderItem)
 }
 
-func (tomox *TomoX) saveOrderPendingToDB(order *OrderItem) error {
+func (tomox *TomoX) saveOrderPendingToDB(order *OrderItem, cancel bool) error {
 	prefix := []byte(pendingPrefix)
+	if cancel {
+		prefix = []byte(pendingCancelPrefix)
+	}
 	key := append(prefix, order.Hash.Bytes()...)
 	// Insert new order pending.
 	log.Debug("Add order pending", "order", order, "key", hex.EncodeToString(key))
@@ -982,13 +979,24 @@ func (tomox *TomoX) saveOrderPendingToDB(order *OrderItem) error {
 	return nil
 }
 
-func (tomox *TomoX) RemoveOrderPendingFromDB(orderHash common.Hash) error {
+func (tomox *TomoX) RemoveOrderPendingFromDB(orderHash common.Hash, cancel bool) error {
 	prefix := []byte(pendingPrefix)
 	key := append(prefix, orderHash.Bytes()...)
 	log.Debug("Remove order pending", "orderHash", orderHash, "key", hex.EncodeToString(key))
 	if err := tomox.db.Delete(key, false, common.Hash{}); err != nil {
-		log.Error("Fail to delete order pending", "err", err)
+		log.Error("Fail to delete order pending", "with prefix", pendingPrefix, "err", err)
 		return err
+	}
+
+	// cancel will remove both pendingprefix and pendingcancelprefix data.
+	if cancel {
+		prefix = []byte(pendingCancelPrefix)
+		key := append(prefix, orderHash.Bytes()...)
+		log.Debug("Remove order pending", "orderHash", orderHash, "key", hex.EncodeToString(key))
+		if err := tomox.db.Delete(key, false, common.Hash{}); err != nil {
+			log.Error("Fail to delete order pending", "with prefix", pendingCancelPrefix,"err", err)
+			return err
+		}
 	}
 	return nil
 }
@@ -1068,7 +1076,7 @@ func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash, cancel bool) er
 		}
 
 		// remove order pending
-		if err := tomox.RemoveOrderPendingFromDB(orderHash); err != nil {
+		if err := tomox.RemoveOrderPendingFromDB(orderHash, cancel); err != nil {
 			log.Warn("Double check pending order at addProcessedOrderHash. Failed to remove pending order", "err", err, "orderHash", orderHash)
 		}
 		return nil
@@ -1223,14 +1231,13 @@ func (tomox *TomoX) ApplyTxMatches(orders []*OrderItem, blockHash common.Hash) e
 // 2. txMatchData.Trades: includes information of matched orders.
 // 		a. Put them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
-// 3. txMatchData.OrderInBook: remaining order after matching. If order has been matched but still remain in orderbook, update status to sdktypes.OrderStatusPartialFilled
 func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Hash, statedb *state.StateDB) error {
 	// apply for SDK nodes only
 	if !tomox.IsSDKNode() {
 		return nil
 	}
 	var (
-		order, orderInBook *OrderItem
+		order *OrderItem
 		err                error
 	)
 	db := tomox.GetDB()
@@ -1241,17 +1248,16 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		return fmt.Errorf("SDK node decode order failed")
 	}
 
-	if order.Status == OrderStatusCancelled {
-		if err := tomox.db.CancelOrder(order.Hash); err != nil {
-			return err
-		}
-		return nil
+	if order.Status != OrderStatusCancelled {
+		order.Status = OrderStatusOpen
 	}
-	order.Status = OrderStatusOpen
 
 	log.Debug("Put processed order", "order", order)
 	if err := db.Put(order.Hash.Bytes(), order, false, common.Hash{}); err != nil {
 		return fmt.Errorf("SDKNode: failed to put processed order. Error: %s", err.Error())
+	}
+	if order.Status == OrderStatusCancelled {
+		return nil
 	}
 
 	// 2. put trades to db and update status to FILLED
@@ -1301,41 +1307,17 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		// 2.b. update status and filledAmount
 		filledAmount := quantity
 		// update order status of relating orders
-		if err := tomox.updateStatusOfMatchedOrder(trade[TradeMakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateMatchedOrder(trade[TradeMakerOrderHash], filledAmount); err != nil {
 			return err
 		}
-		if err := tomox.updateStatusOfMatchedOrder(trade[TradeTakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateMatchedOrder(trade[TradeTakerOrderHash], filledAmount); err != nil {
 			return err
-		}
-	}
-
-	// 3. in case of remaining order in orderTree, the status of order should be partial_filled
-	if orderInBook, err = txDataMatch.DecodeOrderInBook(); err != nil {
-		log.Error("SDK node decode orderInBook failed", "txDataMatch", txDataMatch)
-		return fmt.Errorf("SDK node decode orderInBook failed")
-	}
-	log.Debug("OrderInBook found in blockdata", "order", orderInBook)
-	if orderInBook != nil {
-		existingOrderInDB := &OrderItem{}
-		key := orderInBook.Hash.Bytes()
-		data, err := tomox.db.Get(key, &OrderItem{}, false, common.Hash{})
-		if data != nil && err == nil {
-			existingOrderInDB = data.(*OrderItem)
-			log.Debug("OrderInBook found in database", "order", existingOrderInDB)
-			if existingOrderInDB.Status == OrderStatusFilled {
-				log.Debug("Update status to PARTIAL_FILLED", "order", existingOrderInDB)
-				// if order already matched but still exist in orderbook, then update status to OrderStatusPartialFilled
-				existingOrderInDB.Status = OrderStatusPartialFilled
-				if err = db.Put(key, existingOrderInDB, false, common.Hash{}); err != nil {
-					return fmt.Errorf("SDKNode: failed to update status to %s %s", existingOrderInDB.Status, err.Error())
-				}
-			}
 		}
 	}
 	return nil
 }
 
-func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *big.Int) error {
+func (tomox *TomoX) updateMatchedOrder(hashString string, filledAmount *big.Int) error {
 	db := tomox.GetDB()
 	orderHashBytes, err := hex.DecodeString(hashString)
 	if err != nil {
@@ -1346,10 +1328,14 @@ func (tomox *TomoX) updateStatusOfMatchedOrder(hashString string, filledAmount *
 		return fmt.Errorf("SDKNode: failed to get order. Key: %s", hashString)
 	}
 	matchedOrder := val.(*OrderItem)
-	matchedOrder.Status = OrderStatusFilled
 	updatedFillAmount := new(big.Int)
 	updatedFillAmount.Add(matchedOrder.FilledAmount, filledAmount)
 	matchedOrder.FilledAmount = updatedFillAmount
+	if matchedOrder.FilledAmount.Cmp(matchedOrder.Quantity) < 0 {
+		matchedOrder.Status = OrderStatusPartialFilled
+	} else {
+		matchedOrder.Status = OrderStatusFilled
+	}
 	if err = db.Put(matchedOrder.Hash.Bytes(), matchedOrder, false, common.Hash{}); err != nil {
 		return fmt.Errorf("SDKNode: failed to update matchedOrder to sdkNode %s", err.Error())
 	}

@@ -164,7 +164,7 @@ func (api *PublicTomoXAPI) CancelOrder(ctx context.Context, req NewMessage) (boo
 		return false, err
 	}
 	//set cancel signature to the order payload
-	payload.Status = "CANCELLED"
+	payload.Status = OrderStatusCancelled
 	//then encode it again
 	params.Payload, err = json.Marshal(payload)
 	if err != nil {
@@ -381,7 +381,7 @@ func (api *PublicTomoXAPI) PurgePendingOrders() error {
 			log.Error("Failed to purge pending hash", "err", err)
 			return err
 		}
-		if err := api.t.RemoveOrderPendingFromDB(p.Hash); err != nil {
+		if err := api.t.RemoveOrderPendingFromDB(p.Hash, p.Cancel); err != nil {
 			log.Error("Failed to purge pending orders", "err", err)
 			return err
 		}
@@ -435,8 +435,7 @@ func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, erro
 	result := []*OrderItem{}
 	pending := api.t.getPendingOrders()
 	for _, p := range pending {
-		hash := p.Hash
-		order := api.t.getOrderPending(hash)
+		order := api.t.getOrderPendingFromDB(p.Hash, p.Cancel)
 		if order != nil && strings.ToLower(order.PairName) == strings.ToLower(pairName) {
 			result = append(result, order)
 		}
