@@ -17,10 +17,8 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"sort"
 	"sync"
@@ -73,7 +71,7 @@ type blockChainTomox interface {
 // DefaultOrderPoolConfig contains the default configurations for the transaction
 // pool.
 var DefaultOrderPoolConfig = OrderPoolConfig{
-	Journal:   "transactions.rlp",
+	Journal:   "transactions_order.rlp",
 	Rejournal: time.Hour,
 
 	AccountSlots: 16,
@@ -136,20 +134,20 @@ type OrderPool struct {
 	scope        event.SubscriptionScope
 	chainHeadCh  chan ChainHeadEvent
 	chainHeadSub event.Subscription
-	signer       types.Signer
+	signer       types.OrderSigner
 	mu           sync.RWMutex
 
 	currentState *state.OrderState        // Current state in the blockchain head
 	pendingState *state.ManagedOrderState // Pending state tracking virtual nonces
 
-	locals  *accountSet     // Set of local transaction to exempt from eviction rules
-	journal *ordertxJournal // Journal of local transaction to back up to disk
+	locals  *orderAccountSet // Set of local transaction to exempt from eviction rules
+	journal *ordertxJournal  // Journal of local transaction to back up to disk
 
-	pending   map[common.Address]*ordertxList    // All currently processable transactions
-	queue     map[common.Address]*ordertxList    // Queued but non-processable transactions
-	beats     map[common.Address]time.Time       // Last heartbeat from each known account
-	all       map[common.Hash]*types.Transaction // All transactions to allow lookups
-	wg        sync.WaitGroup                     // for shutdown sync
+	pending   map[common.Address]*ordertxList         // All currently processable transactions
+	queue     map[common.Address]*ordertxList         // Queued but non-processable transactions
+	beats     map[common.Address]time.Time            // Last heartbeat from each known account
+	all       map[common.Hash]*types.OrderTransaction // All transactions to allow lookups
+	wg        sync.WaitGroup                          // for shutdown sync
 	homestead bool
 	IsSigner  func(address common.Address) bool
 }
@@ -165,14 +163,14 @@ func NewOrderPool(chainconfig *params.ChainConfig, chain blockChainTomox) *Order
 		config:      config,
 		chainconfig: chainconfig,
 		chain:       chain,
-		signer:      types.NewEIP155Signer(chainconfig.ChainId),
+		signer:      types.OrderTxSigner{},
 		pending:     make(map[common.Address]*ordertxList),
 		queue:       make(map[common.Address]*ordertxList),
 		beats:       make(map[common.Address]time.Time),
-		all:         make(map[common.Hash]*types.Transaction),
+		all:         make(map[common.Hash]*types.OrderTransaction),
 		chainHeadCh: make(chan ChainHeadEvent, chainHeadChanSize),
 	}
-	pool.locals = newAccountSet(pool.signer)
+	pool.locals = newOrderAccountSet(pool.signer)
 	pool.reset(nil, chain.CurrentBlock().Header())
 
 	// If local transactions and journaling is enabled, load from disk
@@ -291,53 +289,8 @@ func (pool *OrderPool) lockedReset(oldHead, newHead *types.Header) {
 // of the transaction pool is valid with regard to the chain state.
 func (pool *OrderPool) reset(oldHead, newHead *types.Header) {
 	// If we're reorging an old state, reinject all dropped transactions
-	var reinject types.Transactions
+	var reinject types.OrderTransactions
 
-	if oldHead != nil && oldHead.Hash() != newHead.ParentHash {
-		log.Info("OrderPool reorg")
-		// If the reorg is too deep, avoid doing it (will happen during fast sync)
-		oldNum := oldHead.Number.Uint64()
-		newNum := newHead.Number.Uint64()
-
-		if depth := uint64(math.Abs(float64(oldNum) - float64(newNum))); depth > 64 {
-			log.Debug("Skipping deep transaction reorg", "depth", depth)
-		} else {
-			// Reorg seems shallow enough to pull in all transactions into memory
-			var discarded, included types.Transactions
-
-			var (
-				rem = pool.chain.GetBlock(oldHead.Hash(), oldHead.Number.Uint64())
-				add = pool.chain.GetBlock(newHead.Hash(), newHead.Number.Uint64())
-			)
-			for rem.NumberU64() > add.NumberU64() {
-				discarded = append(discarded, rem.Transactions()...)
-				if rem = pool.chain.GetBlock(rem.ParentHash(), rem.NumberU64()-1); rem == nil {
-					log.Error("Unrooted old chain seen by tx pool", "block", oldHead.Number, "hash", oldHead.Hash())
-					return
-				}
-			}
-			for add.NumberU64() > rem.NumberU64() {
-				included = append(included, add.Transactions()...)
-				if add = pool.chain.GetBlock(add.ParentHash(), add.NumberU64()-1); add == nil {
-					log.Error("Unrooted new chain seen by tx pool", "block", newHead.Number, "hash", newHead.Hash())
-					return
-				}
-			}
-			for rem.Hash() != add.Hash() {
-				discarded = append(discarded, rem.Transactions()...)
-				if rem = pool.chain.GetBlock(rem.ParentHash(), rem.NumberU64()-1); rem == nil {
-					log.Error("Unrooted old chain seen by tx pool", "block", oldHead.Number, "hash", oldHead.Hash())
-					return
-				}
-				included = append(included, add.Transactions()...)
-				if add = pool.chain.GetBlock(add.ParentHash(), add.NumberU64()-1); add == nil {
-					log.Error("Unrooted new chain seen by tx pool", "block", newHead.Number, "hash", newHead.Hash())
-					return
-				}
-			}
-			reinject = types.TxDifference(discarded, included)
-		}
-	}
 	// Initialize the internal state to the current head
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock().Header() // Special case during testing
@@ -387,7 +340,7 @@ func (pool *OrderPool) Stop() {
 
 // SubscribeTxPreEvent registers a subscription of TxPreEvent and
 // starts sending event to the given channel.
-func (pool *OrderPool) SubscribeTxPreEvent(ch chan<- TxPreEvent) event.Subscription {
+func (pool *OrderPool) SubscribeTxPreEvent(ch chan<- OrderTxPreEvent) event.Subscription {
 	return pool.scope.Track(pool.txFeed.Subscribe(ch))
 }
 
@@ -422,31 +375,14 @@ func (pool *OrderPool) stats() (int, int) {
 	return pending, queued
 }
 
-// Content retrieves the data content of the transaction pool, returning all the
-// pending as well as queued transactions, grouped by account and sorted by nonce.
-func (pool *OrderPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	pending := make(map[common.Address]types.Transactions)
-	for addr, list := range pool.pending {
-		pending[addr] = list.Flatten()
-	}
-	queued := make(map[common.Address]types.Transactions)
-	for addr, list := range pool.queue {
-		queued[addr] = list.Flatten()
-	}
-	return pending, queued
-}
-
 // Pending retrieves all currently processable transactions, groupped by origin
 // account and sorted by nonce. The returned transaction set is a copy and can be
 // freely modified by calling code.
-func (pool *OrderPool) Pending() (map[common.Address]types.Transactions, error) {
+func (pool *OrderPool) Pending() (map[common.Address]types.OrderTransactions, error) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	pending := make(map[common.Address]types.Transactions)
+	pending := make(map[common.Address]types.OrderTransactions)
 	for addr, list := range pool.pending {
 		pending[addr] = list.Flatten()
 	}
@@ -456,8 +392,8 @@ func (pool *OrderPool) Pending() (map[common.Address]types.Transactions, error) 
 // local retrieves all currently known local transactions, groupped by origin
 // account and sorted by nonce. The returned transaction set is a copy and can be
 // freely modified by calling code.
-func (pool *OrderPool) local() map[common.Address]types.Transactions {
-	txs := make(map[common.Address]types.Transactions)
+func (pool *OrderPool) local() map[common.Address]types.OrderTransactions {
+	txs := make(map[common.Address]types.OrderTransactions)
 	for addr := range pool.locals.accounts {
 		if pending := pool.pending[addr]; pending != nil {
 			txs[addr] = append(txs[addr], pending.Flatten()...)
@@ -470,83 +406,28 @@ func (pool *OrderPool) local() map[common.Address]types.Transactions {
 }
 
 // GetSender get sender from transaction
-func (pool *OrderPool) GetSender(tx *types.Transaction) (common.Address, error) {
-	from, err := types.Sender(pool.signer, tx)
+func (pool *OrderPool) GetSender(tx *types.OrderTransaction) (common.Address, error) {
+	from, err := types.OrderSender(pool.signer, tx)
 	if err != nil {
 		return common.Address{}, ErrInvalidSender
 	}
 	return from, nil
 }
 
-// getOrderInputData validate order structure
-func (pool *OrderPool) getOrderInputData(tx *types.Transaction) (*OrderItem, error) {
-	var order OrderItem
-	err := json.Unmarshal(tx.Data(), &order)
-	if err != nil {
-		return nil, err
-	}
-	return &order, nil
-}
-
-// validateOrder validate order
-func (pool *OrderPool) validateOrder(tx *types.Transaction) error {
-	order, err := pool.getOrderInputData(tx)
-	if err != nil {
-		return ErrInvalidOrderContent
-	}
-	if order.Side != "BUY" && order.Side != "SELL" {
-		return ErrInvalidOrderContent
-	}
-	return nil
-}
-
-// validateOrderTransactionFormat validate format order transaction
-func (pool *OrderPool) validateOrderTransactionFormat(tx *types.Transaction) error {
-	if tx.To() == nil || (tx.To() != nil && tx.To().Hex() != AddressOrderTransaction) {
-		return ErrInvalidOrderFormat
-	}
-	if tx.Value().Cmp(big.NewInt(0)) != 0 {
-		return ErrInvalidOrderFormat
-	}
-	if tx.Gas() != 0 {
-		return ErrInvalidOrderFormat
-	}
-	return nil
-}
-
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
-func (pool *OrderPool) validateTx(tx *types.Transaction, local bool) error {
-	err := pool.validateOrderTransactionFormat(tx)
-	if err != nil {
-		return err
-	}
-	err = pool.validateOrder(tx)
-	if err != nil {
-		return err
-	}
-
+func (pool *OrderPool) validateTx(tx *types.OrderTransaction, local bool) error {
 	// check if sender is in black list
 	if tx.From() != nil && common.Blacklist[*tx.From()] {
 		return fmt.Errorf("Reject transaction with sender in black-list: %v", tx.From().Hex())
 	}
-	// check if receiver is in black list
-	if tx.To() != nil && common.Blacklist[*tx.To()] {
-		return fmt.Errorf("Reject transaction with receiver in black-list: %v", tx.To().Hex())
-	}
-
 	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks
 	if tx.Size() > 32*1024 {
 		return ErrOversizedData
 	}
-	// Transactions can't be negative. This may never happen using RLP decoded
-	// transactions but may occur if you create a transaction using the RPC.
-	if tx.Value().Sign() < 0 {
-		return ErrNegativeValue
-	}
 
 	// Make sure the transaction is signed properly
-	from, err := types.Sender(pool.signer, tx)
+	from, err := types.OrderSender(pool.signer, tx)
 	if err != nil {
 		return ErrInvalidSender
 	}
@@ -570,7 +451,7 @@ func (pool *OrderPool) validateTx(tx *types.Transaction, local bool) error {
 // If a newly added transaction is marked as local, its sending account will be
 // whitelisted, preventing any associated transaction from being dropped out of
 // the pool due to pricing constraints.
-func (pool *OrderPool) add(tx *types.Transaction, local bool) (bool, error) {
+func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error) {
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
 	if pool.all[hash] != nil {
@@ -584,7 +465,7 @@ func (pool *OrderPool) add(tx *types.Transaction, local bool) (bool, error) {
 		invalidTxCounter.Inc(1)
 		return false, err
 	}
-	from, _ := types.Sender(pool.signer, tx) // already validated
+	from, _ := types.OrderSender(pool.signer, tx) // already validated
 
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
@@ -604,16 +485,16 @@ func (pool *OrderPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 	pool.journalTx(from, tx)
 
-	log.Trace("Pooled new future transaction", "hash", hash, "from", from, "to", tx.To())
+	log.Trace("Pooled new future transaction", "hash", hash, "from", from)
 	return replace, nil
 }
 
 // enqueueTx inserts a new transaction into the non-executable transaction queue.
 //
 // Note, this method assumes the pool lock is held!
-func (pool *OrderPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, error) {
+func (pool *OrderPool) enqueueTx(hash common.Hash, tx *types.OrderTransaction) (bool, error) {
 	// Try to insert the transaction into the future queue
-	from, _ := types.Sender(pool.signer, tx) // already validated
+	from, _ := types.OrderSender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
 		pool.queue[from] = newOrderTxList(false)
 	}
@@ -634,7 +515,7 @@ func (pool *OrderPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool,
 
 // journalTx adds the specified transaction to the local disk journal if it is
 // deemed to have been sent from a local account.
-func (pool *OrderPool) journalTx(from common.Address, tx *types.Transaction) {
+func (pool *OrderPool) journalTx(from common.Address, tx *types.OrderTransaction) {
 	// Only journal if it's enabled and the transaction is local
 	if pool.journal == nil || !pool.locals.contains(from) {
 		return
@@ -647,7 +528,7 @@ func (pool *OrderPool) journalTx(from common.Address, tx *types.Transaction) {
 // promoteTx adds a transaction to the pending (processable) list of transactions.
 //
 // Note, this method assumes the pool lock is held!
-func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) {
+func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *types.OrderTransaction) {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
 		pool.pending[addr] = newOrderTxList(true)
@@ -674,13 +555,13 @@ func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *type
 	pool.beats[addr] = time.Now()
 	pool.pendingState.SetNonce(addr, tx.Nonce()+1)
 
-	go pool.txFeed.Send(TxPreEvent{tx})
+	go pool.txFeed.Send(OrderTxPreEvent{tx})
 }
 
 // AddLocal enqueues a single transaction into the pool if it is valid, marking
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
-func (pool *OrderPool) AddLocal(tx *types.Transaction) error {
+func (pool *OrderPool) AddLocal(tx *types.OrderTransaction) error {
 	log.Info("order add local tx")
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
@@ -688,28 +569,28 @@ func (pool *OrderPool) AddLocal(tx *types.Transaction) error {
 // AddRemote enqueues a single transaction into the pool if it is valid. If the
 // sender is not among the locally tracked ones, full pricing constraints will
 // apply.
-func (pool *OrderPool) AddRemote(tx *types.Transaction) error {
+func (pool *OrderPool) AddRemote(tx *types.OrderTransaction) error {
 	return pool.addTx(tx, false)
 }
 
 // AddLocals enqueues a batch of transactions into the pool if they are valid,
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
-func (pool *OrderPool) AddLocals(txs []*types.Transaction) []error {
+func (pool *OrderPool) AddLocals(txs []*types.OrderTransaction) []error {
 	return pool.addTxs(txs, !pool.config.NoLocals)
 }
 
 // AddRemotes enqueues a batch of transactions into the pool if they are valid.
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
-func (pool *OrderPool) AddRemotes(txs []*types.Transaction) []error {
+func (pool *OrderPool) AddRemotes(txs []*types.OrderTransaction) []error {
 	return pool.addTxs(txs, false)
 }
 
 // addTx enqueues a single transaction into the pool if it is valid.
-func (pool *OrderPool) addTx(tx *types.Transaction, local bool) error {
+func (pool *OrderPool) addTx(tx *types.OrderTransaction, local bool) error {
 	tx.CacheHash()
-	types.CacheSigner(pool.signer, tx)
+	types.CacheOrderSigner(pool.signer, tx)
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -720,14 +601,14 @@ func (pool *OrderPool) addTx(tx *types.Transaction, local bool) error {
 	}
 	// If we added a new transaction, run promotion checks and return
 	if !replace {
-		from, _ := types.Sender(pool.signer, tx) // already validated
+		from, _ := types.OrderSender(pool.signer, tx) // already validated
 		pool.promoteExecutables([]common.Address{from})
 	}
 	return nil
 }
 
 // addTxs attempts to queue a batch of transactions if they are valid.
-func (pool *OrderPool) addTxs(txs []*types.Transaction, local bool) []error {
+func (pool *OrderPool) addTxs(txs []*types.OrderTransaction, local bool) []error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -736,7 +617,7 @@ func (pool *OrderPool) addTxs(txs []*types.Transaction, local bool) []error {
 
 // addTxsLocked attempts to queue a batch of transactions if they are valid,
 // whilst assuming the transaction pool lock is already held.
-func (pool *OrderPool) addTxsLocked(txs []*types.Transaction, local bool) []error {
+func (pool *OrderPool) addTxsLocked(txs []*types.OrderTransaction, local bool) []error {
 	// Add the batch of transaction, tracking the accepted ones
 	dirty := make(map[common.Address]struct{})
 	errs := make([]error, len(txs))
@@ -745,7 +626,7 @@ func (pool *OrderPool) addTxsLocked(txs []*types.Transaction, local bool) []erro
 		var replace bool
 		if replace, errs[i] = pool.add(tx, local); errs[i] == nil {
 			if !replace {
-				from, _ := types.Sender(pool.signer, tx) // already validated
+				from, _ := types.OrderSender(pool.signer, tx) // already validated
 				dirty[from] = struct{}{}
 			}
 		}
@@ -770,7 +651,7 @@ func (pool *OrderPool) Status(hashes []common.Hash) []TxStatus {
 	status := make([]TxStatus, len(hashes))
 	for i, hash := range hashes {
 		if tx := pool.all[hash]; tx != nil {
-			from, _ := types.Sender(pool.signer, tx) // already validated
+			from, _ := types.OrderSender(pool.signer, tx) // already validated
 			if pool.pending[from] != nil && pool.pending[from].txs.items[tx.Nonce()] != nil {
 				status[i] = TxStatusPending
 			} else {
@@ -783,7 +664,7 @@ func (pool *OrderPool) Status(hashes []common.Hash) []TxStatus {
 
 // Get returns a transaction if it is contained in the pool
 // and nil otherwise.
-func (pool *OrderPool) Get(hash common.Hash) *types.Transaction {
+func (pool *OrderPool) Get(hash common.Hash) *types.OrderTransaction {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -799,7 +680,7 @@ func (pool *OrderPool) removeTx(hash common.Hash) {
 	if !ok {
 		return
 	}
-	addr, _ := types.Sender(pool.signer, tx) // already validated during insertion
+	addr, _ := types.OrderSender(pool.signer, tx) // already validated during insertion
 
 	// Remove it from the list of known transactions
 	delete(pool.all, hash)
@@ -1023,19 +904,36 @@ func (pool *OrderPool) demoteUnexecutables() {
 	}
 }
 
-// GetPendingOrders decode order pending transaction
-func (pool *OrderPool) GetPendingOrders() ([]interface{}, error) {
-	pending, err := pool.Pending()
-	var orders []interface{}
-	if err != nil {
-		return nil, err
-	}
+type orderAccountSet struct {
+	accounts map[common.Address]struct{}
+	signer   types.OrderSigner
+}
 
-	for _, txs := range pending {
-		for _, tx := range txs {
-			order, _ := pool.getOrderInputData(tx)
-			orders = append(orders, order)
-		}
+// newAccountSet creates a new address set with an associated signer for sender
+// derivations.
+func newOrderAccountSet(signer types.OrderSigner) *orderAccountSet {
+	return &orderAccountSet{
+		accounts: make(map[common.Address]struct{}),
+		signer:   signer,
 	}
-	return orders, nil
+}
+
+// contains checks if a given address is contained within the set.
+func (as *orderAccountSet) contains(addr common.Address) bool {
+	_, exist := as.accounts[addr]
+	return exist
+}
+
+// containsTx checks if the sender of a given tx is within the set. If the sender
+// cannot be derived, this method returns false.
+func (as *orderAccountSet) containsTx(tx *types.OrderTransaction) bool {
+	if addr, err := types.OrderSender(as.signer, tx); err == nil {
+		return as.contains(addr)
+	}
+	return false
+}
+
+// add inserts a new address into the set to track.
+func (as *orderAccountSet) add(addr common.Address) {
+	as.accounts[addr] = struct{}{}
 }

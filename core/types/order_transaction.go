@@ -48,6 +48,7 @@ type ordertxdata struct {
 	Quantity        *big.Int       `json:"quantity,omitempty"`
 	Price           *big.Int       `json:"price,omitempty"`
 	ExchangeAddress common.Address `json:"exchangeAddress,omitempty"`
+
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
 	R *big.Int `json:"r" gencodec:"required"`
@@ -79,8 +80,8 @@ func (tx *OrderTransaction) Nonce() uint64 { return tx.data.AccountNonce }
 // From get transaction from
 func (tx *OrderTransaction) From() *common.Address {
 	if tx.data.V != nil {
-		signer := OrderSigner{}
-		if f, err := Sender(signer, &Transaction{}); err != nil {
+		signer := OrderTxSigner{}
+		if f, err := OrderSender(signer, tx); err != nil {
 			return nil
 		} else {
 			return &f
@@ -88,6 +89,18 @@ func (tx *OrderTransaction) From() *common.Address {
 	} else {
 		return nil
 	}
+}
+
+// WithSignature returns a new transaction with the given signature.
+// This signature needs to be formatted as described in the yellow paper (v+27).
+func (tx *OrderTransaction) WithSignature(signer OrderSigner, sig []byte) (*OrderTransaction, error) {
+	r, s, v, err := signer.SignatureValues(tx, sig)
+	if err != nil {
+		return nil, err
+	}
+	cpy := &OrderTransaction{data: tx.data}
+	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
+	return cpy, nil
 }
 
 // Hash hashes the RLP encoding of tx.
@@ -118,3 +131,68 @@ func (tx *OrderTransaction) Size() common.StorageSize {
 	tx.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
 }
+
+// NewOrderTransaction init order from value
+func NewOrderTransaction(nonce uint64, quantity *big.Int, price *big.Int, exchangeAddress common.Address) *OrderTransaction {
+	return newOrderTransaction(nonce, quantity, price, exchangeAddress)
+}
+
+func newOrderTransaction(nonce uint64, quantity *big.Int, price *big.Int, exchangeAddress common.Address) *OrderTransaction {
+	d := ordertxdata{
+		AccountNonce:    nonce,
+		Quantity:        new(big.Int),
+		Price:           new(big.Int),
+		ExchangeAddress: exchangeAddress,
+		V:               new(big.Int),
+		R:               new(big.Int),
+		S:               new(big.Int),
+	}
+	if quantity != nil {
+		d.Quantity.Set(quantity)
+	}
+	if price != nil {
+		d.Price.Set(price)
+	}
+
+	return &OrderTransaction{data: d}
+}
+
+// OrderTransactions is a Transaction slice type for basic sorting.
+type OrderTransactions []*OrderTransaction
+
+// Len returns the length of s.
+func (s OrderTransactions) Len() int { return len(s) }
+
+// Swap swaps the i'th and the j'th element in s.
+func (s OrderTransactions) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+// GetRlp implements Rlpable and returns the i'th element of s in rlp.
+func (s OrderTransactions) GetRlp(i int) []byte {
+	enc, _ := rlp.EncodeToBytes(s[i])
+	return enc
+}
+
+// OrderTxDifference returns a new set t which is the difference between a to b.
+func OrderTxDifference(a, b OrderTransactions) (keep OrderTransactions) {
+	keep = make(OrderTransactions, 0, len(a))
+
+	remove := make(map[common.Hash]struct{})
+	for _, tx := range b {
+		remove[tx.Hash()] = struct{}{}
+	}
+
+	for _, tx := range a {
+		if _, ok := remove[tx.Hash()]; !ok {
+			keep = append(keep, tx)
+		}
+	}
+
+	return keep
+}
+
+// OrderTxByNonce sorted order by nonce defined
+type OrderTxByNonce OrderTransactions
+
+func (s OrderTxByNonce) Len() int           { return len(s) }
+func (s OrderTxByNonce) Less(i, j int) bool { return s[i].data.AccountNonce < s[j].data.AccountNonce }
+func (s OrderTxByNonce) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

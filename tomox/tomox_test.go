@@ -457,7 +457,69 @@ func pricedTransaction(t *testing.T, nonce uint64, gaslimit uint64, gasprice *bi
 	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, nil), types.HomesteadSigner{}, key)
 	return tx
 }
-func TestOrderPoolTx(t *testing.T) {
+
+// func TestOrderPoolTx(t *testing.T) {
+
+// 	client, err := ethclient.Dial("http://127.0.0.1:8501")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	privateKey, err := crypto.HexToECDSA("73b5236e8c0781fc9ce40d71f5bcdd2187753b2653410c5e6fdf4a2a961737fd")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	nonce := uint64(1)
+
+// 	value := big.NewInt(0) // in wei (1 eth)
+// 	gasLimit := uint64(0)  // in units
+// 	gasPrice := big.NewInt(0)
+
+// 	toAddress := common.HexToAddress("0x0000000000000000000000000000000000000070")
+// 	var data []byte
+
+// 	buy := &OrderItem{
+// 		Quantity:        new(big.Int).SetUint64(1000000000000000000),
+// 		Price:           new(big.Int).SetUint64(100000000000000000),
+// 		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+// 		UserAddress:     common.HexToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
+// 		BaseToken:       common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+// 		QuoteToken:      common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+// 		Status:          "New",
+// 		Side:            "BUY",
+// 		Type:            "LO",
+// 		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
+// 		Hash:            common.StringToHash("1"),
+
+// 		FilledAmount: new(big.Int).SetUint64(0),
+// 		Nonce:        new(big.Int).SetUint64(1),
+// 		CreatedAt:    time.Now(),
+// 		UpdatedAt:    time.Now(),
+// 	}
+
+// 	data, err = json.Marshal(buy)
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		return
+// 	}
+
+// 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+
+// 	chainID := big.NewInt(1515)
+
+// 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	err = client.SendOrderTransaction(context.Background(), signedTx)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// }
+
+func TestOrderPoolTx2(t *testing.T) {
 
 	client, err := ethclient.Dial("http://127.0.0.1:8501")
 	if err != nil {
@@ -469,45 +531,17 @@ func TestOrderPoolTx(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	nonce := uint64(1)
-
-	value := big.NewInt(0) // in wei (1 eth)
-	gasLimit := uint64(0)  // in units
-	gasPrice := big.NewInt(0)
-
-	toAddress := common.HexToAddress("0x0000000000000000000000000000000000000070")
-	var data []byte
+	nonce := uint64(2)
 
 	buy := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(1000000000000000000),
 		Price:           new(big.Int).SetUint64(100000000000000000),
 		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
-		UserAddress:     common.HexToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
-		BaseToken:       common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
-		QuoteToken:      common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
-		Status:          "New",
-		Side:            "BUY",
-		Type:            "LO",
-		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
-		Hash:            common.StringToHash("1"),
-
-		FilledAmount: new(big.Int).SetUint64(0),
-		Nonce:        new(big.Int).SetUint64(1),
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
 	}
 
-	data, err = json.Marshal(buy)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	tx := types.NewOrderTransaction(nonce, buy.Quantity, buy.Price, buy.ExchangeAddress)
 
-	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
-
-	chainID := big.NewInt(1515)
-
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -438,7 +438,7 @@ func (bc *BlockChain) OrderStateAt(root common.Hash) (*state.OrderState, error) 
 		}
 
 	}
-	return nil, errors.New("cannot get GetTomoXService")
+	return state.NewOrderState(nil), nil
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.

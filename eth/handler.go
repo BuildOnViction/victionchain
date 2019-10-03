@@ -84,7 +84,7 @@ type ProtocolManager struct {
 
 	eventMux      *event.TypeMux
 	txCh          chan core.TxPreEvent
-	orderTxCh     chan core.TxPreEvent
+	orderTxCh     chan core.OrderTxPreEvent
 	txSub         event.Subscription
 	orderTxSub    event.Subscription
 	minedBlockSub *event.TypeMuxSubscription
@@ -97,28 +97,31 @@ type ProtocolManager struct {
 
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
-	wg       sync.WaitGroup
-	knownTxs *lru.Cache
+	wg           sync.WaitGroup
+	knownTxs     *lru.Cache
+	knowOrderTxs *lru.Cache
 }
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the ethereum network.
 func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, orderpool orderPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
 	knownTxs, _ := lru.New(maxKnownTxs)
+	knowOrderTxs, _ := lru.New(maxKnownOrderTxs)
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkId:   networkId,
-		eventMux:    mux,
-		txpool:      txpool,
-		orderpool:   orderpool,
-		blockchain:  blockchain,
-		chainconfig: config,
-		peers:       newPeerSet(),
-		newPeerCh:   make(chan *peer),
-		noMorePeers: make(chan struct{}),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
-		knownTxs:    knownTxs,
+		networkId:    networkId,
+		eventMux:     mux,
+		txpool:       txpool,
+		orderpool:    orderpool,
+		blockchain:   blockchain,
+		chainconfig:  config,
+		peers:        newPeerSet(),
+		newPeerCh:    make(chan *peer),
+		noMorePeers:  make(chan struct{}),
+		txsyncCh:     make(chan *txsync),
+		quitSync:     make(chan struct{}),
+		knownTxs:     knownTxs,
+		knowOrderTxs: knowOrderTxs,
 	}
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
@@ -225,12 +228,11 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.txCh = make(chan core.TxPreEvent, txChanSize)
 	pm.txSub = pm.txpool.SubscribeTxPreEvent(pm.txCh)
 
-	pm.orderTxCh = make(chan core.TxPreEvent, txChanSize)
-
+	pm.orderTxCh = make(chan core.OrderTxPreEvent, txChanSize)
 	pm.orderTxSub = pm.orderpool.SubscribeTxPreEvent(pm.orderTxCh)
 
 	go pm.txBroadcastLoop()
-
+	go pm.orderTxBroadcastLoop()
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
@@ -243,7 +245,8 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Ethereum protocol")
 
-	pm.txSub.Unsubscribe()         // quits txBroadcastLoop
+	pm.txSub.Unsubscribe() // quits txBroadcastLoop
+	pm.orderTxSub.Unsubscribe()
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 
 	// Quit the sync loop.
@@ -691,9 +694,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		var unkownTxs []*types.Transaction
 
-		var orderTxs []*types.Transaction
-		var transTxs []*types.Transaction
-
 		for i, tx := range txs {
 			// Validate and mark the remote transaction
 			if tx == nil {
@@ -706,16 +706,37 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			} else {
 				log.Trace("Discard known tx", "hash", tx.Hash(), "nonce", tx.Nonce(), "to", tx.To())
 			}
-			if tx.To().Hex() == core.AddressOrderTransaction {
-				log.Info("protocol handle order recv")
-				orderTxs = append(orderTxs, tx)
-			} else {
-				log.Info("protocol handle tx recv")
-				transTxs = append(transTxs, tx)
-			}
+
 		}
-		pm.txpool.AddRemotes(transTxs)
-		pm.orderpool.AddRemotes(orderTxs)
+		pm.txpool.AddRemotes(txs)
+
+	case msg.Code == OrderTxMsg:
+		// Transactions arrived, make sure we have a valid and fresh chain to handle them
+		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
+			break
+		}
+		// Transactions can be processed, parse all of them and deliver to the pool
+		var txs []*types.OrderTransaction
+		if err := msg.Decode(&txs); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		var unkownOrderTxs []*types.OrderTransaction
+
+		for i, tx := range txs {
+			// Validate and mark the remote transaction
+			if tx == nil {
+				return errResp(ErrDecode, "transaction %d is nil", i)
+			}
+			p.MarkOrderTransaction(tx.Hash())
+			exist, _ := pm.knowOrderTxs.ContainsOrAdd(tx.Hash(), true)
+			if !exist {
+				unkownOrderTxs = append(unkownOrderTxs, tx)
+			} else {
+				log.Trace("Discard known tx", "hash", tx.Hash(), "nonce", tx.Nonce())
+			}
+
+		}
+		pm.orderpool.AddRemotes(txs)
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
@@ -767,6 +788,18 @@ func (pm *ProtocolManager) BroadcastTx(hash common.Hash, tx *types.Transaction) 
 	log.Trace("Broadcast transaction", "hash", hash, "recipients", len(peers))
 }
 
+// OrderBroadcastTx will propagate a transaction to all peers which are not known to
+// already have the given transaction.
+func (pm *ProtocolManager) OrderBroadcastTx(hash common.Hash, tx *types.OrderTransaction) {
+	// Broadcast transaction to a batch of peers not knowing about it
+	peers := pm.peers.OrderPeersWithoutTx(hash)
+	//FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
+	for _, peer := range peers {
+		peer.SendOrderTransactions(types.OrderTransactions{tx})
+	}
+	log.Trace("Broadcast order transaction", "hash", hash, "recipients", len(peers))
+}
+
 // Mined broadcast loop
 func (self *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
@@ -785,11 +818,24 @@ func (self *ProtocolManager) txBroadcastLoop() {
 		case event := <-self.txCh:
 			self.BroadcastTx(event.Tx.Hash(), event.Tx)
 
-		case event := <-self.orderTxCh:
-			self.BroadcastTx(event.Tx.Hash(), event.Tx)
-
 			// Err() channel will be closed when unsubscribing.
 		case <-self.txSub.Err():
+			return
+		case <-self.orderTxSub.Err():
+			return
+		}
+	}
+}
+
+// orderTxBroadcastLoop broadcast order
+func (self *ProtocolManager) orderTxBroadcastLoop() {
+	for {
+		select {
+		case event := <-self.orderTxCh:
+			self.OrderBroadcastTx(event.Tx.Hash(), event.Tx)
+
+			// Err() channel will be closed when unsubscribing.
+		case <-self.orderTxSub.Err():
 			return
 		case <-self.orderTxSub.Err():
 			return

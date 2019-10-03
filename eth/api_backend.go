@@ -163,7 +163,8 @@ func (b *EthApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	return b.eth.txPool.AddLocal(signedTx)
 }
 
-func (b *EthApiBackend) SendOrderTx(ctx context.Context, signedTx *types.Transaction) error {
+// SendOrderTx send order via backend
+func (b *EthApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
 	return b.eth.orderPool.AddLocal(signedTx)
 }
 

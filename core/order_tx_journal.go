@@ -42,7 +42,7 @@ func newOrderTxJournal(path string) *ordertxJournal {
 
 // load parses a transaction journal dump from disk, loading its contents into
 // the specified pool.
-func (journal *ordertxJournal) load(add func(*types.Transaction) error) error {
+func (journal *ordertxJournal) load(add func(*types.OrderTransaction) error) error {
 	// Skip the parsing if the journal file doens't exist at all
 	if _, err := os.Stat(journal.path); os.IsNotExist(err) {
 		return nil
@@ -65,7 +65,7 @@ func (journal *ordertxJournal) load(add func(*types.Transaction) error) error {
 	var failure error
 	for {
 		// Parse the next transaction and terminate on error
-		tx := new(types.Transaction)
+		tx := new(types.OrderTransaction)
 		if err = stream.Decode(tx); err != nil {
 			if err != io.EOF {
 				failure = err
@@ -86,7 +86,7 @@ func (journal *ordertxJournal) load(add func(*types.Transaction) error) error {
 }
 
 // insert adds the specified transaction to the local disk journal.
-func (journal *ordertxJournal) insert(tx *types.Transaction) error {
+func (journal *ordertxJournal) insert(tx *types.OrderTransaction) error {
 	if journal.writer == nil {
 		return errNoActiveJournal
 	}
@@ -98,7 +98,7 @@ func (journal *ordertxJournal) insert(tx *types.Transaction) error {
 
 // rotate regenerates the transaction journal based on the current contents of
 // the transaction pool.
-func (journal *ordertxJournal) rotate(all map[common.Address]types.Transactions) error {
+func (journal *ordertxJournal) rotate(all map[common.Address]types.OrderTransactions) error {
 	// Close the current journal (if any is open)
 	if journal.writer != nil {
 		if err := journal.writer.Close(); err != nil {

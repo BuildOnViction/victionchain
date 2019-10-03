@@ -1540,7 +1540,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 }
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
-func submitOrderTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+func submitOrderTransaction(ctx context.Context, b Backend, tx *types.OrderTransaction) (common.Hash, error) {
 
 	if err := b.SendOrderTx(ctx, tx); err != nil {
 		return common.Hash{}, err
@@ -1598,7 +1598,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 // SendOrderRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendOrderRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
-	tx := new(types.Transaction)
+	tx := new(types.OrderTransaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}

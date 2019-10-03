@@ -62,7 +62,7 @@ type Backend interface {
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
-	SendOrderTx(ctx context.Context, signedTx *types.Transaction) error
+	SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error
 	GetPoolTransactions() (types.Transactions, error)
 	GetPoolTransaction(txHash common.Hash) *types.Transaction
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
