@@ -1243,7 +1243,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				ok := c.CheckMNTurn(bc, header, coinbase)
 				// if created block was your turn
 				if blockSigner != coinbase && ok {
-					log.Warn("Missed create block height", "number", block.Number(), "m1", blockSigner.Hex(), "m2", validator.Hex())
+					log.Warn("Missed create block height", "number", block.Number(), "hash", block.Hash(), "m1", blockSigner.Hex(), "m2", validator.Hex())
 				}
 			}
 		}
@@ -1484,7 +1484,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 			ok := c.CheckMNTurn(bc, header, coinbase)
 			// if created block was your turn
 			if blockSigner != coinbase && ok {
-				log.Warn("Missed create block height", "number", block.Number(), "m1", blockSigner.Hex(), "m2", validator.Hex())
+				log.Warn("Missed create block height", "number", block.Number(), "hash", block.Hash(), "m1", blockSigner.Hex(), "m2", validator.Hex())
 			}
 		}
 	}

@@ -1276,12 +1276,6 @@ func (c *Posv) CheckMNTurn(chain consensus.ChainReader, parent *types.Header, si
 		preIndex = position(masternodes, pre)
 	}
 	curIndex := position(masternodes, signer)
-	if signer == c.signer {
-		log.Debug("Masternodes cycle info", "number of masternodes", len(masternodes), "previous", pre, "position", preIndex, "current", signer, "position", curIndex)
-	}
-	for i, s := range masternodes {
-		log.Debug("Masternode:", "index", i, "address", s.String())
-	}
 	if (preIndex)%len(masternodes) == curIndex {
 		return true
 	}
