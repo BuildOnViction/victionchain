@@ -432,8 +432,12 @@ func (bc *BlockChain) OrderStateAt(root common.Hash) (*state.OrderState, error) 
 			noncels := make(map[common.Address]*big.Int)
 			noncels, err := tomoXService.LoadOrderNonce()
 			if err != nil {
+			} else {
+				for addr, nonce := range noncels {
+					log.Info("OrderStateAt", "address", addr, "nonce", nonce)
+				}
 			}
-			log.Info("OrderStateAt", "len", len(noncels))
+
 			return state.NewOrderState(noncels), nil
 		}
 

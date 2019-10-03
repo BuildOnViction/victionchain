@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -73,14 +75,14 @@ type OrderProcessed struct {
 }
 
 type TxDataMatch struct {
-	Order       []byte // serialized data of order has been processed in this tx
-	Trades      []map[string]string
-	ObOld       common.Hash
-	ObNew       common.Hash
-	AskOld      common.Hash
-	AskNew      common.Hash
-	BidOld      common.Hash
-	BidNew      common.Hash
+	Order  []byte // serialized data of order has been processed in this tx
+	Trades []map[string]string
+	ObOld  common.Hash
+	ObNew  common.Hash
+	AskOld common.Hash
+	AskNew common.Hash
+	BidOld common.Hash
+	BidNew common.Hash
 }
 
 type TxMatchBatch struct {
@@ -794,6 +796,7 @@ func (tomox *TomoX) loadOrderNonce() error {
 
 // update orderNonce to persistent storage
 func (tomox *TomoX) UpdateOrderNonce(userAddress common.Address, newCount *big.Int) error {
+	log.Info("UpdateOrderNonce", "address", userAddress, "nonce", newCount)
 	orderNonceList := tomox.orderNonce
 	if orderNonce, ok := orderNonceList[userAddress]; !ok || newCount.Cmp(orderNonce) > 0 {
 		orderNonceList[userAddress] = newCount
@@ -824,115 +827,138 @@ func (tomox *TomoX) GetAsksTree(pairName string, dryrun bool, blockHash common.H
 	return ob.Asks, nil
 }
 
-func (tomox *TomoX) ProcessOrderPending() []TxDataMatch {
+func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTransactions) []TxDataMatch {
 	blockHash := common.StringToHash("COMMIT_NEW_WORK" + time.Now().String())
 	txMatches := []TxDataMatch{}
 	tomox.db.InitDryRunMode(blockHash)
 
 	log.Debug("Get pending orders to process")
-	pendingOrders := tomox.getPendingOrders()
-	if len(pendingOrders) > 0 {
-		for i, pendingOrder := range pendingOrders {
-			if i < orderProcessLimit {
-				order := tomox.getOrderPendingFromDB(pendingOrder.Hash, pendingOrder.Cancel)
-				if order != nil {
-					if pendingOrder.Cancel || !tomox.ExistProcessedOrderHash(pendingOrder.Hash) {
-						var (
-							ob  *OrderBook
-							err error
-						)
+	for _, txs := range pending {
+		for _, tx := range txs {
+			log.Info("Get pending orders to process", "address", tx.UserAddress(), "nonce", tx.Nonce())
+			V, R, S := tx.Signature()
 
-						// if orderbook has been processed before in this block, it should be in dry-run mode
-						// otherwise it's in db
-						ob, err = tomox.getAndCreateIfNotExisted(order.PairName, true, blockHash)
-						if err != nil || ob == nil {
-							log.Error("Fail to get/create orderbook", "order.PairName", order.PairName)
-							continue
-						}
-
-						log.Info("Process order pending", "orderPending", order)
-						obOld, err := ob.Hash()
-						if err != nil {
-							log.Error("Fail to get orderbook hash old", "err", err)
-							continue
-						}
-						askOld, err := ob.Asks.Hash()
-						if err != nil {
-							log.Error("Fail to get ask tree hash old", "err", err)
-							continue
-						}
-						bidOld, err := ob.Bids.Hash()
-						if err != nil {
-							log.Error("Fail to get bid tree hash old", "err", err)
-							continue
-						}
-						originalOrder := &OrderItem{}
-						*originalOrder = *order
-						originalOrder.Quantity = CloneBigInt(order.Quantity)
-
-						if pendingOrder.Cancel {
-							order.Status = OrderStatusCancelled
-						}
-
-						trades, _, err := ob.ProcessOrder(order, true, true, blockHash)
-
-						// remove order from pending list
-						if err := tomox.RemoveOrderFromPending(order.Hash, order.Status == OrderStatusCancelled); err != nil {
-							continue
-						}
-
-						// remove order pending
-						if err := tomox.RemoveOrderPendingFromDB(order.Hash, order.Status == OrderStatusCancelled); err != nil {
-							continue
-						}
-
-						if err != nil {
-							log.Error("Can't process order", "order", order, "err", err)
-							continue
-						}
-						obNew, err := ob.Hash()
-						if err != nil {
-							log.Error("Fail to get orderbook hash new", "err", err)
-							continue
-						}
-						askNew, err := ob.Asks.Hash()
-						if err != nil {
-							log.Error("Fail to get ask tree hash new", "err", err)
-							continue
-						}
-						bidNew, err := ob.Bids.Hash()
-						if err != nil {
-							log.Error("Fail to get bid tree hash new", "err", err)
-							continue
-						}
-
-						// orderID has been updated
-						originalOrder.OrderID = order.OrderID
-						originalOrderValue, err := EncodeBytesItem(originalOrder)
-						if err != nil {
-							log.Error("Can't encode", "order", originalOrder, "err", err)
-							continue
-						}
-						log.Debug("Process OrderPending completed", "orderNonce", order.Nonce, "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
-						txMatch := TxDataMatch{
-							Order:       originalOrderValue,
-							Trades:      trades,
-							ObOld:       obOld,
-							ObNew:       obNew,
-							AskOld:      askOld,
-							AskNew:      askNew,
-							BidOld:      bidOld,
-							BidNew:      bidNew,
-						}
-						txMatches = append(txMatches, txMatch)
-					}
-				} else {
-					log.Error("Fail to get order pending from db", "hash", pendingOrder.Hash)
-				}
+			bigstr := V.String()
+			n, e := strconv.ParseInt(bigstr, 10, 8)
+			if e != nil {
+				continue
 			}
+
+			order := &OrderItem{
+				Nonce:           big.NewInt(int64(tx.Nonce())),
+				Quantity:        tx.Quantity(),
+				Price:           tx.Price(),
+				ExchangeAddress: tx.ExchangeAddress(),
+				UserAddress:     tx.UserAddress(),
+				BaseToken:       tx.BaseToken(),
+				QuoteToken:      tx.QuoteToken(),
+				Status:          tx.Status(),
+				Side:            tx.Side(),
+				Type:            tx.Type(),
+				Hash:            tx.Hash(),
+				Signature: &Signature{
+					V: byte(n),
+					R: common.BigToHash(R),
+					S: common.BigToHash(S),
+				},
+				PairName: tx.PairName(),
+			}
+			cancel := false
+			if order.Status == "CANCEL" {
+				cancel = true
+			}
+
+			var (
+				ob  *OrderBook
+				err error
+			)
+
+			// if orderbook has been processed before in this block, it should be in dry-run mode
+			// otherwise it's in db
+			ob, err = tomox.getAndCreateIfNotExisted(order.PairName, true, blockHash)
+			if err != nil || ob == nil {
+				log.Error("Fail to get/create orderbook", "order.PairName", order.PairName)
+				continue
+			}
+
+			log.Info("Process order pending", "orderPending", order)
+			obOld, err := ob.Hash()
+			if err != nil {
+				log.Error("Fail to get orderbook hash old", "err", err)
+				continue
+			}
+			askOld, err := ob.Asks.Hash()
+			if err != nil {
+				log.Error("Fail to get ask tree hash old", "err", err)
+				continue
+			}
+			bidOld, err := ob.Bids.Hash()
+			if err != nil {
+				log.Error("Fail to get bid tree hash old", "err", err)
+				continue
+			}
+			originalOrder := &OrderItem{}
+			*originalOrder = *order
+			originalOrder.Quantity = CloneBigInt(order.Quantity)
+
+			if cancel {
+				order.Status = OrderStatusCancelled
+			}
+
+			trades, _, err := ob.ProcessOrder(order, true, true, blockHash)
+
+			// remove order from pending list
+			if err := tomox.RemoveOrderFromPending(order.Hash, order.Status == OrderStatusCancelled); err != nil {
+				continue
+			}
+
+			// remove order pending
+			if err := tomox.RemoveOrderPendingFromDB(order.Hash, order.Status == OrderStatusCancelled); err != nil {
+				continue
+			}
+
+			if err != nil {
+				log.Error("Can't process order", "order", order, "err", err)
+				continue
+			}
+			obNew, err := ob.Hash()
+			if err != nil {
+				log.Error("Fail to get orderbook hash new", "err", err)
+				continue
+			}
+			askNew, err := ob.Asks.Hash()
+			if err != nil {
+				log.Error("Fail to get ask tree hash new", "err", err)
+				continue
+			}
+			bidNew, err := ob.Bids.Hash()
+			if err != nil {
+				log.Error("Fail to get bid tree hash new", "err", err)
+				continue
+			}
+
+			// orderID has been updated
+			originalOrder.OrderID = order.OrderID
+			originalOrderValue, err := EncodeBytesItem(originalOrder)
+			if err != nil {
+				log.Error("Can't encode", "order", originalOrder, "err", err)
+				continue
+			}
+			log.Debug("Process OrderPending completed", "orderNonce", order.Nonce, "obNew", hex.EncodeToString(obNew.Bytes()), "bidNew", hex.EncodeToString(bidNew.Bytes()), "askNew", hex.EncodeToString(askNew.Bytes()))
+			txMatch := TxDataMatch{
+				Order:  originalOrderValue,
+				Trades: trades,
+				ObOld:  obOld,
+				ObNew:  obNew,
+				AskOld: askOld,
+				AskNew: askNew,
+				BidOld: bidOld,
+				BidNew: bidNew,
+			}
+			txMatches = append(txMatches, txMatch)
+
 		}
 	}
-
 	return txMatches
 }
 
@@ -994,7 +1020,7 @@ func (tomox *TomoX) RemoveOrderPendingFromDB(orderHash common.Hash, cancel bool)
 		key := append(prefix, orderHash.Bytes()...)
 		log.Debug("Remove order pending", "orderHash", orderHash, "key", hex.EncodeToString(key))
 		if err := tomox.db.Delete(key, false, common.Hash{}); err != nil {
-			log.Error("Fail to delete order pending", "with prefix", pendingCancelPrefix,"err", err)
+			log.Error("Fail to delete order pending", "with prefix", pendingCancelPrefix, "err", err)
 			return err
 		}
 	}
@@ -1238,7 +1264,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 	}
 	var (
 		order *OrderItem
-		err                error
+		err   error
 	)
 	db := tomox.GetDB()
 

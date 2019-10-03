@@ -28,8 +28,8 @@ func (os *OrderState) GetNonce(addr common.Address) uint64 {
 		if orderNonce, ok := os.orderNonce[addr]; ok {
 			bigstr := orderNonce.String()
 			n, err := strconv.ParseInt(bigstr, 10, 64)
-			if err != nil {
-				return uint64(n)
+			if err == nil {
+				return uint64(n) + 1
 			}
 		}
 	}

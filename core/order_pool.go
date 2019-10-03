@@ -19,7 +19,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"sort"
 	"sync"
 	"time"
@@ -35,14 +34,21 @@ import (
 
 var (
 	// ErrInvalidOrderFormat is returned if the order transaction contains an invalid field.
-	ErrInvalidOrderFormat = errors.New("invalid order format")
-
-	// ErrInvalidOrderContent is returned if the order incorect input
-	ErrInvalidOrderContent = errors.New("invalid order content")
+	ErrInvalidOrderFormat      = errors.New("invalid order format")
+	ErrInvalidOrderContent     = errors.New("invalid order content")
+	ErrInvalidOrderSide        = errors.New("invalid order side")
+	ErrInvalidOrderType        = errors.New("invalid order type")
+	ErrInvalidOrderStatus      = errors.New("invalid order status")
+	ErrInvalidOrderUserAddress = errors.New("invalid order user address")
 )
+
 var (
-	// AddressOrderTransaction transaction to
-	AddressOrderTransaction = "0x0000000000000000000000000000000000000070"
+	OrderTypeLimit    = "LO"
+	OrderTypeMarket   = "MO"
+	OrderStatusNew    = "NEW"
+	OrderStatusCancle = "CANCLE"
+	OrderSideBid      = "BUY"
+	OrderSideAsk      = "SELL"
 )
 
 // OrderPoolConfig are the configuration parameters of the order transaction pool.
@@ -71,7 +77,7 @@ type blockChainTomox interface {
 // DefaultOrderPoolConfig contains the default configurations for the transaction
 // pool.
 var DefaultOrderPoolConfig = OrderPoolConfig{
-	Journal:   "transactions_order.rlp",
+	Journal:   "",
 	Rejournal: time.Hour,
 
 	AccountSlots: 16,
@@ -80,31 +86,6 @@ var DefaultOrderPoolConfig = OrderPoolConfig{
 	GlobalQueue:  1024,
 
 	Lifetime: 3 * time.Hour,
-}
-
-// OrderItem duplicate from tomox
-type OrderItem struct {
-	Quantity        *big.Int       `json:"quantity,omitempty"`
-	Price           *big.Int       `json:"price,omitempty"`
-	ExchangeAddress common.Address `json:"exchangeAddress,omitempty"`
-	UserAddress     common.Address `json:"userAddress,omitempty"`
-	BaseToken       common.Address `json:"baseToken,omitempty"`
-	QuoteToken      common.Address `json:"quoteToken,omitempty"`
-	Status          string         `json:"status,omitempty"`
-	Side            string         `json:"side,omitempty"`
-	Type            string         `json:"type,omitempty"`
-	Hash            common.Hash    `json:"hash,omitempty"`
-	FilledAmount    *big.Int       `json:"filledAmount,omitempty"`
-	Nonce           *big.Int       `json:"nonce,omitempty"`
-	PairName        string         `json:"pairName,omitempty"`
-	CreatedAt       time.Time      `json:"createdAt,omitempty"`
-	UpdatedAt       time.Time      `json:"updatedAt,omitempty"`
-	OrderID         uint64         `json:"orderID,omitempty"`
-	// *OrderMeta
-	NextOrder []byte `json:"-"`
-	PrevOrder []byte `json:"-"`
-	OrderList []byte `json:"-"`
-	Key       string `json:"key"`
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -240,7 +221,7 @@ func (pool *OrderPool) loop() {
 			pool.mu.RLock()
 			pending, queued := pool.stats()
 			pool.mu.RUnlock()
-
+			log.Info("xxxOrder pool status report", "executable", pending, "queued", queued)
 			if pending != prevPending || queued != prevQueued {
 				log.Info("Order pool status report", "executable", pending, "queued", queued)
 				prevPending, prevQueued = pending, queued
@@ -414,9 +395,30 @@ func (pool *OrderPool) GetSender(tx *types.OrderTransaction) (common.Address, er
 	return from, nil
 }
 
+func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
+	orderSide := tx.Side()
+	orderType := tx.Type()
+	orderStatus := tx.Status()
+	if orderSide != OrderSideAsk && orderSide != OrderSideBid {
+		return ErrInvalidOrderSide
+	}
+	if orderType != OrderTypeLimit && orderType != OrderTypeMarket {
+		return ErrInvalidOrderType
+	}
+	if orderStatus != OrderStatusNew && orderStatus != OrderStatusCancle {
+		return ErrInvalidOrderStatus
+	}
+	from, _ := types.OrderSender(pool.signer, tx)
+	if from != tx.UserAddress() {
+		return ErrInvalidOrderUserAddress
+	}
+	return nil
+}
+
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *OrderPool) validateTx(tx *types.OrderTransaction, local bool) error {
+
 	// check if sender is in black list
 	if tx.From() != nil && common.Blacklist[*tx.From()] {
 		return fmt.Errorf("Reject transaction with sender in black-list: %v", tx.From().Hex())
@@ -431,7 +433,10 @@ func (pool *OrderPool) validateTx(tx *types.OrderTransaction, local bool) error 
 	if err != nil {
 		return ErrInvalidSender
 	}
-
+	err = pool.validateOrder(tx)
+	if err != nil {
+		return err
+	}
 	// Ensure the transaction adheres to nonce ordering
 	if pool.currentState.GetNonce(from) > tx.Nonce() {
 		return ErrNonceTooLow
@@ -878,13 +883,14 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 // are moved back into the future queue.
 func (pool *OrderPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
+	log.Info("demoteUnexecutables ....")
 	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
-
+		log.Info("demoteUnexecutables", "addr", addr.Hex(), "nonce", nonce)
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(nonce) {
 			hash := tx.Hash()
-			log.Trace("Removed old pending transaction", "hash", hash)
+			log.Info("Removed old pending transaction", "hash", hash)
 			delete(pool.all, hash)
 		}
 

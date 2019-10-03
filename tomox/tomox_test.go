@@ -531,16 +531,22 @@ func TestOrderPoolTx2(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	nonce := uint64(2)
+	nonce := uint64(1)
 
 	buy := &OrderItem{
 		Quantity:        new(big.Int).SetUint64(1000000000000000000),
 		Price:           new(big.Int).SetUint64(100000000000000000),
 		ExchangeAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		UserAddress:     common.HexToAddress("0xb68D825655F2fE14C32558cDf950b45beF18D218"),
+		BaseToken:       common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		QuoteToken:      common.HexToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
+		Status:          "NEW",
+		Side:            "BUY",
+		Type:            "LO",
+		PairName:        "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd" + "::" + "0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd",
 	}
 
-	tx := types.NewOrderTransaction(nonce, buy.Quantity, buy.Price, buy.ExchangeAddress)
-
+	tx := types.NewOrderTransaction(nonce, buy.Quantity, buy.Price, buy.ExchangeAddress, buy.UserAddress, buy.BaseToken, buy.QuoteToken, buy.Status, buy.Side, buy.Type, buy.PairName)
 	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
 		log.Fatal(err)

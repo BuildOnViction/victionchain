@@ -48,7 +48,13 @@ type ordertxdata struct {
 	Quantity        *big.Int       `json:"quantity,omitempty"`
 	Price           *big.Int       `json:"price,omitempty"`
 	ExchangeAddress common.Address `json:"exchangeAddress,omitempty"`
-
+	UserAddress     common.Address `json:"userAddress,omitempty"`
+	BaseToken       common.Address `json:"baseToken,omitempty"`
+	QuoteToken      common.Address `json:"quoteToken,omitempty"`
+	Status          string         `json:"status,omitempty"`
+	Side            string         `json:"side,omitempty"`
+	Type            string         `json:"type,omitempty"`
+	PairName        string         `json:"pairName,omitempty"`
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
 	R *big.Int `json:"r" gencodec:"required"`
@@ -75,7 +81,18 @@ func (tx *OrderTransaction) DecodeRLP(s *rlp.Stream) error {
 }
 
 // Nonce return nonce of account
-func (tx *OrderTransaction) Nonce() uint64 { return tx.data.AccountNonce }
+func (tx *OrderTransaction) Nonce() uint64                   { return tx.data.AccountNonce }
+func (tx *OrderTransaction) Quantity() *big.Int              { return tx.data.Quantity }
+func (tx *OrderTransaction) Price() *big.Int                 { return tx.data.Price }
+func (tx *OrderTransaction) ExchangeAddress() common.Address { return tx.data.ExchangeAddress }
+func (tx *OrderTransaction) UserAddress() common.Address     { return tx.data.UserAddress }
+func (tx *OrderTransaction) BaseToken() common.Address       { return tx.data.BaseToken }
+func (tx *OrderTransaction) QuoteToken() common.Address      { return tx.data.QuoteToken }
+func (tx *OrderTransaction) Status() string                  { return tx.data.Status }
+func (tx *OrderTransaction) Side() string                    { return tx.data.Side }
+func (tx *OrderTransaction) Type() string                    { return tx.data.Type }
+func (tx *OrderTransaction) PairName() string                { return tx.data.PairName }
+func (tx *OrderTransaction) Signature() (V, R, S *big.Int)   { return tx.data.V, tx.data.R, tx.data.S }
 
 // From get transaction from
 func (tx *OrderTransaction) From() *common.Address {
@@ -133,16 +150,23 @@ func (tx *OrderTransaction) Size() common.StorageSize {
 }
 
 // NewOrderTransaction init order from value
-func NewOrderTransaction(nonce uint64, quantity *big.Int, price *big.Int, exchangeAddress common.Address) *OrderTransaction {
-	return newOrderTransaction(nonce, quantity, price, exchangeAddress)
+func NewOrderTransaction(nonce uint64, quantity, price *big.Int, ex, ua, b, q common.Address, status, side, t, pair string) *OrderTransaction {
+	return newOrderTransaction(nonce, quantity, price, ex, ua, b, q, status, side, t, pair)
 }
 
-func newOrderTransaction(nonce uint64, quantity *big.Int, price *big.Int, exchangeAddress common.Address) *OrderTransaction {
+func newOrderTransaction(nonce uint64, quantity, price *big.Int, ex, ua, b, q common.Address, status, side, t, pair string) *OrderTransaction {
 	d := ordertxdata{
 		AccountNonce:    nonce,
 		Quantity:        new(big.Int),
 		Price:           new(big.Int),
-		ExchangeAddress: exchangeAddress,
+		ExchangeAddress: ex,
+		UserAddress:     ua,
+		BaseToken:       b,
+		QuoteToken:      q,
+		Status:          status,
+		Side:            side,
+		Type:            t,
+		PairName:        pair,
 		V:               new(big.Int),
 		R:               new(big.Int),
 		S:               new(big.Int),

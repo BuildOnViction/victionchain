@@ -617,30 +617,35 @@ func (self *worker) commitNewWork() {
 				}
 
 				log.Debug("Start processing order pending")
-				txMatches := tomoX.ProcessOrderPending()
-				if len(txMatches) > 0 {
-					log.Debug("transaction matches found", "txMatches", len(txMatches))
-					// put all TxMatchesData into only one tx
-					txMatchBytes, err := tomox.EncodeTxMatchesBatch(tomox.TxMatchBatch{
-						Data:      txMatches,
-						Timestamp: uint64(time.Now().UnixNano()),
-						TxHash:    common.Hash{},
-					})
-					if err != nil {
-						log.Error("Fail to marshal txMatch", "error", err)
-					} else {
-						// Create and send tx to smart contract for sign validate block.
-						nonce := self.eth.TxPool().State().GetNonce(account.Address)
-						tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
-						txM, err := wallet.SignTx(account, tx, self.config.ChainId)
+				orderPending, err := self.eth.OrderPool().Pending()
+				if err == nil {
+					log.Info("Start processing order pending", "len", len(orderPending))
+					txMatches := tomoX.ProcessOrderPending(orderPending)
+					if len(txMatches) > 0 {
+						log.Debug("transaction matches found", "txMatches", len(txMatches))
+						// put all TxMatchesData into only one tx
+						txMatchBytes, err := tomox.EncodeTxMatchesBatch(tomox.TxMatchBatch{
+							Data:      txMatches,
+							Timestamp: uint64(time.Now().UnixNano()),
+							TxHash:    common.Hash{},
+						})
 						if err != nil {
-							log.Error("Fail to create tx matches", "error", err)
+							log.Error("Fail to marshal txMatch", "error", err)
 						} else {
-							matchingTransaction = txM
+							// Create and send tx to smart contract for sign validate block.
+							nonce := self.eth.TxPool().State().GetNonce(account.Address)
+							tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
+							txM, err := wallet.SignTx(account, tx, self.config.ChainId)
+							if err != nil {
+								log.Error("Fail to create tx matches", "error", err)
+							} else {
+								matchingTransaction = txM
+							}
 						}
-					}
 
+					}
 				}
+
 			}
 		}
 

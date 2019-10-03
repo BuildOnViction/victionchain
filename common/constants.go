@@ -13,7 +13,7 @@ const (
 	HexSetOpening              = "e11f5ba2"
 	EpocBlockSecret            = 800
 	EpocBlockOpening           = 850
-	EpocBlockRandomize         = 900
+	EpocBlockRandomize         = 90
 	MaxMasternodes             = 150
 	LimitPenaltyEpoch          = 4
 	BlocksPerYear              = uint64(15768000)
