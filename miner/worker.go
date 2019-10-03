@@ -665,7 +665,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 	for _, tx := range specialTxs {
 
 		//HF number for black-list
-		if env.header.Number.Uint64() >= common.BlackListHFNumber {
+		if (env.header.Number.Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
@@ -754,7 +754,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 
 		//HF number for black-list
-		if env.header.Number.Uint64() >= common.BlackListHFNumber {
+		if (env.header.Number.Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
