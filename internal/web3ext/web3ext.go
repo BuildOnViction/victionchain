@@ -29,7 +29,7 @@ var Modules = map[string]string{
 	"personal":   Personal_JS,
 	"rpc":        RPC_JS,
 	"shh":        Shh_JS,
-	"tomoX":      TomoX_JS,
+	"tomox":      TomoX_JS,
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
 }
@@ -626,95 +626,95 @@ web3._extend({
 
 const TomoX_JS = `
 web3._extend({
-	property: 'tomoX',
+	property: 'tomox',
 	methods: [
 		new web3._extend.Method({
 			name: 'version',
-			getter: 'tomoX_version',
+			call: 'tomox_version',
 			params: 0,
 			outputFormatter: web3._extend.utils.toDecimal
 		}),
 		new web3._extend.Method({
 			name: 'info',
-			getter: 'tomoX_info',
+			call: 'tomox_info',
 			params: 0
 		}),
 		new web3._extend.Method({
             name: 'markTrustedPeer',
-            call: 'tomoX_markTrustedPeer',
+            call: 'tomox_markTrustedPeer',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'createOrder',
-            call: 'tomoX_createOrder',
+            call: 'tomox_createOrder',
             params: 1,
             inputFormatter: [null]
         }),
         new web3._extend.Method({
             name: 'cancelOrder',
-            call: 'tomoX_cancelOrder',
+            call: 'tomox_cancelOrder',
             params: 1,
             inputFormatter: [null]
         }),
 		new web3._extend.Method({
             name: 'newTopic',
-            call: 'tomoX_newTopic',
+            call: 'tomox_newTopic',
             params: 1
         }),
         new web3._extend.Method({
             name: 'deleteTopic',
-            call: 'tomoX_deleteTopic',
+            call: 'tomox_deleteTopic',
             params: 1
         }),
         new web3._extend.Method({
             name: 'getOrders',
-            call: 'tomoX_getOrders',
+            call: 'tomox_getOrders',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'getOrderNonce',
-            call: 'tomoX_getOrderNonce',
+            call: 'tomox_getOrderNonce',
             params: 1,
             inputFormatter: [web3._extend.formatters.inputAddressFormatter]
         }),
 		new web3._extend.Method({
             name: 'getBestBid',
-            call: 'tomoX_getBestBid',
+            call: 'tomox_getBestBid',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'getBestAsk',
-            call: 'tomoX_getBestAsk',
+            call: 'tomox_getBestAsk',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'getBidTree',
-            call: 'tomoX_getBidTree',
+            call: 'tomox_getBidTree',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'getAskTree',
-            call: 'tomoX_getAskTree',
+            call: 'tomox_getAskTree',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'getPendingOrders',
-            call: 'tomoX_getPendingOrders',
+            call: 'tomox_getPendingOrders',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'getAllPendingHashes',
-            call: 'tomoX_getAllPendingHashes',
+            call: 'tomox_getAllPendingHashes',
             params: 0
         }),
 		new web3._extend.Method({
             name: 'purgePendingOrders',
-            call: 'tomoX_purgePendingOrders',
+            call: 'tomox_purgePendingOrders',
             params: 0
         }),
 		new web3._extend.Method({
             name: 'getProcessedHashes',
-            call: 'tomoX_getProcessedHashes',
+            call: 'tomox_getProcessedHashes',
             params: 0
         }),
 	]
