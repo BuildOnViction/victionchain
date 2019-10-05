@@ -93,6 +93,13 @@ func (tx *OrderTransaction) Side() string                    { return tx.data.Si
 func (tx *OrderTransaction) Type() string                    { return tx.data.Type }
 func (tx *OrderTransaction) PairName() string                { return tx.data.PairName }
 func (tx *OrderTransaction) Signature() (V, R, S *big.Int)   { return tx.data.V, tx.data.R, tx.data.S }
+func (tx *OrderTransaction) EncodedSide() *big.Int {
+	if tx.Side() == "BUY" {
+		return big.NewInt(0)
+	} else {
+		return big.NewInt(1)
+	}
+}
 
 // From get transaction from
 func (tx *OrderTransaction) From() *common.Address {

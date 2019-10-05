@@ -18,11 +18,15 @@ package types
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // OrderSigner interface for order transaction
@@ -102,17 +106,61 @@ func (ordersign OrderTxSigner) SignatureValues(tx *OrderTransaction, sig []byte)
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (ordersign OrderTxSigner) Hash(tx *OrderTransaction) common.Hash {
-	return rlpHash([]interface{}{
-		tx.data.AccountNonce,
-		tx.data.Quantity,
-		tx.data.Price,
-		tx.data.ExchangeAddress,
-	})
+	sha := sha3.NewKeccak256()
+	sha.Write(tx.ExchangeAddress().Bytes())
+	sha.Write(tx.UserAddress().Bytes())
+	sha.Write(tx.BaseToken().Bytes())
+	sha.Write(tx.QuoteToken().Bytes())
+	sha.Write(common.BigToHash(tx.Quantity()).Bytes())
+	sha.Write(common.BigToHash(tx.Price()).Bytes())
+	sha.Write(common.BigToHash(tx.EncodedSide()).Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
+	return common.BytesToHash(sha.Sum(nil))
+}
+
+//MarshalSignature encode signature
+func MarshalSignature(R, S, V *big.Int) ([]byte, error) {
+	sigBytes1 := common.BigToHash(R).Bytes()
+	sigBytes2 := common.BigToHash(S).Bytes()
+	v := big.NewInt(0)
+	v.Sub(V, big.NewInt(27))
+
+	bigstr := v.String()
+	n, err := strconv.ParseInt(bigstr, 10, 8)
+	if err != nil {
+		return nil, err
+	}
+	sigBytes3 := byte(n)
+	sigBytes := append([]byte{}, sigBytes1...)
+	sigBytes = append(sigBytes, sigBytes2...)
+	sigBytes = append(sigBytes, sigBytes3)
+
+	return sigBytes, nil
 }
 
 // Sender get signer from
 func (ordersign OrderTxSigner) Sender(tx *OrderTransaction) (common.Address, error) {
-	return recoverPlain(ordersign.Hash(tx), tx.data.R, tx.data.S, tx.data.V, false)
+	message := crypto.Keccak256(
+		[]byte("\x19Ethereum Signed Message:\n32"),
+		ordersign.Hash(tx).Bytes(),
+	)
+	messageHash := hex.EncodeToString(message)
+	log.Info(" Sender message hash", "hash", messageHash)
+	V, R, S := tx.Signature()
+	log.Info("Sender sig", "R", R, "S", S, "V", V)
+	sigBytes, err := MarshalSignature(R, S, V)
+	if err != nil {
+		return common.Address{}, err
+	}
+	log.Info("Sender sigBytes hash", "hash", hex.EncodeToString(sigBytes))
+	pubKey, err := crypto.SigToPub(message, sigBytes)
+	if err != nil {
+		return common.Address{}, err
+	}
+	address := crypto.PubkeyToAddress(*pubKey)
+	log.Info("Sender PubkeyToAddress hash", "address", address.Hex())
+	return address, nil
+
 }
 
 // CacheOrderSigner cache signed order

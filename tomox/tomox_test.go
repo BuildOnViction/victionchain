@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -727,4 +728,28 @@ func TestOrderPoolTx5(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+type Sig struct {
+	R *big.Int
+	S *big.Int
+}
+
+func TestBig(t *testing.T) {
+	sig := Sig{
+		R: big.NewInt(27),
+		S: big.NewInt(27),
+	}
+	R := sig.R
+	r := big.NewInt(0)
+	r.Sub(R, big.NewInt(27))
+	log.Print(r)
+	log.Print(sig.R)
+
+	bigstr := r.String()
+	n, err := strconv.ParseInt(bigstr, 10, 8)
+	if err == nil {
+		log.Print(n)
+	}
+
 }

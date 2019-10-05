@@ -417,6 +417,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		return ErrInvalidOrderStatus
 	}
 	from, _ := types.OrderSender(pool.signer, tx)
+	log.Info("validateOrder", "from", from.Hex())
 	if from != tx.UserAddress() {
 		return ErrInvalidOrderUserAddress
 	}
@@ -515,7 +516,7 @@ func (pool *OrderPool) enqueueTx(hash common.Hash, tx *types.OrderTransaction) (
 	if !inserted {
 		// An older transaction was better, discard this
 		queuedDiscardCounter.Inc(1)
-		return false, ErrReplaceUnderpriced
+		return false, ErrNonceTooLow
 	}
 	// Discard any previous transaction and mark this
 	if old != nil {

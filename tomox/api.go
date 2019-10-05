@@ -391,7 +391,7 @@ func (api *PublicTomoXAPI) PurgePendingOrders() error {
 
 // GetOrderNonce returns the latest orderNonce of the given address
 func (api *PublicTomoXAPI) GetOrderNonce(address common.Address) (*big.Int, error) {
-	return api.t.GetOrderNonce(address)
+	return api.t.GetOrderNextNonce(address)
 }
 
 // GetBestBid returns the bestBid price of the given pair
