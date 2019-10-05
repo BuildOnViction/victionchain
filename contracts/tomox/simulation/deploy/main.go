@@ -78,7 +78,7 @@ func main() {
 	applyTomoXListing(tomoxListing, tokenList, currentNonce)
 
 	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
-	//airdrop(auth, client, tokenList, simulation.TeamAddresses, currentNonce)
+	airdrop(auth, client, tokenList, simulation.TeamAddresses, currentNonce)
 
 	// relayer registration
 	ownerRelayer := bind.NewKeyedTransactor(simulation.OwnerRelayerKey)

@@ -120,6 +120,21 @@ func (tx *OrderTransaction) WithSignature(signer OrderSigner, sig []byte) (*Orde
 	return cpy, nil
 }
 
+// ImportSignature make order tx with specific signature
+func (tx *OrderTransaction) ImportSignature(V, R, S *big.Int) *OrderTransaction {
+
+	if V != nil {
+		tx.data.V = V
+	}
+	if R != nil {
+		tx.data.R = R
+	}
+	if S != nil {
+		tx.data.S = S
+	}
+	return tx
+}
+
 // Hash hashes the RLP encoding of tx.
 // It uniquely identifies the transaction.
 func (tx *OrderTransaction) Hash() common.Hash {

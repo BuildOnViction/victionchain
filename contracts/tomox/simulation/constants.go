@@ -20,7 +20,7 @@ var (
 	TRC21TokenFee = big.NewInt(100)
 
 	// TOMOX
-	MaxRelayers  = uint16(100)
+	MaxRelayers  = big.NewInt(100)
 	MaxTokenList = big.NewInt(150)
 	MinDeposit   = big.NewInt(25000) // 25000 TOMO
 	TradeFee     = uint16(1)
