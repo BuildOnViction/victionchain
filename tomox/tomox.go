@@ -1112,25 +1112,21 @@ func (tomox *TomoX) getPendingOrders() []OrderPending {
 	return pendingOrders
 }
 
-func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash, cancel bool) error {
-	if !tomox.processedOrderCache.Add(orderHash, true) {
-		// remove order from pending list
-		if err := tomox.RemoveOrderFromPending(orderHash, cancel); err != nil {
-			log.Warn("Double check pending order at addProcessedOrderHash. Failed to remove pending hash", "err", err, "orderHash", orderHash)
-		}
-
-		// remove order pending
-		if err := tomox.RemoveOrderPendingFromDB(orderHash, cancel); err != nil {
-			log.Warn("Double check pending order at addProcessedOrderHash. Failed to remove pending order", "err", err, "orderHash", orderHash)
-		}
-		return nil
-	} else {
-		return fmt.Errorf("Can't add processed order to cache: orderHash - %s", orderHash.Hex())
-	}
+func (tomox *TomoX) addProcessedOrderHash(orderHash common.Hash, cancel bool, blockHash common.Hash) error {
+	//when cache reach the limit, it automatically removes the oldest one, then inserts new element.
+	//	In that case, add function return eviction = true
+	//Anyway, in any circumstate, new element is added successfully
+	//So we don't need to check return value of Add
+	//Ref: https://play.golang.org/p/Dg4as9qpC6W
+	tomox.processedOrderCache.Add(orderHash, blockHash)
+	return nil
 }
 
-func (tomox *TomoX) ExistProcessedOrderHash(orderHash common.Hash) bool {
-	return tomox.processedOrderCache.Contains(orderHash)
+func (tomox *TomoX) ExistProcessedOrderHash(orderHash common.Hash, blockHash common.Hash) bool {
+	if hash, ok := tomox.processedOrderCache.Get(orderHash); ok && hash == blockHash {
+		return true
+	}
+	return false
 }
 
 func (tomox *TomoX) updatePairs(pairs map[string]bool) error {
@@ -1256,7 +1252,7 @@ func (tomox *TomoX) ApplyTxMatches(orders []*tomox_state.OrderItem, blockHash co
 	}
 
 	for _, order := range orders {
-		if err := tomox.addProcessedOrderHash(order.Hash, order.Status == OrderStatusCancelled); err != nil {
+		if err := tomox.addProcessedOrderHash(order.Hash, order.Status == OrderStatusCancelled, blockHash); err != nil {
 			log.Error("Failed to mark order as processed", "err", err)
 		}
 		log.Debug("Mark order as processed", "orderHash", hex.EncodeToString(order.Hash.Bytes()))
