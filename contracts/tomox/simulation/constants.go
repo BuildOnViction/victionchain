@@ -20,8 +20,8 @@ var (
 	TRC21TokenFee = big.NewInt(100)
 
 	// TOMOX
-	MaxRelayers  = big.NewInt(100)
-	MaxTokenList = big.NewInt(150)
+	MaxRelayers  = big.NewInt(200)
+	MaxTokenList = big.NewInt(200)
 	MinDeposit   = big.NewInt(25000) // 25000 TOMO
 	TradeFee     = uint16(1)
 
@@ -35,10 +35,10 @@ var (
 
 	TokenNameList = []string{"BTC", "ETH", "XRP", "LTC", "BNB", "ADA", "ETC", "BCH", "EOS"}
 	TeamAddresses = []common.Address{
-		// common.HexToAddress("0x8fB1047e874d2e472cd08980FF8383053dd83102"), // MM team
-		// common.HexToAddress("0x9ca1514E3Dc4059C29a1608AE3a3E3fd35900888"), // MM team
-		// common.HexToAddress("0x15e08dE16f534c890828F2a0D935433aF5B3CE0C"), // CTO
-		// common.HexToAddress("0xb68D825655F2fE14C32558cDf950b45beF18D218"), // DEX team
+		common.HexToAddress("0x8fB1047e874d2e472cd08980FF8383053dd83102"), // MM team
+		common.HexToAddress("0x9ca1514E3Dc4059C29a1608AE3a3E3fd35900888"), // MM team
+		common.HexToAddress("0x15e08dE16f534c890828F2a0D935433aF5B3CE0C"), // CTO
+		common.HexToAddress("0xb68D825655F2fE14C32558cDf950b45beF18D218"), // DEX team
 		common.HexToAddress("0xF7349C253FF7747Df661296E0859c44e974fb52E"), // HaiDV
 		common.HexToAddress("0x9f6b8fDD3733B099A91B6D70CDC7963ebBbd2684"), // Can
 		common.HexToAddress("0x06605B28aab9835be75ca242a8aE58f2e15F2F45"), // Nien

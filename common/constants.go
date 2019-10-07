@@ -13,7 +13,7 @@ const (
 	HexSetOpening              = "e11f5ba2"
 	EpocBlockSecret            = 800
 	EpocBlockOpening           = 850
-	EpocBlockRandomize         = 90
+	EpocBlockRandomize         = 900
 	MaxMasternodes             = 150
 	LimitPenaltyEpoch          = 4
 	BlocksPerYear              = uint64(15768000)
@@ -21,7 +21,7 @@ const (
 	DefaultMinGasPrice         = 2500
 	MergeSignRange             = 15
 	RangeReturnSigner          = 150
-	MinimunMinerBlockPerEpoch  = 2
+	MinimunMinerBlockPerEpoch  = 1
 	TomoXSnapshotInterval      = 100 // 100 blocks
 )
 
