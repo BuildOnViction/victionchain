@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 	"sync"
 	"time"
@@ -40,6 +41,8 @@ var (
 	ErrInvalidOrderType        = errors.New("invalid order type")
 	ErrInvalidOrderStatus      = errors.New("invalid order status")
 	ErrInvalidOrderUserAddress = errors.New("invalid order user address")
+	ErrInvalidOrderQuantity    = errors.New("invalid order quantity")
+	ErrInvalidOrderPrice       = errors.New("invalid order price")
 )
 
 var (
@@ -410,6 +413,17 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	orderSide := tx.Side()
 	orderType := tx.Type()
 	orderStatus := tx.Status()
+	price := tx.Price()
+	quantity := tx.Quantity()
+	if quantity == nil || quantity.Cmp(big.NewInt(0)) <= 0 {
+
+		return ErrInvalidOrderQuantity
+	}
+	if price == nil || price.Cmp(big.NewInt(0)) <= 0 {
+		log.Debug("Invalid price", "price", o.Price.String())
+		return ErrInvalidOrderPrice
+	}
+
 	if orderSide != OrderSideAsk && orderSide != OrderSideBid {
 		return ErrInvalidOrderSide
 	}
