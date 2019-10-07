@@ -102,9 +102,19 @@ type ProtocolManager struct {
 	knowOrderTxs *lru.Cache
 }
 
+// NewProtocolManagerEx add order pool to protocol
+func NewProtocolManagerEx(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, orderpool orderPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
+	protocol, err := NewProtocolManager(config, mode, networkId, mux, txpool, engine, blockchain, chaindb)
+	if err != nil {
+		return nil, err
+	}
+	protocol.addOrderPoolProtocol(orderpool)
+	return protocol, nil
+}
+
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the ethereum network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, orderpool orderPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
 	knownTxs, _ := lru.New(maxKnownTxs)
 	knowOrderTxs, _ := lru.New(maxKnownOrderTxs)
 	// Create the protocol manager with the base fields
@@ -112,7 +122,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		networkId:    networkId,
 		eventMux:     mux,
 		txpool:       txpool,
-		orderpool:    orderpool,
 		blockchain:   blockchain,
 		chainconfig:  config,
 		peers:        newPeerSet(),
@@ -122,6 +131,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:     make(chan struct{}),
 		knownTxs:     knownTxs,
 		knowOrderTxs: knowOrderTxs,
+		orderpool:    nil,
+		orderTxSub:   nil,
 	}
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
@@ -202,6 +213,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	return manager, nil
 }
 
+func (pm *ProtocolManager) addOrderPoolProtocol(orderpool orderPool) {
+	pm.orderpool = orderpool
+}
 func (pm *ProtocolManager) removePeer(id string) {
 	// Short circuit if the peer was already removed
 	peer := pm.peers.Peer(id)
@@ -229,7 +243,9 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.txSub = pm.txpool.SubscribeTxPreEvent(pm.txCh)
 
 	pm.orderTxCh = make(chan core.OrderTxPreEvent, txChanSize)
-	pm.orderTxSub = pm.orderpool.SubscribeTxPreEvent(pm.orderTxCh)
+	if pm.orderpool != nil {
+		pm.orderTxSub = pm.orderpool.SubscribeTxPreEvent(pm.orderTxCh)
+	}
 
 	go pm.txBroadcastLoop()
 	go pm.orderTxBroadcastLoop()
@@ -246,7 +262,10 @@ func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Ethereum protocol")
 
 	pm.txSub.Unsubscribe() // quits txBroadcastLoop
-	pm.orderTxSub.Unsubscribe()
+	if pm.orderTxSub != nil {
+		pm.orderTxSub.Unsubscribe()
+	}
+
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 
 	// Quit the sync loop.
@@ -736,7 +755,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 
 		}
-		pm.orderpool.AddRemotes(txs)
+
+		if pm.orderpool != nil {
+			pm.orderpool.AddRemotes(txs)
+		}
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
@@ -821,22 +843,21 @@ func (self *ProtocolManager) txBroadcastLoop() {
 			// Err() channel will be closed when unsubscribing.
 		case <-self.txSub.Err():
 			return
-		case <-self.orderTxSub.Err():
-			return
 		}
 	}
 }
 
 // orderTxBroadcastLoop broadcast order
 func (self *ProtocolManager) orderTxBroadcastLoop() {
+	if self.orderTxSub == nil {
+		return
+	}
 	for {
 		select {
 		case event := <-self.orderTxCh:
 			self.OrderBroadcastTx(event.Tx.Hash(), event.Tx)
 
 			// Err() channel will be closed when unsubscribing.
-		case <-self.orderTxSub.Err():
-			return
 		case <-self.orderTxSub.Err():
 			return
 		}

@@ -160,7 +160,7 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
 			TrieNodeLimit: 256 * 1024 * 1024,
@@ -180,7 +180,6 @@ func NewBlockChain(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *
 		chainConfig:      chainConfig,
 		cacheConfig:      cacheConfig,
 		db:               db,
-		tomoxDb:          tomoxDb,
 		triegc:           prque.New(),
 		stateCache:       state.NewDatabase(db),
 		quit:             make(chan struct{}),
@@ -229,8 +228,24 @@ func NewBlockChain(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *
 	return bc, nil
 }
 
+// NewBlockChainEx extend old blockchain, add order state db
+func NewBlockChainEx(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+	blockchain, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig)
+	if err != nil {
+		return nil, err
+	}
+	if blockchain != nil {
+		blockchain.addTomoxDb(tomoxDb)
+	}
+	return blockchain, nil
+}
+
 func (bc *BlockChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&bc.procInterrupt) == 1
+}
+
+func (bc *BlockChain) addTomoxDb(tomoxDb ethdb.TomoxDatabase) {
+	bc.tomoxDb = tomoxDb
 }
 
 // loadLastState loads the last known chain state from the database. This method
@@ -423,6 +438,7 @@ func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 	return state.New(root, bc.stateCache)
 }
 
+// LoadOrderNonce load nonces db of order user
 func (bc *BlockChain) LoadOrderNonce() (map[common.Address]*big.Int, error) {
 	var (
 		orderNonce map[common.Address]*big.Int
@@ -430,6 +446,9 @@ func (bc *BlockChain) LoadOrderNonce() (map[common.Address]*big.Int, error) {
 		val        interface{}
 	)
 	orderNonceKey := "ORDER_NONCES"
+	if bc.tomoxDb == nil {
+		return orderNonce, nil
+	}
 	val, err = bc.tomoxDb.Get([]byte(orderNonceKey), &[]byte{}, false, common.Hash{})
 	if err != nil {
 		return nil, err

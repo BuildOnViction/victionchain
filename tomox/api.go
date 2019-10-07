@@ -460,13 +460,3 @@ func (api *PublicTomoXAPI) GetProcessedHashes() ([]common.Hash, error) {
 	}
 	return result, nil
 }
-
-// GetFee api get lastest fee by coinbase
-func (api *PublicTomoXAPI) GetFee(address common.Address) (*big.Int, error) {
-	return api.t.GetFeeCache(3, address)
-}
-
-// GetFeeByEpoch api get coinbase fee by epoch
-func (api *PublicTomoXAPI) GetFeeByEpoch(epoch uint64, address common.Address) (*big.Int, error) {
-	return api.t.GetFeeCache(epoch, address)
-}

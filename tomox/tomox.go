@@ -128,8 +128,6 @@ type TomoX struct {
 	activePairs map[string]bool // hold active pairs
 
 	tokenDecimalCache *lru.Cache
-	relayerFeeCache   map[uint64]map[common.Address]*big.Int // cache relayer fee by epoch number
-
 }
 
 func NewLDBEngine(cfg *Config) *BatchDatabase {
@@ -164,7 +162,6 @@ func New(cfg *Config) *TomoX {
 		activePairs:         make(map[string]bool),
 		processedOrderCache: poCache,
 		tokenDecimalCache:   tokenDecimalCache,
-		relayerFeeCache:     make(map[uint64]map[common.Address]*big.Int),
 	}
 	switch cfg.DBEngine {
 	case "leveldb":
@@ -1380,23 +1377,4 @@ func (tomox *TomoX) updateMatchedOrder(hashString string, filledAmount *big.Int)
 		return fmt.Errorf("SDKNode: failed to update matchedOrder to sdkNode %s", err.Error())
 	}
 	return nil
-}
-
-// SetFeeCache set cache by epoch
-func (tomox *TomoX) SetFeeCache(epochNumber uint64, mapFee map[common.Address]*big.Int) {
-	tomox.relayerFeeCache[epochNumber] = mapFee
-}
-
-// GetFeeCache get Fee by epoch and coinbase address
-func (tomox *TomoX) GetFeeCache(epochNumber uint64, coinBase common.Address) (*big.Int, error) {
-	if listCoinbaseFee, ok := tomox.relayerFeeCache[epochNumber]; ok {
-		if fee, ok := listCoinbaseFee[coinBase]; ok {
-			return fee, nil
-		} else {
-			return nil, errors.New("coinBase cache not found")
-		}
-	} else {
-		return nil, errors.New("epoch number cache not found")
-	}
-	return nil, nil
 }
