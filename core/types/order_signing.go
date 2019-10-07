@@ -18,7 +18,6 @@ package types
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -143,7 +142,6 @@ func (ordersign OrderTxSigner) Sender(tx *OrderTransaction) (common.Address, err
 		[]byte("\x19Ethereum Signed Message:\n32"),
 		ordersign.Hash(tx).Bytes(),
 	)
-	messageHash := hex.EncodeToString(message)
 	V, R, S := tx.Signature()
 	sigBytes, err := MarshalSignature(R, S, V)
 	if err != nil {

@@ -49,7 +49,7 @@ var (
 	OrderTypeLimit    = "LO"
 	OrderTypeMarket   = "MO"
 	OrderStatusNew    = "NEW"
-	OrderStatusCancle = "CANCLE"
+	OrderStatusCancle = "CANCELLED"
 	OrderSideBid      = "BUY"
 	OrderSideAsk      = "SELL"
 )
@@ -416,11 +416,9 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	price := tx.Price()
 	quantity := tx.Quantity()
 	if quantity == nil || quantity.Cmp(big.NewInt(0)) <= 0 {
-
 		return ErrInvalidOrderQuantity
 	}
 	if price == nil || price.Cmp(big.NewInt(0)) <= 0 {
-		log.Debug("Invalid price", "price", o.Price.String())
 		return ErrInvalidOrderPrice
 	}
 

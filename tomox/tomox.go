@@ -878,7 +878,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 				PairName: tx.PairName(),
 			}
 			cancel := false
-			if order.Status == "CANCEL" {
+			if order.Status == OrderStatusCancelled {
 				cancel = true
 			}
 
