@@ -26,7 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // OrderSigner interface for order transaction
@@ -145,20 +144,16 @@ func (ordersign OrderTxSigner) Sender(tx *OrderTransaction) (common.Address, err
 		ordersign.Hash(tx).Bytes(),
 	)
 	messageHash := hex.EncodeToString(message)
-	log.Info(" Sender message hash", "hash", messageHash)
 	V, R, S := tx.Signature()
-	log.Info("Sender sig", "R", R, "S", S, "V", V)
 	sigBytes, err := MarshalSignature(R, S, V)
 	if err != nil {
 		return common.Address{}, err
 	}
-	log.Info("Sender sigBytes hash", "hash", hex.EncodeToString(sigBytes))
 	pubKey, err := crypto.SigToPub(message, sigBytes)
 	if err != nil {
 		return common.Address{}, err
 	}
 	address := crypto.PubkeyToAddress(*pubKey)
-	log.Info("Sender PubkeyToAddress hash", "address", address.Hex())
 	return address, nil
 
 }

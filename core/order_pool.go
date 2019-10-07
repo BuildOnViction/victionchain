@@ -139,7 +139,7 @@ type OrderPool struct {
 func NewOrderPool(chainconfig *params.ChainConfig, chain blockChainTomox) *OrderPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config := (&DefaultOrderPoolConfig).sanitize()
-	log.Info("txpoll NewOrderPool start...", "current block", chain.CurrentBlock().Header().Number)
+	log.Debug("NewOrderPool start...", "current block", chain.CurrentBlock().Header().Number)
 	// Create the transaction pool with its initial settings
 	pool := &OrderPool{
 		config:      config,
@@ -207,7 +207,7 @@ func (pool *OrderPool) loop() {
 				if pool.chainconfig.IsHomestead(ev.Block.Number()) {
 					pool.homestead = true
 				}
-				log.Info("OrderPool new chain header reset pool", "old", head.Header().Number, "new", ev.Block.Header().Number)
+				log.Debug("OrderPool new chain header reset pool", "old", head.Header().Number, "new", ev.Block.Header().Number)
 				pool.reset(head.Header(), ev.Block.Header())
 				head = ev.Block
 
@@ -222,9 +222,8 @@ func (pool *OrderPool) loop() {
 			pool.mu.RLock()
 			pending, queued := pool.stats()
 			pool.mu.RUnlock()
-			log.Info("xxxOrder pool status report", "executable", pending, "queued", queued)
 			if pending != prevPending || queued != prevQueued {
-				log.Info("Order pool status report", "executable", pending, "queued", queued)
+				log.Debug("Order pool status report", "executable", pending, "queued", queued)
 				prevPending, prevQueued = pending, queued
 			}
 
@@ -417,7 +416,6 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		return ErrInvalidOrderStatus
 	}
 	from, _ := types.OrderSender(pool.signer, tx)
-	log.Info("validateOrder", "from", from.Hex())
 	if from != tx.UserAddress() {
 		return ErrInvalidOrderUserAddress
 	}
@@ -576,7 +574,7 @@ func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *type
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *OrderPool) AddLocal(tx *types.OrderTransaction) error {
-	log.Info("order add local tx")
+	log.Debug("order add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
@@ -689,7 +687,6 @@ func (pool *OrderPool) Get(hash common.Hash) *types.OrderTransaction {
 // transactions back to the future queue.
 func (pool *OrderPool) removeTx(hash common.Hash) {
 	// Fetch the transaction we wish to delete
-	log.Info("OrderPool remove tx", "tx", hash.Hex())
 	tx, ok := pool.all[hash]
 	if !ok {
 		return
@@ -892,14 +889,14 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 // are moved back into the future queue.
 func (pool *OrderPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
-	log.Info("demoteUnexecutables ....")
+	log.Debug("demoteUnexecutables check")
 	for addr, list := range pool.pending {
 		nonce := pool.currentOrderState.GetNonce(addr)
-		log.Info("demoteUnexecutables", "addr", addr.Hex(), "nonce", nonce)
+		log.Debug("demoteUnexecutables", "addr", addr.Hex(), "nonce", nonce)
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(nonce) {
 			hash := tx.Hash()
-			log.Info("Removed old pending transaction", "hash", hash)
+			log.Debug("Removed old pending transaction", "hash", hash)
 			delete(pool.all, hash)
 		}
 

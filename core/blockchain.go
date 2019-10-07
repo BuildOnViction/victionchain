@@ -18,6 +18,7 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -106,10 +107,10 @@ type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
-	db ethdb.Database // Low level persistent database to store final content in
-
-	triegc *prque.Prque  // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration // Accumulates canonical block processing for trie dumping
+	db      ethdb.Database // Low level persistent database to store final content in
+	tomoxDb ethdb.TomoxDatabase
+	triegc  *prque.Prque  // Priority queue mapping block numbers to tries to gc
+	gcproc  time.Duration // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
 	rmLogsFeed    event.Feed
@@ -159,7 +160,7 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+func NewBlockChain(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
 			TrieNodeLimit: 256 * 1024 * 1024,
@@ -179,6 +180,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		chainConfig:      chainConfig,
 		cacheConfig:      cacheConfig,
 		db:               db,
+		tomoxDb:          tomoxDb,
 		triegc:           prque.New(),
 		stateCache:       state.NewDatabase(db),
 		quit:             make(chan struct{}),
@@ -421,28 +423,36 @@ func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 	return state.New(root, bc.stateCache)
 }
 
+func (bc *BlockChain) LoadOrderNonce() (map[common.Address]*big.Int, error) {
+	var (
+		orderNonce map[common.Address]*big.Int
+		err        error
+		val        interface{}
+	)
+	orderNonceKey := "ORDER_NONCES"
+	val, err = bc.tomoxDb.Get([]byte(orderNonceKey), &[]byte{}, false, common.Hash{})
+	if err != nil {
+		return nil, err
+	}
+	b := *val.(*[]byte)
+	if err = json.Unmarshal(b, &orderNonce); err != nil {
+		return nil, err
+	}
+	return orderNonce, nil
+}
+
 // OrderStateAt returns a new mutable state based on a particular point in time.
 func (bc *BlockChain) OrderStateAt(root common.Hash) (*state.OrderState, error) {
-	var tomoXService *tomox.TomoX
-	engine, ok := bc.Engine().(*posv.Posv)
-	if ok {
-
-		if engine.GetTomoXService != nil {
-			tomoXService = engine.GetTomoXService()
-			noncels := make(map[common.Address]*big.Int)
-			noncels, err := tomoXService.LoadOrderNonce()
-			if err != nil {
-			} else {
-				for addr, nonce := range noncels {
-					log.Info("OrderStateAt", "address", addr, "nonce", nonce)
-				}
-			}
-
-			return state.NewOrderState(noncels), nil
+	noncels := make(map[common.Address]*big.Int)
+	noncels, err := bc.LoadOrderNonce()
+	if err != nil {
+		return state.NewOrderState(nil), nil
+	} else {
+		for addr, nonce := range noncels {
+			log.Debug("OrderStateAt", "address", addr, "nonce", nonce)
 		}
-
 	}
-	return state.NewOrderState(nil), nil
+	return state.NewOrderState(noncels), nil
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.
@@ -1326,12 +1336,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// epoch block
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 				CheckpointCh <- 1
-				epochNumber := block.NumberU64() / bc.chainConfig.Posv.Epoch
-				log.Info("Set fee cache", "epoch", epochNumber)
-				relayerFeeList := tomox.GetCoinbaseFeeList(statedb)
-				if tomoXService != nil {
-					tomoXService.SetFeeCache(epochNumber, relayerFeeList)
-				}
 
 			}
 			// prepare set of masternodes for the next epoch
@@ -1597,17 +1601,6 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		// epoch block
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 			CheckpointCh <- 1
-			epochNumber := block.NumberU64() / bc.chainConfig.Posv.Epoch
-			log.Info("Set fee cache", "epoch", epochNumber)
-			relayerFeeList := tomox.GetCoinbaseFeeList(result.state)
-			var tomoXService *tomox.TomoX
-			engine, ok := bc.Engine().(*posv.Posv)
-			if ok {
-				tomoXService = engine.GetTomoXService()
-				if tomoXService != nil {
-					tomoXService.SetFeeCache(epochNumber, relayerFeeList)
-				}
-			}
 
 		}
 		// prepare set of masternodes for the next epoch

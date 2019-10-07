@@ -619,7 +619,7 @@ func (self *worker) commitNewWork() {
 				log.Debug("Start processing order pending")
 				orderPending, err := self.eth.OrderPool().Pending()
 				if err == nil {
-					log.Info("Start processing order pending", "len", len(orderPending))
+					log.Debug("Start processing order pending", "len", len(orderPending))
 					txMatches := tomoX.ProcessOrderPending(orderPending)
 					if len(txMatches) > 0 {
 						log.Debug("transaction matches found", "txMatches", len(txMatches))

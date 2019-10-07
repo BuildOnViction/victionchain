@@ -807,9 +807,9 @@ func (tomox *TomoX) loadOrderNonce() error {
 	return nil
 }
 
-// update orderNonce to persistent storage
+// UpdateOrderNonce orderNonce to persistent storage
 func (tomox *TomoX) UpdateOrderNonce(userAddress common.Address, newCount *big.Int) error {
-	log.Info("UpdateOrderNonce", "address", userAddress, "nonce", newCount)
+	tomox.loadOrderNonce()
 	orderNonceList := tomox.orderNonce
 	if orderNonce, ok := orderNonceList[userAddress]; !ok || newCount.Cmp(orderNonce) > 0 {
 		orderNonceList[userAddress] = newCount
@@ -817,6 +817,7 @@ func (tomox *TomoX) UpdateOrderNonce(userAddress common.Address, newCount *big.I
 		if err != nil {
 			return err
 		}
+		log.Info("UpdateOrderNonce", "address", userAddress, "nonce", newCount)
 		if err := tomox.db.Put([]byte(orderNonceKey), &blob, false, common.Hash{}); err != nil {
 			return err
 		}
