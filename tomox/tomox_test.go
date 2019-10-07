@@ -64,9 +64,9 @@ func testCreateOrder(t *testing.T, nonce *big.Int) {
 	var result interface{}
 	params := make(map[string]interface{})
 	params["topic"] = encodedTopic
-	err = rpcClient.Call(&result, "tomoX_newTopic", params)
+	err = rpcClient.Call(&result, "tomox_newTopic", params)
 	if err != nil {
-		t.Error("rpcClient.Call tomoX_newTopic failed", "err", err)
+		t.Error("rpcClient.Call tomox_newTopic failed", "err", err)
 	}
 
 	//create new order
@@ -75,9 +75,9 @@ func testCreateOrder(t *testing.T, nonce *big.Int) {
 		t.Error("json.Marshal failed", "err", err)
 	}
 
-	err = rpcClient.Call(&result, "tomoX_createOrder", params)
+	err = rpcClient.Call(&result, "tomox_createOrder", params)
 	if err != nil {
-		t.Error("rpcClient.Call tomoX_createOrder failed", "err", err)
+		t.Error("rpcClient.Call tomox_createOrder failed", "err", err)
 	}
 }
 
@@ -120,9 +120,9 @@ func TestCancelOrder(t *testing.T) {
 		t.Error("json.Marshal failed", "err", err)
 	}
 
-	err = rpcClient.Call(&result, "tomoX_cancelOrder", params)
+	err = rpcClient.Call(&result, "tomox_cancelOrder", params)
 	if err != nil {
-		t.Error("rpcClient.Call tomoX_createOrder failed", "err", err)
+		t.Error("rpcClient.Call tomox_createOrder failed", "err", err)
 	}
 }
 
@@ -172,9 +172,9 @@ func TestOrderMatching1To1(t *testing.T) {
 	var result interface{}
 	params := make(map[string]interface{})
 	params["topic"] = encodedTopic
-	err = rpcClient.Call(&result, "tomoX_newTopic", params)
+	err = rpcClient.Call(&result, "tomox_newTopic", params)
 	if err != nil {
-		t.Error("rpcClient.Call tomoX_newTopic failed", "err", err)
+		t.Error("rpcClient.Call tomox_newTopic failed", "err", err)
 	}
 
 	//create new order
@@ -183,9 +183,9 @@ func TestOrderMatching1To1(t *testing.T) {
 		t.Error("json.Marshal failed", "err", err)
 	}
 
-	err = rpcClient.Call(&result, "tomoX_createOrder", params)
+	err = rpcClient.Call(&result, "tomox_createOrder", params)
 	if err != nil {
-		t.Error("rpcClient.Call tomoX_createOrder failed", "err", err)
+		t.Error("rpcClient.Call tomox_createOrder failed", "err", err)
 	}
 
 	sell := &OrderItem{
@@ -227,9 +227,9 @@ func TestOrderMatching1To1(t *testing.T) {
 	}
 	params = make(map[string]interface{})
 	params["topic"] = encodedTopic
-	err = rpcClient.Call(&result, "tomoX_newTopic", params)
+	err = rpcClient.Call(&result, "tomox_newTopic", params)
 	if err != nil {
-		t.Error("rpcClient.Call tomoX_newTopic failed", "err", err)
+		t.Error("rpcClient.Call tomox_newTopic failed", "err", err)
 	}
 
 	//create new order
@@ -238,9 +238,9 @@ func TestOrderMatching1To1(t *testing.T) {
 		t.Error("json.Marshal failed", "err", err)
 	}
 
-	err = rpcClient.Call(&result, "tomoX_createOrder", params)
+	err = rpcClient.Call(&result, "tomox_createOrder", params)
 	if err != nil {
-		t.Error("rpcClient.Call tomoX_createOrder failed", "err", err)
+		t.Error("rpcClient.Call tomox_createOrder failed", "err", err)
 	}
 }
 
