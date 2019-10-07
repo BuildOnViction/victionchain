@@ -51,6 +51,10 @@ var (
 	OrderSideAsk      = "SELL"
 )
 
+var (
+	ErrPendingNonceTooLow = errors.New("pending nonce too low")
+)
+
 // OrderPoolConfig are the configuration parameters of the order transaction pool.
 type OrderPoolConfig struct {
 	NoLocals  bool          // Whether local transaction handling should be disabled
@@ -484,7 +488,7 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 	}
 	// If the transaction is replacing an already pending one, do directly
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
-		return false, ErrNonceTooLow
+		return false, ErrPendingNonceTooLow
 	}
 	// New transaction isn't replacing a pending one, push into queue
 	replace, err := pool.enqueueTx(hash, tx)
@@ -514,7 +518,7 @@ func (pool *OrderPool) enqueueTx(hash common.Hash, tx *types.OrderTransaction) (
 	if !inserted {
 		// An older transaction was better, discard this
 		queuedDiscardCounter.Inc(1)
-		return false, ErrNonceTooLow
+		return false, ErrPendingNonceTooLow
 	}
 	// Discard any previous transaction and mark this
 	if old != nil {
