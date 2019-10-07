@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	ProtocolName         = "tomoX"
+	ProtocolName         = "tomox"
 	ProtocolVersion      = uint64(1)
 	ProtocolVersionStr   = "1.0"
 	expirationCycle      = time.Second
