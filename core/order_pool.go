@@ -43,6 +43,7 @@ var (
 	ErrInvalidOrderUserAddress = errors.New("invalid order user address")
 	ErrInvalidOrderQuantity    = errors.New("invalid order quantity")
 	ErrInvalidOrderPrice       = errors.New("invalid order price")
+	ErrInvalidOrderHash        = errors.New("invalid order hash")
 )
 
 var (
@@ -430,6 +431,10 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	}
 	if orderStatus != OrderStatusNew && orderStatus != OrderStatusCancle {
 		return ErrInvalidOrderStatus
+	}
+	var signer = types.OrderTxSigner{}
+	if signer.Hash(tx) != tx.OrderHash() {
+		return ErrInvalidOrderHash
 	}
 	from, _ := types.OrderSender(pool.signer, tx)
 	if from != tx.UserAddress() {
