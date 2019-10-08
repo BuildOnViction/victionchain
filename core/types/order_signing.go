@@ -101,9 +101,8 @@ func (ordersign OrderTxSigner) SignatureValues(tx *OrderTransaction, sig []byte)
 	return r, s, v, nil
 }
 
-// Hash returns the hash to be signed by the sender.
-// It does not uniquely identify the transaction.
-func (ordersign OrderTxSigner) Hash(tx *OrderTransaction) common.Hash {
+// OrderCreateHash hash of new order
+func (ordersign OrderTxSigner) OrderCreateHash(tx *OrderTransaction) common.Hash {
 	sha := sha3.NewKeccak256()
 	sha.Write(tx.ExchangeAddress().Bytes())
 	sha.Write(tx.UserAddress().Bytes())
@@ -116,6 +115,23 @@ func (ordersign OrderTxSigner) Hash(tx *OrderTransaction) common.Hash {
 	sha.Write([]byte(tx.Type()))
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
 	return common.BytesToHash(sha.Sum(nil))
+}
+
+// OrderCancelHash hash of cancelled order
+func (ordersign OrderTxSigner) OrderCancelHash(tx *OrderTransaction) common.Hash {
+	sha := sha3.NewKeccak256()
+	sha.Write(tx.OrderHash().Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
+	return common.BytesToHash(sha.Sum(nil))
+}
+
+// Hash returns the hash to be signed by the sender.
+// It does not uniquely identify the transaction.
+func (ordersign OrderTxSigner) Hash(tx *OrderTransaction) common.Hash {
+	if tx.IsCancelledOrder() {
+		return ordersign.OrderCancelHash(tx)
+	}
+	return ordersign.OrderCreateHash(tx)
 }
 
 //MarshalSignature encode signature

@@ -34,6 +34,14 @@ var (
 	errNoSignerOrder   = errors.New("missing signing methods")
 )
 
+const (
+	OrderStatusNew           = "NEW"
+	OrderStatusOpen          = "OPEN"
+	OrderStatusPartialFilled = "PARTIAL_FILLED"
+	OrderStatusFilled        = "FILLED"
+	OrderStatusCancelled     = "CANCELLED"
+)
+
 // OrderTransaction order transaction
 type OrderTransaction struct {
 	data ordertxdata
@@ -62,6 +70,14 @@ type ordertxdata struct {
 
 	// This is only used when marshaling to JSON.
 	Hash common.Hash `json:"hash" rlp:"-"`
+}
+
+// IsCancelledOrder check if tx is cancelled transaction
+func (tx *OrderTransaction) IsCancelledOrder() bool {
+	if tx.Type() == OrderStatusCancelled {
+		return true
+	}
+	return false
 }
 
 // EncodeRLP implements rlp.Encoder
