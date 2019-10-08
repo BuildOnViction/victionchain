@@ -112,6 +112,8 @@ func (ordersign OrderTxSigner) Hash(tx *OrderTransaction) common.Hash {
 	sha.Write(common.BigToHash(tx.Quantity()).Bytes())
 	sha.Write(common.BigToHash(tx.Price()).Bytes())
 	sha.Write(common.BigToHash(tx.EncodedSide()).Bytes())
+	sha.Write([]byte(tx.Status()))
+	sha.Write([]byte(tx.Type()))
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
 	return common.BytesToHash(sha.Sum(nil))
 }
