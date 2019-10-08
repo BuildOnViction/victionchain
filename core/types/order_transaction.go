@@ -61,7 +61,7 @@ type ordertxdata struct {
 	S *big.Int `json:"s" gencodec:"required"`
 
 	// This is only used when marshaling to JSON.
-	Hash *common.Hash `json:"hash" rlp:"-"`
+	Hash common.Hash `json:"hash" rlp:"-"`
 }
 
 // EncodeRLP implements rlp.Encoder
@@ -93,6 +93,7 @@ func (tx *OrderTransaction) Side() string                    { return tx.data.Si
 func (tx *OrderTransaction) Type() string                    { return tx.data.Type }
 func (tx *OrderTransaction) PairName() string                { return tx.data.PairName }
 func (tx *OrderTransaction) Signature() (V, R, S *big.Int)   { return tx.data.V, tx.data.R, tx.data.S }
+func (tx *OrderTransaction) OrderHash() common.Hash          { return tx.data.Hash }
 func (tx *OrderTransaction) EncodedSide() *big.Int {
 	if tx.Side() == "BUY" {
 		return big.NewInt(0)
