@@ -63,6 +63,7 @@ type ordertxdata struct {
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
 	PairName        string         `json:"pairName,omitempty"`
+	OrderID         uint64         `json:"orderid,omitempty"`
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
 	R *big.Int `json:"r" gencodec:"required"`
@@ -74,7 +75,7 @@ type ordertxdata struct {
 
 // IsCancelledOrder check if tx is cancelled transaction
 func (tx *OrderTransaction) IsCancelledOrder() bool {
-	if tx.Type() == OrderStatusCancelled {
+	if tx.Status() == OrderStatusCancelled {
 		return true
 	}
 	return false
@@ -110,6 +111,7 @@ func (tx *OrderTransaction) Type() string                    { return tx.data.Ty
 func (tx *OrderTransaction) PairName() string                { return tx.data.PairName }
 func (tx *OrderTransaction) Signature() (V, R, S *big.Int)   { return tx.data.V, tx.data.R, tx.data.S }
 func (tx *OrderTransaction) OrderHash() common.Hash          { return tx.data.Hash }
+func (tx *OrderTransaction) OrderID() uint64                 { return tx.data.OrderID }
 func (tx *OrderTransaction) EncodedSide() *big.Int {
 	if tx.Side() == "BUY" {
 		return big.NewInt(0)
@@ -189,11 +191,11 @@ func (tx *OrderTransaction) Size() common.StorageSize {
 }
 
 // NewOrderTransaction init order from value
-func NewOrderTransaction(nonce uint64, quantity, price *big.Int, ex, ua, b, q common.Address, status, side, t, pair string) *OrderTransaction {
-	return newOrderTransaction(nonce, quantity, price, ex, ua, b, q, status, side, t, pair)
+func NewOrderTransaction(nonce uint64, quantity, price *big.Int, ex, ua, b, q common.Address, status, side, t, pair string, hash common.Hash, id uint64) *OrderTransaction {
+	return newOrderTransaction(nonce, quantity, price, ex, ua, b, q, status, side, t, pair, hash, id)
 }
 
-func newOrderTransaction(nonce uint64, quantity, price *big.Int, ex, ua, b, q common.Address, status, side, t, pair string) *OrderTransaction {
+func newOrderTransaction(nonce uint64, quantity, price *big.Int, ex, ua, b, q common.Address, status, side, t, pair string, hash common.Hash, id uint64) *OrderTransaction {
 	d := ordertxdata{
 		AccountNonce:    nonce,
 		Quantity:        new(big.Int),
@@ -206,6 +208,8 @@ func newOrderTransaction(nonce uint64, quantity, price *big.Int, ex, ua, b, q co
 		Side:            side,
 		Type:            t,
 		PairName:        pair,
+		Hash:            hash,
+		OrderID:         id,
 		V:               new(big.Int),
 		R:               new(big.Int),
 		S:               new(big.Int),

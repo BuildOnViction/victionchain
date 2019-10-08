@@ -599,7 +599,7 @@ func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *type
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *OrderPool) AddLocal(tx *types.OrderTransaction) error {
-	log.Debug("order add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce())
+	log.Debug("order add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
