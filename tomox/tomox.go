@@ -691,6 +691,9 @@ func (tomox *TomoX) InsertOrder(order *OrderItem) error {
 			if err := tomox.addOrderToPending(order.Hash, true); err != nil {
 				return err
 			}
+			if err := tomox.UpdateOrderNonce(order.UserAddress, order.Nonce); err != nil {
+				log.Error("Failed to update orderNonce", "err", err)
+			}
 		} else {
 			if err := tomox.verifyOrderNonce(order); err != nil {
 				return err
@@ -864,7 +867,8 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 				Status:          tx.Status(),
 				Side:            tx.Side(),
 				Type:            tx.Type(),
-				Hash:            tx.Hash(),
+				Hash:            tx.OrderHash(),
+				OrderID:         tx.OrderID(),
 				Signature: &Signature{
 					V: byte(n),
 					R: common.BigToHash(R),
@@ -1251,11 +1255,11 @@ func (tomox *TomoX) ApplyTxMatches(orders []*OrderItem, blockHash common.Hash) e
 			log.Error("Failed to mark order as processed", "err", err)
 		}
 		log.Debug("Mark order as processed", "orderHash", hex.EncodeToString(order.Hash.Bytes()))
-		if order.Status != OrderStatusCancelled {
-			if err := tomox.UpdateOrderNonce(order.UserAddress, order.Nonce); err != nil {
-				log.Error("Update orderNonce via ApplyTxMatches failed", "err", err)
-			}
+
+		if err := tomox.UpdateOrderNonce(order.UserAddress, order.Nonce); err != nil {
+			log.Error("Update orderNonce via ApplyTxMatches failed", "err", err)
 		}
+
 	}
 	tomox.db.InitDryRunMode(blockHash)
 	return nil
