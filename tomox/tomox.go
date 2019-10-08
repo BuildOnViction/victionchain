@@ -754,12 +754,9 @@ func (tomox *TomoX) GetOrderNonce(address common.Address) (*big.Int, error) {
 	return orderNonce, nil
 }
 
+// GetOrderNextNonce get next order nonce
 func (tomox *TomoX) GetOrderNextNonce(address common.Address) (*big.Int, error) {
-	if len(tomox.orderNonce) == 0 {
-		if err := tomox.loadOrderNonce(); err != nil {
-			return big.NewInt(0), nil
-		}
-	}
+	tomox.loadOrderNonce()
 	orderNonce, ok := tomox.orderNonce[address]
 	if !ok {
 		return big.NewInt(0), nil
