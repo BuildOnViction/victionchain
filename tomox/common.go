@@ -26,11 +26,19 @@ var (
 		"MaximumRelayers":  1,
 		"MaximumTokenList": 2,
 		"RELAYER_LIST":     3,
-		"OWNER_LIST":       4,
+		"RELAYER_COINBASES": 4,
+		"RESIGN_REQUESTS": 5,
+		"RELAYER_ON_SALE_LIST": 6,
+		"RelayerCount": 7,
+		"MinimumDeposit": 8,
 	}
 	RelayerStructMappingSlot = map[string]*big.Int{
 		"_deposit": big.NewInt(0),
 		"_fee":     big.NewInt(1),
+		"_fromTokens": big.NewInt(2),
+		"_toTokens": big.NewInt(3),
+		"_index": big.NewInt(4),
+		"_owner": big.NewInt(5),
 	}
 )
 
