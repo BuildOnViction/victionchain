@@ -5436,8 +5436,8 @@ var methods = function () {
     });
 
     var sendOrderTransaction = new Method({
-        name: 'sendOrderTransaction',
-        call: 'eth_sendOrderTransaction',
+        name: 'sendOrder',
+        call: 'eth_sendOrder',
         params: 1,
         inputFormatter: [null]
     });

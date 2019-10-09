@@ -1628,9 +1628,9 @@ type OrderMsg struct {
 	Hash common.Hash `json:"hash" rlp:"-"`
 }
 
-// SendOrderTransaction will add the signed transaction to the transaction pool.
+// SendOrder will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
-func (s *PublicTransactionPoolAPI) SendOrderTransaction(ctx context.Context, msg OrderMsg) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendOrder(ctx context.Context, msg OrderMsg) (common.Hash, error) {
 	tx := types.NewOrderTransaction(msg.AccountNonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, msg.Hash, msg.OrderID)
 	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
 	return submitOrderTransaction(ctx, s.b, tx)
