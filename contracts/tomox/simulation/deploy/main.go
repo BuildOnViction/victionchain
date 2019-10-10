@@ -108,7 +108,7 @@ func main() {
 
 	_, err = relayerRegistration.Register(simulation.RelayerCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
 	if err != nil {
-		log.Fatal("relayerRegistration Register", err)
+		log.Fatal("relayerRegistration Register ", err)
 	}
 	fmt.Println("wait 10s to apply token to list tomox")
 	time.Sleep(10 * time.Second)
