@@ -5428,20 +5428,6 @@ var methods = function () {
         inputFormatter: [null]
     });
 
-    var sendOrderRawTransaction = new Method({
-        name: 'sendOrderRawTransaction',
-        call: 'eth_sendOrderRawTransaction',
-        params: 1,
-        inputFormatter: [null]
-    });
-
-    var sendOrderTransaction = new Method({
-        name: 'sendOrder',
-        call: 'eth_sendOrder',
-        params: 1,
-        inputFormatter: [null]
-    });
-
     var sendTransaction = new Method({
         name: 'sendTransaction',
         call: 'eth_sendTransaction',
