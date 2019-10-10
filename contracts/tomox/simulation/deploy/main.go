@@ -87,7 +87,7 @@ func main() {
 		log.Fatal("NewRelayerRegistration", err)
 	}
 	relayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	relayerRegistration.TransactOpts.Value = big.NewInt(0).Mul(simulation.MinDeposit, simulation.BaseTOMO)
+	relayerRegistration.TransactOpts.Value = simulation.MinDeposit
 	relayerRegistration.TransactOpts.GasPrice = big.NewInt(210000000000000)
 
 	fromTokens := []common.Address{}
