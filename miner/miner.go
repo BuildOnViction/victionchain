@@ -42,6 +42,7 @@ type Backend interface {
 	TxPool() *core.TxPool
 	ChainDb() ethdb.Database
 	GetTomoX() *tomox.TomoX
+	OrderPool() *core.OrderPool
 }
 
 // Miner creates blocks and searches for proof-of-work values.

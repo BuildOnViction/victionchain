@@ -32,10 +32,10 @@ var (
 // PublicTomoXAPI provides the tomoX RPC service that can be
 // use publicly without security implications.
 type PublicTomoXAPI struct {
-	t *TomoX
-
+	t        *TomoX
 	mu       sync.Mutex
 	lastUsed map[string]time.Time // keeps track when a filter was polled for the last time.
+
 }
 
 // NewPublicTomoXAPI create a new RPC tomoX service.
@@ -391,7 +391,7 @@ func (api *PublicTomoXAPI) PurgePendingOrders() error {
 
 // GetOrderNonce returns the latest orderNonce of the given address
 func (api *PublicTomoXAPI) GetOrderNonce(address common.Address) (*big.Int, error) {
-	return api.t.GetOrderNonce(address)
+	return api.t.GetOrderNextNonce(address)
 }
 
 // GetBestBid returns the bestBid price of the given pair
@@ -442,7 +442,6 @@ func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, erro
 	}
 	return result, nil
 }
-
 
 // GetAllPendingHashes returns all pending order hashes
 func (api *PublicTomoXAPI) GetAllPendingHashes() ([]OrderPending, error) {

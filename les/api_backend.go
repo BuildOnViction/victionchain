@@ -109,6 +109,9 @@ func (b *LesApiBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.eth.txPool.Add(ctx, signedTx)
 }
+func (b *LesApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
+	return nil
+}
 
 func (b *LesApiBackend) RemoveTx(txHash common.Hash) {
 	b.eth.txPool.RemoveTx(txHash)

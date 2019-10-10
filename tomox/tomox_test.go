@@ -4,13 +4,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 func buildOrder(nonce *big.Int) *OrderItem {
@@ -18,8 +19,8 @@ func buildOrder(nonce *big.Int) *OrderItem {
 	v := []byte(string(rand.Intn(999)))
 	lstBuySell := []string{"BUY", "SELL"}
 	order := &OrderItem{
-		Quantity:        new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 1000000000000000000),
-		Price:           new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 100000000000000000),
+		Quantity: new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 1000000000000000000),
+		Price:    new(big.Int).SetUint64(uint64(rand.Intn(9)+1) * 100000000000000000),
 		//Quantity: new(big.Int).SetUint64(uint64(5) * 1000000000000000000),
 		//Price:           new(big.Int).SetUint64(uint64(2) * 100000000000000000),
 		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
@@ -29,8 +30,8 @@ func buildOrder(nonce *big.Int) *OrderItem {
 		Status:          "New",
 		Side:            lstBuySell[rand.Int()%len(lstBuySell)],
 		//Side: "SELL",
-		Type:            Limit,
-		PairName:        "BTC/ETH",
+		Type:     Limit,
+		PairName: "BTC/ETH",
 		//Hash:            common.StringToHash("0xdc842ea4a239d1a4e56f1e7ba31aab5a307cb643a9f5b89f972f2f5f0d1e7587"),
 		Hash: common.StringToHash(nonce.String()),
 		Signature: &Signature{
@@ -96,7 +97,6 @@ func TestCancelOrder(t *testing.T) {
 	//FIXME
 	// disable this test in travis CI
 	t.SkipNow()
-
 
 	order := buildOrder(new(big.Int).SetInt64(1))
 	topic := order.BaseToken.Hex() + "::" + order.QuoteToken.Hex()

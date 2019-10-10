@@ -62,6 +62,7 @@ type Backend interface {
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
+	SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error
 	GetPoolTransactions() (types.Transactions, error)
 	GetPoolTransaction(txHash common.Hash) *types.Transaction
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
@@ -100,6 +101,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "eth",
 			Version:   "1.0",
 			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
+			Public:    true,
+		}, {
+			Namespace: "tomox",
+			Version:   "1.0",
+			Service:   NewPublicTomoXTransactionPoolAPI(apiBackend, nonceLock),
 			Public:    true,
 		}, {
 			Namespace: "txpool",

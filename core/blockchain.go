@@ -18,9 +18,9 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/tomox"
 	"io"
 	"math/big"
 	"os"
@@ -28,6 +28,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/ethereum/go-ethereum/tomox"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -105,9 +107,10 @@ type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
-	db     ethdb.Database // Low level persistent database to store final content in
-	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
+	db      ethdb.Database // Low level persistent database to store final content in
+	tomoxDb ethdb.TomoxDatabase
+	triegc  *prque.Prque  // Priority queue mapping block numbers to tries to gc
+	gcproc  time.Duration // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
 	rmLogsFeed    event.Feed
@@ -225,8 +228,24 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	return bc, nil
 }
 
+// NewBlockChainEx extend old blockchain, add order state db
+func NewBlockChainEx(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+	blockchain, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig)
+	if err != nil {
+		return nil, err
+	}
+	if blockchain != nil {
+		blockchain.addTomoxDb(tomoxDb)
+	}
+	return blockchain, nil
+}
+
 func (bc *BlockChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&bc.procInterrupt) == 1
+}
+
+func (bc *BlockChain) addTomoxDb(tomoxDb ethdb.TomoxDatabase) {
+	bc.tomoxDb = tomoxDb
 }
 
 // loadLastState loads the last known chain state from the database. This method
@@ -417,6 +436,42 @@ func (bc *BlockChain) State() (*state.StateDB, error) {
 // StateAt returns a new mutable state based on a particular point in time.
 func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 	return state.New(root, bc.stateCache)
+}
+
+// LoadOrderNonce load nonces db of order user
+func (bc *BlockChain) LoadOrderNonce() (map[common.Address]*big.Int, error) {
+	var (
+		orderNonce map[common.Address]*big.Int
+		err        error
+		val        interface{}
+	)
+	orderNonceKey := "ORDER_NONCES"
+	if bc.tomoxDb == nil {
+		return orderNonce, nil
+	}
+	val, err = bc.tomoxDb.Get([]byte(orderNonceKey), &[]byte{}, false, common.Hash{})
+	if err != nil {
+		return nil, err
+	}
+	b := *val.(*[]byte)
+	if err = json.Unmarshal(b, &orderNonce); err != nil {
+		return nil, err
+	}
+	return orderNonce, nil
+}
+
+// OrderStateAt returns a new mutable state based on a particular point in time.
+func (bc *BlockChain) OrderStateAt(root common.Hash) (*state.OrderState, error) {
+	noncels := make(map[common.Address]*big.Int)
+	noncels, err := bc.LoadOrderNonce()
+	if err != nil {
+		return state.NewOrderState(nil), nil
+	} else {
+		for addr, nonce := range noncels {
+			log.Debug("OrderStateAt", "address", addr, "nonce", nonce)
+		}
+	}
+	return state.NewOrderState(noncels), nil
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.
@@ -1300,6 +1355,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// epoch block
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 				CheckpointCh <- 1
+
 			}
 			// prepare set of masternodes for the next epoch
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == (bc.chainConfig.Posv.Epoch - bc.chainConfig.Posv.Gap) {
@@ -1564,6 +1620,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		// epoch block
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 			CheckpointCh <- 1
+
 		}
 		// prepare set of masternodes for the next epoch
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == (bc.chainConfig.Posv.Epoch - bc.chainConfig.Posv.Gap) {

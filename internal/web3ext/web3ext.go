@@ -676,6 +676,12 @@ web3._extend({
             call: 'tomox_getOrderNonce',
             params: 1,
             inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
+		new web3._extend.Method({
+            name: 'GetFeeByEpoch',
+            call: 'tomoX_GetFeeByEpoch',
+            params: 1,
+            inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]
         }),
 		new web3._extend.Method({
             name: 'getBestBid',
@@ -717,9 +723,35 @@ web3._extend({
             call: 'tomox_getProcessedHashes',
             params: 0
         }),
+		new web3._extend.Method({
+            name: 'sendOrderRawTransaction',
+            call: 'tomox_sendOrderRawTransaction',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'sendOrderTransaction',
+            call: 'tomox_sendOrder',
+            params: 1
+        }),
 	]
 });
 `
+
+/*
+   var sendOrderRawTransaction = new Method({
+       name: 'sendOrderRawTransaction',
+       call: 'eth_sendOrderRawTransaction',
+       params: 1,
+       inputFormatter: [null]
+   });
+
+   var sendOrderTransaction = new Method({
+       name: 'sendOrder',
+       call: 'tomox_sendOrder',
+       params: 1,
+       inputFormatter: [null]
+   });
+*/
 
 const SWARMFS_JS = `
 web3._extend({
