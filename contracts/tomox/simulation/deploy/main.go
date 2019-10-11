@@ -88,7 +88,7 @@ func main() {
 		log.Fatal("NewRelayerRegistration", err)
 	}
 	relayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	relayerRegistration.TransactOpts.Value = big.NewInt(0).Mul(simulation.MinDeposit, simulation.BaseTOMO)
+	relayerRegistration.TransactOpts.Value = simulation.MinDeposit
 	relayerRegistration.TransactOpts.GasPrice = big.NewInt(210000000000000)
 
 	fromTokens := []common.Address{}
@@ -108,7 +108,7 @@ func main() {
 
 	_, err = relayerRegistration.Register(simulation.RelayerCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
 	if err != nil {
-		log.Fatal("relayerRegistration Register", err)
+		log.Fatal("relayerRegistration Register ", err)
 	}
 	fmt.Println("wait 10s to apply token to list tomox")
 	time.Sleep(10 * time.Second)

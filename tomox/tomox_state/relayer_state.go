@@ -61,12 +61,14 @@ func GetExRelayerFee(relayer common.Address, statedb *state.StateDB) *big.Int {
 	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big()
 }
 func GetRelayerOwner(relayer common.Address, statedb *state.StateDB) common.Address {
-	slot := RelayerMappingSlot["OWNER_LIST"]
+	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+	log.Debug("GetRelayerOwner", "relayer", relayer.Hex(), "slot", slot, "locBig", locBig)
+	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_owner"])
 	locHash := common.BigToHash(locBig)
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Bytes())
-
 }
+
 func SubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB) error {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)

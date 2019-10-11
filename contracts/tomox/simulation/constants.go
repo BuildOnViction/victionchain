@@ -22,7 +22,7 @@ var (
 	// TOMOX
 	MaxRelayers  = big.NewInt(200)
 	MaxTokenList = big.NewInt(200)
-	MinDeposit   = big.NewInt(25000) // 25000 TOMO
+	MinDeposit   = big.NewInt(0).Mul(big.NewInt(25000), BaseTOMO) // 25000 TOMO
 	TradeFee     = uint16(1)
 
 	RelayerCoinbaseKey, _ = crypto.HexToECDSA(os.Getenv("RELAYER_COINBASE_KEY")) //
