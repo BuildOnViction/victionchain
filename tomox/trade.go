@@ -1,11 +1,12 @@
 package tomox
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/globalsign/mgo/bson"
-	"math/big"
-	"time"
 )
 
 const (
@@ -25,7 +26,6 @@ const (
 )
 
 type Trade struct {
-	ID             bson.ObjectId  `json:"id,omitempty" bson:"_id"`
 	Taker          common.Address `json:"taker" bson:"taker"`
 	Maker          common.Address `json:"maker" bson:"maker"`
 	BaseToken      common.Address `json:"baseToken" bson:"baseToken"`
@@ -48,31 +48,30 @@ type Trade struct {
 }
 
 type TradeBSON struct {
-	ID             bson.ObjectId `json:"id" bson:"_id"`
-	Taker          string        `json:"taker" bson:"taker"`
-	Maker          string        `json:"maker" bson:"maker"`
-	BaseToken      string        `json:"baseToken" bson:"baseToken"`
-	QuoteToken     string        `json:"quoteToken" bson:"quoteToken"`
-	MakerOrderHash string        `json:"makerOrderHash" bson:"makerOrderHash"`
-	TakerOrderHash string        `json:"takerOrderHash" bson:"takerOrderHash"`
-	MakerExchange  string        `json:"makerExchange" bson:"makerExchange"`
-	TakerExchange  string        `json:"takerExchange" bson:"takerExchange"`
-	Hash           string        `json:"hash" bson:"hash"`
-	TxHash         string        `json:"txHash" bson:"txHash"`
-	PairName       string        `json:"pairName" bson:"pairName"`
-	Amount         string        `json:"amount" bson:"amount"`
-	MakeFee        string        `json:"makeFee" bson:"makeFee"`
-	TakeFee        string        `json:"takeFee" bson:"takeFee"`
-	PricePoint     string        `json:"pricepoint" bson:"pricepoint"`
-	Status         string        `json:"status" bson:"status"`
-	CreatedAt      time.Time     `json:"createdAt" bson:"createdAt"`
-	UpdatedAt      time.Time     `json:"updatedAt" bson:"updatedAt"`
-	TakerOrderSide string        `json:"takerOrderSide" bson:"takerOrderSide"`
+	Taker          string    `json:"taker" bson:"taker"`
+	Maker          string    `json:"maker" bson:"maker"`
+	BaseToken      string    `json:"baseToken" bson:"baseToken"`
+	QuoteToken     string    `json:"quoteToken" bson:"quoteToken"`
+	MakerOrderHash string    `json:"makerOrderHash" bson:"makerOrderHash"`
+	TakerOrderHash string    `json:"takerOrderHash" bson:"takerOrderHash"`
+	MakerExchange  string    `json:"makerExchange" bson:"makerExchange"`
+	TakerExchange  string    `json:"takerExchange" bson:"takerExchange"`
+	Hash           string    `json:"hash" bson:"hash"`
+	TxHash         string    `json:"txHash" bson:"txHash"`
+	PairName       string    `json:"pairName" bson:"pairName"`
+	Amount         string    `json:"amount" bson:"amount"`
+	MakeFee        string    `json:"makeFee" bson:"makeFee"`
+	TakeFee        string    `json:"takeFee" bson:"takeFee"`
+	PricePoint     string    `json:"pricepoint" bson:"pricepoint"`
+	Status         string    `json:"status" bson:"status"`
+	CreatedAt      time.Time `json:"createdAt" bson:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt" bson:"updatedAt"`
+	TakerOrderSide string    `json:"takerOrderSide" bson:"takerOrderSide"`
 }
 
 func (t *Trade) GetBSON() (interface{}, error) {
 	tr := TradeBSON{
-		ID:             t.ID,
+
 		PairName:       t.PairName,
 		Maker:          t.Maker.Hex(),
 		Taker:          t.Taker.Hex(),
@@ -105,7 +104,6 @@ func (t *Trade) SetBSON(raw bson.Raw) error {
 		return err
 	}
 
-	t.ID = decoded.ID
 	t.PairName = decoded.PairName
 	t.Taker = common.HexToAddress(decoded.Taker)
 	t.Maker = common.HexToAddress(decoded.Maker)

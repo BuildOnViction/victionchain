@@ -822,6 +822,7 @@ func (tomox *TomoX) UpdateOrderNonce(userAddress common.Address, newCount *big.I
 		if err != nil {
 			return err
 		}
+		log.Debug("UpdateOrderNonce", "userAddress", userAddress, "nonce", newCount)
 		if err := tomox.db.PutObject([]byte(orderNonceKey), &blob, false, common.Hash{}); err != nil {
 			return err
 		}
@@ -1361,6 +1362,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 }
 
 func (tomox *TomoX) updateMatchedOrder(hashString string, filledAmount *big.Int) error {
+	log.Debug("updateMatchedOrder", "hash", hashString, "filledAmount", filledAmount)
 	db := tomox.GetDB()
 	orderHashBytes, err := hex.DecodeString(hashString)
 	if err != nil {

@@ -3,15 +3,16 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
+	"strings"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
-	"github.com/hashicorp/golang-lru"
-	"strings"
-	"time"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 type MongoItem struct {
@@ -276,8 +277,9 @@ func (db *MongoDatabase) CommitTrade(t *Trade) error {
 	sc := db.Session.Copy()
 	defer sc.Close()
 
-	t.ID = bson.NewObjectId()
-	t.CreatedAt = time.Now()
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = time.Now()
+	}
 	t.UpdatedAt = time.Now()
 
 	query := bson.M{"hash": t.Hash.Hex()}
