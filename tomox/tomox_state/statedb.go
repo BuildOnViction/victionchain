@@ -441,8 +441,8 @@ func (s *TomoXStateDB) Finalise() {
 		if _, isDirty := s.stateExhangeObjectsDirty[addr]; isDirty {
 			// Write any storage changes in the state object to its storage trie.
 			stateObject.updateAsksRoot(s.db)
-			stateObject.updateBidsRoot(s.db);
-			stateObject.updateOrdersRoot(s.db);
+			stateObject.updateBidsRoot(s.db)
+			stateObject.updateOrdersRoot(s.db)
 			// Update the object in the main orderId trie.
 			s.updateStateExchangeObject(stateObject)
 			//delete(s.stateExhangeObjectsDirty, addr)
