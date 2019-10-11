@@ -476,7 +476,7 @@ func (bc *BlockChain) LoadOrderNonce() (map[common.Address]*big.Int, error) {
 	if bc.tomoxDb == nil {
 		return orderNonce, nil
 	}
-	val, err = bc.tomoxDb.Get([]byte(orderNonceKey), &[]byte{}, false, common.Hash{})
+	val, err = bc.tomoxDb.GetObject([]byte(orderNonceKey), &[]byte{}, false, common.Hash{})
 	if err != nil {
 		return nil, err
 	}
