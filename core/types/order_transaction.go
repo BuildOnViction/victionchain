@@ -119,6 +119,7 @@ func (tx *OrderTransaction) EncodedSide() *big.Int {
 		return big.NewInt(1)
 	}
 }
+func (tx *OrderTransaction) SetOrderHash(h common.Hash) { tx.data.Hash = h }
 
 // From get transaction from
 func (tx *OrderTransaction) From() *common.Address {
