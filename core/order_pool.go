@@ -435,9 +435,14 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	var signer = types.OrderTxSigner{}
 
 	if !tx.IsCancelledOrder() {
-		if signer.Hash(tx) != tx.OrderHash() {
-			return ErrInvalidOrderHash
+		if !common.EmptyHash(tx.OrderHash()) {
+			if signer.Hash(tx) != tx.OrderHash() {
+				return ErrInvalidOrderHash
+			}
+		} else {
+			tx.SetOrderHash(signer.Hash(tx))
 		}
+
 	}
 
 	from, _ := types.OrderSender(pool.signer, tx)
