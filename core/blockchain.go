@@ -1408,7 +1408,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				return i, events, coalescedLogs, err
 			}
 			for _, txMatchBatch := range txMatchBatchData {
-				log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash)
+				log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
 				err := bc.Validator().ValidateMatchingOrder(tomoXService, statedb, tomoxState, txMatchBatch, hashNoValidator)
 				if err != nil {
 					bc.reportBlock(block, receipts, err)
@@ -1417,12 +1417,16 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			}
 			if len(txMatchBatchData) > 0 {
 				gotRoot := tomoxState.IntermediateRoot()
-				if gotRoot != txMatchBatchData[0].StateRoot {
-					err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), txMatchBatchData[0].StateRoot.Hex())
+				expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
+				if gotRoot != expectRoot {
+					err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
 					bc.reportBlock(block, receipts, err)
 					return i, events, coalescedLogs, err
 				}
 			}
+			parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
+			nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
+			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
 		}
 		proctime := time.Since(bstart)
 		// Write the block to the chain and get the status.
@@ -1649,7 +1653,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			return nil, err
 		}
 		for _, txMatchBatch := range txMatchBatchData {
-			log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash)
+			log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
 			err := bc.Validator().ValidateMatchingOrder(tomoXService, statedb, tomoxState, txMatchBatch, block.HashNoValidator())
 			if err != nil {
 				bc.reportBlock(block, receipts, err)
@@ -1658,12 +1662,16 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		}
 		if len(txMatchBatchData) > 0 {
 			gotRoot := tomoxState.IntermediateRoot()
-			if gotRoot != txMatchBatchData[0].StateRoot {
-				err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), txMatchBatchData[0].StateRoot.Hex())
+			expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
+			if gotRoot != expectRoot {
+				err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
 				bc.reportBlock(block, receipts, err)
 				return nil, err
 			}
 		}
+		parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
+		nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
+		log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
 	}
 	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, tomoxState: tomoxState, proctime: proctime, usedGas: usedGas}, nil
 }
