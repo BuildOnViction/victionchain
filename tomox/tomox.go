@@ -91,7 +91,6 @@ type TxMatchBatch struct {
 	Data      []TxDataMatch
 	Timestamp uint64
 	TxHash    common.Hash
-	StateRoot common.Hash
 }
 
 // DefaultConfig represents (shocker!) the default configuration.
@@ -1397,13 +1396,11 @@ func (tomox *TomoX) GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB
 
 func (tomox *TomoX) GetTomoxStateRoot(block *types.Block) (common.Hash, error) {
 	for _, tx := range block.Transactions() {
-		if tx.To() != nil && tx.To().Hex() == common.TomoXAddr {
-			txMatch, err := DecodeTxMatchesBatch(tx.Data())
-			if err != nil {
-				return common.Hash{}, err
+		if tx.To() != nil && tx.To().Hex() == common.TomoXStateAddr {
+			if len(tx.Data()) > 0 {
+				return common.BytesToHash(tx.Data()), nil
 			}
-			return txMatch.StateRoot, nil
 		}
 	}
-	return common.Hash{}, nil
+	return tomox_state.EmptyRoot, nil
 }

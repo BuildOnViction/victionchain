@@ -309,6 +309,16 @@ func (tx *Transaction) IsMatchingTransaction() bool {
 	return true
 }
 
+func (tx *Transaction) IsSkipNonceTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+	if tx.To().String() == common.TomoXAddr || tx.To().String() == common.TomoXStateAddr {
+		return true
+	}
+	return false
+}
+
 func (tx *Transaction) IsSigningTransaction() bool {
 	if tx.To() == nil {
 		return false

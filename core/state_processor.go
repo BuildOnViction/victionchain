@@ -186,6 +186,9 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
 		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
+	if tx.To() != nil && tx.To().String() == common.TomoXStateAddr && config.IsTIPTomoX(header.Number) {
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	}
 	if tx.IsMatchingTransaction() && config.IsTIPTomoX(header.Number) {
 		return ApplyTomoXMatchedTransaction(config, bc, statedb, header, tx, usedGas)
 	}
@@ -283,14 +286,31 @@ func ApplySignTransaction(config *params.ChainConfig, statedb *state.StateDB, he
 	return receipt, 0, nil, false
 }
 
+func ApplyEmptyTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
+	// Update the state with pending changes
+	var root []byte
+	if config.IsByzantium(header.Number) {
+		statedb.Finalise(true)
+	} else {
+		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
+	}
+	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
+	// based on the eip phase, we're passing wether the root touch-delete accounts.
+	receipt := types.NewReceipt(root, false, *usedGas)
+	receipt.TxHash = tx.Hash()
+	receipt.GasUsed = 0
+	// if the transaction created a contract, store the creation address in the receipt.
+	// Set the receipt logs and create a bloom for filtering
+	log := &types.Log{}
+	log.Address = *tx.To()
+	log.BlockNumber = header.Number.Uint64()
+	statedb.AddLog(log)
+	receipt.Logs = statedb.GetLogs(tx.Hash())
+	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	return receipt, 0, nil, false
+}
 func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
 	// Update the state with pending changes
-	from, err := types.Sender(types.MakeSigner(config, header.Number), tx)
-	if err != nil {
-		return nil, 0, err, false
-	}
-	nonce := statedb.GetNonce(from)
-
 	txMatchBatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
 	if err != nil {
 		return nil, 0, err, false
@@ -413,7 +433,6 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 			}
 		}
 	}
-	statedb.SetNonce(from, nonce+1)
 	statedb.AddBalance(header.Coinbase, gasUsed)
 	var root []byte
 	if config.IsByzantium(header.Number) {
@@ -429,7 +448,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 	// if the transaction created a contract, store the creation address in the receipt.
 	// Set the receipt logs and create a bloom for filtering
 	log := &types.Log{}
-	log.Address = common.HexToAddress(common.BlockSigners)
+	log.Address = *tx.To()
 	log.BlockNumber = header.Number.Uint64()
 	statedb.AddLog(log)
 	receipt.Logs = statedb.GetLogs(tx.Hash())

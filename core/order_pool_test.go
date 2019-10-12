@@ -78,7 +78,7 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string) {
 		BaseToken:       common.HexToAddress("0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"),
 		QuoteToken:      common.HexToAddress("0x0000000000000000000000000000000000000001"),
 		Status:          "NEW",
-		Side:            "SELL",
+		Side:            side,
 		Type:            "LO",
 		PairName:        "BTC/TOMO",
 	}

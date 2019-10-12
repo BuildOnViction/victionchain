@@ -612,68 +612,62 @@ func (self *worker) commitNewWork() {
 		txs                 *types.TransactionsByPriceAndNonce
 		specialTxs          types.Transactions
 		matchingTransaction *types.Transaction
+		txMatches           []tomox.TxDataMatch
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		tomoX := self.eth.GetTomoX()
-
 		if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
-			manager := self.eth.AccountManager()
-			if manager != nil {
-				// Find active account.
-				account := accounts.Account{}
-				var wallet accounts.Wallet
-				if wallets := manager.Wallets(); len(wallets) > 0 {
-					wallet = wallets[0]
-					if accts := wallets[0].Accounts(); len(accts) > 0 {
-						account = accts[0]
-					}
-				}
-				log.Debug("Start processing order pending")
-				orderPending, err := self.eth.OrderPool().Pending()
-				if err == nil {
-					log.Debug("Start processing order pending", "len", len(orderPending))
-					txMatches := tomoX.ProcessOrderPending(orderPending, work.state, work.tomoxState)
-					log.Debug("transaction matches found", "txMatches", len(txMatches))
-					// put all TxMatchesData into only one tx
-					txMatchBytes, err := tomox.EncodeTxMatchesBatch(tomox.TxMatchBatch{
-						Data:      txMatches,
-						Timestamp: uint64(time.Now().UnixNano()),
-						TxHash:    common.Hash{},
-						StateRoot: work.tomoxState.IntermediateRoot(),
-					})
-					if err != nil {
-						log.Error("Fail to marshal txMatch", "error", err)
-					} else {
-						// Create and send tx to smart contract for sign validate block.
-						nonce := self.eth.TxPool().State().GetNonce(account.Address)
-						tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
-						txM, err := wallet.SignTx(account, tx, self.config.ChainId)
-						if err != nil {
-							log.Error("Fail to create tx matches", "error", err)
-						} else {
-							matchingTransaction = txM
-						}
-					}
-				}
-			}
-
+			log.Debug("Start processing order pending")
+			orderPending, _ := self.eth.OrderPool().Pending()
+			log.Debug("Start processing order pending", "len", len(orderPending))
+			txMatches = tomoX.ProcessOrderPending(orderPending, work.state, work.tomoxState)
+			log.Debug("transaction matches found", "txMatches", len(txMatches))
 		}
 	}
-
-	pending, err := self.eth.TxPool().Pending()
+	TomoxStateRoot := work.tomoxState.IntermediateRoot()
+	txMatchBatch := &tomox.TxMatchBatch{
+		Data:      txMatches,
+		Timestamp: uint64(time.Now().UnixNano()),
+		TxHash:    common.Hash{},
+	}
+	wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})
 	if err != nil {
-		log.Error("Failed to fetch pending transactions", "err", err)
+		log.Error("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
 		return
 	}
-	txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity)
-	if matchingTransaction != nil {
-		// force adding matching transaction to this block
-		specialTxs = append(specialTxs, matchingTransaction)
+	txMatchBytes, err := tomox.EncodeTxMatchesBatch(*txMatchBatch)
+	if err != nil {
+		log.Error("Fail to marshal txMatch", "error", err)
+		return
 	}
-
+	nonce := work.state.GetNonce(self.coinbase)
+	tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
+	txM, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
+	if err != nil {
+		log.Error("Fail to create tx matches", "error", err)
+		return
+	} else {
+		matchingTransaction = txM
+	}
+	tx = types.NewTransaction(nonce, common.HexToAddress(common.TomoXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), TomoxStateRoot.Bytes())
+	txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
+	if err != nil {
+		log.Error("Fail to create tx state root", "error", err)
+		return
+	}
+	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
+		pending, err := self.eth.TxPool().Pending()
+		if err != nil {
+			log.Error("Failed to fetch pending transactions", "err", err)
+			return
+		}
+		txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity)
+	}
+	// force adding matching transaction to this block
+	specialTxs = append(specialTxs, matchingTransaction)
+	specialTxs = append(specialTxs, txStateRoot)
 	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
-
 	// compute uncles for the new block.
 	var (
 		uncles    []*types.Header
@@ -704,7 +698,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	if atomic.LoadInt32(&self.mining) == 1 {
-		log.Info("Committing new block", "number", work.Block.Number(), "txs", work.tcount, "special-txs", len(specialTxs), "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
+		log.Info("Committing new block", "number", work.Block.Number(), "tomox state root", common.BytesToHash(txStateRoot.Data()), "txs", work.tcount, "special-txs", len(specialTxs), "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 		self.lastParentBlockCommit = parent.Hash().Hex()
 	}
@@ -778,30 +772,28 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 
 		nonce := env.state.GetNonce(from)
-		if nonce != tx.Nonce() && !tx.IsMatchingTransaction() {
-			log.Trace("Skipping account with special transaction invalide nonce", "sender", from, "nonce", nonce, "tx nonce ", tx.Nonce(), "to", tx.To())
+		if nonce != tx.Nonce() && !tx.IsSkipNonceTransaction() {
+			log.Trace("Skipping account with special transaction invalid nonce", "sender", from, "nonce", nonce, "tx nonce ", tx.Nonce(), "to", tx.To())
 			continue
 		}
 		err, logs, tokenFeeUsed, gas := env.commitTransaction(balanceFee, tx, bc, coinbase, gp)
-		if !tx.IsMatchingTransaction() {
-			switch err {
-			case core.ErrNonceTooLow:
-				// New head notification data race between the transaction pool and miner, shift
-				log.Trace("Skipping special transaction with low nonce", "sender", from, "nonce", tx.Nonce(), "to", tx.To())
+		switch err {
+		case core.ErrNonceTooLow:
+			// New head notification data race between the transaction pool and miner, shift
+			log.Trace("Skipping special transaction with low nonce", "sender", from, "nonce", tx.Nonce(), "to", tx.To())
 
-			case core.ErrNonceTooHigh:
-				// Reorg notification data race between the transaction pool and miner, skip account =
-				log.Trace("Skipping account with special transaction hight nonce", "sender", from, "nonce", tx.Nonce(), "to", tx.To())
-			case nil:
-				// Everything ok, collect the logs and shift in the next transaction from the same account
-				coalescedLogs = append(coalescedLogs, logs...)
-				env.tcount++
+		case core.ErrNonceTooHigh:
+			// Reorg notification data race between the transaction pool and miner, skip account =
+			log.Trace("Skipping account with special transaction hight nonce", "sender", from, "nonce", tx.Nonce(), "to", tx.To())
+		case nil:
+			// Everything ok, collect the logs and shift in the next transaction from the same account
+			coalescedLogs = append(coalescedLogs, logs...)
+			env.tcount++
 
-			default:
-				// Strange error, discard the transaction and get the next in line (note, the
-				// nonce-too-high clause will prevent us from executing in vain).
-				log.Debug("Add Special Transaction failed, account skipped", "hash", tx.Hash(), "sender", from, "nonce", tx.Nonce(), "to", tx.To(), "err", err)
-			}
+		default:
+			// Strange error, discard the transaction and get the next in line (note, the
+			// nonce-too-high clause will prevent us from executing in vain).
+			log.Debug("Add Special Transaction failed, account skipped", "hash", tx.Hash(), "sender", from, "nonce", tx.Nonce(), "to", tx.To(), "err", err)
 		}
 		if tokenFeeUsed {
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], new(big.Int).SetUint64(gas))
