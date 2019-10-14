@@ -117,32 +117,42 @@ func (c *stateExchanges) getOrdersTrie(db Database) Trie {
 	return c.ordersTrie
 }
 
-func (c *stateExchanges) getBestAsksTrie(db Database) (*big.Int, *big.Int) {
+func (c *stateExchanges) getBestPriceAsksTrie(db Database) common.Hash {
 	trie := c.getAsksTrie(db)
 	encKey, encValue, err := trie.TryGetBestLeftKeyAndValue()
 	if err != nil {
-		return Zero, Zero
+		log.Error("Failed find best price ask trie ", "orderbook", c.hash.Hex())
+		return EmptyHash
+	}
+	if len(encKey)==0 || len(encValue) ==0 {
+		log.Debug("Not found get best ask trie", "encKey", encKey,"encValue",encValue)
+		return EmptyHash
 	}
 	var data orderList
 	if err := rlp.DecodeBytes(encValue, &data); err != nil {
 		log.Error("Failed to decode state get best ask trie", "err", err)
-		return Zero, Zero
+		return EmptyHash
 	}
-	return new(big.Int).SetBytes(encKey), data.Volume
+	return common.BytesToHash(encKey)
 }
 
-func (c *stateExchanges) getBestBidsTrie(db Database) (*big.Int, *big.Int) {
+func (c *stateExchanges) getBestBidsTrie(db Database) common.Hash  {
 	trie := c.getBidsTrie(db)
 	encKey, encValue, err := trie.TryGetBestRightKeyAndValue()
 	if err != nil {
-		return Zero, Zero
+		log.Error("Failed find best price bid trie ", "orderbook", c.hash.Hex())
+		return EmptyHash
+	}
+	if len(encKey)==0 || len(encValue) ==0 {
+		log.Debug("Not found get best bid trie", "encKey", encKey,"encValue",encValue)
+		return EmptyHash
 	}
 	var data orderList
 	if err := rlp.DecodeBytes(encValue, &data); err != nil {
-		log.Error("Failed to decode state get best ask trie", "err", err)
-		return Zero, Zero
+		log.Error("Failed to decode state get best bid trie", "err", err)
+		return EmptyHash
 	}
-	return new(big.Int).SetBytes(encKey), data.Volume
+	return common.BytesToHash(encKey)
 }
 
 // updateAskTrie writes cached storage modifications into the object's storage trie.
