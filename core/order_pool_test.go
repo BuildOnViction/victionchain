@@ -103,9 +103,17 @@ func TestSendSellOrder(t *testing.T) {
 	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "SELL")
 }
 func TestFilled(t *testing.T) {
-	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "BUY")
+	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY")
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "SELL")
+	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY")
+	time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL")
+	time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL")
+	time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL")
+	time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL")
 }
 func TestPartialFilled(t *testing.T) {
 

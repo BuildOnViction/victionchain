@@ -164,20 +164,20 @@ func (self *TomoXStateDB) GetOrder(orderBook common.Hash, orderId common.Hash) O
 	}
 	return stateOrderItem.data
 }
-func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId common.Hash, price *big.Int, amount *big.Int, orderType string) error {
+func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId common.Hash, price *big.Int, amount *big.Int, side string) error {
 	priceHash := common.BigToHash(price)
 	stateObject := self.GetOrNewStateExchangeObject(orderBook)
 	if stateObject == nil {
 		return fmt.Errorf("Order book not found : %s ", orderBook.Hex())
 	}
 	var stateOrderList *stateOrderList
-	switch orderType {
+	switch side {
 	case Ask:
 		stateOrderList = stateObject.getStateOrderListAskObject(self.db, priceHash)
 	case Bid:
 		stateOrderList = stateObject.getStateBidOrderListObject(self.db, priceHash)
 	default:
-		return fmt.Errorf("Order type not found : %s ", orderType)
+		return fmt.Errorf("Order type not found : %s ", side)
 	}
 	if stateOrderList == nil || stateOrderList.empty() {
 		return fmt.Errorf("Order list empty  order book : %s , order id  : %s , price  : %s ", orderBook, orderId.Hex(), priceHash.Hex())
@@ -191,6 +191,7 @@ func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId comm
 		return fmt.Errorf("Order amount not enough : %s , have : %d , want : %d ", orderId.Hex(), currentAmount, amount)
 	}
 	newAmount := new(big.Int).Sub(currentAmount, amount)
+	log.Debug("SubAmountOrderItem", "orderId", orderId.Hex(), "side", side, "price", price.Uint64(), "amount", amount.Uint64(), "new amount", newAmount.Uint64())
 	stateOrderList.subVolume(amount)
 	stateOrderItem.setVolume(newAmount)
 	if newAmount.Sign() == 0 {
@@ -199,7 +200,7 @@ func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId comm
 		stateOrderList.setOrderItem(orderId, common.BigToHash(newAmount))
 	}
 	if stateOrderList.empty() {
-		switch orderType {
+		switch side {
 		case Ask:
 			stateObject.removeStateOrderListAskObject(self.db, stateOrderList)
 		case Bid:
@@ -274,7 +275,16 @@ func (self *TomoXStateDB) GetVolume(orderBook common.Hash, price *big.Int, order
 func (self *TomoXStateDB) GetBestAskPrice(orderBook common.Hash) (*big.Int, *big.Int) {
 	stateObject := self.getStateExchangeObject(orderBook)
 	if stateObject != nil {
-		return stateObject.getBestAsksTrie(self.db)
+		priceHash := stateObject.getBestPriceAsksTrie(self.db)
+		if common.EmptyHash(priceHash) {
+			return Zero, Zero
+		}
+		orderList := stateObject.getStateOrderListAskObject(self.db, priceHash)
+		if orderList == nil {
+			log.Error("order list ask not found", "price", priceHash.Hex())
+			return Zero, Zero
+		}
+		return new(big.Int).SetBytes(priceHash.Bytes()), orderList.Volume()
 	}
 	return Zero, Zero
 }
@@ -282,7 +292,16 @@ func (self *TomoXStateDB) GetBestAskPrice(orderBook common.Hash) (*big.Int, *big
 func (self *TomoXStateDB) GetBestBidPrice(orderBook common.Hash) (*big.Int, *big.Int) {
 	stateObject := self.getStateExchangeObject(orderBook)
 	if stateObject != nil {
-		return stateObject.getBestBidsTrie(self.db)
+		priceHash :=  stateObject.getBestBidsTrie(self.db)
+		if common.EmptyHash(priceHash) {
+			return Zero, Zero
+		}
+		orderList := stateObject.getStateBidOrderListObject(self.db, priceHash)
+		if orderList == nil {
+			log.Error("order list bid not found", "price", priceHash.Hex())
+			return Zero, Zero
+		}
+		return new(big.Int).SetBytes(priceHash.Bytes()), orderList.Volume()
 	}
 	return Zero, Zero
 }
@@ -300,11 +319,13 @@ func (self *TomoXStateDB) GetBestOrderIdAndAmount(orderBook common.Hash, price *
 			return EmptyHash, Zero, fmt.Errorf("not found side :%s ", side)
 		}
 		if stateOrderList != nil {
-			key, value, err := stateOrderList.getTrie(self.db).TryGetBestLeftKeyAndValue()
+			key, _, err := stateOrderList.getTrie(self.db).TryGetBestLeftKeyAndValue()
 			if err != nil {
 				return EmptyHash, Zero, err
 			}
-			return common.BytesToHash(key), new(big.Int).SetBytes(value[:]), nil
+			orderId := common.BytesToHash(key)
+			amount := stateOrderList.GetOrderAmount(self.db, orderId)
+			return orderId, new(big.Int).SetBytes(amount.Bytes()), nil
 		}
 		return EmptyHash, Zero, fmt.Errorf("not found order list with orderBook : %s , price : %d , side :%s ", orderBook.Hex(), price, side)
 	}

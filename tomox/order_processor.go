@@ -150,7 +150,7 @@ func processOrderList(statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXSta
 	)
 	// speedup the comparison, do not assign because it is pointer
 	zero := Zero()
-	orderId, amount, err := tomoXstatedb.GetBestOrderIdAndAmount(orderBook, price,side)
+	orderId, amount, err := tomoXstatedb.GetBestOrderIdAndAmount(orderBook, price, side)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -168,7 +168,10 @@ func processOrderList(statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXSta
 			tradedQuantity = CloneBigInt(amount)
 			quantityToTrade = Sub(quantityToTrade, tradedQuantity)
 		}
-		tomoXstatedb.SubAmountOrderItem(orderBook, orderId, price, amount, side)
+		err := tomoXstatedb.SubAmountOrderItem(orderBook, orderId, price, tradedQuantity, side)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		log.Debug("Update quantity for orderId", "orderId", orderId.Hex())
 		log.Debug("TRADE", "orderBook", orderBook, "Price 1", price, "Price 2", order.Price, "Amount", tradedQuantity, "orderId", orderId, "side", side)
 
@@ -187,7 +190,7 @@ func processOrderList(statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXSta
 		transactionRecord[TradePrice] = oldestOrder.Price.String()
 
 		trades = append(trades, transactionRecord)
-		orderId, amount, err = tomoXstatedb.GetBestOrderIdAndAmount(orderBook, price,side)
+		orderId, amount, err = tomoXstatedb.GetBestOrderIdAndAmount(orderBook, price, side)
 		if err != nil {
 			return nil, nil, nil, err
 		}
