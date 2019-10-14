@@ -58,7 +58,7 @@ func getNonce(t *testing.T, userAddress common.Address) (uint64, error) {
 	n, err := strconv.ParseUint(s, 16, 32)
 	return uint64(n), nil
 }
-func testSendOrder(t *testing.T, amount, price *big.Int, side string) {
+func testSendOrder(t *testing.T, amount, price *big.Int, side string, status string, orderID uint64) {
 
 	client, err := ethclient.Dial("http://127.0.0.1:8501")
 	if err != nil {
@@ -77,13 +77,13 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string) {
 		UserAddress:     common.HexToAddress("0xF7349C253FF7747Df661296E0859c44e974fb52E"),
 		BaseToken:       common.HexToAddress("0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"),
 		QuoteToken:      common.HexToAddress("0x0000000000000000000000000000000000000001"),
-		Status:          "NEW",
+		Status:          status,
 		Side:            side,
 		Type:            "LO",
 		PairName:        "BTC/TOMO",
 	}
 	nonce, _ := getNonce(t, msg.UserAddress)
-	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, 0)
+	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
 	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
 		log.Fatal(err)
@@ -96,28 +96,36 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string) {
 }
 
 func TestSendBuyOrder(t *testing.T) {
-	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "BUY")
+	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "BUY", "NEW", 0)
 }
 
 func TestSendSellOrder(t *testing.T) {
-	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "SELL")
+	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "SELL", "NEW", 0)
 }
 func TestFilled(t *testing.T) {
-	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY")
+	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY")
+	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL")
+	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL")
+	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL")
+	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL")
+	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL", "NEW", 0)
 }
 func TestPartialFilled(t *testing.T) {
 
 }
 func TestNoMatch(t *testing.T) {
 
+}
+
+func TestCancelOrder(t *testing.T) {
+	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "NEW", 0)
+	time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "CANCELLED", 1)
+	time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "SELL", "NEW", 0)
 }
