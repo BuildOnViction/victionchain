@@ -414,8 +414,10 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	if quantity == nil || quantity.Cmp(big.NewInt(0)) <= 0 {
 		return ErrInvalidOrderQuantity
 	}
-	if price == nil || price.Cmp(big.NewInt(0)) <= 0 {
-		return ErrInvalidOrderPrice
+	if orderType != OrderTypeMarket {
+		if price == nil || price.Cmp(big.NewInt(0)) <= 0 {
+			return ErrInvalidOrderPrice
+		}
 	}
 
 	if orderSide != OrderSideAsk && orderSide != OrderSideBid {
