@@ -69,6 +69,40 @@ func GetRelayerOwner(relayer common.Address, statedb *state.StateDB) common.Addr
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Bytes())
 }
 
+func GetBaseTokenLength(relayer common.Address, statedb *state.StateDB) uint64 {
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_fromTokens"])
+	locHash := common.BigToHash(locBig)
+	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big().Uint64()
+}
+
+func GetBaseTokenAtIndex(relayer common.Address, statedb *state.StateDB, index uint64) common.Address {
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_fromTokens"])
+	locHash := common.BigToHash(locBig)
+	loc := state.GetLocDynamicArrAtElement(locHash, index, 1)
+	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), loc).Bytes())
+}
+
+func GetQuoteTokenLength(relayer common.Address, statedb *state.StateDB) uint64 {
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_toTokens"])
+	locHash := common.BigToHash(locBig)
+	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big().Uint64()
+}
+
+func GetQuoteTokenAtIndex(relayer common.Address, statedb *state.StateDB, index uint64) common.Address {
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_toTokens"])
+	locHash := common.BigToHash(locBig)
+	loc := state.GetLocDynamicArrAtElement(locHash, index, 1)
+	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), loc).Bytes())
+}
+
 func SubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB) error {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)

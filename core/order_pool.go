@@ -458,7 +458,36 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	if !tomox_state.IsValidRelayer(statedb, tx.ExchangeAddress()) {
 		return fmt.Errorf("invalid relayer. ExchangeAddress: %s", tx.ExchangeAddress().Hex())
 	}
+	if err := pool.validatePair(tx, statedb); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (pool *OrderPool) validatePair(tx *types.OrderTransaction, statedb *state.StateDB) error {
+	baseToken := tx.BaseToken()
+	quoteToken := tx.QuoteToken()
+	exchangeAddress := tx.ExchangeAddress()
+	baseTokenLength := tomox_state.GetBaseTokenLength(tx.ExchangeAddress(), statedb)
+	quoteTokenLength := tomox_state.GetBaseTokenLength(tx.ExchangeAddress(), statedb)
+	if baseTokenLength != quoteTokenLength {
+		return fmt.Errorf("invalid length of baseTokenList: %d . QuoteTokenList: %d", baseTokenLength, quoteTokenLength)
+	}
+	var baseIndexes []uint64
+	for i := uint64(0); i < baseTokenLength; i++ {
+		if baseToken == tomox_state.GetBaseTokenAtIndex(exchangeAddress, statedb, i) {
+			baseIndexes = append(baseIndexes, i)
+		}
+	}
+	if len(baseIndexes) == 0 {
+		return fmt.Errorf("basetoken not found in relayer registration. BaseToken: %s. Exchange: %s", baseToken.Hex(), exchangeAddress.Hex())
+	}
+	for _, index := range baseIndexes {
+		if quoteToken == tomox_state.GetQuoteTokenAtIndex(exchangeAddress, statedb, index) {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid exchange pair. PairName: %s, Base: %s. Quote: %s. Exchange: %s", tx.PairName(), baseToken.Hex(), quoteToken.Hex(), exchangeAddress.Hex())
 }
 
 // validateTx checks whether a transaction is valid according to the consensus
