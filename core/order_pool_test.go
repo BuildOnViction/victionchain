@@ -62,12 +62,12 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 
 	client, err := ethclient.Dial("http://127.0.0.1:8501")
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 
 	privateKey, err := crypto.HexToECDSA("3b43d337ae657c351d2542c7ee837c39f5db83da7ffffb611992ebc2f676743b")
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 
 	msg := &OrderMsg{
@@ -86,12 +86,12 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
 	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 
 	err = client.SendOrderTransaction(context.Background(), signedTx)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 }
 
