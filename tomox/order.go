@@ -3,6 +3,7 @@ package tomox
 import (
 	"bytes"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"time"
 
@@ -18,43 +19,11 @@ const (
 	OrderStatusCancelled     = "CANCELLED"
 )
 
-// Signature struct
-type Signature struct {
-	V byte
-	R common.Hash
-	S common.Hash
-}
 
 type SignatureRecord struct {
 	V byte   `json:"V" bson:"V"`
 	R string `json:"R" bson:"R"`
 	S string `json:"S" bson:"S"`
-}
-
-// OrderItem : info that will be store in database
-type OrderItem struct {
-	Quantity        *big.Int       `json:"quantity,omitempty"`
-	Price           *big.Int       `json:"price,omitempty"`
-	ExchangeAddress common.Address `json:"exchangeAddress,omitempty"`
-	UserAddress     common.Address `json:"userAddress,omitempty"`
-	BaseToken       common.Address `json:"baseToken,omitempty"`
-	QuoteToken      common.Address `json:"quoteToken,omitempty"`
-	Status          string         `json:"status,omitempty"`
-	Side            string         `json:"side,omitempty"`
-	Type            string         `json:"type,omitempty"`
-	Hash            common.Hash    `json:"hash,omitempty"`
-	Signature       *Signature     `json:"signature,omitempty"`
-	FilledAmount    *big.Int       `json:"filledAmount,omitempty"`
-	Nonce           *big.Int       `json:"nonce,omitempty"`
-	PairName        string         `json:"pairName,omitempty"`
-	CreatedAt       time.Time      `json:"createdAt,omitempty"`
-	UpdatedAt       time.Time      `json:"updatedAt,omitempty"`
-	OrderID         uint64         `json:"orderID,omitempty"`
-	// *OrderMeta
-	NextOrder []byte `json:"-"`
-	PrevOrder []byte `json:"-"`
-	OrderList []byte `json:"-"`
-	Key       string `json:"key"`
 }
 
 type OrderItemBSON struct {
@@ -82,7 +51,7 @@ type OrderItemBSON struct {
 }
 
 type Order struct {
-	Item *OrderItem
+	Item *tomox_state.OrderItem
 	Key  []byte `json:"orderID"`
 }
 
@@ -105,7 +74,7 @@ func (order *Order) GetPrevOrder(orderList *OrderList, dryrun bool, blockHash co
 }
 
 // NewOrder : create new order with quote ( can be ethereum address )
-func NewOrder(orderItem *OrderItem, orderListKey []byte) *Order {
+func NewOrder(orderItem *tomox_state.OrderItem, orderListKey []byte) *Order {
 	key := GetKeyFromBig(new(big.Int).SetUint64(orderItem.OrderID))
 	orderItem.NextOrder = EmptyKey()
 	orderItem.PrevOrder = EmptyKey()

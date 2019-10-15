@@ -154,7 +154,6 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 	if tomoXServ != nil {
 		eth.TomoX = tomoXServ
 	}
-
 	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
@@ -168,6 +167,12 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
+	if eth.chainConfig.Posv != nil {
+		c := eth.engine.(*posv.Posv)
+		c.GetTomoXService = func() *tomox.TomoX {
+			return eth.TomoX
+		}
+	}
 	eth.blockchain, err = core.NewBlockChainEx(chainDb, tomoXServ.GetDB(), cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
@@ -560,10 +565,6 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 				}
 			}
 			return nil
-		}
-
-		c.GetTomoXService = func() *tomox.TomoX {
-			return eth.TomoX
 		}
 
 		eth.txPool.IsSigner = func(address common.Address) bool {

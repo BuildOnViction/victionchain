@@ -74,7 +74,12 @@ func OrderSender(signer OrderSigner, tx *OrderTransaction) (common.Address, erro
 // OrderSignTx signs the order transaction using the given order signer and private key
 func OrderSignTx(tx *OrderTransaction, s OrderSigner, prv *ecdsa.PrivateKey) (*OrderTransaction, error) {
 	h := s.Hash(tx)
-	sig, err := crypto.Sign(h[:], prv)
+	message := crypto.Keccak256(
+		[]byte("\x19Ethereum Signed Message:\n32"),
+		h.Bytes(),
+	)
+
+	sig, err := crypto.Sign(message[:], prv)
 	if err != nil {
 		return nil, err
 	}

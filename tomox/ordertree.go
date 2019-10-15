@@ -2,6 +2,7 @@ package tomox
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"strings"
 	// rbt "github.com/emirpasic/gods/trees/redblacktree"
@@ -86,11 +87,11 @@ func (orderTree *OrderTree) Save(dryrun bool, blockHash common.Hash) error {
 	}
 
 	log.Debug("Save ordertree", "key", hex.EncodeToString(orderTree.GetCommonKey()), "order.Item", orderTree.Item)
-	return orderTree.orderDB.Put(orderTree.GetCommonKey(), orderTree.Item, dryrun, blockHash)
+	return orderTree.orderDB.PutObject(orderTree.GetCommonKey(), orderTree.Item, dryrun, blockHash)
 }
 
 func (orderTree *OrderTree) Restore(dryrun bool, blockHash common.Hash) error {
-	val, err := orderTree.orderDB.Get(orderTree.GetCommonKey(), orderTree.Item, dryrun, blockHash)
+	val, err := orderTree.orderDB.GetObject(orderTree.GetCommonKey(), orderTree.Item, dryrun, blockHash)
 
 	if err == nil {
 		orderTree.Item = val.(*OrderTreeItem)
@@ -225,7 +226,7 @@ func (orderTree *OrderTree) OrderExist(key []byte, price *big.Int, dryrun bool, 
 	return orderList.OrderExist(key, dryrun, blockHash)
 }
 
-func (orderTree *OrderTree) InsertOrder(order *OrderItem, dryrun bool, blockHash common.Hash) error {
+func (orderTree *OrderTree) InsertOrder(order *tomox_state.OrderItem, dryrun bool, blockHash common.Hash) error {
 
 	price := order.Price
 
@@ -276,7 +277,7 @@ func (orderTree *OrderTree) InsertOrder(order *OrderItem, dryrun bool, blockHash
 }
 
 // UpdateOrder : update an order
-func (orderTree *OrderTree) UpdateOrder(orderItem *OrderItem, dryrun bool, blockHash common.Hash) error {
+func (orderTree *OrderTree) UpdateOrder(orderItem *tomox_state.OrderItem, dryrun bool, blockHash common.Hash) error {
 
 	price := orderItem.Price
 	orderList := orderTree.PriceList(price, dryrun, blockHash)

@@ -39,7 +39,7 @@ type Database interface {
 
 // TomoxDatabase interface
 type TomoxDatabase interface {
-	Get(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error)
+	GetObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error)
 }
 
 // Batch is a write-only database that commits changes to its host database
