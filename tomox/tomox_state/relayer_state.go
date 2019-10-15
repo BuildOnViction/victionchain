@@ -1,4 +1,4 @@
-package tomox
+package tomox_state
 
 import (
 	"math/big"
@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func getLocMappingAtKey(key common.Hash, slot uint64) *big.Int {
+func GetLocMappingAtKey(key common.Hash, slot uint64) *big.Int {
 	slotHash := common.BigToHash(new(big.Int).SetUint64(slot))
 	retByte := crypto.Keccak256(key.Bytes(), slotHash.Bytes())
 	ret := new(big.Int)
@@ -32,7 +32,7 @@ func getCoinbaseList(statedb *state.StateDB) []common.Address {
 	log.Info("getCoinbaseList", "total", numberCoinbase)
 	slot := RelayerMappingSlot["RELAYER_COINBASES"]
 	for i := big.NewInt(0); i.Cmp(numberCoinbase) == -1; i.Add(i, big.NewInt(1)) {
-		locBig := getLocMappingAtKey(common.BigToHash(i), slot)
+		locBig := GetLocMappingAtKey(common.BigToHash(i), slot)
 		locHash := common.BigToHash(locBig)
 		coinbase := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big()
 		listCoinBase = append(listCoinBase, common.BytesToAddress(coinbase.Bytes()))
@@ -55,14 +55,15 @@ func GetCoinbaseFeeList(statedb *state.StateDB) map[common.Address]*big.Int {
 
 func GetExRelayerFee(relayer common.Address, statedb *state.StateDB) *big.Int {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
-	locBig := getLocMappingAtKey(relayer.Hash(), slot)
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
 	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_fee"])
 	locHash := common.BigToHash(locBig)
 	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big()
 }
 func GetRelayerOwner(relayer common.Address, statedb *state.StateDB) common.Address {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
-	locBig := getLocMappingAtKey(relayer.Hash(), slot)
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+	log.Debug("GetRelayerOwner", "relayer", relayer.Hex(), "slot", slot, "locBig", locBig)
 	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_owner"])
 	locHash := common.BigToHash(locBig)
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Bytes())
@@ -70,7 +71,7 @@ func GetRelayerOwner(relayer common.Address, statedb *state.StateDB) common.Addr
 
 func SubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB) error {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
-	locBig := getLocMappingAtKey(relayer.Hash(), slot)
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
 
 	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, RelayerStructMappingSlot["_deposit"])
 	locHashDeposit := common.BigToHash(locBigDeposit)
@@ -102,7 +103,7 @@ func AddTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 	// TRC tokens
 	if statedb.Exist(token) {
 		slot := TokenMappingSlot["balances"]
-		locHash := common.BigToHash(getLocMappingAtKey(addr.Hash(), slot))
+		locHash := common.BigToHash(GetLocMappingAtKey(addr.Hash(), slot))
 		balance := statedb.GetState(token, locHash).Big()
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: ADD TOKEN BALANCE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 		balance = balance.Add(balance, value)
@@ -132,7 +133,7 @@ func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 	// TRC tokens
 	if statedb.Exist(token) {
 		slot := TokenMappingSlot["balances"]
-		locHash := common.BigToHash(getLocMappingAtKey(addr.Hash(), slot))
+		locHash := common.BigToHash(GetLocMappingAtKey(addr.Hash(), slot))
 		balance := statedb.GetState(token, locHash).Big()
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOKEN BALANCE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 		if balance.Cmp(value) < 0 {

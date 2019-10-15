@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 )
 
@@ -52,7 +53,7 @@ func (s *Snapshot) store(db OrderDao) error {
 	if err != nil {
 		return err
 	}
-	return db.Put(append([]byte(snapshotPrefix), s.Hash[:]...), &blob, false, common.Hash{})
+	return db.PutObject(append([]byte(snapshotPrefix), s.Hash[:]...), &blob, false, common.Hash{})
 }
 
 // take a snapshot of data of tomox
@@ -149,7 +150,7 @@ func getSnapshot(db OrderDao, blockHash common.Hash) (*Snapshot, error) {
 		blob interface{}
 		err  error
 	)
-	blob, err = db.Get(append([]byte(snapshotPrefix), blockHash[:]...), &[]byte{}, false, common.Hash{})
+	blob, err = db.GetObject(append([]byte(snapshotPrefix), blockHash[:]...), &[]byte{}, false, common.Hash{})
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +265,7 @@ func (s *Snapshot) RestoreOrderTree(treeSnap *OrderTreeSnapshot, tree *OrderTree
 
 		// try to update order from snapshot to db in case of missing order in db
 		for _, item := range olSnap.OrderItem {
-			orderItem := &OrderItem{}
+			orderItem := &tomox_state.OrderItem{}
 			if err = DecodeBytesItem(item, orderItem); err != nil {
 				return tree, err
 			}

@@ -2,6 +2,7 @@ package tomox
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"math/rand"
 	"os"
@@ -9,7 +10,7 @@ import (
 	"time"
 )
 var testPairName = "aaa/tomo"
-var sampleTestOrder = &OrderItem{
+var sampleTestOrder = &tomox_state.OrderItem{
 	ExchangeAddress: common.StringToAddress("0x0000000000000000000000000000000000000000"),
 	UserAddress:     common.StringToAddress("0xf069080f7acb9a6705b4a51f84d9adc67b921bdf"),
 	BaseToken:       common.StringToAddress("0x9a8531c62d02af08cf237eb8aecae9dbcb69b6fd"),
@@ -19,7 +20,7 @@ var sampleTestOrder = &OrderItem{
 	Type:            Limit,
 	PairName:        testPairName,
 	Hash:            common.StringToHash(string(rand.Intn(1000))),
-	Signature: &Signature{
+	Signature: &tomox_state.Signature{
 		V: 1,
 		R: common.StringToHash("0xe386313e32a83eec20ecd52a5a0bd6bb34840416080303cecda556263a9270d0"),
 		S: common.StringToHash("0x05cd5304c5ead37b6fac574062b150db57a306fa591c84fc4c006c4155ebda2a"),
@@ -50,7 +51,7 @@ func TestOrderBook_ProcessLimitOrder_InsertToOrderTree(t *testing.T) {
 	defer os.RemoveAll(testDir)
 	ob := initTestOrderBook(testDir, testPairName)
 
-	order1 := &OrderItem{}
+	order1 := &tomox_state.OrderItem{}
 	*order1 = *sampleTestOrder
 	order1.Price = big.NewInt(1000) // ask order, price = 1000
 	order1.Quantity = big.NewInt(1000)
@@ -64,7 +65,7 @@ func TestOrderBook_ProcessLimitOrder_InsertToOrderTree(t *testing.T) {
 	}
 
 	// process one more ask order
-	order2 := &OrderItem{}
+	order2 := &tomox_state.OrderItem{}
 	*order2 = *sampleTestOrder
 	order2.Price = big.NewInt(2000) // ask order, price = 2000
 	order2.Quantity = big.NewInt(1000)
@@ -78,7 +79,7 @@ func TestOrderBook_ProcessLimitOrder_InsertToOrderTree(t *testing.T) {
 	}
 
 	// process one bid order
-	order3 := &OrderItem{}
+	order3 := &tomox_state.OrderItem{}
 	*order3 = *sampleTestOrder
 	order3.Side = Bid
 	order3.Price = big.NewInt(500) // bid order, price = 500
@@ -109,7 +110,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case1(t *test
 	defer os.RemoveAll(testDir)
 	ob := initTestOrderBook(testDir, testPairName)
 
-	order1 := &OrderItem{}
+	order1 := &tomox_state.OrderItem{}
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(100) // ask order, price = 100
@@ -123,7 +124,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case1(t *test
 	}
 
 	// process one bid order to match the above order
-	order2 := &OrderItem{}
+	order2 := &tomox_state.OrderItem{}
 	*order2 = *sampleTestOrder
 	order2.Side = Bid
 	order2.Quantity = big.NewInt(900)
@@ -158,7 +159,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case2(t *test
 	defer os.RemoveAll(testDir)
 	ob := initTestOrderBook(testDir, testPairName)
 
-	order1 := &OrderItem{}
+	order1 := &tomox_state.OrderItem{}
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(100) // ask order, price = 100
@@ -172,7 +173,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_FullMatching_Case2(t *test
 	}
 
 	// process one bid order to match the above order
-	order2 := &OrderItem{}
+	order2 := &tomox_state.OrderItem{}
 	*order2 = *sampleTestOrder
 	order2.Side = Bid
 	order2.Quantity = big.NewInt(1000) // same as order1's quantity
@@ -204,7 +205,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_PartialMatching(t *testing
 	defer os.RemoveAll(testDir)
 	ob := initTestOrderBook(testDir, testPairName)
 
-	order1 := &OrderItem{}
+	order1 := &tomox_state.OrderItem{}
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(100) // ask order, price = 100
@@ -218,7 +219,7 @@ func TestOrderBook_ProcessLimitOrder_OneToOneMatching_PartialMatching(t *testing
 	}
 
 	// process one bid order to match the above order
-	order2 := &OrderItem{}
+	order2 := &tomox_state.OrderItem{}
 	*order2 = *sampleTestOrder
 	order2.Side = Bid
 	order2.Quantity = big.NewInt(1200)
@@ -250,7 +251,7 @@ func TestOrderBook_ProcessLimitOrder_OneToManyMatching(t *testing.T) {
 	defer os.RemoveAll(testDir)
 	ob := initTestOrderBook(testDir, testPairName)
 
-	order1 := &OrderItem{}
+	order1 := &tomox_state.OrderItem{}
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(98) // ask order, price = 98
@@ -264,7 +265,7 @@ func TestOrderBook_ProcessLimitOrder_OneToManyMatching(t *testing.T) {
 	}
 
 	// one more askOrder
-	order2 := &OrderItem{}
+	order2 := &tomox_state.OrderItem{}
 	*order2 = *sampleTestOrder
 	order2.Side = Ask
 	order2.Quantity = big.NewInt(1000)
@@ -279,7 +280,7 @@ func TestOrderBook_ProcessLimitOrder_OneToManyMatching(t *testing.T) {
 	}
 
 	// process a bidOrder which completely matches order1, partially matches order2
-	order3 := &OrderItem{}
+	order3 := &tomox_state.OrderItem{}
 	*order3 = *sampleTestOrder
 	order3.Side = Bid
 	order3.Quantity = big.NewInt(1600)
@@ -311,7 +312,7 @@ func TestOrderBook_ProcessMarketOrder_FullMatching(t *testing.T) {
 	defer os.RemoveAll(testDir)
 	ob := initTestOrderBook(testDir, testPairName)
 
-	order1 := &OrderItem{}
+	order1 := &tomox_state.OrderItem{}
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(98) // ask order, price = 98
@@ -325,7 +326,7 @@ func TestOrderBook_ProcessMarketOrder_FullMatching(t *testing.T) {
 	}
 
 	// one more askOrder
-	order2 := &OrderItem{}
+	order2 := &tomox_state.OrderItem{}
 	*order2 = *sampleTestOrder
 	order2.Side = Ask
 	order2.Quantity = big.NewInt(1000)
@@ -340,7 +341,7 @@ func TestOrderBook_ProcessMarketOrder_FullMatching(t *testing.T) {
 	}
 
 	// process a bidOrder which completely matches order1, partially matches order2
-	order3 := &OrderItem{}
+	order3 := &tomox_state.OrderItem{}
 	*order3 = *sampleTestOrder
 	order3.Side = Bid
 	order3.Quantity = big.NewInt(2500)
@@ -374,7 +375,7 @@ func TestOrderBook_ProcessMarketOrder_PartialMatching(t *testing.T) {
 	defer os.RemoveAll(testDir)
 	ob := initTestOrderBook(testDir, testPairName)
 
-	order1 := &OrderItem{}
+	order1 := &tomox_state.OrderItem{}
 	*order1 = *sampleTestOrder
 	order1.Quantity = big.NewInt(1000)
 	order1.Price = big.NewInt(98) // ask order, price = 98
@@ -388,7 +389,7 @@ func TestOrderBook_ProcessMarketOrder_PartialMatching(t *testing.T) {
 	}
 
 	// one more askOrder
-	order2 := &OrderItem{}
+	order2 := &tomox_state.OrderItem{}
 	*order2 = *sampleTestOrder
 	order2.Side = Ask
 	order2.Quantity = big.NewInt(1000)
@@ -403,7 +404,7 @@ func TestOrderBook_ProcessMarketOrder_PartialMatching(t *testing.T) {
 	}
 
 	// process a bidOrder which completely matches order1, partially matches order2
-	order3 := &OrderItem{}
+	order3 := &tomox_state.OrderItem{}
 	*order3 = *sampleTestOrder
 	order3.Side = Bid
 	order3.Quantity = big.NewInt(1300)

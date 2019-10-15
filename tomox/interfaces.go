@@ -1,13 +1,23 @@
 package tomox
 
-import "github.com/ethereum/go-ethereum/common"
+import (
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethdb"
+)
 
 type OrderDao interface {
 	IsEmptyKey(key []byte) bool
-	Has(key []byte, dryrun bool, blockHash common.Hash) (bool, error)
-	Get(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error)
-	Put(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error
-	Delete(key []byte, dryrun bool, blockHash common.Hash) error // won't return error if key not found
+	HasObject(key []byte, dryrun bool, blockHash common.Hash) (bool, error)
+	GetObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error)
+	PutObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error
+	DeleteObject(key []byte, dryrun bool, blockHash common.Hash) error // won't return error if key not found
 	InitDryRunMode(blockHash common.Hash)
 	SaveDryRunResult(blockHash common.Hash) error
+	CancelOrder(hash common.Hash) error
+	Put(key []byte, value []byte) error
+	Get(key []byte) ([]byte, error)
+	Has(key []byte) (bool, error)
+	Delete(key []byte) error
+	Close()
+	NewBatch() ethdb.Batch
 }

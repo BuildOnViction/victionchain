@@ -57,7 +57,7 @@ type Database struct {
 	nodesSize     common.StorageSize // Storage size of the nodes cache
 	preimagesSize common.StorageSize // Storage size of the preimages cache
 
-	lock sync.RWMutex
+	Lock sync.RWMutex
 }
 
 // cachedNode is all the information we know about a single cached node in the
@@ -88,8 +88,8 @@ func (db *Database) DiskDB() DatabaseReader {
 // Insert writes a new trie node to the memory database if it's yet unknown. The
 // method will make a copy of the slice.
 func (db *Database) Insert(hash common.Hash, blob []byte) {
-	db.lock.Lock()
-	defer db.lock.Unlock()
+	db.Lock.Lock()
+	defer db.Lock.Unlock()
 
 	db.insert(hash, blob)
 }
@@ -110,7 +110,7 @@ func (db *Database) insert(hash common.Hash, blob []byte) {
 // yet unknown. The method will make a copy of the slice.
 //
 // Note, this method assumes that the database's lock is held!
-func (db *Database) insertPreimage(hash common.Hash, preimage []byte) {
+func (db *Database) InsertPreimage(hash common.Hash, preimage []byte) {
 	if _, ok := db.preimages[hash]; ok {
 		return
 	}
@@ -122,9 +122,9 @@ func (db *Database) insertPreimage(hash common.Hash, preimage []byte) {
 // the method queries the persistent database for the content.
 func (db *Database) Node(hash common.Hash) ([]byte, error) {
 	// Retrieve the node from cache if available
-	db.lock.RLock()
+	db.Lock.RLock()
 	node := db.nodes[hash]
-	db.lock.RUnlock()
+	db.Lock.RUnlock()
 
 	if node != nil {
 		return node.blob, nil
@@ -135,12 +135,11 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 
 // preimage retrieves a cached trie node pre-image from memory. If it cannot be
 // found cached, the method queries the persistent database for the content.
-func (db *Database) preimage(hash common.Hash) ([]byte, error) {
+func (db *Database) Preimage(hash common.Hash) ([]byte, error) {
 	// Retrieve the node from cache if available
-	db.lock.RLock()
+	db.Lock.RLock()
 	preimage := db.preimages[hash]
-	db.lock.RUnlock()
-
+	db.Lock.RUnlock()
 	if preimage != nil {
 		return preimage, nil
 	}
@@ -161,8 +160,8 @@ func (db *Database) secureKey(key []byte) []byte {
 // This method is extremely expensive and should only be used to validate internal
 // states in test code.
 func (db *Database) Nodes() []common.Hash {
-	db.lock.RLock()
-	defer db.lock.RUnlock()
+	db.Lock.RLock()
+	defer db.Lock.RUnlock()
 
 	var hashes = make([]common.Hash, 0, len(db.nodes))
 	for hash := range db.nodes {
@@ -175,8 +174,8 @@ func (db *Database) Nodes() []common.Hash {
 
 // Reference adds a new reference from a parent node to a child node.
 func (db *Database) Reference(child common.Hash, parent common.Hash) {
-	db.lock.RLock()
-	defer db.lock.RUnlock()
+	db.Lock.RLock()
+	defer db.Lock.RUnlock()
 
 	db.reference(child, parent)
 }
@@ -198,8 +197,8 @@ func (db *Database) reference(child common.Hash, parent common.Hash) {
 
 // Dereference removes an existing reference from a parent node to a child node.
 func (db *Database) Dereference(child common.Hash, parent common.Hash) {
-	db.lock.Lock()
-	defer db.lock.Unlock()
+	db.Lock.Lock()
+	defer db.Lock.Unlock()
 
 	nodes, storage, start := len(db.nodes), db.nodesSize, time.Now()
 	db.dereference(child, parent)
@@ -246,7 +245,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	// outside code doesn't see an inconsistent state (referenced data removed from
 	// memory cache during commit but not yet in persistent storage). This is ensured
 	// by only uncaching existing data when the database write finalizes.
-	db.lock.RLock()
+	db.Lock.RLock()
 
 	start := time.Now()
 	batch := db.diskdb.NewBatch()
@@ -255,7 +254,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	for hash, preimage := range db.preimages {
 		if err := batch.Put(db.secureKey(hash[:]), preimage); err != nil {
 			log.Error("Failed to commit preimage from trie database", "err", err)
-			db.lock.RUnlock()
+			db.Lock.RUnlock()
 			return err
 		}
 		if batch.ValueSize() > ethdb.IdealBatchSize {
@@ -269,20 +268,20 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	nodes, storage := len(db.nodes), db.nodesSize+db.preimagesSize
 	if err := db.commit(node, batch); err != nil {
 		log.Error("Failed to commit trie from trie database", "err", err)
-		db.lock.RUnlock()
+		db.Lock.RUnlock()
 		return err
 	}
 	// Write batch ready, unlock for readers during persistence
 	if err := batch.Write(); err != nil {
 		log.Error("Failed to write trie to disk", "err", err)
-		db.lock.RUnlock()
+		db.Lock.RUnlock()
 		return err
 	}
-	db.lock.RUnlock()
+	db.Lock.RUnlock()
 
 	// Write successful, clear out the flushed data
-	db.lock.Lock()
-	defer db.lock.Unlock()
+	db.Lock.Lock()
+	defer db.Lock.Unlock()
 
 	db.preimages = make(map[common.Hash][]byte)
 	db.preimagesSize = 0
@@ -348,8 +347,8 @@ func (db *Database) uncache(hash common.Hash) {
 // Size returns the current storage size of the memory cache in front of the
 // persistent database layer.
 func (db *Database) Size() common.StorageSize {
-	db.lock.RLock()
-	defer db.lock.RUnlock()
+	db.Lock.RLock()
+	defer db.Lock.RUnlock()
 
 	return db.nodesSize + db.preimagesSize
 }

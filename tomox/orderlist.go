@@ -79,7 +79,7 @@ func NewOrderListWithItem(item *OrderListItem, orderTree *OrderTree) *OrderList 
 
 func (orderList *OrderList) GetOrder(key []byte, dryrun bool, blockHash common.Hash) *Order {
 	storedKey := orderList.GetOrderIDFromKey(key)
-	log.Debug("Get order from key", "storedKey", hex.EncodeToString(storedKey))
+	log.Debug("GetObject order from key", "storedKey", hex.EncodeToString(storedKey))
 	return orderList.orderTree.orderBook.GetOrder(storedKey, key, dryrun, blockHash)
 }
 
@@ -184,7 +184,7 @@ func (orderList *OrderList) GetOrderID(order *Order) []byte {
 // OrderExist search order in orderlist
 func (orderList *OrderList) OrderExist(key []byte, dryrun bool, blockHash common.Hash) bool {
 	orderKey := orderList.GetOrderIDFromKey(key)
-	found, _ := orderList.orderTree.orderDB.Has(orderKey, dryrun, blockHash)
+	found, _ := orderList.orderTree.orderDB.HasObject(orderKey, dryrun, blockHash)
 	return found
 }
 
@@ -192,7 +192,7 @@ func (orderList *OrderList) SaveOrder(order *Order, dryrun bool, blockHash commo
 	key := orderList.GetOrderID(order)
 	log.Debug("Save order ", "key", hex.EncodeToString(key), "value", ToJSON(order.Item))
 
-	return orderList.orderTree.orderDB.Put(key, order.Item, dryrun, blockHash)
+	return orderList.orderTree.orderDB.PutObject(key, order.Item, dryrun, blockHash)
 }
 
 // AppendOrder : append order into the order list
@@ -231,7 +231,7 @@ func (orderList *OrderList) AppendOrder(order *Order, dryrun bool, blockHash com
 
 func (orderList *OrderList) DeleteOrder(order *Order, dryrun bool, blockHash common.Hash) error {
 	key := orderList.GetOrderID(order)
-	return orderList.orderTree.orderDB.Delete(key, dryrun, blockHash)
+	return orderList.orderTree.orderDB.DeleteObject(key, dryrun, blockHash)
 }
 
 // RemoveOrder : remove order from the order list

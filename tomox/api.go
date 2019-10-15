@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"strings"
 	"sync"
@@ -157,7 +158,7 @@ func (api *PublicTomoXAPI) CancelOrder(ctx context.Context, req NewMessage) (boo
 		WorkTime: req.PowTime,
 		Topic:    req.Topic,
 	}
-	payload := &OrderItem{}
+	payload := &tomox_state.OrderItem{}
 	err := json.Unmarshal(params.Payload, &payload)
 	if err != nil {
 		log.Error("Wrong order payload format", "err", err)
@@ -431,8 +432,8 @@ func (api *PublicTomoXAPI) GetAskTree(pairName string) (*OrderTreeItem, error) {
 }
 
 // GetPendingOrders returns pending orders of the given pair
-func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*OrderItem, error) {
-	result := []*OrderItem{}
+func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*tomox_state.OrderItem, error) {
+	result := []*tomox_state.OrderItem{}
 	pending := api.t.getPendingOrders()
 	for _, p := range pending {
 		order := api.t.getOrderPendingFromDB(p.Hash, p.Cancel)

@@ -44,6 +44,7 @@ var (
 	ErrInvalidOrderQuantity    = errors.New("invalid order quantity")
 	ErrInvalidOrderPrice       = errors.New("invalid order price")
 	ErrInvalidOrderHash        = errors.New("invalid order hash")
+	ErrInvalidCancelledOrder   = errors.New("invalid cancel orderid")
 )
 
 var (
@@ -435,8 +436,17 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	var signer = types.OrderTxSigner{}
 
 	if !tx.IsCancelledOrder() {
-		if signer.Hash(tx) != tx.OrderHash() {
-			return ErrInvalidOrderHash
+		if !common.EmptyHash(tx.OrderHash()) {
+			if signer.Hash(tx) != tx.OrderHash() {
+				return ErrInvalidOrderHash
+			}
+		} else {
+			tx.SetOrderHash(signer.Hash(tx))
+		}
+
+	} else {
+		if tx.OrderID() == 0 {
+			return ErrInvalidCancelledOrder
 		}
 	}
 
@@ -599,7 +609,7 @@ func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *type
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *OrderPool) AddLocal(tx *types.OrderTransaction) error {
-	log.Debug("order add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status())
+	log.Debug("order add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 

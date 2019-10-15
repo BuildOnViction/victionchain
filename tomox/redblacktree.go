@@ -124,7 +124,7 @@ func (tree *Tree) GetNode(key []byte, dryrun bool, blockHash common.Hash) (*Node
 
 	item := &Item{}
 
-	val, err := tree.db.Get(key, item, dryrun, blockHash)
+	val, err := tree.db.GetObject(key, item, dryrun, blockHash)
 
 	if err != nil || val == nil {
 		return nil, err
@@ -133,7 +133,7 @@ func (tree *Tree) GetNode(key []byte, dryrun bool, blockHash common.Hash) (*Node
 }
 
 func (tree *Tree) Has(key []byte, dryrun bool, blockHash common.Hash) (bool, error) {
-	return tree.db.Has(key, dryrun, blockHash)
+	return tree.db.HasObject(key, dryrun, blockHash)
 }
 
 // Get searches the node in the tree by key and returns its value or nil if key is not found in tree.
@@ -558,7 +558,7 @@ func (tree *Tree) insertCase5(node *Node, dryrun bool, blockHash common.Hash) {
 
 func (tree *Tree) Save(node *Node, dryrun bool, blockHash common.Hash) error {
 	log.Debug("Save node", "node", node, "key", hex.EncodeToString(node.Key))
-	return tree.db.Put(node.Key, node.Item, dryrun, blockHash)
+	return tree.db.PutObject(node.Key, node.Item, dryrun, blockHash)
 }
 
 func (tree *Tree) deleteCase1(node *Node, dryrun bool, blockHash common.Hash) {
@@ -704,5 +704,5 @@ func nodeColor(node *Node) bool {
 
 func (tree *Tree) deleteNode(node *Node, dryrun bool, blockHash common.Hash) {
 	log.Debug("Delete node", "node key", hex.EncodeToString(node.Key))
-	tree.db.Delete(node.Key, dryrun, blockHash)
+	tree.db.DeleteObject(node.Key, dryrun, blockHash)
 }

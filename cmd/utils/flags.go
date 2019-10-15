@@ -1060,10 +1060,12 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 }
 
 func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
-	if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
-		cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
-	} else {
-		cfg.DataDir = TomoXDataDirFlag.Value.String()
+	if len(cfg.DataDir) == 0 {
+		if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
+			cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
+		} else {
+			cfg.DataDir = TomoXDataDirFlag.Value.String()
+		}
 	}
 	if ctx.GlobalIsSet(TomoXDBEngineFlag.Name) {
 		cfg.DBEngine = ctx.GlobalString(TomoXDBEngineFlag.Name)
