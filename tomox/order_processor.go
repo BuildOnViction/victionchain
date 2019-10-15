@@ -2,13 +2,14 @@ package tomox
 
 import (
 	"encoding/hex"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
-	"math/big"
-	"strconv"
-	"time"
 )
 
 func ProcessOrder(statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, *tomox_state.OrderItem, error) {
@@ -17,12 +18,21 @@ func ProcessOrder(statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB
 		trades      []map[string]string
 		err         error
 	)
+	nonce := tomoXstatedb.GetNonce(order.UserAddress.Hash())
+	log.Debug("ProcessOrder", "addr", order.UserAddress, "statenonce", nonce, "ordernonce", order.Nonce)
+	if big.NewInt(int64(nonce)).Cmp(order.Nonce) == -1 {
+		return nil, nil, ErrNonceTooHigh
+	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
+		return nil, nil, ErrNonceTooLow
+	}
+
 	if order.Status == OrderStatusCancelled {
 		err := tomoXstatedb.CancerOrder(orderBook, order)
 		if err != nil {
 			log.Debug("Error when cancel order", "order", order)
 			return nil, nil, err
 		}
+		return nil, nil, nil
 	}
 	orderType := order.Type
 	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
@@ -39,7 +49,9 @@ func ProcessOrder(statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB
 			return nil, nil, err
 		}
 	}
-
+	log.Debug("Pre Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
+	tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+	log.Debug("After Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 	return trades, orderInBook, nil
 }
 
