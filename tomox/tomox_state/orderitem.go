@@ -27,6 +27,7 @@ type OrderItem struct {
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
 	Hash            common.Hash    `json:"hash,omitempty"`
+	TxHash          common.Hash    `json:"txHash,omitempty"`
 	Signature       *Signature     `json:"signature,omitempty"`
 	FilledAmount    *big.Int       `json:"filledAmount,omitempty"`
 	Nonce           *big.Int       `json:"nonce,omitempty"`
@@ -65,6 +66,7 @@ type OrderItemBSON struct {
 	Side            string           `json:"side,omitempty" bson:"side"`
 	Type            string           `json:"type,omitempty" bson:"type"`
 	Hash            string           `json:"hash,omitempty" bson:"hash"`
+	TxHash          string           `json:"txHash,omitempty" bson:"txHash"`
 	Signature       *SignatureRecord `json:"signature,omitempty" bson:"signature"`
 	FilledAmount    string           `json:"filledAmount,omitempty" bson:"filledAmount"`
 	Nonce           string           `json:"nonce,omitempty" bson:"nonce"`
@@ -89,6 +91,7 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 		Side:            o.Side,
 		Type:            o.Type,
 		Hash:            o.Hash.Hex(),
+		TxHash:          o.TxHash.Hex(),
 		Quantity:        o.Quantity.String(),
 		Price:           o.Price.String(),
 		Nonce:           o.Nonce.String(),
@@ -125,6 +128,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		Side            string           `json:"side" bson:"side"`
 		Type            string           `json:"type" bson:"type"`
 		Hash            string           `json:"hash" bson:"hash"`
+		TxHash          string           `json:"txHash,omitempty" bson:"txHash"`
 		Price           string           `json:"price" bson:"price"`
 		Quantity        string           `json:"quantity" bson:"quantity"`
 		FilledAmount    string           `json:"filledAmount" bson:"filledAmount"`
@@ -154,6 +158,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	o.Side = decoded.Side
 	o.Type = decoded.Type
 	o.Hash = common.HexToHash(decoded.Hash)
+	o.TxHash = common.HexToHash(decoded.TxHash)
 
 	if decoded.Quantity != "" {
 		o.Quantity = ToBigInt(decoded.Quantity)
