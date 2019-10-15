@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"sort"
 	"sync"
@@ -446,6 +447,14 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	from, _ := types.OrderSender(pool.signer, tx)
 	if from != tx.UserAddress() {
 		return ErrInvalidOrderUserAddress
+	}
+
+	statedb, err := pool.chain.StateAt(pool.chain.CurrentBlock().Root())
+	if err != nil {
+		return fmt.Errorf("failed to get statedb Error: %v", err)
+	}
+	if !tomox_state.IsValidRelayer(statedb, tx.ExchangeAddress()) {
+		return fmt.Errorf("invalid relayer. ExchangeAddress: %s", tx.ExchangeAddress().Hex())
 	}
 	return nil
 }
