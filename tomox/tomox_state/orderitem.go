@@ -251,6 +251,8 @@ func (o *OrderItem) ComputeHash() common.Hash {
 	}
 	sha.Write(common.BigToHash(o.encodedSide()).Bytes())
 	sha.Write(common.BigToHash(o.Nonce).Bytes())
+	sha.Write(common.StringToHash(o.Status).Bytes())
+	sha.Write(common.StringToHash(o.Type).Bytes())
 	return common.BytesToHash(sha.Sum(nil))
 }
 

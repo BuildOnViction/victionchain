@@ -18,7 +18,6 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -132,16 +131,17 @@ type BlockChain struct {
 	currentBlock     atomic.Value // Current head of the block chain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache       state.Database // State database to reuse between imports (contains state cache)
-	bodyCache        *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache     *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	blockCache       *lru.Cache     // Cache for the most recent entire blocks
-	futureBlocks     *lru.Cache     // future blocks are blocks added for later processing
-	resultProcess    *lru.Cache     // Cache for processed blocks
-	calculatingBlock *lru.Cache     // Cache for processing blocks
-	downloadingBlock *lru.Cache     // Cache for downloading blocks (avoid duplication from fetcher)
-	quit             chan struct{}  // blockchain quit channel
-	running          int32          // running must be called atomically
+	stateCache state.Database // State database to reuse between imports (contains state cache)
+
+	bodyCache        *lru.Cache    // Cache for the most recent block bodies
+	bodyRLPCache     *lru.Cache    // Cache for the most recent block bodies in RLP encoded format
+	blockCache       *lru.Cache    // Cache for the most recent entire blocks
+	futureBlocks     *lru.Cache    // future blocks are blocks added for later processing
+	resultProcess    *lru.Cache    // Cache for processed blocks
+	calculatingBlock *lru.Cache    // Cache for processing blocks
+	downloadingBlock *lru.Cache    // Cache for downloading blocks (avoid duplication from fetcher)
+	quit             chan struct{} // blockchain quit channel
+	running          int32         // running must be called atomically
 	// procInterrupt must be atomically called
 	procInterrupt int32          // interrupt signaler for block processing
 	wg            sync.WaitGroup // chain processing wait group for shutting down
@@ -465,40 +465,24 @@ func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 	return state.New(root, bc.stateCache)
 }
 
-// LoadOrderNonce load nonces db of order user
-func (bc *BlockChain) LoadOrderNonce() (map[common.Address]*big.Int, error) {
-	var (
-		orderNonce map[common.Address]*big.Int
-		err        error
-		val        interface{}
-	)
-	orderNonceKey := "ORDER_NONCES"
-	if bc.tomoxDb == nil {
-		return orderNonce, nil
-	}
-	val, err = bc.tomoxDb.GetObject([]byte(orderNonceKey), &[]byte{}, false, common.Hash{})
-	if err != nil {
-		return nil, err
-	}
-	b := *val.(*[]byte)
-	if err = json.Unmarshal(b, &orderNonce); err != nil {
-		return nil, err
-	}
-	return orderNonce, nil
-}
-
 // OrderStateAt returns a new mutable state based on a particular point in time.
-func (bc *BlockChain) OrderStateAt(root common.Hash) (*state.OrderState, error) {
-	noncels := make(map[common.Address]*big.Int)
-	noncels, err := bc.LoadOrderNonce()
-	if err != nil {
-		return state.NewOrderState(nil), nil
-	} else {
-		for addr, nonce := range noncels {
-			log.Debug("OrderStateAt", "address", addr, "nonce", nonce)
+func (bc *BlockChain) OrderStateAt(block *types.Block) (*tomox_state.TomoXStateDB, error) {
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+		if tomoXService != nil {
+			log.Debug("OrderStateAt", "blocknumber", block.Header().Number)
+			tomoxState, err := tomoXService.GetTomoxState(block)
+			if err == nil {
+				return tomoxState, nil
+			} else {
+				return nil, err
+			}
 		}
 	}
-	return state.NewOrderState(noncels), nil
+	return nil, errors.New("Get tomox state fail")
+
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.

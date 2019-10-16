@@ -17,6 +17,7 @@
 package types
 
 import (
+	"container/heap"
 	"errors"
 	"io"
 	"math/big"
@@ -263,4 +264,71 @@ type OrderTxByNonce OrderTransactions
 
 func (s OrderTxByNonce) Len() int           { return len(s) }
 func (s OrderTxByNonce) Less(i, j int) bool { return s[i].data.AccountNonce < s[j].data.AccountNonce }
-func (s OrderTxByNonce) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+func (s OrderTxByNonce) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+func (s *OrderTxByNonce) Push(x interface{}) {
+	*s = append(*s, x.(*OrderTransaction))
+}
+
+func (s *OrderTxByNonce) Pop() interface{} {
+	old := *s
+	n := len(old)
+	x := old[n-1]
+	*s = old[0 : n-1]
+	return x
+}
+
+type OrderTransactionByNonce struct {
+	txs    map[common.Address]OrderTransactions
+	heads  OrderTxByNonce
+	signer OrderSigner
+}
+
+func NewOrderTransactionByNonce(signer OrderSigner, txs map[common.Address]OrderTransactions) *OrderTransactionByNonce {
+	// Initialize a price based heap with the head transactions
+	heads := make(OrderTxByNonce, 0, len(txs))
+	for from, accTxs := range txs {
+		heads = append(heads, accTxs[0])
+		// Ensure the sender address is from the signer
+		acc, _ := OrderSender(signer, accTxs[0])
+		txs[acc] = accTxs[1:]
+		if from != acc {
+			delete(txs, from)
+		}
+	}
+	heap.Init(&heads)
+
+	// Assemble and return the transaction set
+	return &OrderTransactionByNonce{
+		txs:    txs,
+		heads:  heads,
+		signer: signer,
+	}
+}
+
+// Peek returns the next transaction by price.
+func (t *OrderTransactionByNonce) Peek() *OrderTransaction {
+	if len(t.heads) == 0 {
+		return nil
+	}
+	return t.heads[0]
+}
+
+// Shift replaces the current best head with the next one from the same account.
+func (t *OrderTransactionByNonce) Shift() {
+	acc, _ := OrderSender(t.signer, t.heads[0])
+	if txs, ok := t.txs[acc]; ok && len(txs) > 0 {
+		t.heads[0], t.txs[acc] = txs[0], txs[1:]
+		heap.Fix(&t.heads, 0)
+	} else {
+		heap.Pop(&t.heads)
+	}
+}
+
+// Pop removes the best transaction, *not* replacing it with the next one from
+// the same account. This should be used when a transaction cannot be executed
+// and hence all subsequent ones should be discarded from the same account.
+func (t *OrderTransactionByNonce) Pop() {
+	heap.Pop(&t.heads)
+}

@@ -1647,6 +1647,16 @@ func (s *PublicTomoXTransactionPoolAPI) SendOrder(ctx context.Context, msg Order
 	return submitOrderTransaction(ctx, s.b, tx)
 }
 
+// GetOrderCount returns the number of transactions the given address has sent for the given block number
+func (s *PublicTomoXTransactionPoolAPI) GetOrderCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
+
+	nonce, err := s.b.GetOrderNonce(addr.Hash())
+	if err != nil {
+		return (*hexutil.Uint64)(&nonce), err
+	}
+	return (*hexutil.Uint64)(&nonce), err
+}
+
 // Sign calculates an ECDSA signature for:
 // keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
 //
