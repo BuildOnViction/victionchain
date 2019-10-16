@@ -91,3 +91,7 @@ func (tx TxDataMatch) DecodeOrder() (*tomox_state.OrderItem, error) {
 func (tx TxDataMatch) GetTrades() []map[string]string {
 	return tx.Trades
 }
+
+func (tx TxDataMatch) GetRejectedOrders() []map[string]string {
+	return tx.RejectedOders
+}

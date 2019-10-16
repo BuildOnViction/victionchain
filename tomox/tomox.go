@@ -85,6 +85,7 @@ type TxDataMatch struct {
 	AskNew common.Hash
 	BidOld common.Hash
 	BidNew common.Hash
+	RejectedOders []map[string]string
 }
 
 type TxMatchBatch struct {
@@ -1353,6 +1354,18 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		if err := tomox.updateMatchedOrder(trade[TradeTakerOrderHash], filledAmount); err != nil {
 			return err
 		}
+
+		// 3. put rejected orders to db and update status REJECTED
+		rejectedOders := txDataMatch.GetRejectedOrders()
+		log.Debug("Got rejected orders", "number", len(rejectedOders), "trades", rejectedOders)
+
+		// updateRejectedOrders
+		for _, rejectedOder := range rejectedOders {
+			// update order status of relating orders
+		if err := tomox.updateRejectedOrders(rejectedOder[TradeMakerOrderHash], filledAmount); err != nil {
+			return err
+		}
+		}
 	}
 	return nil
 }
@@ -1400,4 +1413,24 @@ func (tomox *TomoX) GetTomoxStateRoot(block *types.Block) (common.Hash, error) {
 		}
 	}
 	return tomox_state.EmptyRoot, nil
+}
+
+func (tomox *TomoX) updateRejectedOrders(hashString string) error {
+	log.Debug("updateRejectedOrders", "hash", hashString)
+	db := tomox.GetDB()
+	orderHashBytes, err := hex.DecodeString(hashString)
+	if err != nil {
+		return fmt.Errorf("SDKNode: failed to decode orderKey. Key: %s", hashString)
+	}
+	val, err := db.GetObject(orderHashBytes, &tomox_state.OrderItem{}, false, common.Hash{})
+	if err != nil || val == nil {
+		return fmt.Errorf("SDKNode: failed to get order. Key: %s", hashString)
+	}
+	rejectedOder := val.(*tomox_state.OrderItem)
+	rejectedOder.Status = OrderStatusRejected
+
+	if err = db.PutObject(rejectedOder.Hash.Bytes(), rejectedOder, false, common.Hash{}); err != nil {
+		return fmt.Errorf("SDKNode: failed to update rejectedOder to sdkNode %s", err.Error())
+	}
+	return nil
 }

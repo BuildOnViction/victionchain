@@ -17,6 +17,7 @@ const (
 	OrderStatusPartialFilled = "PARTIAL_FILLED"
 	OrderStatusFilled        = "FILLED"
 	OrderStatusCancelled     = "CANCELLED"
+	OrderStatusRejected 	= "REJECTED"
 )
 
 
