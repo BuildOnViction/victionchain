@@ -1,7 +1,6 @@
 package tomox
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"reflect"
 	"testing"
 )
@@ -15,32 +14,14 @@ func TestTxMatchesBatch(t *testing.T) {
 		{
 			Order:       []byte("order1"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash11"}, {"takerOrderHash": "hash12"}},
-			ObOld:       common.StringToHash("ObOld1"),
-			ObNew:       common.StringToHash("ObNew1"),
-			AskOld:      common.StringToHash("AskOld1"),
-			AskNew:      common.StringToHash("AskNew1"),
-			BidOld:      common.StringToHash("BidOld1"),
-			BidNew:      common.StringToHash("BidNew1"),
 		},
 		{
 			Order:       []byte("order2"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash21"}, {"takerOrderHash": "hash22"}},
-			ObOld:       common.StringToHash("ObOld2"),
-			ObNew:       common.StringToHash("ObNew2"),
-			AskOld:      common.StringToHash("AskOld2"),
-			AskNew:      common.StringToHash("AskNew2"),
-			BidOld:      common.StringToHash("BidOld2"),
-			BidNew:      common.StringToHash("BidNew2"),
 		},
 		{
 			Order:       []byte("order3"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash31"}, {"takerOrderHash": "hash32"}},
-			ObOld:       common.StringToHash("ObOld3"),
-			ObNew:       common.StringToHash("ObNew3"),
-			AskOld:      common.StringToHash("AskOld3"),
-			AskNew:      common.StringToHash("AskNew3"),
-			BidOld:      common.StringToHash("BidOld3"),
-			BidNew:      common.StringToHash("BidNew3"),
 		},
 	}
 

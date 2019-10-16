@@ -11,9 +11,6 @@ type OrderDao interface {
 	GetObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error)
 	PutObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error
 	DeleteObject(key []byte, dryrun bool, blockHash common.Hash) error // won't return error if key not found
-	InitDryRunMode(blockHash common.Hash)
-	SaveDryRunResult(blockHash common.Hash) error
-	CancelOrder(hash common.Hash) error
 	Put(key []byte, value []byte) error
 	Get(key []byte) ([]byte, error)
 	Has(key []byte) (bool, error)
