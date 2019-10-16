@@ -15,7 +15,7 @@ var (
 	MainAddr    = crypto.PubkeyToAddress(MainKey.PublicKey) //0x17F2beD710ba50Ed27aEa52fc4bD7Bda5ED4a037
 
 	// TRC21 Token
-	MinTRC21Apply = big.NewInt(0).Mul(big.NewInt(100), BaseTOMO) // 100 TOMO
+	MinTRC21Apply = big.NewInt(0).Mul(big.NewInt(10), BaseTOMO) // 10 TOMO
 	TRC21TokenCap = big.NewInt(0).Mul(big.NewInt(1000000000000), BaseTOMO)
 	TRC21TokenFee = big.NewInt(100)
 
