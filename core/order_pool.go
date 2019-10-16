@@ -512,7 +512,21 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 	}
 	// If the transaction is replacing an already pending one, do directly
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
-		return false, ErrPendingNonceTooLow
+		inserted, old := list.Add(tx)
+		if !inserted {
+			pendingDiscardCounter.Inc(1)
+			return false, ErrPendingNonceTooLow
+		}
+		if old != nil {
+			delete(pool.all, old.Hash())
+			pendingReplaceCounter.Inc(1)
+		}
+		pool.all[tx.Hash()] = tx
+		pool.journalTx(from, tx)
+
+		log.Debug("Pooled new executable transaction", "hash", hash, "useraddress", tx.UserAddress(), "nonce", tx.Nonce(), "status", tx.Status(), "orderid", tx.OrderID())
+		return old != nil, nil
+
 	}
 	// New transaction isn't replacing a pending one, push into queue
 	replace, err := pool.enqueueTx(hash, tx)
@@ -525,7 +539,7 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 	}
 	pool.journalTx(from, tx)
 
-	log.Trace("Pooled new future transaction", "hash", hash, "from", from)
+	log.Debug("Pooled new future transaction", "hash", hash, "from", from)
 	return replace, nil
 }
 
