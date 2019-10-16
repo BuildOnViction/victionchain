@@ -938,13 +938,16 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 			// New head notification data race between the transaction pool and miner, shift
 			log.Debug("Skipping order with low nonce", "sender", tx.UserAddress(), "nonce", tx.Nonce())
 			txs.Shift()
+			continue
 
 		case ErrNonceTooHigh:
 			// Reorg notification data race between the transaction pool and miner, skip account =
 			log.Debug("Skipping order account with high nonce", "sender", tx.UserAddress(), "nonce", tx.Nonce())
 			txs.Pop()
+			continue
 
 		case nil:
+			// everything ok
 			txs.Shift()
 
 		default:
@@ -952,6 +955,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 			// nonce-too-high clause will prevent us from executing in vain).
 			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
+			continue
 		}
 		// remove order from pending list
 		if err := tomox.RemoveOrderFromPending(order.Hash, order.Status == OrderStatusCancelled); err != nil {
