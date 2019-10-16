@@ -32,26 +32,28 @@ func ProcessOrder(statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB
 			log.Debug("Error when cancel order", "order", order)
 			return nil, nil, err
 		}
-		return nil, nil, nil
-	}
-	orderType := order.Type
-	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
-	if orderType == Market {
-		log.Debug("Process maket order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
-		trades, orderInBook, err = processMarketOrder(statedb, tomoXstatedb, orderBook, order)
-		if err != nil {
-			return nil, nil, err
-		}
 	} else {
-		log.Debug("Process limit order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
-		trades, orderInBook, err = processLimitOrder(statedb, tomoXstatedb, orderBook, order)
-		if err != nil {
-			return nil, nil, err
+		orderType := order.Type
+		// if we do not use auto-increment orderid, we must set price slot to avoid conflict
+		if orderType == Market {
+			log.Debug("Process maket order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
+			trades, orderInBook, err = processMarketOrder(statedb, tomoXstatedb, orderBook, order)
+			if err != nil {
+				log.Debug("Unexpected error market order processing")
+				return nil, nil, err
+			}
+		} else {
+			log.Debug("Process limit order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
+			trades, orderInBook, err = processLimitOrder(statedb, tomoXstatedb, orderBook, order)
+			if err != nil {
+				log.Debug("Unexpected error limit order processing")
+				return nil, nil, err
+			}
 		}
 	}
-	log.Debug("Pre Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
+
+	log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 	tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
-	log.Debug("After Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 	return trades, orderInBook, nil
 }
 
