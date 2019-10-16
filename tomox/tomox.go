@@ -1419,6 +1419,9 @@ func (tomox *TomoX) GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB
 	if err != nil {
 		return nil, err
 	}
+	if tomox.StateCache == nil {
+		return nil, errors.New("Not initialized tomox")
+	}
 	return tomox_state.New(root, tomox.StateCache)
 }
 
