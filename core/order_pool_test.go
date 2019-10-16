@@ -49,7 +49,7 @@ func getNonce(t *testing.T, userAddress common.Address) (uint64, error) {
 
 		return 0, err
 	}
-	err = rpcClient.Call(&result, "tomox_getOrderNonce", userAddress.Hex())
+	err = rpcClient.Call(&result, "tomox_getOrderCount", userAddress)
 	if err != nil {
 		return 0, err
 	}
@@ -125,7 +125,7 @@ func TestNoMatch(t *testing.T) {
 func TestCancelOrder(t *testing.T) {
 	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	// testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "CANCELLED", 1)
-	// time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "CANCELLED", 1)
+	time.Sleep(5 * time.Second)
 	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "SELL", "NEW", 0)
 }
