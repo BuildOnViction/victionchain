@@ -19,6 +19,7 @@ package les
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -255,4 +256,9 @@ func (b *LesApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
 
 func (b *LesApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bool {
 	return true
+}
+
+// GetOrderNonce get order nonce
+func (b *LesApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
+	return 0, errors.New("cannot find tomox service")
 }

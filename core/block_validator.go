@@ -123,12 +123,12 @@ func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, stated
 		log.Debug("process tx match", "order", order)
 
 		// Remove order from db pending.
-		if err := tomoXService.RemoveOrderFromPending(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
-			log.Debug("Fail to remove pending hash", "err", err)
-		}
-		if err := tomoXService.RemoveOrderPendingFromDB(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
-			log.Debug("Fail to remove order pending", "err", err)
-		}
+		// if err := tomoXService.RemoveOrderFromPending(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
+		// 	log.Debug("Fail to remove pending hash", "err", err)
+		// }
+		// if err := tomoXService.RemoveOrderPendingFromDB(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
+		// 	log.Debug("Fail to remove order pending", "err", err)
+		// }
 
 		// SDK node doesn't need to run ME
 		// if tomoXService.IsSDKNode() {

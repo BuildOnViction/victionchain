@@ -224,7 +224,8 @@ func (l *ordertxList) Add(tx *types.OrderTransaction) (bool, *types.OrderTransac
 	// If there's an older better transaction, abort
 	old := l.txs.Get(tx.Nonce())
 	if old != nil {
-		return false, nil
+		l.txs.Put(tx)
+		return true, old
 	}
 	l.txs.Put(tx)
 	return true, nil
