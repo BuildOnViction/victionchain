@@ -31,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
