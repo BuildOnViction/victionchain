@@ -1363,6 +1363,45 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
+		author, err := bc.Engine().Author(block.Header()) // Ignore error, we're past header validation
+		if err != nil {
+			bc.reportBlock(block, nil, err)
+			return i, events, coalescedLogs, err
+		}
+		// clear the previous dry-run cache
+		var tomoxState *tomox_state.TomoXStateDB
+		if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+			txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+			if err != nil {
+				bc.reportBlock(block, nil, err)
+				return i, events, coalescedLogs, err
+			}
+			tomoxState, err = tomoXService.GetTomoxState(parent)
+			if err != nil {
+				bc.reportBlock(block, nil, err)
+				return i, events, coalescedLogs, err
+			}
+			for _, txMatchBatch := range txMatchBatchData {
+				log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
+				err := bc.Validator().ValidateMatchingOrder(tomoXService, statedb, tomoxState, txMatchBatch, author)
+				if err != nil {
+					bc.reportBlock(block, nil, err)
+					return i, events, coalescedLogs, err
+				}
+			}
+			if len(txMatchBatchData) > 0 {
+				gotRoot := tomoxState.IntermediateRoot()
+				expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
+				if gotRoot != expectRoot {
+					err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+					bc.reportBlock(block, nil, err)
+					return i, events, coalescedLogs, err
+				}
+			}
+			parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
+			nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
+			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+		}
 		feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 		// Process block using the parent state as reference point.
 		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig, feeCapacity)
@@ -1375,41 +1414,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
-		}
-		hashNoValidator := block.HashNoValidator()
-		// clear the previous dry-run cache
-		var tomoxState *tomox_state.TomoXStateDB
-		if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
-			txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
-			if err != nil {
-				bc.reportBlock(block, receipts, err)
-				return i, events, coalescedLogs, err
-			}
-			tomoxState, err = tomoXService.GetTomoxState(parent)
-			if err != nil {
-				bc.reportBlock(block, receipts, err)
-				return i, events, coalescedLogs, err
-			}
-			for _, txMatchBatch := range txMatchBatchData {
-				log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-				err := bc.Validator().ValidateMatchingOrder(tomoXService, statedb, tomoxState, txMatchBatch, hashNoValidator)
-				if err != nil {
-					bc.reportBlock(block, receipts, err)
-					return i, events, coalescedLogs, err
-				}
-			}
-			if len(txMatchBatchData) > 0 {
-				gotRoot := tomoxState.IntermediateRoot()
-				expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
-				if gotRoot != expectRoot {
-					err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
-					bc.reportBlock(block, receipts, err)
-					return i, events, coalescedLogs, err
-				}
-			}
-			parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
-			nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
-			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
 		}
 		proctime := time.Since(bstart)
 		// Write the block to the chain and get the status.
@@ -1588,6 +1592,49 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	if err != nil {
 		return nil, err
 	}
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
+	author, err := bc.Engine().Author(block.Header()) // Ignore error, we're past header validation
+	if err != nil {
+		bc.reportBlock(block, nil, err)
+		return nil, err
+	}
+	var tomoxState *tomox_state.TomoXStateDB
+	if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+		tomoxState, err = tomoXService.GetTomoxState(parent)
+		if err != nil {
+			bc.reportBlock(block, nil, err)
+			return nil, err
+		}
+		txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+		if err != nil {
+			bc.reportBlock(block, nil, err)
+			return nil, err
+		}
+		for _, txMatchBatch := range txMatchBatchData {
+			log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
+			err := bc.Validator().ValidateMatchingOrder(tomoXService, statedb, tomoxState, txMatchBatch, author)
+			if err != nil {
+				bc.reportBlock(block, nil, err)
+				return nil, err
+			}
+		}
+		if len(txMatchBatchData) > 0 {
+			gotRoot := tomoxState.IntermediateRoot()
+			expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
+			if gotRoot != expectRoot {
+				err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+				bc.reportBlock(block, nil, err)
+				return nil, err
+			}
+		}
+		parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
+		nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
+		log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	// Process block using the parent state as reference point.
 	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, bc.vmConfig, feeCapacity)
@@ -1607,44 +1654,6 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	proctime := time.Since(bstart)
 	log.Debug("Calculate new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)), "process", process)
-	var tomoXService *tomox.TomoX
-	engine, ok := bc.Engine().(*posv.Posv)
-	if ok {
-		tomoXService = engine.GetTomoXService()
-	}
-	var tomoxState *tomox_state.TomoXStateDB
-	if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
-		tomoxState, err = tomoXService.GetTomoxState(parent)
-		if err != nil {
-			bc.reportBlock(block, receipts, err)
-			return nil, err
-		}
-		txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
-		if err != nil {
-			bc.reportBlock(block, receipts, err)
-			return nil, err
-		}
-		for _, txMatchBatch := range txMatchBatchData {
-			log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-			err := bc.Validator().ValidateMatchingOrder(tomoXService, statedb, tomoxState, txMatchBatch, block.HashNoValidator())
-			if err != nil {
-				bc.reportBlock(block, receipts, err)
-				return nil, err
-			}
-		}
-		if len(txMatchBatchData) > 0 {
-			gotRoot := tomoxState.IntermediateRoot()
-			expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
-			if gotRoot != expectRoot {
-				err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
-				bc.reportBlock(block, receipts, err)
-				return nil, err
-			}
-		}
-		parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
-		nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
-		log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
-	}
 	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, tomoxState: tomoxState, proctime: proctime, usedGas: usedGas}, nil
 }
 
