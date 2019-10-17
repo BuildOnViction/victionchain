@@ -433,7 +433,10 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 			}
 		}
 	}
-	statedb.AddBalance(header.Coinbase, gasUsed)
+
+	coinbaseOwner := statedb.GetOwner(header.Coinbase)
+
+	statedb.AddBalance(coinbaseOwner, gasUsed)
 	var root []byte
 	if config.IsByzantium(header.Number) {
 		statedb.Finalise(true)
