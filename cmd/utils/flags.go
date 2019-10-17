@@ -345,7 +345,7 @@ var (
 	TargetGasLimitFlag = cli.Uint64Flag{
 		Name:  "targetgaslimit",
 		Usage: "Target gas limit sets the artificial target gas floor for the blocks to mine",
-		Value: params.GenesisGasLimit,
+		Value: params.TomoGenesisGasLimit,
 	}
 	EtherbaseFlag = cli.StringFlag{
 		Name:  "etherbase",
@@ -641,14 +641,17 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		} else {
 			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
 		}
-	case ctx.GlobalBool(TestnetFlag.Name):
-		urls = params.TestnetBootnodes
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
+	// case ctx.GlobalBool(TestnetFlag.Name):
+	// 	urls = params.TestnetBootnodes
+	// case ctx.GlobalBool(RinkebyFlag.Name):
+	// 	urls = params.RinkebyBootnodes
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
+	case !ctx.GlobalIsSet(BootnodesFlag.Name):
+		urls = params.MainnetBootnodes
+	case ctx.GlobalBool(TomoTestnetFlag.Name):
+		urls = params.TestnetBootnodes
 	}
-
 	cfg.BootstrapNodes = make([]*discover.Node, 0, len(urls))
 	for _, url := range urls {
 		node, err := discover.ParseNode(url)
@@ -853,7 +856,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
 	setBootstrapNodes(ctx, cfg)
-	setBootstrapNodesV5(ctx, cfg)
+	// setBootstrapNodesV5(ctx, cfg)
 
 	lightClient := ctx.GlobalBool(LightModeFlag.Name) || ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := ctx.GlobalInt(LightServFlag.Name) != 0
