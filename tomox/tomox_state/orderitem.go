@@ -260,16 +260,27 @@ func (o *OrderItem) ComputeHash() common.Hash {
 	return common.BytesToHash(sha.Sum(nil))
 }
 
+func (o *OrderItem) ComputeOrderCancelHash() common.Hash {
+	sha := sha3.NewKeccak256()
+	sha.Write(o.Hash.Bytes())
+	sha.Write(common.BigToHash(o.Nonce).Bytes())
+	return common.BytesToHash(sha.Sum(nil))
+}
+
 //verify signatures
 func (o *OrderItem) verifySignature() error {
 	var (
 		hash common.Hash
 		err  error
 	)
-	hash = o.ComputeHash()
-	if hash != o.Hash {
-		log.Debug("Wrong orderhash", "expected", hex.EncodeToString(o.Hash.Bytes()), "actual", hex.EncodeToString(hash.Bytes()))
-		return ErrWrongHash
+	if o.Status != Cancel {
+		hash = o.ComputeHash()
+		if hash != o.Hash {
+			log.Debug("Wrong orderhash", "expected", hex.EncodeToString(o.Hash.Bytes()), "actual", hex.EncodeToString(hash.Bytes()))
+			return ErrWrongHash
+		}
+	} else {
+		hash = o.ComputeOrderCancelHash()
 	}
 	message := crypto.Keccak256(
 		[]byte("\x19Ethereum Signed Message:\n32"), // FIXME: Signature signed by EtherJS library, update this one if order is signed by other standards
