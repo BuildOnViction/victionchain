@@ -1380,7 +1380,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		// clear the previous dry-run cache
 		var tomoxState *tomox_state.TomoXStateDB
 		if tomoXService != nil {
-			tomoXService.GetDB().InitDryRunMode(hashNoValidator)
 			txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
 			if err != nil {
 				bc.reportBlock(block, receipts, err)
@@ -1418,6 +1417,22 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
+		if bc.chainConfig.Posv != nil {
+			c := bc.engine.(*posv.Posv)
+			coinbase := c.Signer()
+			// ignore synching block
+			if coinbase != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+				// block signer
+				blockSigner, _ := c.RecoverSigner(block.Header())
+				header := block.Header()
+				validator, _ := c.RecoverValidator(block.Header())
+				ok := c.CheckMNTurn(bc, header, coinbase)
+				// if created block was your turn
+				if blockSigner != coinbase && ok {
+					log.Warn("Missed create block height", "number", block.Number(), "hash", block.Hash(), "m1", blockSigner.Hex(), "m2", validator.Hex())
+				}
+			}
+		}
 		switch status {
 		case CanonStatTy:
 			log.Debug("Inserted new block from downloader", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
@@ -1431,35 +1446,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
 			bc.UpdateBlocksHashCache(block)
-			txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
-			if err != nil {
-				return i, events, coalescedLogs, err
-			}
-
-			processedOrders, err := getProcessedOrders(txMatchBatchData)
-			if err != nil {
-				return i, events, coalescedLogs, err
-			}
-			if tomoXService != nil && len(processedOrders) > 0 {
-				log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "hash", block.Hash(), "hash_novalidator", block.HashNoValidator())
-				if err = tomoXService.ApplyTxMatches(processedOrders, block.HashNoValidator()); err != nil {
-					return i, events, coalescedLogs, err
-				}
-				if tomoXService.IsSDKNode() {
-					currentState, err := bc.State()
-					if err != nil {
-						return i, events, coalescedLogs, err
-					}
-					if err := logDataToSdkNode(tomoXService, txMatchBatchData, currentState); err != nil {
-						return i, events, coalescedLogs, err
-					}
-				}
-				if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 && !tomoXService.IsSDKNode() {
-					if err := tomoXService.Snapshot(block.Hash()); err != nil {
-						log.Error("Failed to snapshot tomox", "err", err)
-					}
-				}
-			}
 
 		case SideStatTy:
 			log.Debug("Inserted forked block from downloader", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
@@ -1469,6 +1455,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			events = append(events, ChainSideEvent{block})
 			bc.UpdateBlocksHashCache(block)
 		}
+		go bc.logExchangeData(block)
 		stats.processed++
 		stats.usedGas += usedGas
 		stats.report(chain, i, bc.stateCache.TrieDB().Size())
@@ -1712,6 +1699,22 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	if err != nil {
 		return events, coalescedLogs, err
 	}
+	if bc.chainConfig.Posv != nil {
+		c := bc.engine.(*posv.Posv)
+		coinbase := c.Signer()
+		// ignore synching block
+		if coinbase != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+			header := block.Header()
+			// block signer
+			blockSigner, _ := c.RecoverSigner(block.Header())
+			validator, _ := c.RecoverValidator(block.Header())
+			ok := c.CheckMNTurn(bc, header, coinbase)
+			// if created block was your turn
+			if blockSigner != coinbase && ok {
+				log.Warn("Missed create block height", "number", block.Number(), "hash", block.Hash(), "m1", blockSigner.Hex(), "m2", validator.Hex())
+			}
+		}
+	}
 	switch status {
 	case CanonStatTy:
 		log.Debug("Inserted new block from fetcher", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
@@ -1724,45 +1727,6 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		bc.gcproc += result.proctime
 
 		bc.UpdateBlocksHashCache(block)
-		var tomoXService *tomox.TomoX
-		engine, ok := bc.Engine().(*posv.Posv)
-		if ok {
-			tomoXService = engine.GetTomoXService()
-		}
-		txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
-		if err != nil {
-			return events, coalescedLogs, err
-		}
-
-		processedOrders, err := getProcessedOrders(txMatchBatchData)
-		if err != nil {
-			return events, coalescedLogs, err
-		}
-		if tomoXService != nil && len(processedOrders) > 0 {
-			log.Debug("Applying TxMatches of block", "number", block.NumberU64(), "hash", block.Hash(), "hash_novalidator", block.HashNoValidator())
-			if err = tomoXService.ApplyTxMatches(processedOrders, block.HashNoValidator()); err != nil {
-				return events, coalescedLogs, err
-			}
-			if tomoXService.IsSDKNode() {
-				currentState, err := bc.State()
-				if err != nil {
-					return events, coalescedLogs, err
-				}
-				txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
-				if err != nil {
-					return events, coalescedLogs, err
-				}
-				if err := logDataToSdkNode(tomoXService, txMatchBatchData, currentState); err != nil {
-					return events, coalescedLogs, err
-				}
-			}
-			if bc.CurrentHeader().Number.Uint64()%common.TomoXSnapshotInterval == 0 && !tomoXService.IsSDKNode() {
-				if err := tomoXService.Snapshot(block.Hash()); err != nil {
-					log.Error("Failed to snapshot tomox", "err", err)
-				}
-			}
-		}
-
 	case SideStatTy:
 		log.Debug("Inserted forked block from fetcher", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 			common.PrettyDuration(time.Since(block.ReceivedAt)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
@@ -1772,6 +1736,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 
 		bc.UpdateBlocksHashCache(block)
 	}
+	go bc.logExchangeData(block)
 	stats.processed++
 	stats.usedGas += result.usedGas
 	stats.report(types.Blocks{block}, 0, bc.stateCache.TrieDB().Size())
@@ -2251,28 +2216,32 @@ func (bc *BlockChain) UpdateM1() error {
 	return nil
 }
 
-func getProcessedOrders(txMatchBatchData []tomox.TxMatchBatch) ([]*tomox_state.OrderItem, error) {
-	orders := []*tomox_state.OrderItem{}
-	for _, txMatchBatch := range txMatchBatchData {
-		for _, txMatch := range txMatchBatch.Data {
-			order, err := txMatch.DecodeOrder()
-			if err != nil {
-				log.Error("Decode order failed", "txMatch", txMatch)
-				return []*tomox_state.OrderItem{}, fmt.Errorf("decode order failed")
-			}
-			orders = append(orders, order)
-		}
+func (bc *BlockChain) logExchangeData(block *types.Block) {
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
 	}
-	return orders, nil
-}
+	if tomoXService == nil || !tomoXService.IsSDKNode() {
+		return
+	}
+	txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+	if err != nil {
+		log.Error("failed to extract matching transaction", "err", err)
+		return
+	}
 
-func logDataToSdkNode(tomoXService *tomox.TomoX, txMatchBatchData []tomox.TxMatchBatch, statedb *state.StateDB) error {
+	currentState, err := bc.State()
+	if err != nil {
+		log.Error("failed to get current state", "err", err)
+		return
+	}
 	for _, txMatchBatch := range txMatchBatchData {
 		for _, txMatch := range txMatchBatch.Data {
-			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, statedb); err != nil {
-				return err
+			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, currentState); err != nil {
+				log.Error("failed to SyncDataToSDKNode current state", "err", err)
+				return
 			}
 		}
 	}
-	return nil
 }

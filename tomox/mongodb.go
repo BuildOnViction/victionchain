@@ -28,7 +28,6 @@ type MongoDatabase struct {
 	Session      *mgo.Session
 	dbName       string
 	emptyKey     []byte
-	dryRunCaches map[common.Hash]*lru.Cache
 	cacheItems   *lru.Cache // Cache for reading
 }
 
@@ -58,7 +57,6 @@ func NewMongoDatabase(session *mgo.Session, dbName string, mongoURL string, repl
 		Session:      session,
 		dbName:       dbName,
 		cacheItems:   cacheItems,
-		dryRunCaches: make(map[common.Hash]*lru.Cache),
 	}
 
 	return db, nil
@@ -78,7 +76,6 @@ func (db *MongoDatabase) HasObject(key []byte, dryrun bool, blockHash common.Has
 	}
 	cacheKey := db.getCacheKey(key)
 	if db.cacheItems.Contains(cacheKey) {
-		// for dry-run mode, do not read cacheItems
 		return true, nil
 	}
 
@@ -213,35 +210,6 @@ func (db *MongoDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.
 	return nil
 }
 
-func (db *MongoDatabase) InitDryRunMode(hash common.Hash) {
-	// SDK node (which running with mongodb) doesn't run Matching engine
-	// dry-run cache is useless for sdk node
-}
-
-func (db *MongoDatabase) SaveDryRunResult(hash common.Hash) error {
-	// SDK node (which running with mongodb) doesn't run Matching engine
-	// dry-run cache is useless for sdk node
-	return nil
-}
-
-func (db *MongoDatabase) CancelOrder(orderHash common.Hash) error {
-	sc := db.Session.Copy()
-	defer sc.Close()
-	query := bson.M{"hash": orderHash.Hex()}
-	var result *tomox_state.OrderItem
-	if err := sc.DB(db.dbName).C("orders").Find(query).One(&result); err != nil {
-		if err == mgo.ErrNotFound {
-			//cancel done
-			return nil
-		}
-		return err
-	}
-	result.Status = Cancel
-	if _, err := sc.DB(db.dbName).C("orders").Upsert(query, result); err != nil {
-		return err
-	}
-	return nil
-}
 
 func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) error {
 
