@@ -3,6 +3,7 @@ package tomox
 import (
 	"encoding/json"
 	"errors"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +18,11 @@ const (
 	TrueByte  = byte(1)
 	FalseByte = byte(0)
 	decimals  = 18
+	Ask    = "SELL"
+	Bid    = "BUY"
+	Market = "MO"
+	Limit  = "LO"
+	Cancel = "CANCELLED"
 )
 
 var (
@@ -254,4 +260,16 @@ func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
 		return TxMatchBatch{}, err
 	}
 	return txMatchResult, nil
+}
+
+func (tx TxDataMatch) DecodeOrder() (*tomox_state.OrderItem, error) {
+	order := &tomox_state.OrderItem{}
+	if err := DecodeBytesItem(tx.Order, order); err != nil {
+		return order, err
+	}
+	return order, nil
+}
+
+func (tx TxDataMatch) GetTrades() []map[string]string {
+	return tx.Trades
 }
