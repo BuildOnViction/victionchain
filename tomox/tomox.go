@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	ProtocolName         = "tomox"
-	ProtocolVersion      = uint64(1)
-	ProtocolVersionStr   = "1.0"
-	overflowIdx                // Indicator of message queue overflow
+	ProtocolName       = "tomox"
+	ProtocolVersion    = uint64(1)
+	ProtocolVersionStr = "1.0"
+	overflowIdx        // Indicator of message queue overflow
 )
 
 var (
@@ -59,13 +59,14 @@ var DefaultConfig = Config{
 type TomoX struct {
 	// Order related
 	db         OrderDao
+	mongodb    OrderDao
 	Triegc     *prque.Prque         // Priority queue mapping block numbers to tries to gc
 	StateCache tomox_state.Database // State database to reuse between imports (contains state cache)    *tomox_state.TomoXStateDB
 
 	orderNonce map[common.Address]*big.Int
 
-	sdkNode     bool
-	settings syncmap.Map // holds configuration settings that can be dynamically changed
+	sdkNode           bool
+	settings          syncmap.Map // holds configuration settings that can be dynamically changed
 	tokenDecimalCache *lru.Cache
 }
 
@@ -100,19 +101,18 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 func New(cfg *Config) *TomoX {
 	tokenDecimalCache, _ := lru.New(defaultCacheLimit)
 	tomoX := &TomoX{
-		orderNonce:          make(map[common.Address]*big.Int),
-		Triegc:              prque.New(),
-		tokenDecimalCache:   tokenDecimalCache,
+		orderNonce:        make(map[common.Address]*big.Int),
+		Triegc:            prque.New(),
+		tokenDecimalCache: tokenDecimalCache,
 	}
-	switch cfg.DBEngine {
-	case "leveldb":
-		tomoX.db = NewLDBEngine(cfg)
-		tomoX.sdkNode = false
-	case "mongodb":
-		tomoX.db = NewMongoDBEngine(cfg)
+
+	// default DBEngine: levelDB
+	tomoX.db = NewLDBEngine(cfg)
+	tomoX.sdkNode = false
+
+	if cfg.DBEngine == "mongodb" { // this is an add-on DBEngine for SDK nodes
+		tomoX.mongodb = NewMongoDBEngine(cfg)
 		tomoX.sdkNode = true
-	default:
-		log.Crit("wrong database engine, only accept either leveldb or mongodb")
 	}
 
 	tomoX.StateCache = tomox_state.NewDatabase(tomoX.db)
@@ -133,6 +133,10 @@ func (tomox *TomoX) IsSDKNode() bool {
 
 func (tomox *TomoX) GetDB() OrderDao {
 	return tomox.db
+}
+
+func (tomox *TomoX) GetMongoDB() OrderDao {
+	return tomox.mongodb
 }
 
 // APIs returns the RPC descriptors the TomoX implementation offers
@@ -195,7 +199,6 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 			cancel = true
 		}
 
-
 		log.Info("Process order pending", "orderPending", order)
 		originalOrder := &tomox_state.OrderItem{}
 		*originalOrder = *order
@@ -231,7 +234,6 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 			continue
 		}
 
-
 		// orderID has been updated
 		originalOrder.OrderID = order.OrderID
 		originalOrderValue, err := EncodeBytesItem(originalOrder)
@@ -259,7 +261,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		order *tomox_state.OrderItem
 		err   error
 	)
-	db := tomox.GetDB()
+	db := tomox.GetMongoDB()
 
 	// 1. put processed order to db
 	if order, err = txDataMatch.DecodeOrder(); err != nil {
@@ -338,7 +340,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 
 func (tomox *TomoX) updateMatchedOrder(hashString string, filledAmount *big.Int) error {
 	log.Debug("updateMatchedOrder", "hash", hashString, "filledAmount", filledAmount)
-	db := tomox.GetDB()
+	db := tomox.GetMongoDB()
 	orderHashBytes, err := hex.DecodeString(hashString)
 	if err != nil {
 		return fmt.Errorf("SDKNode: failed to decode orderKey. Key: %s", hashString)
