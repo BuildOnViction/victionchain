@@ -315,7 +315,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 	if err != nil {
 		return nil, 0, err, false
 	}
-	gasUsed := big.NewInt(0)
+	matchingFee := big.NewInt(0)
 	for _, txMatch := range txMatchBatches.Data {
 		orderItem, err := txMatch.DecodeOrder()
 		if err != nil {
@@ -353,8 +353,8 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 				}
 
 				// masternodes charges fee of both 2 relayers. If maker and taker are on same relayer, that relayer is charged fee twice
-				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
-				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
+				matchingFee = matchingFee.Add(matchingFee, common.RelayerFee)
+				matchingFee = matchingFee.Add(matchingFee, common.RelayerFee)
 
 				//log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
 
@@ -434,9 +434,9 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 		}
 	}
 
-	coinbaseOwner := statedb.GetOwner(header.Coinbase)
+	masternodeOwner := statedb.GetOwner(header.Coinbase)
 
-	statedb.AddBalance(coinbaseOwner, gasUsed)
+	statedb.AddBalance(masternodeOwner, matchingFee)
 	var root []byte
 	if config.IsByzantium(header.Number) {
 		statedb.Finalise(true)
@@ -447,7 +447,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 	// based on the eip phase, we're passing wether the root touch-delete accounts.
 	receipt := types.NewReceipt(root, false, *usedGas)
 	receipt.TxHash = tx.Hash()
-	receipt.GasUsed = gasUsed.Uint64()
+	receipt.GasUsed = 0
 	// if the transaction created a contract, store the creation address in the receipt.
 	// Set the receipt logs and create a bloom for filtering
 	log := &types.Log{}
