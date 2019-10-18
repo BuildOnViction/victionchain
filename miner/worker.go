@@ -628,7 +628,7 @@ func (self *worker) commitNewWork() {
 	TomoxStateRoot := work.tomoxState.IntermediateRoot()
 	txMatchBatch := &tomox.TxMatchBatch{
 		Data:      txMatches,
-		Timestamp: uint64(time.Now().UnixNano()),
+		Timestamp: time.Now().UnixNano(),
 		TxHash:    common.Hash{},
 	}
 	wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})

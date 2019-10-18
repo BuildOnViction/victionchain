@@ -9,6 +9,7 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"strconv"
+	"time"
 
 	"encoding/hex"
 
@@ -47,7 +48,7 @@ type TxDataMatch struct {
 
 type TxMatchBatch struct {
 	Data      []TxDataMatch
-	Timestamp uint64
+	Timestamp int64
 	TxHash    common.Hash
 }
 
@@ -256,7 +257,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 // 2. txMatchData.Trades: includes information of matched orders.
 // 		a. PutObject them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
-func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Hash, statedb *state.StateDB) error {
+func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB) error {
 	var (
 		order *tomox_state.OrderItem
 		err   error
@@ -273,7 +274,10 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		order.Status = OrderStatusOpen
 	}
 	order.TxHash = txHash
-
+	if order.CreatedAt.IsZero() {
+		order.CreatedAt = txMatchTime
+	}
+	order.UpdatedAt = txMatchTime
 	log.Debug("PutObject processed order", "order", order)
 	if err := db.PutObject(order.Hash.Bytes(), order, false, common.Hash{}); err != nil {
 		return fmt.Errorf("SDKNode: failed to put processed order. Error: %s", err.Error())
@@ -281,64 +285,67 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 	if order.Status == OrderStatusCancelled {
 		return nil
 	}
-	order.TxHash = txHash
 	// 2. put trades to db and update status to FILLED
 	trades := txDataMatch.GetTrades()
 	log.Debug("Got trades", "number", len(trades), "trades", trades)
 	for _, trade := range trades {
 		// 2.a. put to trades
-		tradeSDK := &Trade{}
+		tradeRecord := &Trade{}
 		quantity := ToBigInt(trade[TradeQuantity])
 		price := ToBigInt(trade[TradePrice])
 		if price.Cmp(big.NewInt(0)) <= 0 || quantity.Cmp(big.NewInt(0)) <= 0 {
 			return fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity)
 		}
-		tradeSDK.Amount = quantity
-		tradeSDK.PricePoint = price
-		tradeSDK.PairName = order.PairName
-		tradeSDK.BaseToken = order.BaseToken
-		tradeSDK.QuoteToken = order.QuoteToken
-		tradeSDK.Status = TradeStatusSuccess
-		tradeSDK.Taker = order.UserAddress
-		tradeSDK.Maker = common.HexToAddress(trade[TradeMaker])
-		tradeSDK.TakerOrderHash = order.Hash
-		tradeSDK.MakerOrderHash = common.HexToHash(trade[TradeMakerOrderHash])
-		tradeSDK.TxHash = txHash
-		tradeSDK.TakerOrderSide = order.Side
-		tradeSDK.TakerExchange = order.ExchangeAddress
-		tradeSDK.MakerExchange = common.HexToAddress(trade[TradeMakerExchange])
+		tradeRecord.Amount = quantity
+		tradeRecord.PricePoint = price
+		tradeRecord.PairName = order.PairName
+		tradeRecord.BaseToken = order.BaseToken
+		tradeRecord.QuoteToken = order.QuoteToken
+		tradeRecord.Status = TradeStatusSuccess
+		tradeRecord.Taker = order.UserAddress
+		tradeRecord.Maker = common.HexToAddress(trade[TradeMaker])
+		tradeRecord.TakerOrderHash = order.Hash
+		tradeRecord.MakerOrderHash = common.HexToHash(trade[TradeMakerOrderHash])
+		tradeRecord.TxHash = txHash
+		tradeRecord.TakerOrderSide = order.Side
+		tradeRecord.TakerExchange = order.ExchangeAddress
+		tradeRecord.MakerExchange = common.HexToAddress(trade[TradeMakerExchange])
 
 		// feeAmount: all fees are calculated in quoteToken
 		quoteTokenQuantity := big.NewInt(0).Mul(quantity, price)
 		quoteTokenQuantity = big.NewInt(0).Div(quoteTokenQuantity, common.BasePrice)
 		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, tomox_state.GetExRelayerFee(order.ExchangeAddress, statedb))
 		takerFee = big.NewInt(0).Div(takerFee, common.TomoXBaseFee)
-		tradeSDK.TakeFee = takerFee
+		tradeRecord.TakeFee = takerFee
 
 		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, tomox_state.GetExRelayerFee(common.HexToAddress(trade[TradeMakerExchange]), statedb))
 		makerFee = big.NewInt(0).Div(makerFee, common.TomoXBaseFee)
-		tradeSDK.MakeFee = makerFee
-
-		tradeSDK.Hash = tradeSDK.ComputeHash()
-		log.Debug("TRADE history", "order", order, "trade", tradeSDK)
-		if err := db.PutObject(EmptyKey(), tradeSDK, false, common.Hash{}); err != nil {
-			return fmt.Errorf("SDKNode: failed to store tradeSDK %s", err.Error())
+		tradeRecord.MakeFee = makerFee
+		if tradeRecord.CreatedAt.IsZero() {
+			tradeRecord.CreatedAt = txMatchTime
 		}
+		tradeRecord.UpdatedAt = txMatchTime
+		tradeRecord.Hash = tradeRecord.ComputeHash()
 
 		// 2.b. update status and filledAmount
 		filledAmount := quantity
 		// update order status of relating orders
-		if err := tomox.updateMatchedOrder(trade[TradeMakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateMatchedOrder(trade[TradeMakerOrderHash], filledAmount, txMatchTime); err != nil {
 			return err
 		}
-		if err := tomox.updateMatchedOrder(trade[TradeTakerOrderHash], filledAmount); err != nil {
+		if err := tomox.updateMatchedOrder(trade[TradeTakerOrderHash], filledAmount, txMatchTime); err != nil {
 			return err
+		}
+
+		log.Debug("TRADE history", "order", order, "trade", tradeRecord)
+		if err := db.PutObject(EmptyKey(), tradeRecord, false, common.Hash{}); err != nil {
+			return fmt.Errorf("SDKNode: failed to store tradeRecord %s", err.Error())
 		}
 	}
 	return nil
 }
 
-func (tomox *TomoX) updateMatchedOrder(hashString string, filledAmount *big.Int) error {
+func (tomox *TomoX) updateMatchedOrder(hashString string, filledAmount *big.Int, txMatchTime time.Time) error {
 	log.Debug("updateMatchedOrder", "hash", hashString, "filledAmount", filledAmount)
 	db := tomox.GetMongoDB()
 	orderHashBytes, err := hex.DecodeString(hashString)
@@ -358,6 +365,7 @@ func (tomox *TomoX) updateMatchedOrder(hashString string, filledAmount *big.Int)
 	} else {
 		matchedOrder.Status = OrderStatusFilled
 	}
+	matchedOrder.UpdatedAt = txMatchTime
 	if err = db.PutObject(matchedOrder.Hash.Bytes(), matchedOrder, false, common.Hash{}); err != nil {
 		return fmt.Errorf("SDKNode: failed to update matchedOrder to sdkNode %s", err.Error())
 	}
