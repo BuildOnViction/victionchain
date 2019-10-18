@@ -18,8 +18,6 @@ package core
 
 import (
 	"fmt"
-	"sort"
-
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -171,8 +169,5 @@ func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox.TxMat
 			txMatchBatchData = append(txMatchBatchData, txMatchBatch)
 		}
 	}
-	sort.Slice(txMatchBatchData, func(i, j int) bool {
-		return txMatchBatchData[i].Timestamp < txMatchBatchData[j].Timestamp
-	})
 	return txMatchBatchData, nil
 }

@@ -3,9 +3,6 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
-	"strings"
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
@@ -13,6 +10,7 @@ import (
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	lru "github.com/hashicorp/golang-lru"
+	"strings"
 )
 
 type MongoItem struct {
@@ -25,10 +23,10 @@ type MongoItemRecord struct {
 }
 
 type MongoDatabase struct {
-	Session      *mgo.Session
-	dbName       string
-	emptyKey     []byte
-	cacheItems   *lru.Cache // Cache for reading
+	Session    *mgo.Session
+	dbName     string
+	emptyKey   []byte
+	cacheItems *lru.Cache // Cache for reading
 }
 
 // InitSession initializes a new session with mongodb
@@ -54,9 +52,9 @@ func NewMongoDatabase(session *mgo.Session, dbName string, mongoURL string, repl
 	cacheItems, _ := lru.New(itemCacheLimit)
 
 	db := &MongoDatabase{
-		Session:      session,
-		dbName:       dbName,
-		cacheItems:   cacheItems,
+		Session:    session,
+		dbName:     dbName,
+		cacheItems: cacheItems,
 	}
 
 	return db, nil
@@ -210,14 +208,7 @@ func (db *MongoDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.
 	return nil
 }
 
-
 func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) error {
-
-	if o.CreatedAt.IsZero() {
-		o.CreatedAt = time.Now()
-	}
-	o.UpdatedAt = time.Now()
-
 	sc := db.Session.Copy()
 	defer sc.Close()
 
@@ -244,11 +235,6 @@ func (db *MongoDatabase) CommitTrade(t *Trade) error {
 
 	sc := db.Session.Copy()
 	defer sc.Close()
-
-	if t.CreatedAt.IsZero() {
-		t.CreatedAt = time.Now()
-	}
-	t.UpdatedAt = time.Now()
 
 	query := bson.M{"hash": t.Hash.Hex()}
 
