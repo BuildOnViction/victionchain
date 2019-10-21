@@ -161,3 +161,7 @@ func (db *BatchDatabase) Close() {
 func (db *BatchDatabase) NewBatch() ethdb.Batch {
 	return db.db.NewBatch()
 }
+
+func (db *BatchDatabase) DeleteReorgTx(txhash common.Hash) error {
+	return nil
+}
