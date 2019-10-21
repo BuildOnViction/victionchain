@@ -222,7 +222,7 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) 
 		o.Key = cacheKey
 	}
 
-	query := bson.M{"hash": o.Hash.Hex()}
+	query := bson.M{"hash": o.Hash.Hex(), "txHash": o.TxHash.Hex()}
 
 	_, err := sc.DB(db.dbName).C(orderCollection).Upsert(query, o)
 
@@ -241,7 +241,7 @@ func (db *MongoDatabase) CommitTrade(t *Trade) error {
 	sc := db.Session.Copy()
 	defer sc.Close()
 
-	query := bson.M{"hash": t.Hash.Hex()}
+	query := bson.M{"hash": t.Hash.Hex(), "txHash": t.TxHash.Hex()}
 
 	_, err := sc.DB(db.dbName).C(tradeCollection).Upsert(query, t)
 
