@@ -161,6 +161,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 		common.IsTestnet = true
 		common.TRC21IssuerSMC = common.TRC21IssuerSMCTestNet
 		cfg.Eth.NetworkId = 89
+		common.RelayerRegistrationSMC = common.RelayerRegistrationSMCTestnet
 	}
 
 	// Check rollback hash exist.
