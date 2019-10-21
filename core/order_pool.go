@@ -643,6 +643,9 @@ func (pool *OrderPool) AddRemotes(txs []*types.OrderTransaction) []error {
 
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *OrderPool) addTx(tx *types.OrderTransaction, local bool) error {
+	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) {
+		return nil
+	}
 	tx.CacheHash()
 	types.CacheOrderSigner(pool.signer, tx)
 	pool.mu.Lock()

@@ -615,7 +615,7 @@ func (self *worker) commitNewWork() {
 		txMatches           []tomox.TxDataMatch
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
-	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
+	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 && self.chain.Config().IsTIPTomoX(header.Number) {
 		tomoX := self.eth.GetTomoX()
 		if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
 			log.Debug("Start processing order pending")
