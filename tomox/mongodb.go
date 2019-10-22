@@ -13,11 +13,6 @@ import (
 	"strings"
 )
 
-const (
-	orderCollection = "orders"
-	tradeCollection = "trades"
-)
-
 type MongoItem struct {
 	Value interface{}
 }
@@ -99,7 +94,7 @@ func (db *MongoDatabase) HasObject(key []byte, dryrun bool, blockHash common.Has
 	}
 
 	// Find key in "orders" collection
-	numOrders, err := sc.DB(db.dbName).C(orderCollection).Find(query).Limit(1).Count()
+	numOrders, err := sc.DB(db.dbName).C("orders").Find(query).Limit(1).Count()
 
 	if err != nil {
 		return false, err
@@ -130,7 +125,7 @@ func (db *MongoDatabase) GetObject(key []byte, val interface{}, dryrun bool, blo
 		switch val.(type) {
 		case *tomox_state.OrderItem:
 			var oi *tomox_state.OrderItem
-			err := sc.DB(db.dbName).C(orderCollection).Find(query).One(&oi)
+			err := sc.DB(db.dbName).C("orders").Find(query).One(&oi)
 			if err != nil {
 				return nil, err
 			}
@@ -203,7 +198,7 @@ func (db *MongoDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.
 			return err
 		}
 
-		err = sc.DB(db.dbName).C(orderCollection).Remove(query)
+		err = sc.DB(db.dbName).C("orders").Remove(query)
 		if err != nil && err != mgo.ErrNotFound {
 			log.Error("Error when deleting order", "error", err)
 			return err
@@ -222,9 +217,9 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) 
 		o.Key = cacheKey
 	}
 
-	query := bson.M{"hash": o.Hash.Hex(), "txHash": o.TxHash.Hex()}
+	query := bson.M{"hash": o.Hash.Hex()}
 
-	_, err := sc.DB(db.dbName).C(orderCollection).Upsert(query, o)
+	_, err := sc.DB(db.dbName).C("orders").Upsert(query, o)
 
 	if err != nil {
 		log.Error(err.Error())
@@ -241,9 +236,9 @@ func (db *MongoDatabase) CommitTrade(t *Trade) error {
 	sc := db.Session.Copy()
 	defer sc.Close()
 
-	query := bson.M{"hash": t.Hash.Hex(), "txHash": t.TxHash.Hex()}
+	query := bson.M{"hash": t.Hash.Hex()}
 
-	_, err := sc.DB(db.dbName).C(tradeCollection).Upsert(query, t)
+	_, err := sc.DB(db.dbName).C("trades").Upsert(query, t)
 
 	if err != nil {
 		log.Error(err.Error())
@@ -314,7 +309,7 @@ func (db *MongoDatabase) Delete(key []byte) error {
 			return err
 		}
 
-		err = sc.DB(db.dbName).C(orderCollection).Remove(query)
+		err = sc.DB(db.dbName).C("orders").Remove(query)
 		if err != nil && err != mgo.ErrNotFound {
 			log.Error("Error when deleting order", "error", err)
 			return err
@@ -351,7 +346,7 @@ func (db *MongoDatabase) Has(key []byte) (bool, error) {
 	}
 
 	// Find key in "orders" collection
-	numOrders, err := sc.DB(db.dbName).C(orderCollection).Find(query).Limit(1).Count()
+	numOrders, err := sc.DB(db.dbName).C("orders").Find(query).Limit(1).Count()
 
 	if err != nil {
 		return false, err
@@ -376,31 +371,13 @@ func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
 		defer sc.Close()
 		query := bson.M{"key": cacheKey}
 		var oi []byte
-		err := sc.DB(db.dbName).C(orderCollection).Find(query).One(&oi)
+		err := sc.DB(db.dbName).C("orders").Find(query).One(&oi)
 		if err != nil {
 			return nil, err
 		}
 		db.cacheItems.Add(cacheKey, oi)
 		return oi, nil
 	}
-}
-
-func (db *MongoDatabase) DeleteReorgTx(txhash common.Hash) error {
-	sc := db.Session.Copy()
-	defer sc.Close()
-
-	query := bson.M{"txHash": txhash.Hex()}
-
-	err := sc.DB(db.dbName).C(orderCollection).Remove(query)
-	if err != nil && err != mgo.ErrNotFound {
-		return err
-	}
-
-	err = sc.DB(db.dbName).C(tradeCollection).Remove(query)
-	if err != nil && err != mgo.ErrNotFound {
-		return err
-	}
-	return nil
 }
 
 func (db *MongoDatabase) Close() {

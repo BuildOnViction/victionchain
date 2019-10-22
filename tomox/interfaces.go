@@ -17,5 +17,4 @@ type OrderDao interface {
 	Delete(key []byte) error
 	Close()
 	NewBatch() ethdb.Batch
-	DeleteReorgTx(txhash common.Hash) error
 }
