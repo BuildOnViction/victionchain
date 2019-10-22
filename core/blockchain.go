@@ -1455,9 +1455,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			events = append(events, ChainSideEvent{block})
 			bc.UpdateBlocksHashCache(block)
 		}
-		if bc.chainConfig.IsTIPTomoX(block.Number()) {
-			go bc.logExchangeData(block)
-		}
+		go bc.logExchangeData(block)
 		stats.processed++
 		stats.usedGas += usedGas
 		stats.report(chain, i, bc.stateCache.TrieDB().Size())
@@ -1738,9 +1736,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 
 		bc.UpdateBlocksHashCache(block)
 	}
-	if bc.chainConfig.IsTIPTomoX(block.Number()) {
-		go bc.logExchangeData(block)
-	}
+	go bc.logExchangeData(block)
 	stats.processed++
 	stats.usedGas += result.usedGas
 	stats.report(types.Blocks{block}, 0, bc.stateCache.TrieDB().Size())
@@ -1911,9 +1907,6 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	// receipts that were created in the fork must also be deleted
 	for _, tx := range diff {
 		DeleteTxLookupEntry(bc.db, tx.Hash())
-		if bc.chainConfig.IsTIPTomoX(commonBlock.Number()) {
-			go bc.deleteExchangeData(tx.Hash())
-		}
 	}
 	if len(deletedLogs) > 0 {
 		go bc.rmLogsFeed.Send(RemovedLogsEvent{deletedLogs})
@@ -2251,20 +2244,5 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 				return
 			}
 		}
-	}
-}
-
-func (bc *BlockChain) deleteExchangeData(txhash common.Hash) {
-	var tomoXService *tomox.TomoX
-	engine, ok := bc.Engine().(*posv.Posv)
-	if ok {
-		tomoXService = engine.GetTomoXService()
-	}
-	if tomoXService == nil || !tomoXService.IsSDKNode() {
-		return
-	}
-	log.Debug("deleting reorg txMatch", "txhash", txhash)
-	if err := tomoXService.GetMongoDB().DeleteReorgTx(txhash); err != nil {
-		log.Error("failed to delete reorg txMatch", "txhash", txhash)
 	}
 }
