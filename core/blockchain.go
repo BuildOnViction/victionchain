@@ -2262,13 +2262,13 @@ func (bc *BlockChain) reorgTxMatches (deletedTxs types.Transactions, newChain ty
 	}
 	for _, deletedTx := range deletedTxs {
 		if deletedTx.IsMatchingTransaction() {
-			log.Debug("Removing reorg txMatch", "txhash", deletedTx.Hash())
-			tomoXService.RemoveReorgTxMatch(deletedTx.Hash())
+			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
+			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
 		}
 	}
 
 	// apply new chain
-	for i := len(newChain) - 1; i >=0; i-- {
+	for i := len(newChain) - 1; i >= 0; i-- {
 		bc.logExchangeData(newChain[i])
 	}
 }

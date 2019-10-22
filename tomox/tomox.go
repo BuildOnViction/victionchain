@@ -428,7 +428,7 @@ func (tomox *TomoX) UpdateOrderCache(pair string, orderId uint64, txhash common.
 	} else {
 		orderCacheAtTxHash = c.(map[common.Hash]OrderHistoryItem)
 	}
-	orderKey := common.StringToHash(pair + strconv.FormatUint(orderId, 10))
+	orderKey := GetOrderHistoryKey(pair, orderId)
 	_, ok = orderCacheAtTxHash[orderKey]
 	if !ok {
 		orderCacheAtTxHash[orderKey] = lastState
@@ -436,7 +436,7 @@ func (tomox *TomoX) UpdateOrderCache(pair string, orderId uint64, txhash common.
 	tomox.orderCache.Add(txhash, orderCacheAtTxHash)
 }
 
-func (tomox *TomoX) RemoveReorgTxMatch(txhash common.Hash) {
+func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 	db := tomox.GetMongoDB()
 	for _, order := range db.GetOrderByTxHash(txhash) {
 		c, ok := tomox.orderCache.Get(txhash)
@@ -447,7 +447,7 @@ func (tomox *TomoX) RemoveReorgTxMatch(txhash common.Hash) {
 			continue
 		}
 		orderCacheAtTxHash := c.(map[common.Hash]OrderHistoryItem)
-		orderHistoryItem, _ := orderCacheAtTxHash[common.StringToHash(order.PairName+strconv.FormatUint(order.OrderID, 10))]
+		orderHistoryItem, _ := orderCacheAtTxHash[GetOrderHistoryKey(order.PairName, order.OrderID)]
 		if (orderHistoryItem == OrderHistoryItem{}) {
 			if err := db.DeleteObject([]byte(order.Key)); err != nil {
 				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", ToJSON(order))
