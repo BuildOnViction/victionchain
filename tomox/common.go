@@ -57,6 +57,12 @@ var (
 	ErrInvalidDryRunResult  = errors.New("failed to apply txMatches, invalid dryRun result")
 )
 
+type OrderHistoryItem struct {
+	TxHash common.Hash
+	FilledAmount *big.Int
+	Status string
+}
+
 // use alloc to prevent reference manipulation
 func EmptyKey() []byte {
 	key := make([]byte, common.HashLength)

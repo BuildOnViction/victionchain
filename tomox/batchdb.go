@@ -3,9 +3,10 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru"
@@ -66,7 +67,7 @@ func (db *BatchDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *BatchDatabase) HasObject(key []byte, dryrun bool, blockHash common.Hash) (bool, error) {
+func (db *BatchDatabase) HasObject(key []byte) (bool, error) {
 	if db.IsEmptyKey(key) {
 		return false, nil
 	}
@@ -80,7 +81,7 @@ func (db *BatchDatabase) HasObject(key []byte, dryrun bool, blockHash common.Has
 	return db.db.Has(key)
 }
 
-func (db *BatchDatabase) GetObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error) {
+func (db *BatchDatabase) GetObject(key []byte, val interface{}) (interface{}, error) {
 
 	if db.IsEmptyKey(key) {
 		return nil, nil
@@ -89,7 +90,7 @@ func (db *BatchDatabase) GetObject(key []byte, val interface{}, dryrun bool, blo
 	cacheKey := db.getCacheKey(key)
 
 	// for dry-run mode, do not read cacheItems
-	if cached, ok := db.cacheItems.Get(cacheKey); ok && !dryrun {
+	if cached, ok := db.cacheItems.Get(cacheKey); ok {
 		val = cached
 	} else {
 
@@ -109,16 +110,15 @@ func (db *BatchDatabase) GetObject(key []byte, val interface{}, dryrun bool, blo
 		}
 
 		// update cache when reading
-		if !dryrun {
-			db.cacheItems.Add(cacheKey, val)
-		}
+		db.cacheItems.Add(cacheKey, val)
+
 
 	}
 
 	return val, nil
 }
 
-func (db *BatchDatabase) PutObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error {
+func (db *BatchDatabase) PutObject(key []byte, val interface{}) error {
 	cacheKey := db.getCacheKey(key)
 	db.cacheItems.Add(cacheKey, val)
 	value, err := EncodeBytesItem(val)
@@ -128,7 +128,7 @@ func (db *BatchDatabase) PutObject(key []byte, val interface{}, dryrun bool, blo
 	return db.db.Put(key, value)
 }
 
-func (db *BatchDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.Hash) error {
+func (db *BatchDatabase) DeleteObject(key []byte) error {
 	// by default, we force delete both db and cache,
 	// for better performance, we can mark a Deleted flag, to do batch delete
 	cacheKey := db.getCacheKey(key)
@@ -160,4 +160,11 @@ func (db *BatchDatabase) Close() {
 
 func (db *BatchDatabase) NewBatch() ethdb.Batch {
 	return db.db.NewBatch()
+}
+
+func (db *BatchDatabase) DeleteTradeByTxHash(txhash common.Hash) {
+}
+
+func (db *BatchDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem {
+	return []*tomox_state.OrderItem{}
 }
