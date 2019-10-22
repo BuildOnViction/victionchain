@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/ethereum/go-ethereum/tomox"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -261,4 +262,9 @@ func (b *LesApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bo
 // GetOrderNonce get order nonce
 func (b *LesApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 	return 0, errors.New("cannot find tomox service")
+}
+
+// GetOrderNonce get order nonce
+func (b *LesApiBackend) TomoxService() *tomox.TomoX {
+	return nil
 }

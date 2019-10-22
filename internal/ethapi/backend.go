@@ -19,6 +19,7 @@ package ethapi
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/tomox"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -46,6 +47,7 @@ type Backend interface {
 	ChainDb() ethdb.Database
 	EventMux() *event.TypeMux
 	AccountManager() *accounts.Manager
+	TomoxService() *tomox.TomoX
 
 	// BlockChain API
 	SetHead(number uint64)

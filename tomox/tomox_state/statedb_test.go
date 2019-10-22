@@ -50,7 +50,8 @@ func TestEchangeStates(t *testing.T) {
 
 	for i := 0; i < len(orderItems); i++ {
 		amount := orderItems[i].Quantity.Uint64()
-		statedb.InsertOrderItem(orderBook, orderItems[i])
+		orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[i].OrderID))
+		statedb.InsertOrderItem(orderBook, orderIdHash, orderItems[i])
 
 		switch orderItems[i].Side {
 		case Ask:

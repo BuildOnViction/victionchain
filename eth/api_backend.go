@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -419,4 +420,8 @@ func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 		return tomoxState.GetNonce(address), nil
 	}
 	return 0, errors.New("cannot find tomox service")
+}
+
+func (b *EthApiBackend) TomoxService() *tomox.TomoX {
+	return b.eth.TomoX
 }

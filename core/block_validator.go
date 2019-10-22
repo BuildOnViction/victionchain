@@ -118,7 +118,7 @@ func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, stated
 		log.Debug("process tx match", "order", order)
 
 		// process Matching Engine
-		if _, _, err := tomox.ProcessOrder(statedb, tomoxStatedb, common.StringToHash(order.PairName), order); err != nil {
+		if _, _, err := tomox.ProcessOrder(statedb, tomoxStatedb, tomox.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
 			return err
 		}
 	}

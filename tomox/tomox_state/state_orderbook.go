@@ -124,8 +124,8 @@ func (c *stateExchanges) getBestPriceAsksTrie(db Database) common.Hash {
 		log.Error("Failed find best price ask trie ", "orderbook", c.hash.Hex())
 		return EmptyHash
 	}
-	if len(encKey)==0 || len(encValue) ==0 {
-		log.Debug("Not found get best ask trie", "encKey", encKey,"encValue",encValue)
+	if len(encKey) == 0 || len(encValue) == 0 {
+		log.Debug("Not found get best ask trie", "encKey", encKey, "encValue", encValue)
 		return EmptyHash
 	}
 	var data orderList
@@ -136,15 +136,15 @@ func (c *stateExchanges) getBestPriceAsksTrie(db Database) common.Hash {
 	return common.BytesToHash(encKey)
 }
 
-func (c *stateExchanges) getBestBidsTrie(db Database) common.Hash  {
+func (c *stateExchanges) getBestBidsTrie(db Database) common.Hash {
 	trie := c.getBidsTrie(db)
 	encKey, encValue, err := trie.TryGetBestRightKeyAndValue()
 	if err != nil {
 		log.Error("Failed find best price bid trie ", "orderbook", c.hash.Hex())
 		return EmptyHash
 	}
-	if len(encKey)==0 || len(encValue) ==0 {
-		log.Debug("Not found get best bid trie", "encKey", encKey,"encValue",encValue)
+	if len(encKey) == 0 || len(encValue) == 0 {
+		log.Debug("Not found get best bid trie", "encKey", encKey, "encValue", encValue)
 		return EmptyHash
 	}
 	var data orderList
@@ -276,6 +276,9 @@ func (self *stateExchanges) deepCopy(db *TomoXStateDB, onDirty func(hash common.
 	if self.bidsTrie != nil {
 		stateExchanges.bidsTrie = db.db.CopyTrie(self.bidsTrie)
 	}
+	if self.ordersTrie != nil {
+		stateExchanges.ordersTrie = db.db.CopyTrie(self.ordersTrie)
+	}
 	for price, bidObject := range self.stateBidObjects {
 		stateExchanges.stateBidObjects[price] = bidObject.deepCopy(db, self.MarkStateBidObjectDirty)
 	}
@@ -287,6 +290,12 @@ func (self *stateExchanges) deepCopy(db *TomoXStateDB, onDirty func(hash common.
 	}
 	for price, _ := range self.stateAskObjectsDirty {
 		stateExchanges.stateAskObjectsDirty[price] = struct{}{}
+	}
+	for orderId, orderItem := range self.stateOrderObjects {
+		stateExchanges.stateOrderObjects[orderId] = orderItem.deepCopy(self.MarkStateOrderObjectDirty)
+	}
+	for orderId, _ := range self.stateOrderObjectsDirty {
+		stateExchanges.stateOrderObjectsDirty[orderId] = struct{}{}
 	}
 	return stateExchanges
 }
@@ -445,7 +454,7 @@ func (self *stateExchanges) getStateOrderObject(db Database, orderId common.Hash
 		return nil
 	}
 	// Insert into the live set.
-	obj := newStateOrderItem(self.hash, data, self.onDirty)
+	obj := newStateOrderItem(self.hash, orderId, data, self.MarkStateOrderObjectDirty)
 	self.stateOrderObjects[orderId] = obj
 	return obj
 }
@@ -462,8 +471,8 @@ func (self *stateExchanges) MarkStateOrderObjectDirty(orderId common.Hash) {
 
 // createStateOrderListObject creates a new state object. If there is an existing orderId with
 // the given address, it is overwritten and returned as the second return value.
-func (self *stateExchanges) createStateOrderObject(db Database, order OrderItem) (newobj *stateOrderItem) {
-	newobj = newStateOrderItem(self.hash, order, self.MarkStateOrderObjectDirty)
+func (self *stateExchanges) createStateOrderObject(db Database, orderId common.Hash, order OrderItem) (newobj *stateOrderItem) {
+	newobj = newStateOrderItem(self.hash, orderId, order, self.MarkStateOrderObjectDirty)
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(order.OrderID))
 	self.stateOrderObjects[orderIdHash] = newobj
 	self.stateOrderObjectsDirty[orderIdHash] = struct{}{}

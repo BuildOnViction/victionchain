@@ -684,26 +684,6 @@ web3._extend({
             inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]
         }),
 		new web3._extend.Method({
-            name: 'getBestBid',
-            call: 'tomox_getBestBid',
-            params: 1
-        }),
-		new web3._extend.Method({
-            name: 'getBestAsk',
-            call: 'tomox_getBestAsk',
-            params: 1
-        }),
-		new web3._extend.Method({
-            name: 'getBidTree',
-            call: 'tomox_getBidTree',
-            params: 1
-        }),
-		new web3._extend.Method({
-            name: 'getAskTree',
-            call: 'tomox_getAskTree',
-            params: 1
-        }),
-		new web3._extend.Method({
             name: 'getPendingOrders',
             call: 'tomox_getPendingOrders',
             params: 1
@@ -738,6 +718,31 @@ web3._extend({
             call: 'tomox_getOrderCount',
             params: 1
         }),
+		new web3._extend.Method({
+            name: 'getBestBid',
+            call: 'tomox_getBestBid',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBestAsk',
+            call: 'tomox_getBestAsk',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBidTree',
+            call: 'tomox_getBidTree',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getAskTree',
+            call: 'tomox_getAskTree',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getOrderById',
+            call: 'tomox_getOrderById',
+            params: 3
+		}),
 	]
 });
 `

@@ -283,3 +283,7 @@ func (tx TxDataMatch) DecodeOrder() (*tomox_state.OrderItem, error) {
 func (tx TxDataMatch) GetTrades() []map[string]string {
 	return tx.Trades
 }
+
+func GetOrderBookHash(baseToken common.Address, quoteToken common.Address) common.Hash {
+	return common.BytesToHash(append(baseToken[:16], quoteToken[4:]...))
+}

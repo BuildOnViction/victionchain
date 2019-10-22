@@ -32,8 +32,9 @@ import (
 // Finally, call CommitAskTrie to write the modified storage trie into a database.
 type stateOrderItem struct {
 	orderBook common.Hash
+	orderId   common.Hash
 	data      OrderItem
-	onDirty   func(price common.Hash) // Callback method to mark a state object newly dirty
+	onDirty   func(orderId common.Hash) // Callback method to mark a state object newly dirty
 }
 
 // empty returns whether the orderId is considered empty.
@@ -42,9 +43,10 @@ func (s *stateOrderItem) empty() bool {
 }
 
 // newObject creates a state object.
-func newStateOrderItem(orderBook common.Hash, data OrderItem, onDirty func(orderId common.Hash)) *stateOrderItem {
+func newStateOrderItem(orderBook common.Hash, orderId common.Hash, data OrderItem, onDirty func(orderId common.Hash)) *stateOrderItem {
 	return &stateOrderItem{
 		orderBook: orderBook,
+		orderId:   orderId,
 		data:      data,
 		onDirty:   onDirty,
 	}
@@ -55,15 +57,15 @@ func (c *stateOrderItem) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, c.data)
 }
 
-func (self *stateOrderItem) deepCopy(onDirty func(orderBook common.Hash)) *stateOrderItem {
-	stateOrderList := newStateOrderItem(self.orderBook, self.data, onDirty)
+func (self *stateOrderItem) deepCopy(onDirty func(orderId common.Hash)) *stateOrderItem {
+	stateOrderList := newStateOrderItem(self.orderBook, self.orderId, self.data, onDirty)
 	return stateOrderList
 }
 
 func (self *stateOrderItem) setVolume(volume *big.Int) {
 	self.data.Quantity = volume
 	if self.onDirty != nil {
-		self.onDirty(self.orderBook)
+		self.onDirty(self.orderId)
 		self.onDirty = nil
 	}
 }
