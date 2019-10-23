@@ -2251,7 +2251,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 	}
 }
 
-func (bc *BlockChain) reorgTxMatches (deletedTxs types.Transactions, newChain types.Blocks) {
+func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain types.Blocks) {
 	var tomoXService *tomox.TomoX
 	engine, ok := bc.Engine().(*posv.Posv)
 	if ok {

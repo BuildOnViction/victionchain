@@ -443,7 +443,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 		log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", ToJSON(order), "orderHistoryItem", c)
 		if !ok {
 			log.Debug("Tomox reorg: remove order due to no orderCache", "order", ToJSON(order))
-			if err := db.DeleteObject([]byte(order.Key)); err != nil {
+			if err := db.DeleteObject(order.Hash.Bytes()); err != nil {
 				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", ToJSON(order))
 			}
 			continue
@@ -452,7 +452,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 		orderHistoryItem, _ := orderCacheAtTxHash[GetOrderHistoryKey(order.PairName, order.OrderID)]
 		if (orderHistoryItem == OrderHistoryItem{}) {
 			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", ToJSON(order))
-			if err := db.DeleteObject([]byte(order.Key)); err != nil {
+			if err := db.DeleteObject(order.Hash.Bytes()); err != nil {
 				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", ToJSON(order))
 			}
 			continue
