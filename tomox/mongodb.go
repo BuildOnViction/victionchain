@@ -27,6 +27,8 @@ type MongoDatabase struct {
 	dbName     string
 	emptyKey   []byte
 	cacheItems *lru.Cache // Cache for reading
+	orderBulk  *mgo.Bulk
+	tradeBulk  *mgo.Bulk
 }
 
 // InitSession initializes a new session with mongodb
@@ -208,44 +210,40 @@ func (db *MongoDatabase) DeleteObject(key []byte) error {
 }
 
 func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) error {
-	sc := db.Session.Copy()
-	defer sc.Close()
-
 	// Store the key
 	if len(o.Key) == 0 {
 		o.Key = cacheKey
 	}
-
 	query := bson.M{"hash": o.Hash.Hex()}
-
-	_, err := sc.DB(db.dbName).C("orders").Upsert(query, o)
-
-	if err != nil {
-		log.Error(err.Error())
-		return err
-	}
-
-	log.Debug("Save orderItem", "cacheKey", cacheKey, "orderhash", hex.EncodeToString(o.Hash.Bytes()), "value", ToJSON(o))
-
+	db.orderBulk.Upsert(query, o)
 	return nil
 }
 
 func (db *MongoDatabase) CommitTrade(t *Trade) error {
-
-	sc := db.Session.Copy()
-	defer sc.Close()
-
 	query := bson.M{"hash": t.Hash.Hex()}
+	db.tradeBulk.Upsert(query, t)
+	return nil
+}
 
-	_, err := sc.DB(db.dbName).C("trades").Upsert(query, t)
+func (db *MongoDatabase) InitBulk() *mgo.Session {
+	sc := db.Session.Copy()
+	db.orderBulk = sc.DB(db.dbName).C("orders").Bulk()
+	db.tradeBulk = sc.DB(db.dbName).C("trades").Bulk()
+	return sc
+}
 
-	if err != nil {
-		log.Error(err.Error())
+func (db *MongoDatabase) CommitBulk(sc *mgo.Session) error {
+	defer func() {
+		sc.Close()
+		db.orderBulk = sc.DB(db.dbName).C("orders").Bulk()
+		db.tradeBulk = sc.DB(db.dbName).C("trades").Bulk()
+	}()
+	if _, err := db.orderBulk.Run(); err != nil {
 		return err
 	}
-
-	log.Debug("Saved trade", "trade", ToJSON(t))
-
+	if _, err := db.tradeBulk.Run(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -400,6 +398,19 @@ func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.Ord
 
 	if err := sc.DB(db.dbName).C("orders").Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
 		log.Error("failed to GetOrderByTxHash", "err", err, "Txhash", txhash)
+	}
+	return result
+}
+
+func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem {
+	var result []*tomox_state.OrderItem
+	sc := db.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"hash": bson.M{"$in": hashes}}
+
+	if err := sc.DB(db.dbName).C("orders").Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+		log.Error("failed to GetListOrderByHashes", "err", err, "hashes", hashes)
 	}
 	return result
 }
