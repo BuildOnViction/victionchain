@@ -210,8 +210,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 		if cancel {
 			order.Status = OrderStatusCancelled
 		}
-
-		trades, rejects, err := tomox.ProcessOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken,order.QuoteToken), order)
+		trades, rejects, err := tomox.CommitOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken,order.QuoteToken), order)
 		log.Debug("List reject order", "rejects", len(rejects))
 		for _, reject := range rejects {
 			log.Debug("Reject order", "reject", *reject)

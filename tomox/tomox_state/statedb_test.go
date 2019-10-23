@@ -114,3 +114,100 @@ func TestEchangeStates(t *testing.T) {
 	fmt.Println("price", minPrice, volumeMin, maxPrice, volumeMax)
 	db.Close()
 }
+
+func TestRevertStates(t *testing.T) {
+	orderBook := common.StringToHash("BTC/TOMO")
+	numberOrder := 20;
+	orderItems := []OrderItem{}
+	relayers := []common.Hash{}
+	for i := 0; i < numberOrder; i++ {
+		relayers = append(relayers, common.BigToHash(big.NewInt(int64(i))))
+		id := new(big.Int).SetUint64(uint64(i) + 1)
+		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Ask, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}})
+		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Bid, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
+	}
+	// Create an empty statedb database
+	db, _ := ethdb.NewMemDatabase()
+	stateCache := NewDatabase(db)
+	statedb, _ := New(common.Hash{}, stateCache)
+
+	// Update it with some exchanges
+	for i := 0; i < numberOrder; i++ {
+		statedb.SetNonce(relayers[i], uint64(1))
+	}
+	mapPriceSell := map[uint64]uint64{}
+	mapPriceBuy := map[uint64]uint64{}
+
+	for i := 0; i < len(orderItems); i++ {
+		amount := orderItems[i].Quantity.Uint64()
+		orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[i].OrderID))
+		statedb.InsertOrderItem(orderBook, orderIdHash, orderItems[i])
+
+		switch orderItems[i].Side {
+		case Ask:
+			old := mapPriceSell[amount]
+			mapPriceSell[amount] = old + amount
+		case Bid:
+			old := mapPriceBuy[amount]
+			mapPriceBuy[amount] = old + amount
+		default:
+		}
+
+	}
+	root := statedb.IntermediateRoot()
+	statedb.Commit()
+	//err := stateCache.TrieDB().Commit(root, false)
+	//if err != nil {
+	//	t.Errorf("Error when commit into database: %v", err)
+	//}
+	stateCache.TrieDB().Reference(root, common.Hash{})
+	statedb, err := New(root, stateCache)
+	if err != nil {
+		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
+	}
+
+	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[0].OrderID))
+	order := statedb.GetOrder(orderBook, orderIdHash)
+	// sub amount order
+	wanted := statedb.GetVolume(orderBook, order.Price, order.Side)
+	snap := statedb.Snapshot()
+	statedb.SubAmountOrderItem(orderBook, orderIdHash, order.Price, order.Quantity, order.Side)
+	statedb.RevertToSnapshot(snap)
+	got := statedb.GetVolume(orderBook, order.Price, order.Side)
+	if got.Cmp(wanted) != 0 {
+		t.Fatalf(" err get volume price : %d after try revert snap shot , got : %d ,want : %d", order.Price, got, wanted)
+	}
+	// set nonce
+	wantedNonce := statedb.GetNonce(relayers[1])
+	snap = statedb.Snapshot()
+	statedb.SetNonce(relayers[1], 0)
+	statedb.RevertToSnapshot(snap)
+	gotNonce := statedb.GetNonce(relayers[1])
+	if wantedNonce != gotNonce {
+		t.Fatalf(" err get nonce addr: %v after try revert snap shot , got : %d ,want : %d", relayers[1].Hex(), gotNonce, wantedNonce)
+	}
+
+	// cancer order
+	wantedOrder := statedb.GetOrder(orderBook, orderIdHash)
+	snap = statedb.Snapshot()
+	statedb.CancerOrder(orderBook, &wantedOrder)
+	statedb.RevertToSnapshot(snap)
+	gotOrder := statedb.GetOrder(orderBook, orderIdHash)
+	if gotOrder.Quantity.Cmp(wantedOrder.Quantity) != 0 {
+		t.Fatalf(" err cancer order info : %v after try revert snap shot , got : %v ,want : %v", orderIdHash.Hex(), gotOrder, wantedOrder)
+	}
+
+	// insert order
+	i := 2*numberOrder + 1
+	id := new(big.Int).SetUint64(uint64(i) + 1)
+	testOrder := OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Ask, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}}
+	orderIdHash = common.BigToHash(new(big.Int).SetUint64(testOrder.OrderID))
+	snap = statedb.Snapshot()
+	statedb.InsertOrderItem(orderBook, orderIdHash, testOrder)
+	statedb.RevertToSnapshot(snap)
+	gotOrder = statedb.GetOrder(orderBook, orderIdHash)
+	if gotOrder.Quantity.Cmp(EmptyOrder.Quantity) != 0 {
+		t.Fatalf(" err insert order info : %v after try revert snap shot , got : %v ,want Empty Order", orderIdHash.Hex(), gotOrder)
+	}
+	db.Close()
+}

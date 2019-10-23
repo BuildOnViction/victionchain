@@ -120,7 +120,7 @@ func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, stated
 			return fmt.Errorf("invalid order . Error: %v", err)
 		}
 		// process Matching Engine
-		if _, _,  err := tomoXService.ProcessOrder(coinbase, v.bc.IPCEndpoint, statedb, tomoxStatedb, tomox.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
+		if _, _,  err := tomoXService.ApplyOrder(coinbase, v.bc.IPCEndpoint, statedb, tomoxStatedb, tomox.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
 			return err
 		}
 	}

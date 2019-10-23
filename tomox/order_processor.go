@@ -14,14 +14,24 @@ import (
 
 var emptyAddress = common.StringToAddress("")
 
-func (tomox *TomoX) ProcessOrder(coinbase common.Address, ipcEndpoint string, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error) {
+func (tomox *TomoX) CommitOrder(coinbase common.Address, ipcEndpoint string, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem)  ([]map[string]string, []*tomox_state.OrderItem, error) {
+	snap := tomoXstatedb.Snapshot()
+	trades, rejects, err := tomox.ApplyOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, orderBook, order)
+	if err != nil {
+		tomoXstatedb.RevertToSnapshot(snap)
+		return nil, nil, err
+	}
+	return trades, rejects, err
+}
+
+func (tomox *TomoX) ApplyOrder(coinbase common.Address, ipcEndpoint string, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error) {
 	var (
 		rejects []*tomox_state.OrderItem
 		trades  []map[string]string
 		err     error
 	)
 	nonce := tomoXstatedb.GetNonce(order.UserAddress.Hash())
-	log.Debug("ProcessOrder", "addr", order.UserAddress, "statenonce", nonce, "ordernonce", order.Nonce)
+	log.Debug("ApplyOrder", "addr", order.UserAddress, "statenonce", nonce, "ordernonce", order.Nonce)
 	if big.NewInt(int64(nonce)).Cmp(order.Nonce) == -1 {
 		return nil, nil, ErrNonceTooHigh
 	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
