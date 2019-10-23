@@ -440,7 +440,9 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 	db := tomox.GetMongoDB()
 	for _, order := range db.GetOrderByTxHash(txhash) {
 		c, ok := tomox.orderCache.Get(txhash)
+		log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", ToJSON(order), "orderHistoryItem", c)
 		if !ok {
+			log.Debug("Tomox reorg: remove order due to no orderCache", "order", ToJSON(order))
 			if err := db.DeleteObject([]byte(order.Key)); err != nil {
 				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", ToJSON(order))
 			}
@@ -449,6 +451,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 		orderCacheAtTxHash := c.(map[common.Hash]OrderHistoryItem)
 		orderHistoryItem, _ := orderCacheAtTxHash[GetOrderHistoryKey(order.PairName, order.OrderID)]
 		if (orderHistoryItem == OrderHistoryItem{}) {
+			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", ToJSON(order))
 			if err := db.DeleteObject([]byte(order.Key)); err != nil {
 				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", ToJSON(order))
 			}
@@ -457,10 +460,12 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 		order.TxHash = orderHistoryItem.TxHash
 		order.Status = orderHistoryItem.Status
 		order.FilledAmount = CloneBigInt(orderHistoryItem.FilledAmount)
+		log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", ToJSON(order), "orderHistoryItem", orderHistoryItem)
 		if err := db.PutObject(order.Hash.Bytes(), order); err != nil {
 			log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", ToJSON(order))
 		}
 	}
+	log.Debug("Tomox reorg: DeleteTradeByTxHash", "txhash", txhash.Hex())
 	db.DeleteTradeByTxHash(txhash)
 
 }
