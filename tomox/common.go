@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -18,11 +19,11 @@ const (
 	TrueByte  = byte(1)
 	FalseByte = byte(0)
 	decimals  = 18
-	Ask    = "SELL"
-	Bid    = "BUY"
-	Market = "MO"
-	Limit  = "LO"
-	Cancel = "CANCELLED"
+	Ask       = "SELL"
+	Bid       = "BUY"
+	Market    = "MO"
+	Limit     = "LO"
+	Cancel    = "CANCELLED"
 )
 
 var (
@@ -56,6 +57,12 @@ var (
 	ErrTomoXServiceNotFound = errors.New("can't attach tomoX service")
 	ErrInvalidDryRunResult  = errors.New("failed to apply txMatches, invalid dryRun result")
 )
+
+type OrderHistoryItem struct {
+	TxHash       common.Hash
+	FilledAmount *big.Int
+	Status       string
+}
 
 // use alloc to prevent reference manipulation
 func EmptyKey() []byte {
@@ -262,6 +269,9 @@ func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
 	return txMatchResult, nil
 }
 
+func GetOrderHistoryKey(pairName string, orderId uint64) common.Hash {
+	return common.StringToHash(pairName + strconv.FormatUint(orderId, 10))
+}
 func (tx TxDataMatch) DecodeOrder() (*tomox_state.OrderItem, error) {
 	order := &tomox_state.OrderItem{}
 	if err := DecodeBytesItem(tx.Order, order); err != nil {

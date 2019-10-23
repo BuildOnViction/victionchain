@@ -68,7 +68,7 @@ func (db *MongoDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *MongoDatabase) HasObject(key []byte, dryrun bool, blockHash common.Hash) (bool, error) {
+func (db *MongoDatabase) HasObject(key []byte) (bool, error) {
 	if db.IsEmptyKey(key) {
 		return false, nil
 	}
@@ -107,14 +107,14 @@ func (db *MongoDatabase) HasObject(key []byte, dryrun bool, blockHash common.Has
 	return false, nil
 }
 
-func (db *MongoDatabase) GetObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error) {
+func (db *MongoDatabase) GetObject(key []byte, val interface{}) (interface{}, error) {
 
 	if db.IsEmptyKey(key) {
 		return nil, nil
 	}
 
 	cacheKey := db.getCacheKey(key)
-	if cached, ok := db.cacheItems.Get(cacheKey); ok && !dryrun {
+	if cached, ok := db.cacheItems.Get(cacheKey); ok {
 		return cached, nil
 	} else {
 		sc := db.Session.Copy()
@@ -141,15 +141,14 @@ func (db *MongoDatabase) GetObject(key []byte, val interface{}, dryrun bool, blo
 			if err != nil {
 				return nil, err
 			}
-			if !dryrun {
-				db.cacheItems.Add(cacheKey, val)
-			}
+			db.cacheItems.Add(cacheKey, val)
+
 			return val, nil
 		}
 	}
 }
 
-func (db *MongoDatabase) PutObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error {
+func (db *MongoDatabase) PutObject(key []byte, val interface{}) error {
 	cacheKey := db.getCacheKey(key)
 	db.cacheItems.Add(cacheKey, val)
 
@@ -177,7 +176,7 @@ func (db *MongoDatabase) PutObject(key []byte, val interface{}, dryrun bool, blo
 	return nil
 }
 
-func (db *MongoDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.Hash) error {
+func (db *MongoDatabase) DeleteObject(key []byte) error {
 	cacheKey := db.getCacheKey(key)
 	db.cacheItems.Remove(cacheKey)
 
@@ -186,7 +185,7 @@ func (db *MongoDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.
 
 	query := bson.M{"key": cacheKey}
 
-	found, err := db.HasObject(key, dryrun, blockHash)
+	found, err := db.HasObject(key)
 	if err != nil {
 		return err
 	}
@@ -378,6 +377,31 @@ func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
 		db.cacheItems.Add(cacheKey, oi)
 		return oi, nil
 	}
+}
+
+func (db *MongoDatabase) DeleteTradeByTxHash(txhash common.Hash) {
+	sc := db.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"txHash": txhash.Hex()}
+
+	err := sc.DB(db.dbName).C("trades").Remove(query)
+	if err != nil && err != mgo.ErrNotFound {
+		log.Error("Error when deleting order", "error", err)
+	}
+}
+
+func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem {
+	var result []*tomox_state.OrderItem
+	sc := db.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"txHash": txhash.Hex()}
+
+	if err := sc.DB(db.dbName).C("orders").Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+		log.Error("failed to GetOrderByTxHash", "err", err, "Txhash", txhash)
+	}
+	return result
 }
 
 func (db *MongoDatabase) Close() {

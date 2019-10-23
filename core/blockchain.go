@@ -1920,7 +1920,9 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 			}
 		}()
 	}
-
+	if bc.chainConfig.IsTIPTomoX(commonBlock.Number()) {
+		bc.reorgTxMatches(deletedTxs, newChain)
+	}
 	return nil
 }
 
@@ -2246,5 +2248,27 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 				return
 			}
 		}
+	}
+}
+
+func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain types.Blocks) {
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
+	if tomoXService == nil || !tomoXService.IsSDKNode() {
+		return
+	}
+	for _, deletedTx := range deletedTxs {
+		if deletedTx.IsMatchingTransaction() {
+			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
+			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
+		}
+	}
+
+	// apply new chain
+	for i := len(newChain) - 1; i >= 0; i-- {
+		bc.logExchangeData(newChain[i])
 	}
 }
