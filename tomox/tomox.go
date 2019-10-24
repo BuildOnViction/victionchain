@@ -356,7 +356,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		// maker dirty order
 		makerFilledAmount := big.NewInt(0)
 		if amount, ok := makerDirtyFilledAmount[trade[TradeMakerOrderHash]]; ok {
-			makerFilledAmount = amount
+			makerFilledAmount = CloneBigInt(amount)
 		}
 		makerFilledAmount.Add(makerFilledAmount, filledAmount)
 		makerDirtyFilledAmount[trade[TradeMakerOrderHash]] = makerFilledAmount
@@ -364,9 +364,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 
 		//updatedTakerOrder = tomox.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 		//  update filledAmount, status of takerOrder
-		updatedFillAmount := new(big.Int)
-		updatedFillAmount.Add(updatedTakerOrder.FilledAmount, filledAmount)
-		updatedTakerOrder.FilledAmount = updatedFillAmount
+		updatedTakerOrder.FilledAmount.Add(updatedTakerOrder.FilledAmount, filledAmount)
 		if updatedTakerOrder.FilledAmount.Cmp(updatedTakerOrder.Quantity) < 0 {
 			updatedTakerOrder.Status = OrderStatusPartialFilled
 		} else {
@@ -379,6 +377,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
 	}
 	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
+	log.Debug("GetListOrderByHashes", "len(makerDirtyHashes)", len(makerDirtyHashes), "len(makerOrders)", len(makerOrders))
 	for _, o := range makerOrders {
 		lastState = OrderHistoryItem{
 			TxHash:       o.TxHash,
