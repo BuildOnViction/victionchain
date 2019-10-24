@@ -126,9 +126,8 @@ func (self *TomoXStateDB) SetNonce(addr common.Hash, nonce uint64) {
 	}
 }
 
-func (self *TomoXStateDB) InsertOrderItem(orderBook common.Hash, order OrderItem) {
+func (self *TomoXStateDB) InsertOrderItem(orderBook common.Hash, orderId common.Hash, order OrderItem) {
 	priceHash := common.BigToHash(order.Price)
-	orderId := common.BigToHash(new(big.Int).SetUint64(order.OrderID))
 	stateExchange := self.getStateExchangeObject(orderBook)
 	if stateExchange == nil {
 		stateExchange = self.createExchangeObject(orderBook)
@@ -148,7 +147,7 @@ func (self *TomoXStateDB) InsertOrderItem(orderBook common.Hash, order OrderItem
 	default:
 		return
 	}
-	stateExchange.createStateOrderObject(self.db, order)
+	stateExchange.createStateOrderObject(self.db, orderId, order)
 	stateOrderList.insertOrderItem(self.db, orderId, common.BigToHash(order.Quantity))
 	stateOrderList.AddVolume(order.Quantity)
 }
@@ -238,6 +237,7 @@ func (self *TomoXStateDB) CancerOrder(orderBook common.Hash, order *OrderItem) e
 		return fmt.Errorf("Error Order Hash mismatch when cancel order book : %s , order id  : %s , got : %s , expect : %s ", orderBook, orderIdHash.Hex(), stateOrderItem.data.Hash.Hex(), order.Hash.Hex())
 	}
 	currentAmount := new(big.Int).SetBytes(stateOrderList.GetOrderAmount(self.db, orderIdHash).Bytes()[:])
+	stateOrderItem.setVolume(big.NewInt(0))
 	stateOrderList.subVolume(currentAmount)
 	stateOrderList.removeOrderItem(self.db, orderIdHash)
 	if stateOrderList.empty() {
@@ -292,7 +292,7 @@ func (self *TomoXStateDB) GetBestAskPrice(orderBook common.Hash) (*big.Int, *big
 func (self *TomoXStateDB) GetBestBidPrice(orderBook common.Hash) (*big.Int, *big.Int) {
 	stateObject := self.getStateExchangeObject(orderBook)
 	if stateObject != nil {
-		priceHash :=  stateObject.getBestBidsTrie(self.db)
+		priceHash := stateObject.getBestBidsTrie(self.db)
 		if common.EmptyHash(priceHash) {
 			return Zero, Zero
 		}
@@ -392,42 +392,6 @@ func (self *TomoXStateDB) createExchangeObject(hash common.Hash) (newobj *stateE
 	newobj.setNonce(0) // sets the object to dirty
 	self.setStateExchangeObject(newobj)
 	return newobj
-}
-
-func (db *TomoXStateDB) ForEachStorage(addr common.Hash, cb func(key, value interface{}) bool) {
-	//so := db.getStateExchangeObject(addr)
-	//if so == nil {
-	//	return
-	//}
-	//// When iterating over the storage check the cache first
-	//for h, value := range so.cachedAsksStorage {
-	//	cb(h, value)
-	//}
-	//for h, value := range so.cachedBidsStorage {
-	//	cb(h, value)
-	//}
-	//it := trie.NewIterator(so.getAsksTrie(db.db).NodeIterator(nil))
-	//for it.Next() {
-	//	// ignore cached values
-	//	key := common.BytesToHash(db.trie.GetKey(it.Key))
-	//	if _, ok := so.cachedAsksStorage[key]; !ok {
-	//		cb(key, common.BytesToHash(it.Quantity))
-	//	}
-	//	if _, ok := so.cachedAsksStorage[key]; !ok {
-	//		cb(key, common.BytesToHash(it.Quantity))
-	//	}
-	//}
-	//it = trie.NewIterator(so.getBidsTrie(db.db).NodeIterator(nil))
-	//for it.Next() {
-	//	// ignore cached values
-	//	key := common.BytesToHash(db.trie.GetKey(it.Key))
-	//	if _, ok := so.cachedBidsStorage[key]; !ok {
-	//		cb(key, common.BytesToHash(it.Quantity))
-	//	}
-	//	if _, ok := so.cachedBidsStorage[key]; !ok {
-	//		cb(key, common.BytesToHash(it.Quantity))
-	//	}
-	//}
 }
 
 // Copy creates a deep, independent copy of the state.

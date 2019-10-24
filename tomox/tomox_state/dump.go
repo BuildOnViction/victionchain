@@ -17,67 +17,65 @@
 package tomox_state
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rlp"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
-type DumpExchange struct {
-	Nonce        uint64            `json:"nonce"`
-	AskRoot      string            `json:"askRoot"`
-	BidRoot      string            `json:"bidRoot"`
-	AskStorage   map[string]string `json:"askStorage"`
-	BidStorage   map[string]string `json:"bidStorage"`
+type DumpOrderList struct {
+	Volume *big.Int
+	Orders map[*big.Int]*big.Int
 }
 
-type Dump struct {
-	Root     string                  `json:"root"`
-	Accounts map[string]DumpExchange `json:"exchanges"`
-}
-
-func (self *TomoXStateDB) RawDump() Dump {
-	dump := Dump{
-		Root:     fmt.Sprintf("%x", self.trie.Hash()),
-		Accounts: make(map[string]DumpExchange),
+func (self *TomoXStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
+	exhangeObject := self.getStateExchangeObject(orderBook)
+	if exhangeObject == nil {
+		return nil, fmt.Errorf("Order book not found orderBook : %v ", orderBook.Hex())
 	}
-
-	it := trie.NewIterator(self.trie.NodeIterator(nil))
+	result := map[*big.Int]DumpOrderList{}
+	it := trie.NewIterator(exhangeObject.getAsksTrie(self.db).NodeIterator(nil))
 	for it.Next() {
-		addr := self.trie.GetKey(it.Key)
-		var data exchangeObject
+		priceByte := self.trie.GetKey(it.Key)
+		price := new(big.Int).SetBytes(priceByte)
+		var data orderList
 		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
-			panic(err)
+			return nil, fmt.Errorf("Fail when decode order iist orderBook : %v ,price :%v ", orderBook.Hex(), price)
 		}
-
-		obj := newStateExchanges(nil, common.BytesToHash(addr), data, nil)
-		account := DumpExchange{
-			Nonce:        data.Nonce,
-			AskRoot:      common.Bytes2Hex(data.AskRoot[:]),
-			BidRoot:      common.Bytes2Hex(data.BidRoot[:]),
-			AskStorage:   make(map[string]string),
-			BidStorage:   make(map[string]string),
+		orderList := newStateOrderList(self, Ask, orderBook, common.BytesToHash(priceByte), data, nil)
+		dumpOrderList := DumpOrderList{Volume: data.Volume, Orders: map[*big.Int]*big.Int{}}
+		orderListIt := trie.NewIterator(orderList.getTrie(self.db).NodeIterator(nil))
+		for orderListIt.Next() {
+			dumpOrderList.Orders[new(big.Int).SetBytes(self.trie.GetKey(orderListIt.Key))] = new(big.Int).SetBytes(orderListIt.Value)
 		}
-		storageIt := trie.NewIterator(obj.getAsksTrie(self.db).NodeIterator(nil))
-		for storageIt.Next() {
-			account.AskStorage[common.Bytes2Hex(self.trie.GetKey(storageIt.Key))] = common.Bytes2Hex(storageIt.Value)
-		}
-		storageIt = trie.NewIterator(obj.getBidsTrie(self.db).NodeIterator(nil))
-		for storageIt.Next() {
-			account.BidStorage[common.Bytes2Hex(self.trie.GetKey(storageIt.Key))] = common.Bytes2Hex(storageIt.Value)
-		}
-		dump.Accounts[common.Bytes2Hex(addr)] = account
+		result[price] = dumpOrderList
 	}
-	return dump
+	return result, nil
 }
 
-func (self *TomoXStateDB) Dump() []byte {
-	json, err := json.MarshalIndent(self.RawDump(), "", "    ")
-	if err != nil {
-		fmt.Println("dump err", err)
+func (self *TomoXStateDB) DumpBidTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
+	exhangeObject := self.getStateExchangeObject(orderBook)
+	if exhangeObject == nil {
+		return nil, fmt.Errorf("Order book not found orderBook : %v ", orderBook.Hex())
 	}
-
-	return json
+	result := map[*big.Int]DumpOrderList{}
+	it := trie.NewIterator(exhangeObject.getBidsTrie(self.db).NodeIterator(nil))
+	for it.Next() {
+		priceByte := self.trie.GetKey(it.Key)
+		price := new(big.Int).SetBytes(priceByte)
+		var data orderList
+		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
+			return nil, fmt.Errorf("Fail when decode order iist orderBook : %v ,price :%v ", orderBook.Hex(), price)
+		}
+		orderList := newStateOrderList(self, Bid, orderBook, common.BytesToHash(priceByte), data, nil)
+		dumpOrderList := DumpOrderList{Volume: data.Volume, Orders: map[*big.Int]*big.Int{}}
+		orderListIt := trie.NewIterator(orderList.getTrie(self.db).NodeIterator(nil))
+		for orderListIt.Next() {
+			dumpOrderList.Orders[new(big.Int).SetBytes(self.trie.GetKey(orderListIt.Key))] = new(big.Int).SetBytes(orderListIt.Value)
+		}
+		result[price] = dumpOrderList
+	}
+	return result, nil
 }

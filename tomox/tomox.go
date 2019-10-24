@@ -25,7 +25,7 @@ const (
 	ProtocolName       = "tomox"
 	ProtocolVersion    = uint64(1)
 	ProtocolVersionStr = "1.0"
-	overflowIdx        // Indicator of message queue overflow
+	overflowIdx         // Indicator of message queue overflow
 )
 
 var (
@@ -203,7 +203,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 			cancel = true
 		}
 
-		log.Info("Process order pending", "orderPending", order)
+		log.Info("Process order pending", "orderPending", order, "BaseToken", order.BaseToken.Hex(), "QuoteToken", order.QuoteToken)
 		originalOrder := &tomox_state.OrderItem{}
 		*originalOrder = *order
 		originalOrder.Quantity = CloneBigInt(order.Quantity)
@@ -211,7 +211,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 		if cancel {
 			order.Status = OrderStatusCancelled
 		}
-		trades, _, err := ProcessOrder(statedb, tomoXstatedb, common.StringToHash(order.PairName), order)
+		trades, _, err := ProcessOrder(statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
 
 		switch err {
 		case ErrNonceTooLow:
