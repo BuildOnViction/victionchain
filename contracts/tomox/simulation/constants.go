@@ -15,7 +15,7 @@ var (
 	MainAddr    = crypto.PubkeyToAddress(MainKey.PublicKey) //0x17F2beD710ba50Ed27aEa52fc4bD7Bda5ED4a037
 
 	// TRC21 Token
-	MinTRC21Apply = big.NewInt(0).Mul(big.NewInt(100), BaseTOMO) // 100 TOMO
+	MinTRC21Apply = big.NewInt(0).Mul(big.NewInt(10), BaseTOMO) // 10 TOMO
 	TRC21TokenCap = big.NewInt(0).Mul(big.NewInt(1000000000000), BaseTOMO)
 	TRC21TokenFee = big.NewInt(100)
 
@@ -43,5 +43,16 @@ var (
 		common.HexToAddress("0x9f6b8fDD3733B099A91B6D70CDC7963ebBbd2684"), // Can
 		common.HexToAddress("0x06605B28aab9835be75ca242a8aE58f2e15F2F45"), // Nien
 		common.HexToAddress("0x33c2E732ae7dce8B05F37B2ba0CFe14c980c4Dbe"), // Vu Pham
+		common.HexToAddress("0x16a73f3a64eca79e117258e66dfd7071cc8312a9"), // BTCTOMO
+		common.HexToAddress("0xac177441ac2237b2f79ecff1b8f6bca39e27ef9f"), // ETHTOMO
+		common.HexToAddress("0x4215250e55984c75bbce8ae639b86a6cad8ec126"), // XRPTOMO
+		common.HexToAddress("0x6b70ca959814866dd5c426d63d47dde9cc6c32d2"), // LTCTOMO
+		common.HexToAddress("0x33df079fe9b9cd7fb23a1085e4eaaa8eb6952cb3"), // BNBTOMO
+		common.HexToAddress("0x3cab8292137804688714670640d19f9d7a60c472"), // ADATOMO
+		common.HexToAddress("0x9415d953d47c5f155cac9de7b24a756f352eafbf"), // ETCTOMO
+		common.HexToAddress("0xe32d2e7c8e8809e45c8e2332830b48d9e231e3f2"), // BCHTOMO
+		common.HexToAddress("0xf76ddbda664ea47088937e1cf9ff15036714dee3"), // EOSTOMO
+		common.HexToAddress("0xc465ee82440dada9509feb235c7cd7d896acf13c"), // ETHBTC
+		common.HexToAddress("0xb95bdc136c579dc3fd2b2424a8e925a90228d2c2"), // XRPBTC
 	}
 )

@@ -18,8 +18,6 @@ package core
 
 import (
 	"fmt"
-	"sort"
-
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -116,50 +114,13 @@ func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, stated
 		if err != nil {
 			return fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err)
 		}
-		//if order.Status != tomox.OrderStatusCancelled && tomoXService.ExistProcessedOrderHash(order.Hash) {
-		//	log.Debug("This order has been processed", "hash", hex.EncodeToString(order.Hash.Bytes()))
-		//	continue
-		//}
+
 		log.Debug("process tx match", "order", order)
 
-		// Remove order from db pending.
-		if err := tomoXService.RemoveOrderFromPending(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
-			log.Debug("Fail to remove pending hash", "err", err)
-		}
-		if err := tomoXService.RemoveOrderPendingFromDB(order.Hash, order.Status == tomox.OrderStatusCancelled); err != nil {
-			log.Debug("Fail to remove order pending", "err", err)
-		}
-
-		// SDK node doesn't need to run ME
-		// if tomoXService.IsSDKNode() {
-		// 	log.Debug("SDK node ignore running matching engine")
-		// 	continue
-		// }
-
-		//ob, err := tomoXService.GetOrderBook(order.PairName, true, blockHash)
-		// if orderbook of this pairName has been updated by previous tx in this block, use it
-
-		//if err != nil {
-		//	return err
-		//}
-
-		// verify old state: orderbook hash, bidTree hash, askTree hash
-		//if err := txMatch.VerifyOldTomoXState(ob); err != nil {
-		//	return err
-		//}
-		//// process Matching Engine
-		//if _, _, err := ob.ProcessOrder(order, true, true, blockHash); err != nil {
-		//	return err
-		//}
-		//obHash, err := ob.Hash()
 		// process Matching Engine
 		if _, _, err := tomox.ProcessOrder(statedb, tomoxStatedb, common.StringToHash(order.PairName), order); err != nil {
 			return err
 		}
-		//// verify new state
-		//if err := txMatch.VerifyNewTomoXState(ob); err != nil {
-		//	return err
-		//}
 	}
 
 	return nil
@@ -208,8 +169,5 @@ func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox.TxMat
 			txMatchBatchData = append(txMatchBatchData, txMatchBatch)
 		}
 	}
-	sort.Slice(txMatchBatchData, func(i, j int) bool {
-		return txMatchBatchData[i].Timestamp < txMatchBatchData[j].Timestamp
-	})
 	return txMatchBatchData, nil
 }

@@ -615,7 +615,7 @@ func (self *worker) commitNewWork() {
 		txMatches           []tomox.TxDataMatch
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
-	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
+	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 && self.chain.Config().IsTIPTomoX(header.Number) {
 		tomoX := self.eth.GetTomoX()
 		if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
 			log.Debug("Start processing order pending")
@@ -628,7 +628,7 @@ func (self *worker) commitNewWork() {
 	TomoxStateRoot := work.tomoxState.IntermediateRoot()
 	txMatchBatch := &tomox.TxMatchBatch{
 		Data:      txMatches,
-		Timestamp: uint64(time.Now().UnixNano()),
+		Timestamp: time.Now().UnixNano(),
 		TxHash:    common.Hash{},
 	}
 	wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})
@@ -729,7 +729,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 	for _, tx := range specialTxs {
 
 		//HF number for black-list
-		if env.header.Number.Uint64() >= common.BlackListHFNumber {
+		if (env.header.Number.Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
@@ -819,7 +819,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 
 		//HF number for black-list
-		if env.header.Number.Uint64() >= common.BlackListHFNumber {
+		if (env.header.Number.Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())

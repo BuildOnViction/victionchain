@@ -16,8 +16,6 @@
 
 package ethdb
 
-import "github.com/ethereum/go-ethereum/common"
-
 // Code using batches should try to add this much data to the batch.
 // The value was determined empirically.
 const IdealBatchSize = 100 * 1024
@@ -39,7 +37,7 @@ type Database interface {
 
 // TomoxDatabase interface
 type TomoxDatabase interface {
-	GetObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error)
+	GetObject(key []byte, val interface{}) (interface{}, error)
 }
 
 // Batch is a write-only database that commits changes to its host database

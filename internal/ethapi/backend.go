@@ -82,6 +82,7 @@ type Backend interface {
 	GetMasternodesCap(checkpoint uint64) map[common.Address]*big.Int
 	GetBlocksHashCache(blockNr uint64) []common.Hash
 	AreTwoBlockSamePath(newBlock common.Hash, oldBlock common.Hash) bool
+	GetOrderNonce(address common.Hash) (uint64, error)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

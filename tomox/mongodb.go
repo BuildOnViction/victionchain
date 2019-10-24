@@ -3,9 +3,6 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
-	"strings"
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
@@ -13,6 +10,7 @@ import (
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	lru "github.com/hashicorp/golang-lru"
+	"strings"
 )
 
 type MongoItem struct {
@@ -25,11 +23,10 @@ type MongoItemRecord struct {
 }
 
 type MongoDatabase struct {
-	Session      *mgo.Session
-	dbName       string
-	emptyKey     []byte
-	dryRunCaches map[common.Hash]*lru.Cache
-	cacheItems   *lru.Cache // Cache for reading
+	Session    *mgo.Session
+	dbName     string
+	emptyKey   []byte
+	cacheItems *lru.Cache // Cache for reading
 }
 
 // InitSession initializes a new session with mongodb
@@ -55,10 +52,9 @@ func NewMongoDatabase(session *mgo.Session, dbName string, mongoURL string, repl
 	cacheItems, _ := lru.New(itemCacheLimit)
 
 	db := &MongoDatabase{
-		Session:      session,
-		dbName:       dbName,
-		cacheItems:   cacheItems,
-		dryRunCaches: make(map[common.Hash]*lru.Cache),
+		Session:    session,
+		dbName:     dbName,
+		cacheItems: cacheItems,
 	}
 
 	return db, nil
@@ -72,13 +68,12 @@ func (db *MongoDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *MongoDatabase) HasObject(key []byte, dryrun bool, blockHash common.Hash) (bool, error) {
+func (db *MongoDatabase) HasObject(key []byte) (bool, error) {
 	if db.IsEmptyKey(key) {
 		return false, nil
 	}
 	cacheKey := db.getCacheKey(key)
 	if db.cacheItems.Contains(cacheKey) {
-		// for dry-run mode, do not read cacheItems
 		return true, nil
 	}
 
@@ -112,14 +107,14 @@ func (db *MongoDatabase) HasObject(key []byte, dryrun bool, blockHash common.Has
 	return false, nil
 }
 
-func (db *MongoDatabase) GetObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) (interface{}, error) {
+func (db *MongoDatabase) GetObject(key []byte, val interface{}) (interface{}, error) {
 
 	if db.IsEmptyKey(key) {
 		return nil, nil
 	}
 
 	cacheKey := db.getCacheKey(key)
-	if cached, ok := db.cacheItems.Get(cacheKey); ok && !dryrun {
+	if cached, ok := db.cacheItems.Get(cacheKey); ok {
 		return cached, nil
 	} else {
 		sc := db.Session.Copy()
@@ -146,15 +141,14 @@ func (db *MongoDatabase) GetObject(key []byte, val interface{}, dryrun bool, blo
 			if err != nil {
 				return nil, err
 			}
-			if !dryrun {
-				db.cacheItems.Add(cacheKey, val)
-			}
+			db.cacheItems.Add(cacheKey, val)
+
 			return val, nil
 		}
 	}
 }
 
-func (db *MongoDatabase) PutObject(key []byte, val interface{}, dryrun bool, blockHash common.Hash) error {
+func (db *MongoDatabase) PutObject(key []byte, val interface{}) error {
 	cacheKey := db.getCacheKey(key)
 	db.cacheItems.Add(cacheKey, val)
 
@@ -182,7 +176,7 @@ func (db *MongoDatabase) PutObject(key []byte, val interface{}, dryrun bool, blo
 	return nil
 }
 
-func (db *MongoDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.Hash) error {
+func (db *MongoDatabase) DeleteObject(key []byte) error {
 	cacheKey := db.getCacheKey(key)
 	db.cacheItems.Remove(cacheKey)
 
@@ -191,7 +185,7 @@ func (db *MongoDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.
 
 	query := bson.M{"key": cacheKey}
 
-	found, err := db.HasObject(key, dryrun, blockHash)
+	found, err := db.HasObject(key)
 	if err != nil {
 		return err
 	}
@@ -213,43 +207,7 @@ func (db *MongoDatabase) DeleteObject(key []byte, dryrun bool, blockHash common.
 	return nil
 }
 
-func (db *MongoDatabase) InitDryRunMode(hash common.Hash) {
-	// SDK node (which running with mongodb) doesn't run Matching engine
-	// dry-run cache is useless for sdk node
-}
-
-func (db *MongoDatabase) SaveDryRunResult(hash common.Hash) error {
-	// SDK node (which running with mongodb) doesn't run Matching engine
-	// dry-run cache is useless for sdk node
-	return nil
-}
-
-func (db *MongoDatabase) CancelOrder(orderHash common.Hash) error {
-	sc := db.Session.Copy()
-	defer sc.Close()
-	query := bson.M{"hash": orderHash.Hex()}
-	var result *tomox_state.OrderItem
-	if err := sc.DB(db.dbName).C("orders").Find(query).One(&result); err != nil {
-		if err == mgo.ErrNotFound {
-			//cancel done
-			return nil
-		}
-		return err
-	}
-	result.Status = Cancel
-	if _, err := sc.DB(db.dbName).C("orders").Upsert(query, result); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) error {
-
-	if o.CreatedAt.IsZero() {
-		o.CreatedAt = time.Now()
-	}
-	o.UpdatedAt = time.Now()
-
 	sc := db.Session.Copy()
 	defer sc.Close()
 
@@ -276,11 +234,6 @@ func (db *MongoDatabase) CommitTrade(t *Trade) error {
 
 	sc := db.Session.Copy()
 	defer sc.Close()
-
-	if t.CreatedAt.IsZero() {
-		t.CreatedAt = time.Now()
-	}
-	t.UpdatedAt = time.Now()
 
 	query := bson.M{"hash": t.Hash.Hex()}
 
@@ -424,6 +377,31 @@ func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
 		db.cacheItems.Add(cacheKey, oi)
 		return oi, nil
 	}
+}
+
+func (db *MongoDatabase) DeleteTradeByTxHash(txhash common.Hash) {
+	sc := db.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"txHash": txhash.Hex()}
+
+	err := sc.DB(db.dbName).C("trades").Remove(query)
+	if err != nil && err != mgo.ErrNotFound {
+		log.Error("Error when deleting order", "error", err)
+	}
+}
+
+func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem {
+	var result []*tomox_state.OrderItem
+	sc := db.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"txHash": txhash.Hex()}
+
+	if err := sc.DB(db.dbName).C("orders").Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+		log.Error("failed to GetOrderByTxHash", "err", err, "Txhash", txhash)
+	}
+	return result
 }
 
 func (db *MongoDatabase) Close() {

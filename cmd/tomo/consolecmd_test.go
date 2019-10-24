@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 tomox:1.0 txpool:1.0 web3:1.0"
+	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 posv:1.0 rpc:1.0 tomox:1.0 txpool:1.0 web3:1.0"
 	httpAPIs = "eth:1.0 net:1.0 rpc:1.0 web3:1.0"
 )
 
@@ -42,7 +42,7 @@ func TestConsoleWelcome(t *testing.T) {
 
 	// Start a tomo console, make sure it's cleaned up and terminate the console
 	tomo := runTomo(t,
-		"--tomox.datadir", tmpdir(t) + "tomox/" + time.Now().String(),
+		"--tomox.datadir", tmpdir(t)+"tomox/"+time.Now().String(),
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase,
 		"console")
@@ -52,7 +52,7 @@ func TestConsoleWelcome(t *testing.T) {
 	tomo.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	tomo.SetTemplateFunc("gover", runtime.Version)
 	tomo.SetTemplateFunc("tomover", func() string { return params.Version })
-	tomo.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	tomo.SetTemplateFunc("niltime", func() string { return time.Unix(1544771829, 0).Format(time.RFC1123) })
 	tomo.SetTemplateFunc("apis", func() string { return ipcAPIs })
 
 	// Verify the actual welcome message to the required template
@@ -83,7 +83,7 @@ func TestIPCAttachWelcome(t *testing.T) {
 		ipc = filepath.Join(ws, "tomo.ipc")
 	}
 	tomo := runTomo(t,
-		"--tomox.datadir", tmpdir(t) + "tomox/" + time.Now().String(),
+		"--tomox.datadir", tmpdir(t)+"tomox/"+time.Now().String(),
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--ipcpath", ipc)
 
@@ -98,7 +98,7 @@ func TestHTTPAttachWelcome(t *testing.T) {
 	coinbase := "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
 	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
 	tomo := runTomo(t,
-		"--tomox.datadir", tmpdir(t) + "tomox/" + time.Now().String(),
+		"--tomox.datadir", tmpdir(t)+"tomox/"+time.Now().String(),
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--rpc", "--rpcport", port)
 
@@ -114,7 +114,7 @@ func TestWSAttachWelcome(t *testing.T) {
 	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
 
 	tomo := runTomo(t,
-		"--tomox.datadir", tmpdir(t) + "tomox/" + time.Now().String(),
+		"--tomox.datadir", tmpdir(t)+"tomox/"+time.Now().String(),
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--ws", "--wsport", port)
 
@@ -137,7 +137,7 @@ func testAttachWelcome(t *testing.T, tomo *testtomo, endpoint, apis string) {
 	attach.SetTemplateFunc("gover", runtime.Version)
 	attach.SetTemplateFunc("tomover", func() string { return params.Version })
 	attach.SetTemplateFunc("etherbase", func() string { return tomo.Etherbase })
-	attach.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	attach.SetTemplateFunc("niltime", func() string { return time.Unix(1544771829, 0).Format(time.RFC1123) })
 	attach.SetTemplateFunc("ipc", func() bool { return strings.HasPrefix(endpoint, "ipc") })
 	attach.SetTemplateFunc("datadir", func() string { return tomo.Datadir })
 	attach.SetTemplateFunc("apis", func() string { return apis })

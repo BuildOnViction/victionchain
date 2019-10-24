@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -78,7 +79,7 @@ type OrderPoolConfig struct {
 type blockChainTomox interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
-	OrderStateAt(root common.Hash) (*state.OrderState, error)
+	OrderStateAt(block *types.Block) (*tomox_state.TomoXStateDB, error)
 	StateAt(root common.Hash) (*state.StateDB, error)
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
@@ -128,8 +129,8 @@ type OrderPool struct {
 	mu           sync.RWMutex
 
 	currentRootState  *state.StateDB
-	currentOrderState *state.OrderState        // Current order state in the blockchain head
-	pendingState      *state.ManagedOrderState // Pending state tracking virtual nonces
+	currentOrderState *tomox_state.TomoXStateDB      // Current order state in the blockchain head
+	pendingState      *tomox_state.TomoXManagedState // Pending state tracking virtual nonces
 
 	locals  *orderAccountSet // Set of local transaction to exempt from eviction rules
 	journal *ordertxJournal  // Journal of local transaction to back up to disk
@@ -162,7 +163,7 @@ func NewOrderPool(chainconfig *params.ChainConfig, chain blockChainTomox) *Order
 		chainHeadCh: make(chan ChainHeadEvent, chainHeadChanSize),
 	}
 	pool.locals = newOrderAccountSet(pool.signer)
-	pool.reset(nil, chain.CurrentBlock().Header())
+	pool.reset(nil, chain.CurrentBlock())
 
 	// If local transactions and journaling is enabled, load from disk
 	if !config.NoLocals && config.Journal != "" {
@@ -217,7 +218,7 @@ func (pool *OrderPool) loop() {
 					pool.homestead = true
 				}
 				log.Debug("OrderPool new chain header reset pool", "old", head.Header().Number, "new", ev.Block.Header().Number)
-				pool.reset(head.Header(), ev.Block.Header())
+				pool.reset(head, ev.Block)
 				head = ev.Block
 
 				pool.mu.Unlock()
@@ -266,32 +267,24 @@ func (pool *OrderPool) loop() {
 	}
 }
 
-// lockedReset is a wrapper around reset to allow calling it in a thread safe
-// manner. This method is only ever used in the tester!
-func (pool *OrderPool) lockedReset(oldHead, newHead *types.Header) {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	pool.reset(oldHead, newHead)
-}
-
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
-func (pool *OrderPool) reset(oldHead, newHead *types.Header) {
+func (pool *OrderPool) reset(oldHead, newblock *types.Block) {
 	// If we're reorging an old state, reinject all dropped transactions
 	var reinject types.OrderTransactions
 
 	// Initialize the internal state to the current head
-	if newHead == nil {
-		newHead = pool.chain.CurrentBlock().Header() // Special case during testing
+	if newblock == nil {
+		newblock = pool.chain.CurrentBlock()
 	}
-	orderstate, err := pool.chain.OrderStateAt(newHead.Root)
+	newHead := newblock.Header()
+	orderstate, err := pool.chain.OrderStateAt(newblock)
 	if err != nil {
 		log.Error("Failed to reset OrderPool state", "err", err)
 		return
 	}
 	pool.currentOrderState = orderstate
-	pool.pendingState = state.NewManagedOrderState(orderstate)
+	pool.pendingState = tomox_state.ManageState(orderstate)
 
 	state, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
@@ -313,7 +306,7 @@ func (pool *OrderPool) reset(oldHead, newHead *types.Header) {
 	// Update all accounts to the latest known pending nonce
 	for addr, list := range pool.pending {
 		txs := list.Flatten() // Heavy but will be cached and is needed by the miner anyway
-		pool.pendingState.SetNonce(addr, txs[len(txs)-1].Nonce()+1)
+		pool.pendingState.SetNonce(addr.Hash(), txs[len(txs)-1].Nonce()+1)
 	}
 	// Check the queue and move transactions over to the pending if possible
 	// or remove those that have become invalid
@@ -342,7 +335,7 @@ func (pool *OrderPool) SubscribeTxPreEvent(ch chan<- OrderTxPreEvent) event.Subs
 }
 
 // State returns the virtual managed state of the transaction pool.
-func (pool *OrderPool) State() *state.ManagedOrderState {
+func (pool *OrderPool) State() *tomox_state.TomoXManagedState {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -480,10 +473,10 @@ func (pool *OrderPool) validateTx(tx *types.OrderTransaction, local bool) error 
 		return err
 	}
 	// Ensure the transaction adheres to nonce ordering
-	if pool.currentOrderState.GetNonce(from) > tx.Nonce() {
+	if pool.currentOrderState.GetNonce(from.Hash()) > tx.Nonce() {
 		return ErrNonceTooLow
 	}
-	if pool.pendingState.GetNonce(from)+common.LimitThresholdNonceInQueue < tx.Nonce() {
+	if pool.pendingState.GetNonce(from.Hash())+common.LimitThresholdNonceInQueue < tx.Nonce() {
 		return ErrNonceTooHigh
 	}
 
@@ -519,7 +512,21 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 	}
 	// If the transaction is replacing an already pending one, do directly
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
-		return false, ErrPendingNonceTooLow
+		inserted, old := list.Add(tx)
+		if !inserted {
+			pendingDiscardCounter.Inc(1)
+			return false, ErrPendingNonceTooLow
+		}
+		if old != nil {
+			delete(pool.all, old.Hash())
+			pendingReplaceCounter.Inc(1)
+		}
+		pool.all[tx.Hash()] = tx
+		pool.journalTx(from, tx)
+
+		log.Debug("Pooled new executable transaction", "hash", hash, "useraddress", tx.UserAddress(), "nonce", tx.Nonce(), "status", tx.Status(), "orderid", tx.OrderID())
+		return old != nil, nil
+
 	}
 	// New transaction isn't replacing a pending one, push into queue
 	replace, err := pool.enqueueTx(hash, tx)
@@ -532,7 +539,7 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 	}
 	pool.journalTx(from, tx)
 
-	log.Trace("Pooled new future transaction", "hash", hash, "from", from)
+	log.Debug("Pooled new future transaction", "hash", hash, "from", from)
 	return replace, nil
 }
 
@@ -600,7 +607,7 @@ func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *type
 	}
 	// Set the potentially new pending nonce and notify any subsystems of the new tx
 	pool.beats[addr] = time.Now()
-	pool.pendingState.SetNonce(addr, tx.Nonce()+1)
+	pool.pendingState.SetNonce(addr.Hash(), tx.Nonce()+1)
 
 	go pool.txFeed.Send(OrderTxPreEvent{tx})
 }
@@ -636,6 +643,9 @@ func (pool *OrderPool) AddRemotes(txs []*types.OrderTransaction) []error {
 
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *OrderPool) addTx(tx *types.OrderTransaction, local bool) error {
+	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) {
+		return nil
+	}
 	tx.CacheHash()
 	types.CacheOrderSigner(pool.signer, tx)
 	pool.mu.Lock()
@@ -744,8 +754,8 @@ func (pool *OrderPool) removeTx(hash common.Hash) {
 				pool.enqueueTx(tx.Hash(), tx)
 			}
 			// Update the account nonce if needed
-			if nonce := tx.Nonce(); pool.pendingState.GetNonce(addr) > nonce {
-				pool.pendingState.SetNonce(addr, nonce)
+			if nonce := tx.Nonce(); pool.pendingState.GetNonce(addr.Hash()) > nonce {
+				pool.pendingState.SetNonce(addr.Hash(), nonce)
 			}
 			return
 		}
@@ -780,7 +790,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 			continue // Just in case someone calls with a non existing account
 		}
 		// Drop all transactions that are deemed too old (low nonce)
-		for _, tx := range list.Forward(pool.currentOrderState.GetNonce(addr)) {
+		for _, tx := range list.Forward(pool.currentOrderState.GetNonce(addr.Hash())) {
 			hash := tx.Hash()
 			log.Trace("Removed old queued transaction", "hash", hash)
 			delete(pool.all, hash)
@@ -788,7 +798,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 		}
 
 		// Gather all executable transactions and promote them
-		for _, tx := range list.Ready(pool.pendingState.GetNonce(addr)) {
+		for _, tx := range list.Ready(pool.pendingState.GetNonce(addr.Hash())) {
 			hash := tx.Hash()
 			log.Trace("Promoting queued transaction", "hash", hash)
 			pool.promoteTx(addr, hash, tx)
@@ -845,8 +855,8 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 							delete(pool.all, hash)
 
 							// Update the account nonce to the dropped transaction
-							if nonce := tx.Nonce(); pool.pendingState.GetNonce(offenders[i]) > nonce {
-								pool.pendingState.SetNonce(offenders[i], nonce)
+							if nonce := tx.Nonce(); pool.pendingState.GetNonce(offenders[i].Hash()) > nonce {
+								pool.pendingState.SetNonce(offenders[i].Hash(), nonce)
 							}
 							log.Trace("Removed fairness-exceeding pending transaction", "hash", hash)
 						}
@@ -866,8 +876,8 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 						delete(pool.all, hash)
 
 						// Update the account nonce to the dropped transaction
-						if nonce := tx.Nonce(); pool.pendingState.GetNonce(addr) > nonce {
-							pool.pendingState.SetNonce(addr, nonce)
+						if nonce := tx.Nonce(); pool.pendingState.GetNonce(addr.Hash()) > nonce {
+							pool.pendingState.SetNonce(addr.Hash(), nonce)
 						}
 						log.Trace("Removed fairness-exceeding pending transaction", "hash", hash)
 					}
@@ -924,9 +934,8 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 // are moved back into the future queue.
 func (pool *OrderPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
-	log.Debug("demoteUnexecutables check")
 	for addr, list := range pool.pending {
-		nonce := pool.currentOrderState.GetNonce(addr)
+		nonce := pool.currentOrderState.GetNonce(addr.Hash())
 		log.Debug("demoteUnexecutables", "addr", addr.Hex(), "nonce", nonce)
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(nonce) {

@@ -87,7 +87,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	totalFeeUsed := uint64(0)
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
-		if block.Number().Uint64() >= common.BlackListHFNumber {
+		if (block.Number().Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
@@ -146,7 +146,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	receipts = make([]*types.Receipt, block.Transactions().Len())
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
-		if block.Number().Uint64() >= common.BlackListHFNumber {
+		if (block.Number().Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
@@ -315,7 +315,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 	if err != nil {
 		return nil, 0, err, false
 	}
-	gasUsed := big.NewInt(0)
+	matchingFee := big.NewInt(0)
 	for _, txMatch := range txMatchBatches.Data {
 		orderItem, err := txMatch.DecodeOrder()
 		if err != nil {
@@ -353,8 +353,8 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 				}
 
 				// masternodes charges fee of both 2 relayers. If maker and taker are on same relayer, that relayer is charged fee twice
-				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
-				gasUsed = gasUsed.Add(gasUsed, common.RelayerFee)
+				matchingFee = matchingFee.Add(matchingFee, common.RelayerFee)
+				matchingFee = matchingFee.Add(matchingFee, common.RelayerFee)
 
 				//log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
 
@@ -433,7 +433,10 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 			}
 		}
 	}
-	statedb.AddBalance(header.Coinbase, gasUsed)
+
+	masternodeOwner := statedb.GetOwner(header.Coinbase)
+
+	statedb.AddBalance(masternodeOwner, matchingFee)
 	var root []byte
 	if config.IsByzantium(header.Number) {
 		statedb.Finalise(true)
@@ -444,7 +447,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 	// based on the eip phase, we're passing wether the root touch-delete accounts.
 	receipt := types.NewReceipt(root, false, *usedGas)
 	receipt.TxHash = tx.Hash()
-	receipt.GasUsed = gasUsed.Uint64()
+	receipt.GasUsed = 0
 	// if the transaction created a contract, store the creation address in the receipt.
 	// Set the receipt logs and create a bloom for filtering
 	log := &types.Log{}

@@ -732,6 +732,11 @@ web3._extend({
             name: 'sendOrderTransaction',
             call: 'tomox_sendOrder',
             params: 1
+		}),
+		new web3._extend.Method({
+            name: 'getOrderCount',
+            call: 'tomox_getOrderCount',
+            params: 1
         }),
 	]
 });
