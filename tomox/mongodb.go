@@ -214,8 +214,12 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) 
 	if len(o.Key) == 0 {
 		o.Key = cacheKey
 	}
-	query := bson.M{"hash": o.Hash.Hex()}
-	db.orderBulk.Upsert(query, o)
+	if o.Status == OrderStatusOpen {
+		db.orderBulk.Insert(o)
+	} else {
+		query := bson.M{"hash": o.Hash.Hex()}
+		db.orderBulk.Upsert(query, o)
+	}
 	return nil
 }
 
