@@ -264,7 +264,6 @@ func (b *LesApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 	return 0, errors.New("cannot find tomox service")
 }
 
-// GetOrderNonce get order nonce
 func (b *LesApiBackend) TomoxService() *tomox.TomoX {
 	return nil
 }
