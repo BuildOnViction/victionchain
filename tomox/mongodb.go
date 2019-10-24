@@ -239,10 +239,10 @@ func (db *MongoDatabase) InitBulk() *mgo.Session {
 
 func (db *MongoDatabase) CommitBulk(sc *mgo.Session) error {
 	defer sc.Close()
-	if _, err := db.orderBulk.Run(); err != nil {
+	if _, err := db.orderBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
-	if _, err := db.tradeBulk.Run(); err != nil {
+	if _, err := db.tradeBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
 	return nil
