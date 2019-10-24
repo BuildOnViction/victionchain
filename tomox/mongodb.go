@@ -235,8 +235,6 @@ func (db *MongoDatabase) InitBulk() *mgo.Session {
 func (db *MongoDatabase) CommitBulk(sc *mgo.Session) error {
 	defer func() {
 		sc.Close()
-		db.orderBulk = sc.DB(db.dbName).C("orders").Bulk()
-		db.tradeBulk = sc.DB(db.dbName).C("trades").Bulk()
 	}()
 	if _, err := db.orderBulk.Run(); err != nil {
 		return err

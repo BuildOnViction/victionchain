@@ -374,6 +374,10 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		}
 
 	}
+	log.Debug("PutObject processed takerOrder", "takerOrder", ToJSON(updatedTakerOrder))
+	if err := db.PutObject(updatedTakerOrder.Hash.Bytes(), updatedTakerOrder); err != nil {
+		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
+	}
 	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
 	for _, o := range makerOrders {
 		lastState = OrderHistoryItem{
@@ -394,10 +398,6 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		if err := db.PutObject(o.Hash.Bytes(), o); err != nil {
 			return fmt.Errorf("SDKNode: failed to put processed makerOrder. Hash: %s Error: %s", o.Hash.Hex(), err.Error())
 		}
-	}
-	log.Debug("PutObject processed takerOrder", "takerOrder", ToJSON(updatedTakerOrder))
-	if err := db.PutObject(updatedTakerOrder.Hash.Bytes(), updatedTakerOrder); err != nil {
-		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
 	}
 	if err := db.CommitBulk(sc); err != nil {
 		return fmt.Errorf("SDKNode fail to commit bulk update orders, trades at txhash %s . Error: %s", txHash.Hex(), err.Error())
