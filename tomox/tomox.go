@@ -294,6 +294,8 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 
 	if takerOrderInTx.Status != OrderStatusCancelled {
 		updatedTakerOrder.Status = OrderStatusOpen
+	} else {
+		updatedTakerOrder.Status = OrderStatusCancelled
 	}
 	updatedTakerOrder.TxHash = txHash
 	if updatedTakerOrder.CreatedAt.IsZero() {
