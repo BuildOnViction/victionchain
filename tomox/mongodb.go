@@ -238,9 +238,7 @@ func (db *MongoDatabase) InitBulk() *mgo.Session {
 }
 
 func (db *MongoDatabase) CommitBulk(sc *mgo.Session) error {
-	defer func() {
-		sc.Close()
-	}()
+	defer sc.Close()
 	if _, err := db.orderBulk.Run(); err != nil {
 		return err
 	}
@@ -414,6 +412,7 @@ func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.Or
 
 	if err := sc.DB(db.dbName).C("orders").Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
 		log.Error("failed to GetListOrderByHashes", "err", err, "hashes", hashes)
+		return []*tomox_state.OrderItem{}
 	}
 	return result
 }
