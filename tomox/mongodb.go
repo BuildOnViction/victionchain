@@ -220,8 +220,9 @@ func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) 
 }
 
 func (db *MongoDatabase) CommitTrade(t *Trade) error {
-	query := bson.M{"hash": t.Hash.Hex()}
-	db.tradeBulk.Upsert(query, t)
+	// for trades: insert only, no update
+	// Hence, insert is better than upsert
+	db.tradeBulk.Insert(t)
 	return nil
 }
 
