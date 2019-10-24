@@ -377,7 +377,6 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
 	}
 	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
-	log.Debug("GetListOrderByHashes", "len(makerDirtyHashes)", len(makerDirtyHashes), "len(makerOrders)", len(makerOrders))
 	for _, o := range makerOrders {
 		lastState = OrderHistoryItem{
 			TxHash:       o.TxHash,
