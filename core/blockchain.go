@@ -2244,7 +2244,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 		for _, txMatch := range txMatchBatch.Data {
 			txMatchTime := time.Unix(0, txMatchBatch.Timestamp)
 			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, txMatchTime, currentState); err != nil {
-				log.Error("failed to SyncDataToSDKNode current state", "err", err)
+				log.Error("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
 			}
 		}

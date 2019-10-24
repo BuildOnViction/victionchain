@@ -1,7 +1,6 @@
 package tomox
 
 import (
-	"encoding/hex"
 	"math/big"
 	"strconv"
 	"time"
@@ -191,8 +190,8 @@ func processOrderList(statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXSta
 		log.Debug("TRADE", "orderBook", orderBook.Hex(), "Price 1", price, "Price 2", order.Price, "Amount", tradedQuantity, "orderId", orderId, "side", side)
 
 		transactionRecord := make(map[string]string)
-		transactionRecord[TradeTakerOrderHash] = hex.EncodeToString(order.Hash.Bytes())
-		transactionRecord[TradeMakerOrderHash] = hex.EncodeToString(oldestOrder.Hash.Bytes())
+		transactionRecord[TradeTakerOrderHash] = order.Hash.Hex()
+		transactionRecord[TradeMakerOrderHash] = oldestOrder.Hash.Hex()
 		transactionRecord[TradeTimestamp] = strconv.FormatInt(time.Now().Unix(), 10)
 		transactionRecord[TradeQuantity] = tradedQuantity.String()
 		transactionRecord[TradeMakerExchange] = oldestOrder.ExchangeAddress.String()
