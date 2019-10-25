@@ -311,6 +311,15 @@ func ApplyEmptyTransaction(config *params.ChainConfig, statedb *state.StateDB, h
 }
 func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
 	// Update the state with pending changes
+	engine, ok := bc.Engine().(*posv.Posv)
+	var tomoXService *tomox.TomoX
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
+	if tomoXService == nil || !bc.chainConfig.IsTIPTomoX(header.Number) {
+		return nil, 0, tomox.ErrTomoXServiceNotFound, false
+	}
+
 	txMatchBatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
 	if err != nil {
 		return nil, 0, err, false
@@ -359,14 +368,6 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 				//log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
 
 				isTakerBuy := orderItem.Side == tomox.Bid
-				engine, ok := bc.Engine().(*posv.Posv)
-				var tomoXService *tomox.TomoX
-				if ok {
-					tomoXService = engine.GetTomoXService()
-				}
-				if tomoXService == nil {
-					return nil, 0, tomox.ErrTomoXServiceNotFound, false
-				}
 				settleBalanceResult, err := tomoXService.SettleBalance(
 					bc.IPCEndpoint,
 					makerAddr,
