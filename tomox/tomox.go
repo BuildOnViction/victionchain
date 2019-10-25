@@ -363,11 +363,13 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 	rejectedOders := txDataMatch.GetRejectedOrders()
 	log.Debug("Got rejected orders", "number", len(rejectedOders), "trades", rejectedOders)
 
-	// updateRejectedOrders
-	for _, rejectedOder := range rejectedOders {
-		// update order status of relating orders
-		if err := tomox.updateRejectedOrders(rejectedOder.Hash); err != nil {
-			return err
+	if len(rejectedOders) > 0 {
+		// updateRejectedOrders
+		for _, rejectedOder := range rejectedOders {
+			// update order status of relating orders
+			if err := tomox.updateRejectedOrders(rejectedOder.Hash); err != nil {
+				return fmt.Errorf("updateRejectedOrders %s", err.Error())
+			}
 		}
 	}
 	return nil
@@ -483,7 +485,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 }
 func (tomox *TomoX) updateRejectedOrders(hash common.Hash) error {
 	log.Debug("updateRejectedOrders", "hash", hash)
-	db := tomox.GetDB()
+	db := tomox.GetMongoDB()
 	val, err := db.GetObject(hash.Bytes(), &tomox_state.OrderItem{})
 	if err != nil || val == nil {
 		return fmt.Errorf("SDKNode: failed to get order. Key: %s", hash)
