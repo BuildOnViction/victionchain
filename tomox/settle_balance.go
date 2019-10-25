@@ -128,6 +128,9 @@ func (tomox *TomoX) GetTokenDecimal(ipcEndpoint string,tokenAddr common.Address)
 	}
 	opts := new(bind.CallOpts)
 	trc21Contract, err := trc21.NewMyTRC21(tokenAddr, client)
+	if trc21Contract == nil || err != nil {
+		return nil, err
+	}
 	decimal, err := trc21Contract.Decimals(opts)
 	if err != nil {
 		return nil, err

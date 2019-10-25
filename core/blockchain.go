@@ -2240,6 +2240,8 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 		log.Error("failed to get current state", "err", err)
 		return
 	}
+	start := time.Now()
+	defer log.Debug("logExchangeData takes", "time", common.PrettyDuration(time.Since(start)), "blockNumber", block.NumberU64())
 	for _, txMatchBatch := range txMatchBatchData {
 		for _, txMatch := range txMatchBatch.Data {
 			txMatchTime := time.Unix(0, txMatchBatch.Timestamp)
@@ -2260,6 +2262,8 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	if tomoXService == nil || !tomoXService.IsSDKNode() {
 		return
 	}
+	start := time.Now()
+	defer log.Debug("reorgTxMatches takes", "time", common.PrettyDuration(time.Since(start)))
 	for _, deletedTx := range deletedTxs {
 		if deletedTx.IsMatchingTransaction() {
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
