@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/globalsign/mgo"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -167,4 +168,16 @@ func (db *BatchDatabase) DeleteTradeByTxHash(txhash common.Hash) {
 
 func (db *BatchDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem {
 	return []*tomox_state.OrderItem{}
+}
+
+func (db *BatchDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem {
+	return []*tomox_state.OrderItem{}
+}
+
+func (db *BatchDatabase) InitBulk() *mgo.Session {
+	return nil
+}
+
+func (db *BatchDatabase) CommitBulk(sc *mgo.Session) error {
+	return nil
 }

@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"sort"
 	"strings"
@@ -1851,6 +1853,10 @@ type OrderMsg struct {
 	// This is only used when marshaling to JSON.
 	Hash common.Hash `json:"hash" rlp:"-"`
 }
+type PriceVolume struct {
+	Price  *big.Int `json:"price,omitempty"`
+	Volume *big.Int `json:"volume,omitempty"`
+}
 
 // SendOrder will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
@@ -1868,6 +1874,112 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderCount(ctx context.Context, addr 
 		return (*hexutil.Uint64)(&nonce), err
 	}
 	return (*hexutil.Uint64)(&nonce), err
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToken,quoteToken common.Address) (PriceVolume, error) {
+
+	result := PriceVolume{}
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return result, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return result, errors.New("TomoX service not found")
+	}
+
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return result, err
+	}
+	result.Price, result.Volume = tomoxState.GetBestBidPrice(tomox.GetOrderBookHash(baseToken,quoteToken))
+	if result.Price.Sign() == 0 {
+		return result, errors.New("Bid tree not found")
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToken,quoteToken common.Address) (PriceVolume, error) {
+	result := PriceVolume{}
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return result, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return result, errors.New("TomoX service not found")
+	}
+
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return result, err
+	}
+	result.Price, result.Volume = tomoxState.GetBestAskPrice(tomox.GetOrderBookHash(baseToken,quoteToken))
+	if result.Price.Sign() == 0 {
+		return result, errors.New("Ask tree not found")
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToken,quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return nil, err
+	}
+	result, err := tomoxState.DumpBidTrie(tomox.GetOrderBookHash(baseToken,quoteToken))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken,quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return nil, err
+	}
+	result, err := tomoxState.DumpAskTrie(tomox.GetOrderBookHash(baseToken,quoteToken))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseToken,quoteToken common.Address, orderId uint64) (interface{}, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return nil, err
+	}
+	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderId))
+	orderitem := tomoxState.GetOrder(tomox.GetOrderBookHash(baseToken,quoteToken), orderIdHash)
+	if orderitem.Quantity == nil || orderitem.Quantity.Sign() == 0 {
+		return nil, errors.New("Order not found")
+	}
+	return orderitem, nil
 }
 
 // Sign calculates an ECDSA signature for:

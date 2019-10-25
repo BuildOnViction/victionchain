@@ -287,3 +287,7 @@ func (tx TxDataMatch) GetTrades() []map[string]string {
 func (tx TxDataMatch) GetRejectedOrders() []*tomox_state.OrderItem {
 	return tx.RejectedOders
 }
+
+func GetOrderBookHash(baseToken common.Address, quoteToken common.Address) common.Hash {
+	return common.BytesToHash(append(baseToken[:16], quoteToken[4:]...))
+}
