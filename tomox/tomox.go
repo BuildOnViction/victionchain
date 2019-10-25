@@ -23,7 +23,7 @@ const (
 	ProtocolName       = "tomox"
 	ProtocolVersion    = uint64(1)
 	ProtocolVersionStr = "1.0"
-	overflowIdx         // Indicator of message queue overflow
+	overflowIdx        // Indicator of message queue overflow
 )
 
 var (
@@ -307,7 +307,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 
 	// 2. put trades to db and update status to FILLED
 	trades := txDataMatch.GetTrades()
-	log.Debug("Got trades", "number", len(trades), "trades", trades)
+	log.Debug("Got trades", "number", len(trades), "txhash", txHash.Hex())
 	makerDirtyFilledAmount = make(map[string]*big.Int)
 	for _, trade := range trades {
 		// 2.a. put to trades
@@ -348,7 +348,9 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		tradeRecord.UpdatedAt = txMatchTime
 		tradeRecord.Hash = tradeRecord.ComputeHash()
 
-		log.Debug("TRADE history", "trade", tradeRecord)
+		log.Debug("TRADE history", "pairName", tradeRecord.PairName, "amount", tradeRecord.Amount, "pricepoint", tradeRecord.PricePoint,
+			"taker", tradeRecord.Taker.Hex(), "maker", tradeRecord.Maker.Hex(), "takerOrder", tradeRecord.TakerOrderHash.Hex(), "makerOrder", tradeRecord.MakerOrderHash.Hex(),
+			"takerFee", tradeRecord.TakeFee, "makerFee", tradeRecord.MakeFee)
 		if err := db.PutObject(EmptyKey(), tradeRecord); err != nil {
 			return fmt.Errorf("SDKNode: failed to store tradeRecord %s", err.Error())
 		}
@@ -374,11 +376,15 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		}
 
 	}
-	log.Debug("PutObject processed takerOrder", "takerOrder", ToJSON(updatedTakerOrder))
+	log.Debug("PutObject processed takerOrder",
+		"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
+		"price", updatedTakerOrder.Price, "quantity", updatedTakerOrder.Quantity, "filledAmount", updatedTakerOrder.FilledAmount, "status", updatedTakerOrder.Status,
+		"hash", updatedTakerOrder.Hash.Hex(), "txHash", updatedTakerOrder.TxHash.Hex())
 	if err := db.PutObject(updatedTakerOrder.Hash.Bytes(), updatedTakerOrder); err != nil {
 		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
 	}
 	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
+	log.Debug("Maker dirty orders", "len", len(makerOrders), "txhash", txHash.Hex())
 	for _, o := range makerOrders {
 		lastState = OrderHistoryItem{
 			TxHash:       o.TxHash,
@@ -394,7 +400,10 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		} else {
 			o.Status = OrderStatusFilled
 		}
-		log.Debug("PutObject processed makerOrder", "makerOrder", ToJSON(o))
+		log.Debug("PutObject processed makerOrder",
+			"pairName", o.PairName, "userAddr", o.UserAddress.Hex(), "side", o.Side,
+			"price", o.Price, "quantity", o.Quantity, "filledAmount", o.FilledAmount, "status", o.Status,
+			"hash", o.Hash.Hex(), "txHash", o.TxHash.Hex())
 		if err := db.PutObject(o.Hash.Bytes(), o); err != nil {
 			return fmt.Errorf("SDKNode: failed to put processed makerOrder. Hash: %s Error: %s", o.Hash.Hex(), err.Error())
 		}
