@@ -60,6 +60,7 @@ type orderList struct {
 // These objects are stored in the main orderId trie.
 type exchangeObject struct {
 	Nonce     uint64
+	Price     *big.Int    // price in native coin
 	AskRoot   common.Hash // merkle root of the storage trie
 	BidRoot   common.Hash // merkle root of the storage trie
 	OrderRoot common.Hash

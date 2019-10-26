@@ -27,6 +27,7 @@ import (
 
 func TestEchangeStates(t *testing.T) {
 	orderBook := common.StringToHash("BTC/TOMO")
+	price := big.NewInt(10000)
 	numberOrder := 20;
 	orderItems := []OrderItem{}
 	relayers := []common.Hash{}
@@ -64,6 +65,7 @@ func TestEchangeStates(t *testing.T) {
 		}
 
 	}
+	statedb.SetPrice(orderBook, price)
 	root := statedb.IntermediateRoot()
 	statedb.Commit()
 	//err := stateCache.TrieDB().Commit(root, false)
@@ -75,6 +77,11 @@ func TestEchangeStates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
 	}
+	gotPrice := statedb.GetPrice(orderBook)
+	if gotPrice.Cmp(price) != 0 {
+		t.Fatalf("Error when get price save in database: got : %d , wanted : %d ", gotPrice, price)
+	}
+	fmt.Println(gotPrice)
 	for i := 0; i < numberOrder; i++ {
 		nonce := statedb.GetNonce(relayers[i])
 		if nonce != uint64(1) {
@@ -208,6 +215,16 @@ func TestRevertStates(t *testing.T) {
 	gotOrder = statedb.GetOrder(orderBook, orderIdHash)
 	if gotOrder.Quantity.Cmp(EmptyOrder.Quantity) != 0 {
 		t.Fatalf(" err insert order info : %v after try revert snap shot , got : %v ,want Empty Order", orderIdHash.Hex(), gotOrder)
+	}
+	// change price
+	price := big.NewInt(10000)
+	statedb.SetPrice(orderBook, price)
+	snap = statedb.Snapshot()
+	statedb.SetPrice(orderBook, big.NewInt(0))
+	statedb.RevertToSnapshot(snap)
+	gotPrice := statedb.GetPrice(orderBook)
+	if gotPrice.Cmp(price) != 0 {
+		t.Fatalf("Error when get price save in database: got : %d , wanted : %d ", gotPrice, price)
 	}
 	db.Close()
 }

@@ -49,6 +49,10 @@ type (
 		hash common.Hash
 		prev uint64
 	}
+	priceChange struct {
+		hash common.Hash
+		prev *big.Int
+	}
 )
 
 func (ch insertOrder) undo(s *TomoXStateDB) {
@@ -77,4 +81,7 @@ func (ch subAmountOrder) undo(s *TomoXStateDB) {
 }
 func (ch nonceChange) undo(s *TomoXStateDB) {
 	s.SetNonce(ch.hash, ch.prev)
+}
+func (ch priceChange) undo(s *TomoXStateDB) {
+	s.SetPrice(ch.hash, ch.prev)
 }

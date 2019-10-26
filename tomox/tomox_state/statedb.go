@@ -106,8 +106,15 @@ func (self *TomoXStateDB) GetNonce(addr common.Hash) uint64 {
 	if stateObject != nil {
 		return stateObject.Nonce()
 	}
-
 	return 0
+}
+
+func (self *TomoXStateDB) GetPrice(addr common.Hash) *big.Int {
+	stateObject := self.getStateExchangeObject(addr)
+	if stateObject != nil {
+		return stateObject.Price()
+	}
+	return nil
 }
 
 // Database retrieves the low level database supporting the lower level trie ops.
@@ -115,17 +122,25 @@ func (self *TomoXStateDB) Database() Database {
 	return self.db
 }
 
-/*
- * SETTERS
- */
 func (self *TomoXStateDB) SetNonce(addr common.Hash, nonce uint64) {
-	self.journal = append(self.journal, nonceChange{
-		hash: addr,
-		prev: self.GetNonce(addr),
-	})
 	stateObject := self.GetOrNewStateExchangeObject(addr)
 	if stateObject != nil {
+		self.journal = append(self.journal, nonceChange{
+			hash: addr,
+			prev: self.GetNonce(addr),
+		})
 		stateObject.SetNonce(nonce)
+	}
+}
+
+func (self *TomoXStateDB) SetPrice(addr common.Hash, price *big.Int) {
+	stateObject := self.GetOrNewStateExchangeObject(addr)
+	if stateObject != nil {
+		self.journal = append(self.journal, priceChange{
+			hash: addr,
+			prev: stateObject.Price(),
+		})
+		stateObject.setPrice(price)
 	}
 }
 

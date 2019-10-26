@@ -236,7 +236,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
+			log.Debug("Order failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 			continue
 		}
