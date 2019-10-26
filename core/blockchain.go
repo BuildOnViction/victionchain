@@ -2234,14 +2234,20 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 		log.Error("failed to extract matching transaction", "err", err)
 		return
 	}
-
+	if len(txMatchBatchData) == 0 {
+		return
+	}
 	currentState, err := bc.State()
 	if err != nil {
 		log.Error("failed to get current state", "err", err)
 		return
 	}
 	start := time.Now()
-	defer log.Debug("logExchangeData takes", "time", common.PrettyDuration(time.Since(start)), "blockNumber", block.NumberU64())
+	defer func() {
+		//The deferred call's arguments are evaluated immediately, but the function call is not executed until the surrounding function returns
+		// That's why we should put this log statement in an anonymous function
+		log.Debug("logExchangeData takes", "time", common.PrettyDuration(time.Since(start)), "blockNumber", block.NumberU64())
+	}()
 	for _, txMatchBatch := range txMatchBatchData {
 		for _, txMatch := range txMatchBatch.Data {
 			txMatchTime := time.Unix(0, txMatchBatch.Timestamp)
@@ -2263,7 +2269,11 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 		return
 	}
 	start := time.Now()
-	defer log.Debug("reorgTxMatches takes", "time", common.PrettyDuration(time.Since(start)))
+	defer func() {
+		//The deferred call's arguments are evaluated immediately, but the function call is not executed until the surrounding function returns
+		// That's why we should put this log statement in an anonymous function
+		log.Debug("reorgTxMatches takes", "time", common.PrettyDuration(time.Since(start)))
+	}()
 	for _, deletedTx := range deletedTxs {
 		if deletedTx.IsMatchingTransaction() {
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
