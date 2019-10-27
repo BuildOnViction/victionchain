@@ -277,7 +277,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		return fmt.Errorf("SDK node decode takerOrderInTx failed")
 	}
 	lastState := OrderHistoryItem{}
-	val, err := db.GetObject(takerOrderInTx.Hash.Bytes(), &tomox_state.OrderItem{})
+	val, err := db.GetObject(takerOrderInTx.Hash, &tomox_state.OrderItem{})
 	if err == nil && val != nil {
 		originTakerOrder = val.(*tomox_state.OrderItem)
 		lastState = OrderHistoryItem{
@@ -351,7 +351,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		log.Debug("TRADE history", "pairName", tradeRecord.PairName, "amount", tradeRecord.Amount, "pricepoint", tradeRecord.PricePoint,
 			"taker", tradeRecord.Taker.Hex(), "maker", tradeRecord.Maker.Hex(), "takerOrder", tradeRecord.TakerOrderHash.Hex(), "makerOrder", tradeRecord.MakerOrderHash.Hex(),
 			"takerFee", tradeRecord.TakeFee, "makerFee", tradeRecord.MakeFee)
-		if err := db.PutObject(EmptyKey(), tradeRecord); err != nil {
+		if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {
 			return fmt.Errorf("SDKNode: failed to store tradeRecord %s", err.Error())
 		}
 
@@ -380,7 +380,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
 		"price", updatedTakerOrder.Price, "quantity", updatedTakerOrder.Quantity, "filledAmount", updatedTakerOrder.FilledAmount, "status", updatedTakerOrder.Status,
 		"hash", updatedTakerOrder.Hash.Hex(), "txHash", updatedTakerOrder.TxHash.Hex())
-	if err := db.PutObject(updatedTakerOrder.Hash.Bytes(), updatedTakerOrder); err != nil {
+	if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
 		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
 	}
 	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
@@ -404,7 +404,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 			"pairName", o.PairName, "userAddr", o.UserAddress.Hex(), "side", o.Side,
 			"price", o.Price, "quantity", o.Quantity, "filledAmount", o.FilledAmount, "status", o.Status,
 			"hash", o.Hash.Hex(), "txHash", o.TxHash.Hex())
-		if err := db.PutObject(o.Hash.Bytes(), o); err != nil {
+		if err := db.PutObject(o.Hash, o); err != nil {
 			return fmt.Errorf("SDKNode: failed to put processed makerOrder. Hash: %s Error: %s", o.Hash.Hex(), err.Error())
 		}
 	}
@@ -459,7 +459,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 		log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", ToJSON(order), "orderHistoryItem", c)
 		if !ok {
 			log.Debug("Tomox reorg: remove order due to no orderCache", "order", ToJSON(order))
-			if err := db.DeleteObject(order.Hash.Bytes()); err != nil {
+			if err := db.DeleteObject(order.Hash); err != nil {
 				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", ToJSON(order))
 			}
 			continue
@@ -468,7 +468,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 		orderHistoryItem, _ := orderCacheAtTxHash[GetOrderHistoryKey(order.PairName, order.OrderID)]
 		if (orderHistoryItem == OrderHistoryItem{}) {
 			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", ToJSON(order))
-			if err := db.DeleteObject(order.Hash.Bytes()); err != nil {
+			if err := db.DeleteObject(order.Hash); err != nil {
 				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", ToJSON(order))
 			}
 			continue
@@ -477,7 +477,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 		order.Status = orderHistoryItem.Status
 		order.FilledAmount = CloneBigInt(orderHistoryItem.FilledAmount)
 		log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", ToJSON(order), "orderHistoryItem", orderHistoryItem)
-		if err := db.PutObject(order.Hash.Bytes(), order); err != nil {
+		if err := db.PutObject(order.Hash, order); err != nil {
 			log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", ToJSON(order))
 		}
 	}

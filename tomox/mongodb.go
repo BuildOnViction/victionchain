@@ -70,59 +70,61 @@ func (db *MongoDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *MongoDatabase) HasObject(key []byte) (bool, error) {
-	if db.IsEmptyKey(key) {
+func (db *MongoDatabase) HasObject(hash common.Hash) (bool, error) {
+	if db.IsEmptyKey(hash.Bytes()) {
 		return false, nil
 	}
-	cacheKey := db.getCacheKey(key)
+	cacheKey := db.getCacheKey(hash.Bytes())
 	if db.cacheItems.Contains(cacheKey) {
 		return true, nil
 	}
 
 	sc := db.Session.Copy()
 	defer sc.Close()
-
-	query := bson.M{"key": cacheKey}
-
-	// Find key in "items" collection
-	numItems, err := sc.DB(db.dbName).C("items").Find(query).Limit(1).Count()
-
-	if err != nil {
-		return false, err
-	}
-
-	if numItems == 1 {
-		return true, nil
-	}
+	var (
+		count int
+		err   error
+	)
+	query := bson.M{"hash": hash.Hex()}
 
 	// Find key in "orders" collection
-	numOrders, err := sc.DB(db.dbName).C("orders").Find(query).Limit(1).Count()
+	count, err = sc.DB(db.dbName).C("orders").Find(query).Limit(1).Count()
 
 	if err != nil {
 		return false, err
 	}
 
-	if numOrders == 1 {
+	if count == 1 {
+		return true, nil
+	}
+	// Find key in "trades" collection
+	count, err = sc.DB(db.dbName).C("trades").Find(query).Limit(1).Count()
+
+	if err != nil {
+		return false, err
+	}
+
+	if count == 1 {
 		return true, nil
 	}
 
 	return false, nil
 }
 
-func (db *MongoDatabase) GetObject(key []byte, val interface{}) (interface{}, error) {
+func (db *MongoDatabase) GetObject(hash common.Hash, val interface{}) (interface{}, error) {
 
-	if db.IsEmptyKey(key) {
+	if db.IsEmptyKey(hash.Bytes()) {
 		return nil, nil
 	}
 
-	cacheKey := db.getCacheKey(key)
+	cacheKey := db.getCacheKey(hash.Bytes())
 	if cached, ok := db.cacheItems.Get(cacheKey); ok {
 		return cached, nil
 	} else {
 		sc := db.Session.Copy()
 		defer sc.Close()
 
-		query := bson.M{"key": cacheKey}
+		query := bson.M{"hash": hash.Hex()}
 
 		switch val.(type) {
 		case *tomox_state.OrderItem:
@@ -133,25 +135,22 @@ func (db *MongoDatabase) GetObject(key []byte, val interface{}) (interface{}, er
 			}
 			db.cacheItems.Add(cacheKey, oi)
 			return oi, nil
+		case *Trade:
+			var t *Trade
+			err := sc.DB(db.dbName).C("trades").Find(query).One(&t)
+			if err != nil {
+				return nil, err
+			}
+			db.cacheItems.Add(cacheKey, t)
+			return t, nil
 		default:
-			var i *MongoItemRecord
-			err := sc.DB(db.dbName).C("items").Find(query).One(&i)
-			if err != nil {
-				return nil, err
-			}
-			err = DecodeBytesItem(common.Hex2Bytes(i.Value), val)
-			if err != nil {
-				return nil, err
-			}
-			db.cacheItems.Add(cacheKey, val)
-
-			return val, nil
+			return nil, nil
 		}
 	}
 }
 
-func (db *MongoDatabase) PutObject(key []byte, val interface{}) error {
-	cacheKey := db.getCacheKey(key)
+func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
+	cacheKey := db.getCacheKey(hash.Bytes())
 	db.cacheItems.Add(cacheKey, val)
 
 	switch val.(type) {
@@ -163,39 +162,40 @@ func (db *MongoDatabase) PutObject(key []byte, val interface{}) error {
 		}
 	case *tomox_state.OrderItem:
 		// PutObject order into "orders" collection
-		if err := db.CommitOrder(cacheKey, val.(*tomox_state.OrderItem)); err != nil {
+		// Store the key
+		o := val.(*tomox_state.OrderItem)
+		if len(o.Key) == 0 {
+			o.Key = cacheKey
+		}
+		if err := db.CommitOrder(o); err != nil {
 			log.Error(err.Error())
 			return err
 		}
 	default:
-		// put general item into "items" collection
-		if err := db.CommitItem(cacheKey, val); err != nil {
-			log.Error(err.Error())
-			return err
-		}
+		log.Error("PutObject: object is neither order nor trade", "val", val)
 	}
 
 	return nil
 }
 
-func (db *MongoDatabase) DeleteObject(key []byte) error {
-	cacheKey := db.getCacheKey(key)
+func (db *MongoDatabase) DeleteObject(hash common.Hash) error {
+	cacheKey := db.getCacheKey(hash.Bytes())
 	db.cacheItems.Remove(cacheKey)
 
 	sc := db.Session.Copy()
 	defer sc.Close()
 
-	query := bson.M{"key": cacheKey}
+	query := bson.M{"hash": hash.Hex()}
 
-	found, err := db.HasObject(key)
+	found, err := db.HasObject(hash)
 	if err != nil {
 		return err
 	}
 
 	if found {
-		err := sc.DB(db.dbName).C("items").Remove(query)
+		err := sc.DB(db.dbName).C("trades").Remove(query)
 		if err != nil && err != mgo.ErrNotFound {
-			log.Error("Error when deleting item", "error", err)
+			log.Error("Error when deleting trades", "error", err)
 			return err
 		}
 
@@ -209,11 +209,7 @@ func (db *MongoDatabase) DeleteObject(key []byte) error {
 	return nil
 }
 
-func (db *MongoDatabase) CommitOrder(cacheKey string, o *tomox_state.OrderItem) error {
-	// Store the key
-	if len(o.Key) == 0 {
-		o.Key = cacheKey
-	}
+func (db *MongoDatabase) CommitOrder(o *tomox_state.OrderItem) error {
 	if o.Status == OrderStatusOpen {
 		db.orderBulk.Insert(o)
 	} else {
@@ -248,134 +244,24 @@ func (db *MongoDatabase) CommitBulk(sc *mgo.Session) error {
 	return nil
 }
 
-func (db *MongoDatabase) CommitItem(cacheKey string, val interface{}) error {
-	sc := db.Session.Copy()
-	defer sc.Close()
-
-	data, err := EncodeBytesItem(val)
-	if err != nil {
-		return err
-	}
-
-	r := &MongoItemRecord{
-		Key:   cacheKey,
-		Value: common.Bytes2Hex(data),
-	}
-
-	query := bson.M{"key": cacheKey}
-	if _, err := sc.DB(db.dbName).C("items").Upsert(query, r); err != nil {
-		return err
-	}
-	log.Debug("Save", "cacheKey", cacheKey, "value", ToJSON(common.Bytes2Hex(data)))
-	return nil
-}
-
 func (db *MongoDatabase) Put(key []byte, val []byte) error {
-	cacheKey := db.getCacheKey(key)
-	db.cacheItems.Add(cacheKey, val)
-	sc := db.Session.Copy()
-	defer sc.Close()
-	r := &MongoItemRecord{
-		Key:   cacheKey,
-		Value: common.Bytes2Hex(val),
-	}
-	query := bson.M{"key": cacheKey}
-	if _, err := sc.DB(db.dbName).C("items").Upsert(query, r); err != nil {
-		return err
-	}
+	// for levelDB only
 	return nil
 }
 
 func (db *MongoDatabase) Delete(key []byte) error {
-	cacheKey := db.getCacheKey(key)
-	db.cacheItems.Remove(cacheKey)
-
-	sc := db.Session.Copy()
-	defer sc.Close()
-
-	query := bson.M{"key": cacheKey}
-
-	found, err := db.Has(key)
-	if err != nil {
-		return err
-	}
-
-	if found {
-		err := sc.DB(db.dbName).C("items").Remove(query)
-		if err != nil && err != mgo.ErrNotFound {
-			log.Error("Error when deleting item", "error", err)
-			return err
-		}
-
-		err = sc.DB(db.dbName).C("orders").Remove(query)
-		if err != nil && err != mgo.ErrNotFound {
-			log.Error("Error when deleting order", "error", err)
-			return err
-		}
-	}
-
+	// for levelDB only
 	return nil
 }
 
 func (db *MongoDatabase) Has(key []byte) (bool, error) {
-	if db.IsEmptyKey(key) {
-		return false, nil
-	}
-	cacheKey := db.getCacheKey(key)
-	if db.cacheItems.Contains(cacheKey) {
-		// for dry-run mode, do not read cacheItems
-		return true, nil
-	}
-
-	sc := db.Session.Copy()
-	defer sc.Close()
-
-	query := bson.M{"key": cacheKey}
-
-	// Find key in "items" collection
-	numItems, err := sc.DB(db.dbName).C("items").Find(query).Limit(1).Count()
-
-	if err != nil {
-		return false, err
-	}
-
-	if numItems == 1 {
-		return true, nil
-	}
-
-	// Find key in "orders" collection
-	numOrders, err := sc.DB(db.dbName).C("orders").Find(query).Limit(1).Count()
-
-	if err != nil {
-		return false, err
-	}
-
-	if numOrders == 1 {
-		return true, nil
-	}
-
+	// for levelDB only
 	return false, nil
 }
 
 func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
-	if db.IsEmptyKey(key) {
-		return nil, nil
-	}
-	cacheKey := db.getCacheKey(key)
-	if cached, ok := db.cacheItems.Get(cacheKey); ok {
-		return cached.([]byte), nil
-	} else {
-		sc := db.Session.Copy()
-		defer sc.Close()
-		query := bson.M{"key": cacheKey}
-		var oi []byte
-		err := sc.DB(db.dbName).C("orders").Find(query).One(&oi)
-		if err != nil {
-			return nil, err
-		}
-		db.cacheItems.Add(cacheKey, oi)
-		return oi, nil
-	}
+	// for levelDB only
+	return nil, nil
 }
 
 func (db *MongoDatabase) DeleteTradeByTxHash(txhash common.Hash) {
@@ -422,7 +308,8 @@ func (db *MongoDatabase) Close() {
 }
 
 func (db *MongoDatabase) NewBatch() ethdb.Batch {
-	return &Batch{db: db, b: []keyvalue{}, size: 0, collection: ""}
+	// for levelDB only
+	return nil
 }
 
 type keyvalue struct {
@@ -437,37 +324,23 @@ type Batch struct {
 }
 
 func (b *Batch) SetCollection(collection string) {
-	b.collection = collection
+	// for levelDB only
 }
 
 func (b *Batch) Put(key, value []byte) error {
-	b.b = append(b.b, keyvalue{key: key, value: value})
-	b.size += len(value)
+	// for levelDB only
 	return nil
 }
 
 func (b *Batch) Write() error {
-	sc := b.db.Session.Copy()
-	defer sc.Close()
-	for _, keyvalue := range b.b {
-		cacheKey := b.db.getCacheKey(keyvalue.key)
-		b.db.cacheItems.Add(cacheKey, keyvalue.value)
-		r := &MongoItemRecord{
-			Key:   cacheKey,
-			Value: common.Bytes2Hex(keyvalue.value),
-		}
-		query := bson.M{"key": cacheKey}
-		if _, err := sc.DB(b.db.dbName).C(b.collection).Upsert(query, r); err != nil {
-			return err
-		}
-	}
+	// for levelDB only
 	return nil
 }
 
 func (b *Batch) ValueSize() int {
-	return b.size
+	// for levelDB only
+	return int(0)
 }
 func (b *Batch) Reset() {
-	b.size = 0
-	b.b = b.b[:0]
+	// for levelDB only
 }
