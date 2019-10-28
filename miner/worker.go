@@ -621,7 +621,7 @@ func (self *worker) commitNewWork() {
 			log.Debug("Start processing order pending")
 			orderPending, _ := self.eth.OrderPool().Pending()
 			log.Debug("Start processing order pending", "len", len(orderPending))
-			txMatches = tomoX.ProcessOrderPending(orderPending, work.state, work.tomoxState)
+			txMatches = tomoX.ProcessOrderPending(self.coinbase, self.chain.IPCEndpoint, orderPending, work.state, work.tomoxState)
 			log.Debug("transaction matches found", "txMatches", len(txMatches))
 		}
 	}
@@ -698,7 +698,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	if atomic.LoadInt32(&self.mining) == 1 {
-		log.Info("Committing new block", "number", work.Block.Number(), "tomox state root", common.BytesToHash(txStateRoot.Data()), "txs", work.tcount, "special-txs", len(specialTxs), "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
+		log.Info("Committing new block", "number", work.Block.Number(), "tomox state root", common.BytesToHash(txStateRoot.Data()), "state root", work.state.IntermediateRoot(false).Hex(), "txs", work.tcount, "special-txs", len(specialTxs), "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 		self.lastParentBlockCommit = parent.Hash().Hex()
 	}

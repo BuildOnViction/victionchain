@@ -1,6 +1,7 @@
 package tomox_state
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -80,7 +81,7 @@ func SubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB)
 	if balance.Cmp(fee) < 0 {
 		return errors.Errorf("relayer %s isn't enough tomo fee", relayer.String())
 	} else {
-		balance = balance.Sub(balance, fee)
+		balance = new(big.Int).Sub(balance, fee)
 		statedb.SetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit, common.BigToHash(balance))
 		statedb.SubBalance(common.HexToAddress(common.RelayerRegistrationSMC), fee)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SubRelayerFee AFTER", "relayer", relayer.String(), "balance", balance)
@@ -88,6 +89,18 @@ func SubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB)
 	}
 }
 
+func CheckRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB) error {
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+
+	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, RelayerStructMappingSlot["_deposit"])
+	locHashDeposit := common.BigToHash(locBigDeposit)
+	balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
+	if balance.Cmp(fee) < 0 {
+		return errors.Errorf("relayer %s isn't enough tomo fee : balance %d , fee : %d ", relayer.Hex(), balance.Uint64(), fee.Uint64())
+	}
+	return nil
+}
 func AddTokenBalance(addr common.Address, value *big.Int, token common.Address, statedb *state.StateDB) error {
 	// TOMO native
 	if token.String() == common.TomoNativeAddress {
@@ -142,6 +155,110 @@ func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 		balance = balance.Sub(balance, value)
 		statedb.SetState(token, locHash, common.BigToHash(balance))
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOKEN BALANCE AFTER", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
+		return nil
+	} else {
+		return errors.Errorf("token %s isn't exist", token.String())
+	}
+}
+
+func CheckSubTokenBalance(addr common.Address, value *big.Int, token common.Address, statedb *state.StateDB, mapBalances map[common.Address]map[common.Address]*big.Int) (*big.Int, error) {
+	// TOMO native
+	if token.String() == common.TomoNativeAddress {
+		var balance *big.Int
+		if value := mapBalances[token][addr]; value != nil {
+			balance = value
+		} else {
+			balance = statedb.GetBalance(addr)
+		}
+		if balance.Cmp(value) < 0 {
+			return nil, errors.Errorf("value %s in token %s not enough , have : %s , want : %s  ", addr.String(), token.String(), balance, value)
+		}
+		newBalance := new(big.Int).Sub(balance, value)
+		log.Debug("CheckSubTokenBalance settle balance: SUB TOMO NATIVE BALANCE ", "token", token.String(), "address", addr.String(), "balance", balance, "value", value, "newBalance", newBalance)
+		return newBalance, nil
+	}
+	// TRC tokens
+	if statedb.Exist(token) {
+		var balance *big.Int
+		if value := mapBalances[token][addr]; value != nil {
+			balance = value
+		} else {
+			slot := TokenMappingSlot["balances"]
+			locHash := common.BigToHash(GetLocMappingAtKey(addr.Hash(), slot))
+			balance = statedb.GetState(token, locHash).Big()
+		}
+		if balance.Cmp(value) < 0 {
+			return nil, errors.Errorf("value %s in token %s not enough , have : %s , want : %s  ", addr.String(), token.String(), balance, value)
+		}
+		newBalance := new(big.Int).Sub(balance, value)
+		log.Debug("CheckSubTokenBalance settle balance: SUB TOKEN BALANCE ", "token", token.String(), "address", addr.String(), "balance", balance, "value", value, "newBalance", newBalance)
+		return newBalance, nil
+	} else {
+		return nil, errors.Errorf("token %s isn't exist", token.String())
+	}
+}
+
+func CheckAddTokenBalance(addr common.Address, value *big.Int, token common.Address, statedb *state.StateDB, mapBalances map[common.Address]map[common.Address]*big.Int) (*big.Int, error) {
+	// TOMO native
+	if token.String() == common.TomoNativeAddress {
+		var balance *big.Int
+		if value := mapBalances[token][addr]; value != nil {
+			balance = value
+		} else {
+			balance = statedb.GetBalance(addr)
+		}
+		newBalance := new(big.Int).Add(balance, value)
+		log.Debug("CheckAddTokenBalance settle balance: ADD TOMO NATIVE BALANCE ", "token", token.String(), "address", addr.String(), "balance", balance, "value", value, "newBalance", newBalance)
+		return newBalance, nil
+	}
+	// TRC tokens
+	if statedb.Exist(token) {
+		var balance *big.Int
+		if value := mapBalances[token][addr]; value != nil {
+			balance = value
+		} else {
+			slot := TokenMappingSlot["balances"]
+			locHash := common.BigToHash(GetLocMappingAtKey(addr.Hash(), slot))
+			balance = statedb.GetState(token, locHash).Big()
+		}
+		newBalance := new(big.Int).Add(balance, value)
+		log.Debug("CheckAddTokenBalance settle balance: ADD TOKEN BALANCE ", "token", token.String(), "address", addr.String(), "balance", balance, "value", value, "newBalance", newBalance)
+		if common.BigToHash(newBalance).Big().Cmp(newBalance) != 0 {
+			return nil, fmt.Errorf("Overflow when try add token balance , max is 2^256 , balance : %v , value:%v ", balance, value)
+		} else {
+			return newBalance, nil
+		}
+	} else {
+		return nil, errors.Errorf("token %s isn't exist", token.String())
+	}
+}
+func GetTokenBalance(addr common.Address, token common.Address, statedb *state.StateDB) *big.Int {
+	// TOMO native
+	if token.String() == common.TomoNativeAddress {
+		return statedb.GetBalance(addr)
+	}
+	// TRC tokens
+	if statedb.Exist(token) {
+		slot := TokenMappingSlot["balances"]
+		locHash := common.BigToHash(GetLocMappingAtKey(addr.Hash(), slot))
+		return statedb.GetState(token, locHash).Big()
+	} else {
+		return common.Big0
+	}
+}
+
+func SetTokenBalance(addr common.Address, balance *big.Int, token common.Address, statedb *state.StateDB) error {
+	// TOMO native
+	if token.String() == common.TomoNativeAddress {
+		statedb.SetBalance(addr, balance)
+		return nil
+	}
+
+	// TRC tokens
+	if statedb.Exist(token) {
+		slot := TokenMappingSlot["balances"]
+		locHash := common.BigToHash(GetLocMappingAtKey(addr.Hash(), slot))
+		statedb.SetState(token, locHash, common.BigToHash(balance))
 		return nil
 	} else {
 		return errors.Errorf("token %s isn't exist", token.String())
