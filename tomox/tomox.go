@@ -23,7 +23,7 @@ const (
 	ProtocolName       = "tomox"
 	ProtocolVersion    = uint64(1)
 	ProtocolVersionStr = "1.0"
-	overflowIdx        // Indicator of message queue overflow
+	overflowIdx         // Indicator of message queue overflow
 )
 
 var (
@@ -159,7 +159,7 @@ func (tomox *TomoX) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []TxDataMatch {
+func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint string, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []TxDataMatch {
 	txMatches := []TxDataMatch{}
 	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
 	for {
@@ -210,7 +210,12 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 		if cancel {
 			order.Status = OrderStatusCancelled
 		}
-		trades, rejectes, err := ProcessOrder(statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+
+		trades, rejects, err := tomox.ProcessOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken,order.QuoteToken), order)
+		log.Debug("List reject order", "rejects", len(rejects))
+		for _, reject := range rejects {
+			log.Debug("Reject order", "reject", *reject)
+		}
 
 		switch err {
 		case ErrNonceTooLow:
@@ -247,7 +252,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 		txMatch := TxDataMatch{
 			Order:  originalOrderValue,
 			Trades: trades,
-			RejectedOders: rejectes,
+			RejectedOders: rejects,
 		}
 		txMatches = append(txMatches, txMatch)
 

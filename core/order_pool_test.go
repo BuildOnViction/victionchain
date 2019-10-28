@@ -65,16 +65,15 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 		log.Print(err)
 	}
 
-	privateKey, err := crypto.HexToECDSA("3b43d337ae657c351d2542c7ee837c39f5db83da7ffffb611992ebc2f676743b")
+	privateKey, err := crypto.HexToECDSA("65ec4d4dfbcac594a14c36baa462d6f73cd86134840f6cf7b80a1e1cd33473e2")
 	if err != nil {
 		log.Print(err)
 	}
-
 	msg := &OrderMsg{
 		Quantity:        amount,
 		Price:           price,
 		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
-		UserAddress:     common.HexToAddress("0xF7349C253FF7747Df661296E0859c44e974fb52E"),
+		UserAddress:     crypto.PubkeyToAddress(privateKey.PublicKey),
 		BaseToken:       common.HexToAddress("0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"),
 		QuoteToken:      common.HexToAddress("0x0000000000000000000000000000000000000001"),
 		Status:          status,
@@ -103,17 +102,18 @@ func TestSendSellOrder(t *testing.T) {
 	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "SELL", "NEW", 0)
 }
 func TestFilled(t *testing.T) {
-	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "NEW", 0)
+	price := new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000))
+	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), price, "BUY", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "NEW", 0)
+	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), price, "BUY", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL", "NEW", 0)
+	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), price, "SELL", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL", "NEW", 0)
+	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), price, "SELL", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL", "NEW", 0)
+	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), price, "SELL", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(45), new(big.Int).SetUint64(10), "SELL", "NEW", 0)
+	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), price, "SELL", "NEW", 0)
 }
 func TestPartialFilled(t *testing.T) {
 

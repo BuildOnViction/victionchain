@@ -10,8 +10,8 @@ import (
 
 // SCENARIO:
 // pair BTC/USDT
-// userA: sell 1 BTC, price 9000 USDT
-// userB: buy 1 BTC, price 9000 USDT
+// userA: sell 10 BTC, price 9000 USDT
+// userB: buy 100 BTC, price 9000 USDT
 // FEE: 0.1% = 1/1000, fee is calculated in quoteToken (USDT)
 // EXPECTED:
 // userA: received 9000 - 9 = 8991 USDT, send out 1 BTC
@@ -24,17 +24,16 @@ var (
 	baseToken  = common.HexToAddress("0x000000000000000000000000000000000000000x")
 	quoteToken = common.HexToAddress("0x000000000000000000000000000000000000000y")
 	feeRate    = big.NewInt(1)
-	quantity   = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
+	quantity   = big.NewInt(0).Mul(big.NewInt(10), common.BasePrice)
 	price      = big.NewInt(0).Mul(big.NewInt(9000), common.BasePrice) // 9000 * 10^18
 
 	// expected
-	userAReceived = big.NewInt(0).Mul(big.NewInt(8991), common.BasePrice)
-	userASend     = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
-	userBReceived = big.NewInt(0).Mul(big.NewInt(1), common.BasePrice)
-	userBSend     = big.NewInt(0).Mul(big.NewInt(9009), common.BasePrice)
-	expectedFee   = big.NewInt(0).Mul(big.NewInt(9), common.BasePrice)
-	endpoint = "http://127.0.0.1"
-
+	userAReceived = big.NewInt(0).Mul(big.NewInt(89910), common.BasePrice)
+	userASend     = big.NewInt(0).Mul(big.NewInt(10), common.BasePrice)
+	userBReceived = big.NewInt(0).Mul(big.NewInt(10), common.BasePrice)
+	userBSend     = big.NewInt(0).Mul(big.NewInt(90090), common.BasePrice)
+	expectedFee   = big.NewInt(0).Mul(big.NewInt(90), common.BasePrice)
+	endpoint      = "http://127.0.0.1"
 )
 
 // A is taker
@@ -42,7 +41,7 @@ func TestSettleBalance_TakerSell(t *testing.T) {
 	testDir := "TestSettleBalance_TakerSell"
 	tomoX := New(&Config{
 		DBEngine: "leveldb",
-		DataDir: testDir,
+		DataDir:  testDir,
 	})
 	defer os.RemoveAll(testDir)
 
@@ -124,7 +123,7 @@ func TestSettleBalance_TakerBuy(t *testing.T) {
 	testDir := "TestSettleBalance_TakerBuy"
 	tomoX := New(&Config{
 		DBEngine: "leveldb",
-		DataDir: testDir,
+		DataDir:  testDir,
 	})
 	defer os.RemoveAll(testDir)
 
@@ -200,5 +199,94 @@ func TestSettleBalance_TakerBuy(t *testing.T) {
 	makerFee := result[userA][Fee].(*big.Int)
 	if takerFee.Cmp(expectedFee) != 0 {
 		t.Error("Wrong makerFee fee amount", "Expected: ", 9, "Actual: ", makerFee)
+	}
+}
+
+func TestSettleBalance_GetTradeQuantity(t *testing.T) {
+
+	// BUY
+	quantity := new(big.Int).Mul(big.NewInt(10), common.BasePrice) // 10BTC
+
+	takerBalance := new(big.Int).Mul(big.NewInt(99000), common.BasePrice)  // 990000 TOMO
+	makerBalance := new(big.Int).Mul(big.NewInt(10), common.BasePrice)     // 10 BTC
+	expectedQuantity := new(big.Int).Mul(big.NewInt(10), common.BasePrice) //10BTC
+	quantityTrade, rejectMaker := GetTradeQuantity(Bid, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & flase", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	takerBalance = new(big.Int).Mul(big.NewInt(99000), common.BasePrice) // 990000 TOMO
+	makerBalance = new(big.Int).Mul(big.NewInt(9), common.BasePrice)     // 9 TOMO
+	expectedQuantity = new(big.Int).Mul(big.NewInt(9), common.BasePrice) //9BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Bid, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || !rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & true", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	takerBalance = new(big.Int).Mul(big.NewInt(80000), common.BasePrice) // 80000 TOMO
+	makerBalance = new(big.Int).Mul(big.NewInt(10), common.BasePrice)    // 9 TOMO
+	expectedQuantity = common.HexToHash("0x7b3c21072f3e5f88").Big()      //8.880008880008880008BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Bid, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & false", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	takerBalance = new(big.Int).Mul(big.NewInt(80000), common.BasePrice) // 80000 TOMO
+	makerBalance = new(big.Int).Mul(big.NewInt(8), common.BasePrice)     // 9 TOMO
+	expectedQuantity = common.HexToHash("0x6f05b59d3b200000").Big()      //8 BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Bid, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || !rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & true", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	takerBalance = new(big.Int).Mul(big.NewInt(70000), common.BasePrice) // 80000 TOMO
+	makerBalance = new(big.Int).Mul(big.NewInt(8), common.BasePrice)     // 9 TOMO
+	expectedQuantity = common.HexToHash("0x6bd49ce649569397").Big()      //7.770007770007770007 BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Bid, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & false", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	// SELL
+	takerBalance = new(big.Int).Mul(big.NewInt(10), common.BasePrice)     // 10 BTC
+	makerBalance = new(big.Int).Mul(big.NewInt(99000), common.BasePrice)  // 99000 TOMO
+	expectedQuantity = new(big.Int).Mul(big.NewInt(10), common.BasePrice) //10 BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Ask, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & flase", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	takerBalance = new(big.Int).Mul(big.NewInt(9), common.BasePrice)     // 9 BTC
+	makerBalance = new(big.Int).Mul(big.NewInt(99000), common.BasePrice) // 99000 TOMO
+	expectedQuantity = new(big.Int).Mul(big.NewInt(9), common.BasePrice) //9BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Ask, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & false", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	takerBalance = new(big.Int).Mul(big.NewInt(10), common.BasePrice)    // 10 BTC
+	makerBalance = new(big.Int).Mul(big.NewInt(80000), common.BasePrice) // 80000 TOMO
+	expectedQuantity = common.HexToHash("0x7b3c21072f3e5f88").Big()      //8.880008880008880008BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Ask, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || !rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & true", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	takerBalance = new(big.Int).Mul(big.NewInt(8), common.BasePrice)     // 10 BTC
+	makerBalance = new(big.Int).Mul(big.NewInt(80000), common.BasePrice) // 99000 TOMO
+	expectedQuantity = common.HexToHash("0x6f05b59d3b200000").Big()      //8 BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Ask, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & true", " Actual: ", quantityTrade, " & ", rejectMaker)
+	}
+
+	takerBalance = new(big.Int).Mul(big.NewInt(8), common.BasePrice)     // 10 BTC
+	makerBalance = new(big.Int).Mul(big.NewInt(70000), common.BasePrice) // 99000 TOMO
+	expectedQuantity = common.HexToHash("0x6bd49ce649569397").Big()      //7.770007770007770007 BTC
+	quantityTrade, rejectMaker = GetTradeQuantity(Ask, feeRate, takerBalance, price, feeRate, makerBalance, common.BasePrice, quantity)
+	if (quantityTrade.Cmp(expectedQuantity) != 0) || !rejectMaker {
+		t.Error("Worng get quantity trade ", "Expected : ", expectedQuantity, " & false", " Actual: ", quantityTrade, " & ", rejectMaker)
 	}
 }
