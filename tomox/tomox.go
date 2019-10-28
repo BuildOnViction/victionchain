@@ -40,8 +40,8 @@ type Config struct {
 }
 
 type TxDataMatch struct {
-	Order  []byte // serialized data of order has been processed in this tx
-	Trades []map[string]string
+	Order         []byte // serialized data of order has been processed in this tx
+	Trades        []map[string]string
 	RejectedOders []*tomox_state.OrderItem
 }
 
@@ -376,19 +376,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 			updatedTakerOrder.Status = OrderStatusFilled
 		}
 	}
-	// 3. put rejected orders to db and update status REJECTED
-	rejectedOders := txDataMatch.GetRejectedOrders()
-	log.Debug("Got rejected orders", "number", len(rejectedOders), "trades", rejectedOders)
 
-	if len(rejectedOders) > 0 {
-		// updateRejectedOrders
-		for _, rejectedOder := range rejectedOders {
-			// update order status of relating orders
-			if err := tomox.updateRejectedOrders(rejectedOder.Hash); err != nil {
-				return fmt.Errorf("updateRejectedOrders %s", err.Error())
-			}
-		}
-	}
 	log.Debug("PutObject processed takerOrder",
 		"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
 		"price", updatedTakerOrder.Price, "quantity", updatedTakerOrder.Quantity, "filledAmount", updatedTakerOrder.FilledAmount, "status", updatedTakerOrder.Status,
@@ -421,6 +409,34 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 			return fmt.Errorf("SDKNode: failed to put processed makerOrder. Hash: %s Error: %s", o.Hash.Hex(), err.Error())
 		}
 	}
+
+	// 3. put rejected orders to db and update status REJECTED
+	rejectedOrders := txDataMatch.GetRejectedOrders()
+	log.Debug("Got rejected orders", "number", len(rejectedOrders), "rejectedOrders", rejectedOrders)
+
+	if len(rejectedOrders) > 0 {
+		var rejectedHashes []string
+		// updateRejectedOrders
+		for _, rejectedOrder := range rejectedOrders {
+			rejectedHashes = append(rejectedHashes, rejectedOrder.Hash.Hex())
+		}
+		dirtyRejectedOrders := db.GetListOrderByHashes(rejectedHashes)
+		for _, order := range dirtyRejectedOrders {
+			// cache order history for handling reorg
+			orderHistoryRecord := OrderHistoryItem{
+				TxHash:       order.TxHash,
+				FilledAmount: CloneBigInt(order.FilledAmount),
+				Status:       order.Status,
+			}
+			tomox.UpdateOrderCache(order.PairName, order.OrderID, txHash, orderHistoryRecord)
+
+			order.Status = OrderStatusRejected
+			if err = db.PutObject(order.Hash, order); err != nil {
+				return fmt.Errorf("SDKNode: failed to update rejectedOder to sdkNode %s", err.Error())
+			}
+		}
+	}
+
 	if err := db.CommitBulk(sc); err != nil {
 		return fmt.Errorf("SDKNode fail to commit bulk update orders, trades at txhash %s . Error: %s", txHash.Hex(), err.Error())
 	}
@@ -497,19 +513,4 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 	log.Debug("Tomox reorg: DeleteTradeByTxHash", "txhash", txhash.Hex())
 	db.DeleteTradeByTxHash(txhash)
 
-}
-func (tomox *TomoX) updateRejectedOrders(hash common.Hash) error {
-	log.Debug("updateRejectedOrders", "hash", hash)
-	db := tomox.GetMongoDB()
-	val, err := db.GetObject(hash.Bytes(), &tomox_state.OrderItem{})
-	if err != nil || val == nil {
-		return fmt.Errorf("SDKNode: failed to get order. Key: %s", hash)
-	}
-	rejectedOder := val.(*tomox_state.OrderItem)
-	rejectedOder.Status = OrderStatusRejected
-
-	if err = db.PutObject(rejectedOder.Hash.Bytes(), rejectedOder); err != nil {
-		return fmt.Errorf("SDKNode: failed to update rejectedOder to sdkNode %s", err.Error())
-	}
-	return nil
 }
