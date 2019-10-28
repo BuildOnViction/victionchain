@@ -210,7 +210,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 		if cancel {
 			order.Status = OrderStatusCancelled
 		}
-		trades, _, err := ProcessOrder(statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		trades, rejectes, err := ProcessOrder(statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
 
 		switch err {
 		case ErrNonceTooLow:
@@ -247,6 +247,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 		txMatch := TxDataMatch{
 			Order:  originalOrderValue,
 			Trades: trades,
+			RejectedOders: rejectes,
 		}
 		txMatches = append(txMatches, txMatch)
 
