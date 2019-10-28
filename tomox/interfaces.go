@@ -8,20 +8,25 @@ import (
 )
 
 type OrderDao interface {
+	// for both leveldb and mongodb
 	IsEmptyKey(key []byte) bool
-	HasObject(key []byte) (bool, error)
-	GetObject(key []byte, val interface{}) (interface{}, error)
-	PutObject(key []byte, val interface{}) error
-	DeleteObject(key []byte) error // won't return error if key not found
-	Put(key []byte, value []byte) error
-	Get(key []byte) ([]byte, error)
-	Has(key []byte) (bool, error)
-	Delete(key []byte) error
+	Close()
+
+	// mongodb methods
+	HasObject(hash common.Hash) (bool, error)
+	GetObject(hash common.Hash, val interface{}) (interface{}, error)
+	PutObject(hash common.Hash, val interface{}) error
+	DeleteObject(hash common.Hash) error // won't return error if key not found
 	GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem
 	GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem
 	DeleteTradeByTxHash(txhash common.Hash)
 	InitBulk() *mgo.Session
 	CommitBulk(sc *mgo.Session) error
-	Close()
+
+	// leveldb methods
+	Put(key []byte, value []byte) error
+	Get(key []byte) ([]byte, error)
+	Has(key []byte) (bool, error)
+	Delete(key []byte) error
 	NewBatch() ethdb.Batch
 }

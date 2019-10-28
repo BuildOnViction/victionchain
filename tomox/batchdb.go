@@ -22,12 +22,12 @@ type BatchItem struct {
 }
 
 type BatchDatabase struct {
-	db           *ethdb.LDBDatabase
-	emptyKey     []byte
-	cacheItems   *lru.Cache // Cache for reading
-	lock         sync.RWMutex
-	cacheLimit   int
-	Debug        bool
+	db         *ethdb.LDBDatabase
+	emptyKey   []byte
+	cacheItems *lru.Cache // Cache for reading
+	lock       sync.RWMutex
+	cacheLimit int
+	Debug      bool
 }
 
 // NewBatchDatabase use rlp as encoding
@@ -50,10 +50,10 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit int) *BatchDatabase {
 	cacheItems, _ := lru.New(itemCacheLimit)
 
 	batchDB := &BatchDatabase{
-		db:           db,
-		cacheItems:   cacheItems,
-		emptyKey:     EmptyKey(), // pre alloc for comparison
-		cacheLimit:   itemCacheLimit,
+		db:         db,
+		cacheItems: cacheItems,
+		emptyKey:   EmptyKey(), // pre alloc for comparison
+		cacheLimit: itemCacheLimit,
 	}
 
 	return batchDB
@@ -68,75 +68,24 @@ func (db *BatchDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *BatchDatabase) HasObject(key []byte) (bool, error) {
-	if db.IsEmptyKey(key) {
-		return false, nil
-	}
-	cacheKey := db.getCacheKey(key)
-
-	if db.cacheItems.Contains(cacheKey) {
-		// for dry-run mode, do not read cacheItems
-		return true, nil
-	}
-
-	return db.db.Has(key)
+func (db *BatchDatabase) HasObject(hash common.Hash) (bool, error) {
+	// for mongodb only
+	return false, nil
 }
 
-func (db *BatchDatabase) GetObject(key []byte, val interface{}) (interface{}, error) {
-
-	if db.IsEmptyKey(key) {
-		return nil, nil
-	}
-
-	cacheKey := db.getCacheKey(key)
-
-	// for dry-run mode, do not read cacheItems
-	if cached, ok := db.cacheItems.Get(cacheKey); ok {
-		val = cached
-	} else {
-
-		// we can use lru for retrieving cache item, by default leveldb support get data from cache
-		// but it is raw bytes
-		b, err := db.db.Get(key)
-		if err != nil {
-			log.Debug("Key not found", "key", hex.EncodeToString(key), "err", err)
-			return nil, err
-		}
-
-		err = DecodeBytesItem(b, val)
-
-		// has problem here
-		if err != nil {
-			return nil, err
-		}
-
-		// update cache when reading
-		db.cacheItems.Add(cacheKey, val)
-
-
-	}
-
-	return val, nil
+func (db *BatchDatabase) GetObject(hash common.Hash, val interface{}) (interface{}, error) {
+	// for mongodb only
+	return nil, nil
 }
 
-func (db *BatchDatabase) PutObject(key []byte, val interface{}) error {
-	cacheKey := db.getCacheKey(key)
-	db.cacheItems.Add(cacheKey, val)
-	value, err := EncodeBytesItem(val)
-	if err != nil {
-		return err
-	}
-	return db.db.Put(key, value)
+func (db *BatchDatabase) PutObject(hash common.Hash, val interface{}) error {
+	// for mongodb only
+	return nil
 }
 
-func (db *BatchDatabase) DeleteObject(key []byte) error {
-	// by default, we force delete both db and cache,
-	// for better performance, we can mark a Deleted flag, to do batch delete
-	cacheKey := db.getCacheKey(key)
-
-
-	db.cacheItems.Remove(cacheKey)
-	return db.db.Delete(key)
+func (db *BatchDatabase) DeleteObject(hash common.Hash) error {
+	// for mongodb only
+	return nil
 }
 
 func (db *BatchDatabase) Put(key []byte, val []byte) error {
