@@ -1,7 +1,6 @@
 package tomox
 
 import (
-	"encoding/hex"
 	"math/big"
 	"strconv"
 	"time"
@@ -47,6 +46,9 @@ func (tomox *TomoX) ProcessOrder(coinbase common.Address, ipcEndpoint string, st
 			log.Debug("Error when cancel order", "order", order)
 			return nil, nil, err
 		}
+		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
+		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+		return trades, rejects, nil
 	}
 	orderType := order.Type
 	// if we do not use auto-increment orderid, we must set price slot to avoid conflict
@@ -216,8 +218,8 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, ipcEndpoint string
 			log.Debug("TRADE", "orderBook", orderBook, "Price 1", price, "Price 2", order.Price, "Amount", tradedQuantity, "orderId", orderId, "side", side)
 
 			transactionRecord := make(map[string]string)
-			transactionRecord[TradeTakerOrderHash] = hex.EncodeToString(order.Hash.Bytes())
-			transactionRecord[TradeMakerOrderHash] = hex.EncodeToString(oldestOrder.Hash.Bytes())
+			transactionRecord[TradeTakerOrderHash] = order.Hash.Hex()
+			transactionRecord[TradeMakerOrderHash] = oldestOrder.Hash.Hex()
 			transactionRecord[TradeTimestamp] = strconv.FormatInt(time.Now().Unix(), 10)
 			transactionRecord[TradeQuantity] = tradedQuantity.String()
 			transactionRecord[TradeMakerExchange] = oldestOrder.ExchangeAddress.String()
