@@ -82,7 +82,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	totalFeeUsed := uint64(0)
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
-		if block.Number().Uint64() >= common.BlackListHFNumber {
+		if (block.Number().Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
@@ -141,7 +141,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	receipts = make([]*types.Receipt, block.Transactions().Len())
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
-		if block.Number().Uint64() >= common.BlackListHFNumber {
+		if (block.Number().Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())

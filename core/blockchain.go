@@ -1240,10 +1240,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				blockSigner, _ := c.RecoverSigner(block.Header())
 				header := block.Header()
 				validator, _ := c.RecoverValidator(block.Header())
-				ok := c.CheckMNTurn(bc, header, blockSigner)
+				ok := c.CheckMNTurn(bc, header, coinbase)
 				// if created block was your turn
-				if blockSigner == coinbase && ok {
-					log.Warn("Missed create block height", "number", block.Number(), "mining", true, "validator", validator.Hex())
+				if blockSigner != coinbase && ok {
+					log.Warn("Missed create block height", "number", block.Number(), "hash", block.Hash(), "m1", blockSigner.Hex(), "m2", validator.Hex())
 				}
 			}
 		}
@@ -1481,10 +1481,10 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 			// block signer
 			blockSigner, _ := c.RecoverSigner(block.Header())
 			validator, _ := c.RecoverValidator(block.Header())
-			ok := c.CheckMNTurn(bc, header, blockSigner)
+			ok := c.CheckMNTurn(bc, header, coinbase)
 			// if created block was your turn
-			if blockSigner == coinbase && ok {
-				log.Warn("Missed create block height", "number", block.Number(), "mining", true, "validator", validator.Hex())
+			if blockSigner != coinbase && ok {
+				log.Warn("Missed create block height", "number", block.Number(), "hash", block.Hash(), "m1", blockSigner.Hex(), "m2", validator.Hex())
 			}
 		}
 	}
