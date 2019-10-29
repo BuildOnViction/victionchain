@@ -23,7 +23,7 @@ const (
 	ProtocolName       = "tomox"
 	ProtocolVersion    = uint64(1)
 	ProtocolVersionStr = "1.0"
-	overflowIdx         // Indicator of message queue overflow
+	overflowIdx        // Indicator of message queue overflow
 )
 
 var (
@@ -211,7 +211,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 			order.Status = OrderStatusCancelled
 		}
 
-		trades, rejects, err := tomox.ProcessOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken,order.QuoteToken), order)
+		trades, rejects, err := tomox.ProcessOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
 		log.Debug("List reject order", "rejects", len(rejects))
 		for _, reject := range rejects {
 			log.Debug("Reject order", "reject", *reject)
@@ -250,8 +250,8 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 			continue
 		}
 		txMatch := TxDataMatch{
-			Order:  originalOrderValue,
-			Trades: trades,
+			Order:         originalOrderValue,
+			Trades:        trades,
 			RejectedOders: rejects,
 		}
 		txMatches = append(txMatches, txMatch)
@@ -425,6 +425,12 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		// updateRejectedOrders
 		for _, rejectedOrder := range rejectedOrders {
 			rejectedHashes = append(rejectedHashes, rejectedOrder.Hash.Hex())
+			if updatedTakerOrder.Hash == rejectedOrder.Hash {
+				updatedTakerOrder.Status = OrderStatusRejected
+				if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
+					return fmt.Errorf("SDKNode: failed to reject takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
+				}
+			}
 		}
 		dirtyRejectedOrders := db.GetListOrderByHashes(rejectedHashes)
 		for _, order := range dirtyRejectedOrders {
