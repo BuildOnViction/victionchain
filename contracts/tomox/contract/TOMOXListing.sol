@@ -25,6 +25,7 @@ contract TOMOXListing {
     }
 
     function apply(address token) public payable onlyValidApplyNewToken(token){
+        require(msg.value >= 100 ether);
         _tokens.push(token);
         tokensState[token] = TokenState({
             isActive: true
