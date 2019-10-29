@@ -23,7 +23,7 @@ const (
 	ProtocolName       = "tomox"
 	ProtocolVersion    = uint64(1)
 	ProtocolVersionStr = "1.0"
-	overflowIdx        // Indicator of message queue overflow
+	overflowIdx         // Indicator of message queue overflow
 )
 
 var (
@@ -40,8 +40,9 @@ type Config struct {
 }
 
 type TxDataMatch struct {
-	Order  []byte // serialized data of order has been processed in this tx
-	Trades []map[string]string
+	Order         []byte // serialized data of order has been processed in this tx
+	Trades        []map[string]string
+	RejectedOders []*tomox_state.OrderItem
 }
 
 type TxMatchBatch struct {
@@ -158,7 +159,7 @@ func (tomox *TomoX) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []TxDataMatch {
+func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint string, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []TxDataMatch {
 	txMatches := []TxDataMatch{}
 	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
 	for {
@@ -209,7 +210,12 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 		if cancel {
 			order.Status = OrderStatusCancelled
 		}
-		trades, _, err := ProcessOrder(statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+
+		trades, rejects, err := tomox.ProcessOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken,order.QuoteToken), order)
+		log.Debug("List reject order", "rejects", len(rejects))
+		for _, reject := range rejects {
+			log.Debug("Reject order", "reject", *reject)
+		}
 
 		switch err {
 		case ErrNonceTooLow:
@@ -246,6 +252,7 @@ func (tomox *TomoX) ProcessOrderPending(pending map[common.Address]types.OrderTr
 		txMatch := TxDataMatch{
 			Order:  originalOrderValue,
 			Trades: trades,
+			RejectedOders: rejects,
 		}
 		txMatches = append(txMatches, txMatch)
 
@@ -374,8 +381,8 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		} else {
 			updatedTakerOrder.Status = OrderStatusFilled
 		}
-
 	}
+
 	log.Debug("PutObject processed takerOrder",
 		"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
 		"price", updatedTakerOrder.Price, "quantity", updatedTakerOrder.Quantity, "filledAmount", updatedTakerOrder.FilledAmount, "status", updatedTakerOrder.Status,
@@ -408,6 +415,34 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 			return fmt.Errorf("SDKNode: failed to put processed makerOrder. Hash: %s Error: %s", o.Hash.Hex(), err.Error())
 		}
 	}
+
+	// 3. put rejected orders to db and update status REJECTED
+	rejectedOrders := txDataMatch.GetRejectedOrders()
+	log.Debug("Got rejected orders", "number", len(rejectedOrders), "rejectedOrders", rejectedOrders)
+
+	if len(rejectedOrders) > 0 {
+		var rejectedHashes []string
+		// updateRejectedOrders
+		for _, rejectedOrder := range rejectedOrders {
+			rejectedHashes = append(rejectedHashes, rejectedOrder.Hash.Hex())
+		}
+		dirtyRejectedOrders := db.GetListOrderByHashes(rejectedHashes)
+		for _, order := range dirtyRejectedOrders {
+			// cache order history for handling reorg
+			orderHistoryRecord := OrderHistoryItem{
+				TxHash:       order.TxHash,
+				FilledAmount: CloneBigInt(order.FilledAmount),
+				Status:       order.Status,
+			}
+			tomox.UpdateOrderCache(order.PairName, order.OrderID, txHash, orderHistoryRecord)
+
+			order.Status = OrderStatusRejected
+			if err = db.PutObject(order.Hash, order); err != nil {
+				return fmt.Errorf("SDKNode: failed to update rejectedOder to sdkNode %s", err.Error())
+			}
+		}
+	}
+
 	if err := db.CommitBulk(sc); err != nil {
 		return fmt.Errorf("SDKNode fail to commit bulk update orders, trades at txhash %s . Error: %s", txHash.Hex(), err.Error())
 	}

@@ -105,7 +105,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox.TxMatchBatch, blockHash common.Hash) error {
+func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox.TxMatchBatch, coinbase common.Address) error {
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
 
 	for _, txMatch := range txMatchBatch.Data {
@@ -120,7 +120,7 @@ func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, stated
 			return fmt.Errorf("invalid order . Error: %v", err)
 		}
 		// process Matching Engine
-		if _, _, err := tomox.ProcessOrder(statedb, tomoxStatedb, tomox.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
+		if _, _,  err := tomoXService.ProcessOrder(coinbase, v.bc.IPCEndpoint, statedb, tomoxStatedb, tomox.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
 			return err
 		}
 	}

@@ -190,7 +190,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
 	if tx.IsMatchingTransaction() && config.IsTIPTomoX(header.Number) {
-		return ApplyTomoXMatchedTransaction(config, bc, statedb, header, tx, usedGas)
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
 	var balanceFee *big.Int
 	if tx.To() != nil {
@@ -438,6 +438,7 @@ func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, st
 	masternodeOwner := statedb.GetOwner(header.Coinbase)
 
 	statedb.AddBalance(masternodeOwner, matchingFee)
+
 	var root []byte
 	if config.IsByzantium(header.Number) {
 		statedb.Finalise(true)
