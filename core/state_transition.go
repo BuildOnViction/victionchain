@@ -266,8 +266,12 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	}
 	st.refundGas()
 
-	if (owner != common.Address{}) {
-		st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	if st.evm.BlockNumber.Cmp(common.TIPTRC21Fee) > 0 {
+		if (owner != common.Address{}) {
+			st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+		}
+	} else {
+		st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 	}
 
 	return ret, st.gasUsed(), vmerr != nil, err
