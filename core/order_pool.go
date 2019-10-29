@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"sort"
 	"sync"
@@ -30,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -413,8 +413,10 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	if quantity == nil || quantity.Cmp(big.NewInt(0)) <= 0 {
 		return ErrInvalidOrderQuantity
 	}
-	if price == nil || price.Cmp(big.NewInt(0)) <= 0 {
-		return ErrInvalidOrderPrice
+	if orderType != OrderTypeMarket {
+		if price == nil || price.Cmp(big.NewInt(0)) <= 0 {
+			return ErrInvalidOrderPrice
+		}
 	}
 
 	if orderSide != OrderSideAsk && orderSide != OrderSideBid {
@@ -446,6 +448,17 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	from, _ := types.OrderSender(pool.signer, tx)
 	if from != tx.UserAddress() {
 		return ErrInvalidOrderUserAddress
+	}
+
+	statedb, err := pool.chain.StateAt(pool.chain.CurrentBlock().Root())
+	if err != nil {
+		return fmt.Errorf("failed to get statedb Error: %v", err)
+	}
+	if !tomox_state.IsValidRelayer(statedb, tx.ExchangeAddress()) {
+		return fmt.Errorf("invalid relayer. ExchangeAddress: %s", tx.ExchangeAddress().Hex())
+	}
+	if err := tomox_state.VerifyPair(statedb, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
+		return err
 	}
 	return nil
 }

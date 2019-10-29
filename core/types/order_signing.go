@@ -114,7 +114,9 @@ func (ordersign OrderTxSigner) OrderCreateHash(tx *OrderTransaction) common.Hash
 	sha.Write(tx.BaseToken().Bytes())
 	sha.Write(tx.QuoteToken().Bytes())
 	sha.Write(common.BigToHash(tx.Quantity()).Bytes())
-	sha.Write(common.BigToHash(tx.Price()).Bytes())
+	if tx.Price() != nil {
+		sha.Write(common.BigToHash(tx.Price()).Bytes())
+	}
 	sha.Write(common.BigToHash(tx.EncodedSide()).Bytes())
 	sha.Write([]byte(tx.Status()))
 	sha.Write([]byte(tx.Type()))

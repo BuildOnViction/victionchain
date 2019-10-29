@@ -206,6 +206,10 @@ func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 	if err := o.verifyRelayer(state); err != nil {
 		return err
 	}
+	if err := VerifyPair(state, o.ExchangeAddress, o.BaseToken, o.QuoteToken); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -250,9 +254,16 @@ func (o *OrderItem) ComputeHash() common.Hash {
 		sha.Write(common.BigToHash(o.Price).Bytes())
 	}
 	sha.Write(common.BigToHash(o.encodedSide()).Bytes())
+	sha.Write([]byte(o.Status))
+	sha.Write([]byte(o.Type))
 	sha.Write(common.BigToHash(o.Nonce).Bytes())
-	sha.Write(common.StringToHash(o.Status).Bytes())
-	sha.Write(common.StringToHash(o.Type).Bytes())
+	return common.BytesToHash(sha.Sum(nil))
+}
+
+func (o *OrderItem) ComputeOrderCancelHash() common.Hash {
+	sha := sha3.NewKeccak256()
+	sha.Write(o.Hash.Bytes())
+	sha.Write(common.BigToHash(o.Nonce).Bytes())
 	return common.BytesToHash(sha.Sum(nil))
 }
 
@@ -262,10 +273,14 @@ func (o *OrderItem) verifySignature() error {
 		hash common.Hash
 		err  error
 	)
-	hash = o.ComputeHash()
-	if hash != o.Hash {
-		log.Debug("Wrong orderhash", "expected", hex.EncodeToString(o.Hash.Bytes()), "actual", hex.EncodeToString(hash.Bytes()))
-		return ErrWrongHash
+	if o.Status != Cancel {
+		hash = o.ComputeHash()
+		if hash != o.Hash {
+			log.Debug("Wrong orderhash", "expected", hex.EncodeToString(o.Hash.Bytes()), "actual", hex.EncodeToString(hash.Bytes()))
+			return ErrWrongHash
+		}
+	} else {
+		hash = o.ComputeOrderCancelHash()
 	}
 	message := crypto.Keccak256(
 		[]byte("\x19Ethereum Signed Message:\n32"), // FIXME: Signature signed by EtherJS library, update this one if order is signed by other standards
@@ -342,6 +357,29 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 	}
 	log.Debug("Balance of relayer is not enough", "relayer", address.String(), "balance", balance)
 	return false
+}
+
+func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken common.Address) error {
+	baseTokenLength := GetBaseTokenLength(exchangeAddress, statedb)
+	quoteTokenLength := GetBaseTokenLength(exchangeAddress, statedb)
+	if baseTokenLength != quoteTokenLength {
+		return fmt.Errorf("invalid length of baseTokenList: %d . QuoteTokenList: %d", baseTokenLength, quoteTokenLength)
+	}
+	var baseIndexes []uint64
+	for i := uint64(0); i < baseTokenLength; i++ {
+		if baseToken == GetBaseTokenAtIndex(exchangeAddress, statedb, i) {
+			baseIndexes = append(baseIndexes, i)
+		}
+	}
+	if len(baseIndexes) == 0 {
+		return fmt.Errorf("basetoken not found in relayer registration. BaseToken: %s. Exchange: %s", baseToken.Hex(), exchangeAddress.Hex())
+	}
+	for _, index := range baseIndexes {
+		if quoteToken == GetQuoteTokenAtIndex(exchangeAddress, statedb, index) {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid exchange pair. Base: %s. Quote: %s. Exchange: %s", baseToken.Hex(), quoteToken.Hex(), exchangeAddress.Hex())
 }
 
 // MarshalSignature marshals the signature struct to []byte
