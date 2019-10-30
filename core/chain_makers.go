@@ -106,7 +106,11 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
 	if tokenFeeUsed {
-		state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, gas)
+		fee := new(big.Int).SetUint64(gas)
+		if b.header.Number.Cmp(common.TIPTRC21Fee) > 0 {
+			fee = fee.Mul(fee, common.TRC21GasPrice)
+		}
+		state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee)
 	}
 }
 

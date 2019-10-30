@@ -18,7 +18,7 @@ const (
 	LimitPenaltyEpoch          = 4
 	BlocksPerYear              = uint64(15768000)
 	LimitThresholdNonceInQueue = 10
-	DefaultMinGasPrice         = 2500
+	DefaultMinGasPrice         = 250000000
 	MergeSignRange             = 15
 	RangeReturnSigner          = 150
 	MinimunMinerBlockPerEpoch  = 1
@@ -97,3 +97,4 @@ var Blacklist = map[Address]bool{
 	HexToAddress("0x3538a544021c07869c16b764424c5987409cba48"): true,
 	HexToAddress("0xe187cf86c2274b1f16e8225a7da9a75aba4f1f5f"): true,
 }
+var TIPTRC21Fee = big.NewInt(1000)

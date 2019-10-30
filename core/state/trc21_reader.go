@@ -114,10 +114,10 @@ func ValidateTRC21Tx(statedb *StateDB, from common.Address, token common.Address
 		requiredMinBalance := minFeeHash.Big()
 		funcHex := data[:4]
 		value := big.NewInt(0)
-		if bytes.Equal(funcHex,transferFuncHex) && len(data) == 68 {
+		if bytes.Equal(funcHex, transferFuncHex) && len(data) == 68 {
 			value = common.BytesToHash(data[36:]).Big()
 		} else {
-			if bytes.Equal(funcHex,transferFromFuncHex) && len(data) == 80 {
+			if bytes.Equal(funcHex, transferFromFuncHex) && len(data) == 80 {
 				value = common.BytesToHash(data[68:]).Big()
 			}
 		}
@@ -131,7 +131,7 @@ func ValidateTRC21Tx(statedb *StateDB, from common.Address, token common.Address
 	return false
 }
 
-func UpdateTRC21Fee(statedb *StateDB, newBalance map[common.Address]*big.Int, totalFeeUsed uint64) {
+func UpdateTRC21Fee(statedb *StateDB, newBalance map[common.Address]*big.Int, totalFeeUsed *big.Int) {
 	if statedb == nil || len(newBalance) == 0 {
 		return
 	}
@@ -140,5 +140,5 @@ func UpdateTRC21Fee(statedb *StateDB, newBalance map[common.Address]*big.Int, to
 		balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
 		statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(value))
 	}
-	statedb.SubBalance(common.TRC21IssuerSMC, big.NewInt(0).SetUint64(totalFeeUsed))
+	statedb.SubBalance(common.TRC21IssuerSMC, totalFeeUsed)
 }
