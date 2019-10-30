@@ -41,7 +41,7 @@ func main() {
 
 	fmt.Println("===> trc21 issuer address", trc21IssuerAddr.Hex())
 	fmt.Println("wait 10s to execute init smart contract : TRC Issuer")
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	//init TOMOX Listing in
 	auth.Nonce = big.NewInt(int64(nonce + 1))
@@ -53,7 +53,7 @@ func main() {
 
 	fmt.Println("===> tomox listing address", tomoxListtingAddr.Hex())
 	fmt.Println("wait 10s to execute init smart contract : tomox listing ")
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	// init Relayer Registration
 	auth.Nonce = big.NewInt(int64(nonce + 2))
@@ -65,7 +65,7 @@ func main() {
 
 	fmt.Println("===> relayer registration address", relayerRegistrationAddr.Hex())
 	fmt.Println("wait 10s to execute init smart contract : relayer registration ")
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	currentNonce := nonce + 3
 	tokenList := initTRC21(auth, client, currentNonce, simulation.TokenNameList)
@@ -111,7 +111,7 @@ func main() {
 		log.Fatal("relayerRegistration Register ", err)
 	}
 	fmt.Println("wait 10s to apply token to list tomox")
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 }
 
 func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, tokenNameList []string) []map[string]interface{} {
@@ -125,7 +125,7 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 
 		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
 		fmt.Println("wait 10s to execute init smart contract", tokenName)
-		time.Sleep(10 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		tokenListResult = append(tokenListResult, map[string]interface{}{
 			"name":    tokenName,
