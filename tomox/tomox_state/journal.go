@@ -34,7 +34,7 @@ type (
 		orderId   common.Hash
 		order     *OrderItem
 	}
-	cancerOrder struct {
+	cancelOrder struct {
 		orderBook common.Hash
 		orderId   common.Hash
 		order     OrderItem
@@ -56,9 +56,9 @@ type (
 )
 
 func (ch insertOrder) undo(s *TomoXStateDB) {
-	s.CancerOrder(ch.orderBook, ch.order)
+	s.CancelOrder(ch.orderBook, ch.order)
 }
-func (ch cancerOrder) undo(s *TomoXStateDB) {
+func (ch cancelOrder) undo(s *TomoXStateDB) {
 	s.InsertOrderItem(ch.orderBook, ch.orderId, ch.order)
 }
 func (ch subAmountOrder) undo(s *TomoXStateDB) {

@@ -239,7 +239,7 @@ func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId comm
 	return nil
 }
 
-func (self *TomoXStateDB) CancerOrder(orderBook common.Hash, order *OrderItem) error {
+func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) error {
 	priceHash := common.BigToHash(order.Price)
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(order.OrderID))
 	stateObject := self.GetOrNewStateExchangeObject(orderBook)
@@ -265,7 +265,7 @@ func (self *TomoXStateDB) CancerOrder(orderBook common.Hash, order *OrderItem) e
 	if stateOrderItem.data.Hash != order.Hash {
 		return fmt.Errorf("Error Order Hash mismatch when cancel order book : %s , order id  : %s , got : %s , expect : %s ", orderBook, orderIdHash.Hex(), stateOrderItem.data.Hash.Hex(), order.Hash.Hex())
 	}
-	self.journal = append(self.journal, cancerOrder{
+	self.journal = append(self.journal, cancelOrder{
 		orderBook: orderBook,
 		orderId:   orderIdHash,
 		order:     self.GetOrder(orderBook, orderIdHash),

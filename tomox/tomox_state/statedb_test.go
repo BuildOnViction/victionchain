@@ -28,7 +28,7 @@ import (
 func TestEchangeStates(t *testing.T) {
 	orderBook := common.StringToHash("BTC/TOMO")
 	price := big.NewInt(10000)
-	numberOrder := 20;
+	numberOrder := 20
 	orderItems := []OrderItem{}
 	relayers := []common.Hash{}
 	for i := 0; i < numberOrder; i++ {
@@ -124,7 +124,7 @@ func TestEchangeStates(t *testing.T) {
 
 func TestRevertStates(t *testing.T) {
 	orderBook := common.StringToHash("BTC/TOMO")
-	numberOrder := 20;
+	numberOrder := 20
 	orderItems := []OrderItem{}
 	relayers := []common.Hash{}
 	for i := 0; i < numberOrder; i++ {
@@ -194,14 +194,14 @@ func TestRevertStates(t *testing.T) {
 		t.Fatalf(" err get nonce addr: %v after try revert snap shot , got : %d ,want : %d", relayers[1].Hex(), gotNonce, wantedNonce)
 	}
 
-	// cancer order
+	// cancel order
 	wantedOrder := statedb.GetOrder(orderBook, orderIdHash)
 	snap = statedb.Snapshot()
-	statedb.CancerOrder(orderBook, &wantedOrder)
+	statedb.CancelOrder(orderBook, &wantedOrder)
 	statedb.RevertToSnapshot(snap)
 	gotOrder := statedb.GetOrder(orderBook, orderIdHash)
 	if gotOrder.Quantity.Cmp(wantedOrder.Quantity) != 0 {
-		t.Fatalf(" err cancer order info : %v after try revert snap shot , got : %v ,want : %v", orderIdHash.Hex(), gotOrder, wantedOrder)
+		t.Fatalf(" err cancel order info : %v after try revert snap shot , got : %v ,want : %v", orderIdHash.Hex(), gotOrder, wantedOrder)
 	}
 
 	// insert order

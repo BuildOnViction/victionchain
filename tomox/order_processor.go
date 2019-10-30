@@ -54,7 +54,7 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, ipcEndpoint string, stat
 	}
 
 	if order.Status == OrderStatusCancelled {
-		err := tomoXstatedb.CancerOrder(orderBook, order)
+		err := tomoXstatedb.CancelOrder(orderBook, order)
 		if err != nil {
 			log.Debug("Error when cancel order", "order", order)
 			return nil, nil, err
@@ -226,7 +226,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, ipcEndpoint string
 					rejects = append(rejects, order)
 					quantityToTrade = Zero()
 					rejects = append(rejects, &oldestOrder)
-					err = tomoXstatedb.CancerOrder(orderBook, &oldestOrder)
+					err = tomoXstatedb.CancelOrder(orderBook, &oldestOrder)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -237,7 +237,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, ipcEndpoint string
 					break
 				} else { // reject maker
 					rejects = append(rejects, &oldestOrder)
-					err = tomoXstatedb.CancerOrder(orderBook, &oldestOrder)
+					err = tomoXstatedb.CancelOrder(orderBook, &oldestOrder)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -246,7 +246,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, ipcEndpoint string
 			} else {
 				if rejectMaker { // reject maker
 					rejects = append(rejects, &oldestOrder)
-					err = tomoXstatedb.CancerOrder(orderBook, &oldestOrder)
+					err = tomoXstatedb.CancelOrder(orderBook, &oldestOrder)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -293,7 +293,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, ipcEndpoint string
 		}
 		if rejectMaker {
 			rejects = append(rejects, &oldestOrder)
-			err := tomoXstatedb.CancerOrder(orderBook, &oldestOrder)
+			err := tomoXstatedb.CancelOrder(orderBook, &oldestOrder)
 			if err != nil {
 				return nil, nil, nil, err
 			}
