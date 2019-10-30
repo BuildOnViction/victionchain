@@ -222,8 +222,6 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	msg := st.msg
 	sender := st.from() // err checked in preCheck
 
-	tomox := st.evm.ChainConfig().IsTIPTomoX(st.evm.BlockNumber)
-
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
 
@@ -267,8 +265,11 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 		}
 	}
 	st.refundGas()
-	if (owner != common.Address{} && tomox) {
-		st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+
+	if st.evm.BlockNumber.Cmp(common.TIPTRC21Fee) > 0 {
+		if (owner != common.Address{}) {
+			st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+		}
 	} else {
 		st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 	}

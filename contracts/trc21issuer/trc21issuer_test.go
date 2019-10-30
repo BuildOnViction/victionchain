@@ -43,9 +43,9 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 	}
 	contractBackend.Commit()
 	cap := big.NewInt(0).Mul(big.NewInt(10000000), big.NewInt(10000000000000))
-	fee := big.NewInt(100)
+	TRC21fee := big.NewInt(100)
 	//  deploy a TRC21 SMC
-	trc21TokenAddr, trc21, err := DeployTRC21(transactOpts, contractBackend, "TEST", "TOMO", 18, cap, fee)
+	trc21TokenAddr, trc21, err := DeployTRC21(transactOpts, contractBackend, "TEST", "TOMO", 18, cap, TRC21fee)
 	if err != nil {
 		t.Fatal("can't deploy smart contract: ", err)
 	}
@@ -81,7 +81,11 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 	if err != nil {
 		t.Fatal("can't transaction's receipt ", err, "hash", tx.Hash())
 	}
-	remainFee := big.NewInt(0).Sub(minApply, big.NewInt(0).SetUint64(receipt.GasUsed))
+	fee := big.NewInt(0).SetUint64(receipt.GasUsed)
+	if receipt.Logs[0].BlockNumber > common.TIPTRC21Fee.Uint64() {
+		fee = fee.Mul(fee, common.TRC21GasPrice)
+	}
+	remainFee := big.NewInt(0).Sub(minApply, fee)
 
 	// check balance trc21 again
 	balance, err = trc21.BalanceOf(airdropAddr)
@@ -112,25 +116,28 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 	}
 	contractBackend.Commit()
 
-	receipt, err = contractBackend.TransactionReceipt(nil, tx.Hash())
-	if err != nil {
-		t.Fatal("can't transaction's receipt ", err, "hash", tx.Hash())
-	}
-	remainFee = big.NewInt(0).Sub(remainFee, big.NewInt(0).SetUint64(receipt.GasUsed))
-
 	balance, err = trc21.BalanceOf(subAddr)
 	if err != nil || balance.Cmp(transferAmount) != 0 {
 		t.Fatal("check balance after fail transfer in tr20: ", err, "get", balance, "transfer", transferAmount)
 	}
 
 	remainAirDrop := big.NewInt(0).Sub(airDropAmount, transferAmount)
-	remainAirDrop = remainAirDrop.Sub(remainAirDrop, fee)
+	remainAirDrop = remainAirDrop.Sub(remainAirDrop, TRC21fee)
 	// check balance trc21 again
 	balance, err = trc21.BalanceOf(airdropAddr)
 	if err != nil || balance.Cmp(remainAirDrop) != 0 {
-		t.Fatal("check balance after fail transfer in tr20: ", err, "get", balance, "transfer", remainAirDrop)
+		t.Fatal("check balance after fail transfer in tr20: ", err, "get", balance, "wanted", remainAirDrop)
 	}
 
+	receipt, err = contractBackend.TransactionReceipt(nil, tx.Hash())
+	if err != nil {
+		t.Fatal("can't transaction's receipt ", err, "hash", tx.Hash())
+	}
+	fee = big.NewInt(0).SetUint64(receipt.GasUsed)
+	if receipt.Logs[0].BlockNumber > common.TIPTRC21Fee.Uint64() {
+		fee = fee.Mul(fee, common.TRC21GasPrice)
+	}
+	remainFee = big.NewInt(0).Sub(remainFee, fee)
 	//check balance fee
 	balanceIssuerFee, err = trc21Issuer.GetTokenCapacity(trc21TokenAddr)
 	if err != nil || balanceIssuerFee.Cmp(remainFee) != 0 {

@@ -17,6 +17,11 @@
 package core
 
 import (
+	"fmt"
+	"math/big"
+	"runtime"
+	"sync"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -29,12 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/tomox"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
-	"math/big"
-)
-import (
-	"fmt"
-	"runtime"
-	"sync"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -84,7 +83,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	InitSignerInTransactions(p.config, header, block.Transactions())
 	balanceUpdated := map[common.Address]*big.Int{}
-	totalFeeUsed := uint64(0)
+	totalFeeUsed := big.NewInt(0)
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
 		if (block.Number().Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
@@ -105,9 +104,13 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 		if tokenFeeUsed {
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], new(big.Int).SetUint64(gas))
+			fee := new(big.Int).SetUint64(gas)
+			if block.Header().Number.Cmp(common.TIPTRC21Fee) > 0 {
+				fee = fee.Mul(fee, common.TRC21GasPrice)
+			}
+			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
 			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed + gas
+			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
 	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
@@ -137,7 +140,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	}
 	InitSignerInTransactions(p.config, header, block.Transactions())
 	balanceUpdated := map[common.Address]*big.Int{}
-	totalFeeUsed := uint64(0)
+	totalFeeUsed := big.NewInt(0)
 
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
@@ -167,9 +170,13 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		receipts[i] = receipt
 		allLogs = append(allLogs, receipt.Logs...)
 		if tokenFeeUsed {
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], new(big.Int).SetUint64(gas))
+			fee := new(big.Int).SetUint64(gas)
+			if block.Header().Number.Cmp(common.TIPTRC21Fee) > 0 {
+				fee = fee.Mul(fee, common.TRC21GasPrice)
+			}
+			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
 			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed + gas
+			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
 	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)

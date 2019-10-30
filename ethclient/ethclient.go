@@ -253,6 +253,16 @@ func (ec *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*
 	return r, err
 }
 
+func (ec *Client) GetTransactionReceiptResult(ctx context.Context, txHash common.Hash) (*types.Receipt, json.RawMessage, error) {
+	var r *types.Receipt
+	result, err := ec.c.GetResultCallContext(ctx, &r,"eth_getTransactionReceipt", txHash)
+	if err == nil {
+		if r == nil {
+			return nil, nil, ethereum.NotFound
+		}
+	}
+	return r, result, err
+}
 func toBlockNumArg(number *big.Int) string {
 	if number == nil {
 		return "latest"
