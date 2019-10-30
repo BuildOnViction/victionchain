@@ -17,6 +17,11 @@
 package core
 
 import (
+	"fmt"
+	"math/big"
+	"runtime"
+	"sync"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -25,12 +30,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"math/big"
-)
-import (
-	"fmt"
-	"runtime"
-	"sync"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -205,8 +204,19 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
+
+	// If we don't have an explicit author (i.e. not mining), extract from the header
+	var beneficiary common.Address
+	if author == nil {
+		beneficiary, _ = bc.Engine().Author(header) // Ignore error, we're past header validation
+	} else {
+		beneficiary = *author
+	}
+
+	coinbaseOwner := statedb.GetOwner(beneficiary)
+
 	// Apply the transaction to the current state (included in the env)
-	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	_, gas, failed, err := ApplyMessage(vmenv, msg, gp, coinbaseOwner)
 	if err != nil {
 		return nil, 0, err, false
 	}
