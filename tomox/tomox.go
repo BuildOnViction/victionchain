@@ -211,7 +211,8 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 			order.Status = OrderStatusCancelled
 		}
 
-		trades, rejects, err := tomox.ProcessOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		trades, rejects, err := tomox.CommitOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+
 		log.Debug("List reject order", "rejects", len(rejects))
 		for _, reject := range rejects {
 			log.Debug("Reject order", "reject", *reject)
@@ -237,7 +238,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
+			log.Debug("Order failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 			continue
 		}

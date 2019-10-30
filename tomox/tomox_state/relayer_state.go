@@ -266,6 +266,24 @@ func CheckAddTokenBalance(addr common.Address, value *big.Int, token common.Addr
 		return nil, errors.Errorf("token %s isn't exist", token.String())
 	}
 }
+
+func CheckSubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB, mapBalances map[common.Address]*big.Int) (*big.Int, error) {
+	balance := mapBalances[relayer]
+	if balance == nil {
+		slot := RelayerMappingSlot["RELAYER_LIST"]
+		locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+		locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, RelayerStructMappingSlot["_deposit"])
+		locHashDeposit := common.BigToHash(locBigDeposit)
+		balance = statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
+	}
+	log.Debug("CheckSubRelayerFee settle balance: SubRelayerFee ", "relayer", relayer.String(), "balance", balance, "fee", fee)
+	if balance.Cmp(fee) < 0 {
+		return nil, errors.Errorf("relayer %s isn't enough tomo fee", relayer.String())
+	} else {
+		return new(big.Int).Sub(balance, fee), nil
+	}
+}
+
 func GetTokenBalance(addr common.Address, token common.Address, statedb *state.StateDB) *big.Int {
 	// TOMO native
 	if token.String() == common.TomoNativeAddress {
@@ -297,4 +315,13 @@ func SetTokenBalance(addr common.Address, balance *big.Int, token common.Address
 	} else {
 		return errors.Errorf("token %s isn't exist", token.String())
 	}
+}
+
+func SetSubRelayerFee(relayer common.Address, balance *big.Int, fee *big.Int, statedb *state.StateDB) {
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, RelayerStructMappingSlot["_deposit"])
+	locHashDeposit := common.BigToHash(locBigDeposit)
+	statedb.SetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit, common.BigToHash(balance))
+	statedb.SubBalance(common.HexToAddress(common.RelayerRegistrationSMC), fee)
 }

@@ -321,6 +321,18 @@ func (self *stateExchanges) Nonce() uint64 {
 	return self.data.Nonce
 }
 
+func (self *stateExchanges) setPrice(price *big.Int) {
+	self.data.Price = price
+	if self.onDirty != nil {
+		self.onDirty(self.Hash())
+		self.onDirty = nil
+	}
+}
+
+func (self *stateExchanges) Price() *big.Int {
+	return self.data.Price
+}
+
 // updateStateExchangeObject writes the given object to the trie.
 func (self *stateExchanges) removeStateOrderListAskObject(db Database, stateOrderList *stateOrderList) {
 	self.setError(self.asksTrie.TryDelete(stateOrderList.price[:]))

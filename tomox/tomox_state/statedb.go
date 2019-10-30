@@ -20,6 +20,7 @@ package tomox_state
 import (
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,6 +28,11 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
+
+type revision struct {
+	id           int
+	journalIndex int
+}
 
 // StateDBs within the ethereum protocol are used to store anything
 // within the merkle trie. StateDBs take care of caching and storing
@@ -47,6 +53,12 @@ type TomoXStateDB struct {
 	// during a database read is memoized here and will eventually be returned
 	// by TomoXStateDB.Commit.
 	dbErr error
+
+	// Journal of state modifications. This is the backbone of
+	// Snapshot and RevertToSnapshot.
+	journal        journal
+	validRevisions []revision
+	nextRevisionId int
 
 	lock sync.Mutex
 }
@@ -76,19 +88,6 @@ func (self *TomoXStateDB) Error() error {
 	return self.dbErr
 }
 
-// Reset clears out all ephemeral state objects from the state db, but keeps
-// the underlying state trie to avoid reloading data for the next operations.
-func (self *TomoXStateDB) Reset(root common.Hash) error {
-	tr, err := self.db.OpenTrie(root)
-	if err != nil {
-		return err
-	}
-	self.trie = tr
-	self.stateExhangeObjects = make(map[common.Hash]*stateExchanges)
-	self.stateExhangeObjectsDirty = make(map[common.Hash]struct{})
-	return nil
-}
-
 // Exist reports whether the given orderId address exists in the state.
 // Notably this also returns true for suicided exchanges.
 func (self *TomoXStateDB) Exist(addr common.Hash) bool {
@@ -107,8 +106,15 @@ func (self *TomoXStateDB) GetNonce(addr common.Hash) uint64 {
 	if stateObject != nil {
 		return stateObject.Nonce()
 	}
-
 	return 0
+}
+
+func (self *TomoXStateDB) GetPrice(addr common.Hash) *big.Int {
+	stateObject := self.getStateExchangeObject(addr)
+	if stateObject != nil {
+		return stateObject.Price()
+	}
+	return nil
 }
 
 // Database retrieves the low level database supporting the lower level trie ops.
@@ -116,13 +122,25 @@ func (self *TomoXStateDB) Database() Database {
 	return self.db
 }
 
-/*
- * SETTERS
- */
 func (self *TomoXStateDB) SetNonce(addr common.Hash, nonce uint64) {
 	stateObject := self.GetOrNewStateExchangeObject(addr)
 	if stateObject != nil {
+		self.journal = append(self.journal, nonceChange{
+			hash: addr,
+			prev: self.GetNonce(addr),
+		})
 		stateObject.SetNonce(nonce)
+	}
+}
+
+func (self *TomoXStateDB) SetPrice(addr common.Hash, price *big.Int) {
+	stateObject := self.GetOrNewStateExchangeObject(addr)
+	if stateObject != nil {
+		self.journal = append(self.journal, priceChange{
+			hash: addr,
+			prev: stateObject.Price(),
+		})
+		stateObject.setPrice(price)
 	}
 }
 
@@ -147,6 +165,11 @@ func (self *TomoXStateDB) InsertOrderItem(orderBook common.Hash, orderId common.
 	default:
 		return
 	}
+	self.journal = append(self.journal, insertOrder{
+		orderBook: orderBook,
+		orderId:   orderId,
+		order:     &order,
+	})
 	stateExchange.createStateOrderObject(self.db, orderId, order)
 	stateOrderList.insertOrderItem(self.db, orderId, common.BigToHash(order.Quantity))
 	stateOrderList.AddVolume(order.Quantity)
@@ -189,6 +212,12 @@ func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId comm
 	if currentAmount.Cmp(amount) < 0 {
 		return fmt.Errorf("Order amount not enough : %s , have : %d , want : %d ", orderId.Hex(), currentAmount, amount)
 	}
+	self.journal = append(self.journal, subAmountOrder{
+		orderBook: orderBook,
+		orderId:   orderId,
+		order:     self.GetOrder(orderBook, orderId),
+		amount:    amount,
+	})
 	newAmount := new(big.Int).Sub(currentAmount, amount)
 	log.Debug("SubAmountOrderItem", "orderId", orderId.Hex(), "side", side, "price", price.Uint64(), "amount", amount.Uint64(), "new amount", newAmount.Uint64())
 	stateOrderList.subVolume(amount)
@@ -236,6 +265,11 @@ func (self *TomoXStateDB) CancerOrder(orderBook common.Hash, order *OrderItem) e
 	if stateOrderItem.data.Hash != order.Hash {
 		return fmt.Errorf("Error Order Hash mismatch when cancel order book : %s , order id  : %s , got : %s , expect : %s ", orderBook, orderIdHash.Hex(), stateOrderItem.data.Hash.Hex(), order.Hash.Hex())
 	}
+	self.journal = append(self.journal, cancerOrder{
+		orderBook: orderBook,
+		orderId:   orderIdHash,
+		order:     self.GetOrder(orderBook, orderIdHash),
+	})
 	currentAmount := new(big.Int).SetBytes(stateOrderList.GetOrderAmount(self.db, orderIdHash).Bytes()[:])
 	stateOrderItem.setVolume(big.NewInt(0))
 	stateOrderList.subVolume(currentAmount)
@@ -418,6 +452,40 @@ func (self *TomoXStateDB) Copy() *TomoXStateDB {
 	return state
 }
 
+func (s *TomoXStateDB) clearJournalAndRefund() {
+	s.journal = nil
+	s.validRevisions = s.validRevisions[:0]
+}
+
+// Snapshot returns an identifier for the current revision of the state.
+func (self *TomoXStateDB) Snapshot() int {
+	id := self.nextRevisionId
+	self.nextRevisionId++
+	self.validRevisions = append(self.validRevisions, revision{id, len(self.journal)})
+	return id
+}
+
+// RevertToSnapshot reverts all state changes made since the given revision.
+func (self *TomoXStateDB) RevertToSnapshot(revid int) {
+	// Find the snapshot in the stack of valid snapshots.
+	idx := sort.Search(len(self.validRevisions), func(i int) bool {
+		return self.validRevisions[i].id >= revid
+	})
+	if idx == len(self.validRevisions) || self.validRevisions[idx].id != revid {
+		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
+	}
+	snapshot := self.validRevisions[idx].journalIndex
+
+	// Replay the journal to undo changes.
+	for i := len(self.journal) - 1; i >= snapshot; i-- {
+		self.journal[i].undo(self)
+	}
+	self.journal = self.journal[:snapshot]
+
+	// Remove invalidated snapshots from the stack.
+	self.validRevisions = self.validRevisions[:idx]
+}
+
 // Finalise finalises the state by removing the self destructed objects
 // and clears the journal as well as the refunds.
 func (s *TomoXStateDB) Finalise() {
@@ -433,6 +501,7 @@ func (s *TomoXStateDB) Finalise() {
 			//delete(s.stateExhangeObjectsDirty, addr)
 		}
 	}
+	s.clearJournalAndRefund()
 }
 
 // IntermediateRoot computes the current root hash of the state trie.
@@ -445,6 +514,7 @@ func (s *TomoXStateDB) IntermediateRoot() common.Hash {
 
 // Commit writes the state to the underlying in-memory trie database.
 func (s *TomoXStateDB) Commit() (root common.Hash, err error) {
+	defer s.clearJournalAndRefund()
 	// Commit objects to the trie.
 	for addr, stateObject := range s.stateExhangeObjects {
 		if _, isDirty := s.stateExhangeObjectsDirty[addr]; isDirty {
