@@ -67,7 +67,7 @@ type TomoXService interface {
 	GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB, error)
 	GetStateCache() tomox_state.Database
 	GetTriegc() *prque.Prque
-	ProcessOrder(coinbase common.Address, ipcEndpoint string, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error)
+	ProcessOrder(coinbase common.Address, currentBlock *types.Block, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error)
 	IsSDKNode() bool
 	SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB) error
 	RollbackReorgTxMatch(txhash common.Hash)

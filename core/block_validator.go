@@ -123,7 +123,7 @@ func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStat
 		posvEngine, _  := v.bc.Engine().(*posv.Posv)
 		if posvEngine != nil {
 			if tomoXService := posvEngine.GetTomoXService(); tomoXService != nil {
-				if _, _,  err := tomoXService.ApplyOrder(coinbase, v.bc.IPCEndpoint, statedb, tomoxStatedb, GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
+				if _, _,  err := tomoXService.ApplyOrder(coinbase, v.bc.CurrentBlock(), statedb, tomoxStatedb, GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
 					return err
 				}
 			}

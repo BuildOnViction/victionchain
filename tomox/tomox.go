@@ -147,7 +147,7 @@ func (tomox *TomoX) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint string, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []tomox_state.TxDataMatch {
+func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, currentBlock *types.Block, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []tomox_state.TxDataMatch {
 	txMatches := []tomox_state.TxDataMatch{}
 	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
 	for {
@@ -199,7 +199,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 			order.Status = OrderStatusCancelled
 		}
 
-		trades, rejects, err := tomox.CommitOrder(coinbase, ipcEndpoint, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		trades, rejects, err := tomox.CommitOrder(coinbase, currentBlock, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
 
 		log.Debug("List reject order", "rejects", len(rejects))
 		for _, reject := range rejects {
@@ -226,7 +226,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Order failed, account skipped", "hash", tx.Hash(), "err", err)
+			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 			continue
 		}

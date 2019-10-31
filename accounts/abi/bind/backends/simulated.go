@@ -200,6 +200,13 @@ func (b *SimulatedBackend) CallContract(ctx context.Context, call ethereum.CallM
 	return rval, err
 }
 
+
+// CallContractWithState executes a contract call at the given state.
+func (b *SimulatedBackend) CallContractWithState(ctx context.Context, call ethereum.CallMsg, block *types.Block, db *state.StateDB) ([]byte, error) {
+	rval, _, _, err := b.callContract(ctx, call, block, db)
+	return rval, err
+}
+
 // PendingCallContract executes a contract call on the pending state.
 func (b *SimulatedBackend) PendingCallContract(ctx context.Context, call ethereum.CallMsg) ([]byte, error) {
 	b.mu.Lock()
