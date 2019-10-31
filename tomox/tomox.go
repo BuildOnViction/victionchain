@@ -455,6 +455,14 @@ func (tomox *TomoX) GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB
 	return tomox_state.New(root, tomox.StateCache)
 }
 
+func (tomox *TomoX) GetStateCache() tomox_state.Database {
+	return tomox.StateCache
+}
+
+func (tomox *TomoX) GetTriegc() *prque.Prque {
+	return tomox.Triegc
+}
+
 func (tomox *TomoX) GetTomoxStateRoot(block *types.Block) (common.Hash, error) {
 	for _, tx := range block.Transactions() {
 		if tx.To() != nil && tx.To().Hex() == common.TomoXStateAddr {

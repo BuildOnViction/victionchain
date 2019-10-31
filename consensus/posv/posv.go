@@ -21,7 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/tomox"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -59,6 +60,17 @@ const (
 type Masternode struct {
 	Address common.Address
 	Stake   *big.Int
+}
+
+type TomoXService interface {
+	GetTomoxStateRoot(block *types.Block) (common.Hash, error)
+	GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB, error)
+	GetStateCache() tomox_state.Database
+	GetTriegc() *prque.Prque
+	ProcessOrder(coinbase common.Address, ipcEndpoint string, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error)
+	IsSDKNode() bool
+	SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB) error
+	RollbackReorgTxMatch(txhash common.Hash)
 }
 
 // Posv proof-of-stake-voting protocol constants.
@@ -234,7 +246,7 @@ type Posv struct {
 	HookPenaltyTIPSigning func(chain consensus.ChainReader, header *types.Header, candidate []common.Address) ([]common.Address, error)
 	HookValidator         func(header *types.Header, signers []common.Address) ([]byte, error)
 	HookVerifyMNs         func(header *types.Header, signers []common.Address) error
-	GetTomoXService       func() *tomox.TomoX
+	GetTomoXService       func() TomoXService
 	HookGetSignersFromContract func(blockHash common.Hash) ([]common.Address, error)
 }
 

@@ -1,4 +1,4 @@
-package tomox
+package tomox_state
 
 import (
 	"reflect"
@@ -12,15 +12,15 @@ import (
 func TestTxMatchesBatch(t *testing.T) {
 	originalTxMatchesBatch := []TxDataMatch{
 		{
-			Order:       []byte("order1"),
+			Order: []byte("order1"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash11"}, {"takerOrderHash": "hash12"}},
 		},
 		{
-			Order:       []byte("order2"),
+			Order: []byte("order2"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash21"}, {"takerOrderHash": "hash22"}},
 		},
 		{
-			Order:       []byte("order3"),
+			Order: []byte("order3"),
 			Trades:      []map[string]string{{"takerOrderHash": "hash31"}, {"takerOrderHash": "hash32"}},
 		},
 	}

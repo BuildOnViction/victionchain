@@ -280,8 +280,9 @@ func (bc *BlockChain) loadLastState() error {
 				if err != nil {
 					repair = true
 				} else {
-					if tomoXService.StateCache != nil {
-						_, err = tomox_state.New(tomoxRoot, tomoXService.StateCache)
+
+					if tomoXService.GetStateCache() != nil {
+						_, err = tomox_state.New(tomoxRoot, tomoXService.GetStateCache())
 						if err != nil {
 							repair = true
 						}
@@ -530,7 +531,7 @@ func (bc *BlockChain) repair(head **types.Block) error {
 				if bc.Config().IsTIPTomoX((*head).Number()) && tomoXService != nil {
 					tomoxRoot, err := tomoXService.GetTomoxStateRoot(*head)
 					if err == nil {
-						_, err = tomox_state.New(tomoxRoot, tomoXService.StateCache)
+						_, err = tomox_state.New(tomoxRoot, tomoXService.GetStateCache())
 						if err == nil {
 							return nil
 						}
@@ -795,8 +796,8 @@ func (bc *BlockChain) Stop() {
 		engine, _ := bc.Engine().(*posv.Posv)
 		triedb := bc.stateCache.TrieDB()
 		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil {
-			if tomoXService := engine.GetTomoXService(); tomoXService != nil && tomoXService.StateCache != nil {
-				tomoxTriedb = tomoXService.StateCache.TrieDB()
+			if tomoXService := engine.GetTomoXService(); tomoXService != nil && tomoXService.GetStateCache() != nil {
+				tomoxTriedb = tomoXService.GetStateCache().TrieDB()
 			}
 		}
 		for _, offset := range []uint64{0, 1, triesInMemory - 1} {
@@ -823,9 +824,9 @@ func (bc *BlockChain) Stop() {
 			triedb.Dereference(bc.triegc.PopItem().(common.Hash), common.Hash{})
 		}
 		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil && tomoxTriedb != nil {
-			if tomoXService := engine.GetTomoXService(); tomoXService != nil && tomoXService.Triegc != nil {
-				for !tomoXService.Triegc.Empty() {
-					tomoxTriedb.Dereference(tomoXService.Triegc.PopItem().(common.Hash), common.Hash{})
+			if tomoXService := engine.GetTomoXService(); tomoXService != nil && tomoXService.GetTriegc() != nil {
+				for !tomoXService.GetTriegc().Empty() {
+					tomoxTriedb.Dereference(tomoXService.GetTriegc().PopItem().(common.Hash), common.Hash{})
 				}
 			}
 		}
@@ -1078,7 +1079,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	var tomoxTrieDb *trie.Database
 	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil{
 		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-			tomoxTrieDb = tomoXService.StateCache.TrieDB()
+			tomoxTrieDb = tomoXService.GetStateCache().TrieDB()
 		}
 	}
 	triedb := bc.stateCache.TrieDB()
@@ -1102,7 +1103,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 				tomoxTrieDb.Reference(tomoxRoot, common.Hash{})
 			}
 			if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-				tomoXService.Triegc.Push(tomoxRoot, -float32(block.NumberU64()))
+				tomoXService.GetTriegc().Push(tomoxRoot, -float32(block.NumberU64()))
 			}
 		}
 		if current := block.NumberU64(); current > triesInMemory {
@@ -1153,10 +1154,10 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			}
 			if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
 				if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-					for !tomoXService.Triegc.Empty() {
-						tomoRoot, number := tomoXService.Triegc.Pop()
+					for !tomoXService.GetTriegc().Empty() {
+						tomoRoot, number := tomoXService.GetTriegc().Pop()
 						if uint64(-number) > chosen {
-							tomoXService.Triegc.Push(tomoRoot, number)
+							tomoXService.GetTriegc().Push(tomoRoot, number)
 							break
 						}
 						tomoxTrieDb.Dereference(tomoRoot.(common.Hash), common.Hash{})
