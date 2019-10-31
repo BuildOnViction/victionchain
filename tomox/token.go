@@ -2,15 +2,16 @@ package tomox
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
 	"strings"
+
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/core/state"
 )
-import "github.com/ethereum/go-ethereum/accounts/abi"
 
 const tokenAbi = `
 [
@@ -433,16 +434,15 @@ func GetTokenAbi() (*abi.ABI, error) {
 	return &contractABI, nil
 }
 
-
 // RunContract run smart contract
-func RunContract(block *types.Block, statedb *state.StateDB, contractAddr common.Address, abi *abi.ABI, method string, args ...interface{}) (interface{}, error) {
-	input, err := abi.Pack(method, args)
+func RunContract(chain consensus.ChainContext, statedb *state.StateDB, coinbase common.Address, contractAddr common.Address, abi *abi.ABI, method string, args ...interface{}) (interface{}, error) {
+	input, err := abi.Pack(method)
 	if err != nil {
 		return nil, err
 	}
 	backend := (*backends.SimulatedBackend)(nil)
-	msg := ethereum.CallMsg{To: &contractAddr, Data: input}
-	result, err := backend.CallContractWithState(context.Background(), msg, block, statedb)
+	msg := ethereum.CallMsg{To: &contractAddr, Data: input, From: coinbase}
+	result, err := backend.CallContractWithState(context.Background(), msg, chain, statedb)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +454,7 @@ func RunContract(block *types.Block, statedb *state.StateDB, contractAddr common
 	return unpackResult, nil
 }
 
-func (tomox *TomoX) GetTokenDecimal(block *types.Block, statedb *state.StateDB, tokenAddr common.Address) (*big.Int, error) {
+func (tomox *TomoX) GetTokenDecimal(chain consensus.ChainContext, statedb *state.StateDB, coinbase common.Address, tokenAddr common.Address) (*big.Int, error) {
 	if tokenDecimal, ok := tomox.tokenDecimalCache.Get(tokenAddr); ok {
 		return tokenDecimal.(*big.Int), nil
 	}
@@ -466,7 +466,7 @@ func (tomox *TomoX) GetTokenDecimal(block *types.Block, statedb *state.StateDB, 
 	if err != nil {
 		return nil, err
 	}
-	result, err := RunContract(block, statedb, tokenAddr, contractABI, "decimals")
+	result, err := RunContract(chain, statedb, coinbase, tokenAddr, contractABI, "decimals")
 	if err != nil {
 		return nil, err
 	}

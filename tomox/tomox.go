@@ -3,6 +3,7 @@ package tomox
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
@@ -147,7 +148,7 @@ func (tomox *TomoX) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, currentBlock *types.Block, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []tomox_state.TxDataMatch {
+func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []tomox_state.TxDataMatch {
 	txMatches := []tomox_state.TxDataMatch{}
 	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
 	for {
@@ -199,7 +200,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, currentBlock *t
 			order.Status = OrderStatusCancelled
 		}
 
-		trades, rejects, err := tomox.CommitOrder(coinbase, currentBlock, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		trades, rejects, err := tomox.CommitOrder(coinbase, chain, statedb, tomoXstatedb, GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
 
 		log.Debug("List reject order", "rejects", len(rejects))
 		for _, reject := range rejects {

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/ethereum/go-ethereum/consensus"
 	"math/big"
 	"testing"
 	"time"
@@ -162,7 +163,7 @@ func odrContractCall(ctx context.Context, db ethdb.Database, bc *core.BlockChain
 		var (
 			st     *state.StateDB
 			header *types.Header
-			chain  core.ChainContext
+			chain  consensus.ChainContext
 		)
 		if bc == nil {
 			chain = lc
