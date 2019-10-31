@@ -199,7 +199,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 							balacne = value
 						}
 					}
-					msg, _ := tx.AsMessage(signer, balacne)
+					msg, _ := tx.AsMessage(signer, balacne,task.block.Number())
 					vmctx := core.NewEVMContext(msg, task.block.Header(), api.eth.blockchain, nil)
 
 					res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -438,7 +438,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 						balacne = value
 					}
 				}
-				msg, _ := txs[task.index].AsMessage(signer, balacne)
+				msg, _ := txs[task.index].AsMessage(signer, balacne,block.Number())
 				vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 				res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -463,7 +463,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 			}
 		}
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer, balacne)
+		msg, _ := tx.AsMessage(signer, balacne,block.Number())
 		vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 		vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{})
@@ -660,7 +660,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 			}
 		}
 		// Assemble the transaction call message and return if the requested offset
-		msg, _ := tx.AsMessage(signer, balacne)
+		msg, _ := tx.AsMessage(signer, balacne,block.Number())
 		context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 		if idx == txIndex {
 			return msg, context, statedb, nil
