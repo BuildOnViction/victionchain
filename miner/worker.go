@@ -633,7 +633,7 @@ func (self *worker) commitNewWork() {
 	}
 	wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})
 	if err != nil {
-		log.Error("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
+		log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
 		return
 	}
 	txMatchBytes, err := tomox.EncodeTxMatchesBatch(*txMatchBatch)
