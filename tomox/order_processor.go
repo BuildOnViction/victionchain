@@ -28,7 +28,7 @@ func (tomox *TomoX) CommitOrder(coinbase common.Address, currentBlock *types.Blo
 	return trades, rejects, err
 }
 
-func (tomox *TomoX) ApplyOrder(coinbase common.Address, ipcEndpoint string, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error) {
+func (tomox *TomoX) ApplyOrder(coinbase common.Address, currentBlock *types.Block, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error) {
 	var (
 		rejects []*tomox_state.OrderItem
 		trades  []map[string]string
@@ -304,11 +304,11 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, currentBlock *type
 }
 
 func (tomox *TomoX) getTradeQuantity(quotePrice *big.Int, coinbase common.Address, currentBlock *types.Block, statedb *state.StateDB, takerOrder *tomox_state.OrderItem, makerOrder *tomox_state.OrderItem, quantityToTrade *big.Int) (*big.Int, bool, error) {
-	baseTokenDecimal, err := tomox.GetTokenDecimal(ipcEndpoint, makerOrder.BaseToken)
+	baseTokenDecimal, err := tomox.GetTokenDecimal(currentBlock, statedb, makerOrder.BaseToken)
 	if err != nil || baseTokenDecimal.Sign() == 0 {
 		return Zero(), false, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.BaseToken.String(), err)
 	}
-	quoteTokenDecimal, err := tomox.GetTokenDecimal(ipcEndpoint, makerOrder.QuoteToken)
+	quoteTokenDecimal, err := tomox.GetTokenDecimal(currentBlock, statedb, makerOrder.QuoteToken)
 	if err != nil || quoteTokenDecimal.Sign() == 0 {
 		return Zero(), false, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.QuoteToken.String(), err)
 	}
