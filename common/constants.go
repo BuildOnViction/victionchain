@@ -34,7 +34,8 @@ var RollbackHash Hash
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
 var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
-var TRC21GasPrice = big.NewInt(DefaultMinGasPrice)
+var TRC21GasPriceBefore = big.NewInt(2500)
+var TRC21GasPrice = big.NewInt(250000000)
 var Blacklist = map[Address]bool{
 	HexToAddress("0x5248bfb72fd4f234e062d3e9bb76f08643004fcd"): true,
 	HexToAddress("0x5ac26105b35ea8935be382863a70281ec7a985e9"): true,
