@@ -540,7 +540,11 @@ func (bc *BlockChain) repair(head **types.Block) error {
 							return nil
 						}
 					}
+				} else {
+					return nil
 				}
+			} else {
+				return nil
 			}
 		}
 		// Otherwise rewind one block and recheck state availability there

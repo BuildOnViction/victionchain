@@ -270,6 +270,9 @@ func (pool *OrderPool) loop() {
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
 func (pool *OrderPool) reset(oldHead, newblock *types.Block) {
+	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) {
+		return
+	}
 	// If we're reorging an old state, reinject all dropped transactions
 	var reinject types.OrderTransactions
 
