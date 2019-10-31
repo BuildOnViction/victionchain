@@ -25,14 +25,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/consensus/posv"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/tomox"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 )
 
@@ -295,157 +292,6 @@ func ApplySignTransaction(config *params.ChainConfig, statedb *state.StateDB, he
 
 func ApplyEmptyTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
 	// Update the state with pending changes
-	var root []byte
-	if config.IsByzantium(header.Number) {
-		statedb.Finalise(true)
-	} else {
-		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
-	}
-	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
-	// based on the eip phase, we're passing wether the root touch-delete accounts.
-	receipt := types.NewReceipt(root, false, *usedGas)
-	receipt.TxHash = tx.Hash()
-	receipt.GasUsed = 0
-	// if the transaction created a contract, store the creation address in the receipt.
-	// Set the receipt logs and create a bloom for filtering
-	log := &types.Log{}
-	log.Address = *tx.To()
-	log.BlockNumber = header.Number.Uint64()
-	statedb.AddLog(log)
-	receipt.Logs = statedb.GetLogs(tx.Hash())
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	return receipt, 0, nil, false
-}
-func ApplyTomoXMatchedTransaction(config *params.ChainConfig, bc *BlockChain, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
-	// Update the state with pending changes
-	engine, ok := bc.Engine().(*posv.Posv)
-	var tomoXService *tomox.TomoX
-	if ok {
-		tomoXService = engine.GetTomoXService()
-	}
-	if tomoXService == nil || !bc.chainConfig.IsTIPTomoX(header.Number) {
-		return nil, 0, tomox.ErrTomoXServiceNotFound, false
-	}
-
-	txMatchBatches, err := tomox.DecodeTxMatchesBatch(tx.Data())
-	if err != nil {
-		return nil, 0, err, false
-	}
-	matchingFee := big.NewInt(0)
-	for _, txMatch := range txMatchBatches.Data {
-		orderItem, err := txMatch.DecodeOrder()
-		if err != nil {
-			return nil, 0, err, false
-		}
-		takerAddr := orderItem.UserAddress
-		takerExAddr := orderItem.ExchangeAddress
-		takerExOwner := tomox_state.GetRelayerOwner(orderItem.ExchangeAddress, statedb)
-		baseToken := orderItem.BaseToken
-		quoteToken := orderItem.QuoteToken
-		takerExfee := tomox_state.GetExRelayerFee(orderItem.ExchangeAddress, statedb)
-		baseFee := common.TomoXBaseFee
-
-		for i := 0; i < len(txMatch.Trades); i++ {
-			price := tomox.ToBigInt(txMatch.Trades[i][tomox.TradePrice])
-			quantityString := txMatch.Trades[i][tomox.TradeQuantity]
-			quantity := tomox.ToBigInt(quantityString)
-			if price.Cmp(big.NewInt(0)) <= 0 || quantity.Cmp(big.NewInt(0)) <= 0 {
-				return nil, 0, fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity), false
-			}
-			makerExAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradeMakerExchange])
-			makerExfee := tomox_state.GetExRelayerFee(makerExAddr, statedb)
-			makerExOwner := tomox_state.GetRelayerOwner(makerExAddr, statedb)
-			makerAddr := common.HexToAddress(txMatch.Trades[i][tomox.TradeMaker])
-			log.Debug("ApplyTomoXMatchedTransaction : trades quantityString", "i", i, "trade", txMatch.Trades[i], "price", price)
-			if makerExAddr != (common.Address{}) && makerAddr != (common.Address{}) {
-				// take relayer fee
-				err := tomox_state.SubRelayerFee(takerExAddr, common.RelayerFee, statedb)
-				if err != nil {
-					return nil, 0, err, false
-				}
-				err = tomox_state.SubRelayerFee(makerExAddr, common.RelayerFee, statedb)
-				if err != nil {
-					return nil, 0, err, false
-				}
-
-				// masternodes charges fee of both 2 relayers. If maker and taker are on same relayer, that relayer is charged fee twice
-				matchingFee = matchingFee.Add(matchingFee, common.RelayerFee)
-				matchingFee = matchingFee.Add(matchingFee, common.RelayerFee)
-
-				//log.Debug("ApplyTomoXMatchedTransaction quantity check", "i", i, "trade", txMatch.Trades[i], "price", price, "quantity", quantity)
-
-				isTakerBuy := orderItem.Side == tomox.Bid
-				settleBalanceResult, err := tomoXService.SettleBalance(
-					bc.IPCEndpoint,
-					makerAddr,
-					takerAddr,
-					baseToken,
-					quoteToken,
-					isTakerBuy,
-					makerExfee,
-					takerExfee,
-					baseFee,
-					quantity,
-					price)
-				if err != nil {
-					return nil, 0, err, false
-				}
-				// TAKER
-				//log.Debug("ApplyTomoXMatchedTransaction settle balance for taker",
-				//	"taker", takerAddr,
-				//	"inToken", settleBalanceResult[takerAddr][tomox.InToken].(common.Address), "inQuantity", settleBalanceResult[takerAddr][tomox.InQuantity].(*big.Int),
-				//	"inTotal", settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int),
-				//	"outToken", settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[takerAddr][tomox.OutQuantity].(*big.Int),
-				//	"outTotal", settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int))
-				err = tomox_state.AddTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.InToken].(common.Address), statedb)
-				if err != nil {
-					return nil, 0, err, false
-				}
-				err = tomox_state.SubTokenBalance(takerAddr, settleBalanceResult[takerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[takerAddr][tomox.OutToken].(common.Address), statedb)
-				if err != nil {
-					return nil, 0, err, false
-				}
-
-				// MAKER
-				//log.Debug("ApplyTomoXMatchedTransaction settle balance for maker",
-				//	"maker", makerAddr,
-				//	"inToken", settleBalanceResult[makerAddr][tomox.InToken].(common.Address), "inQuantity", settleBalanceResult[makerAddr][tomox.InQuantity].(*big.Int),
-				//	"inTotal", settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int),
-				//	"outToken", settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), "outQuantity", settleBalanceResult[makerAddr][tomox.OutQuantity].(*big.Int),
-				//	"outTotal", settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int))
-				err = tomox_state.AddTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.InTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.InToken].(common.Address), statedb)
-				if err != nil {
-					return nil, 0, err, false
-				}
-				err = tomox_state.SubTokenBalance(makerAddr, settleBalanceResult[makerAddr][tomox.OutTotal].(*big.Int), settleBalanceResult[makerAddr][tomox.OutToken].(common.Address), statedb)
-				if err != nil {
-					return nil, 0, err, false
-				}
-
-				// add balance for relayers
-				//log.Debug("ApplyTomoXMatchedTransaction settle fee for relayers",
-				//	"takerRelayerOwner", takerExOwner,
-				//	"takerFeeToken", quoteToken, "takerFee", settleBalanceResult[takerAddr][tomox.Fee].(*big.Int),
-				//	"makerRelayerOwner", makerExOwner,
-				//	"makerFeeToken", quoteToken, "makerFee", settleBalanceResult[makerAddr][tomox.Fee].(*big.Int))
-				// takerFee
-				err = tomox_state.AddTokenBalance(takerExOwner, settleBalanceResult[takerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
-				if err != nil {
-					return nil, 0, err, false
-				}
-				// makerFee
-				err = tomox_state.AddTokenBalance(makerExOwner, settleBalanceResult[makerAddr][tomox.Fee].(*big.Int), quoteToken, statedb)
-				if err != nil {
-					return nil, 0, err, false
-				}
-			}
-		}
-	}
-
-	masternodeOwner := statedb.GetOwner(header.Coinbase)
-
-	statedb.AddBalance(masternodeOwner, matchingFee)
-
 	var root []byte
 	if config.IsByzantium(header.Number) {
 		statedb.Finalise(true)

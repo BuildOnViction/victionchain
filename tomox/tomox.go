@@ -39,18 +39,6 @@ type Config struct {
 	ReplicaSetName string `toml:",omitempty"`
 }
 
-type TxDataMatch struct {
-	Order         []byte // serialized data of order has been processed in this tx
-	Trades        []map[string]string
-	RejectedOders []*tomox_state.OrderItem
-}
-
-type TxMatchBatch struct {
-	Data      []TxDataMatch
-	Timestamp int64
-	TxHash    common.Hash
-}
-
 // DefaultConfig represents (shocker!) the default configuration.
 var DefaultConfig = Config{
 	DataDir: "",
@@ -159,8 +147,8 @@ func (tomox *TomoX) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint string, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []TxDataMatch {
-	txMatches := []TxDataMatch{}
+func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint string, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []tomox_state.TxDataMatch {
+	txMatches := []tomox_state.TxDataMatch{}
 	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
 	for {
 		tx := txs.Peek()
@@ -245,14 +233,14 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 
 		// orderID has been updated
 		originalOrder.OrderID = order.OrderID
-		originalOrderValue, err := EncodeBytesItem(originalOrder)
+		originalOrderValue, err := tomox_state.EncodeBytesItem(originalOrder)
 		if err != nil {
 			log.Error("Can't encode", "order", originalOrder, "err", err)
 			continue
 		}
-		txMatch := TxDataMatch{
-			Order:         originalOrderValue,
-			Trades:        trades,
+		txMatch := tomox_state.TxDataMatch{
+			Order:  originalOrderValue,
+			Trades: trades,
 			RejectedOders: rejects,
 		}
 		txMatches = append(txMatches, txMatch)
@@ -266,7 +254,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, ipcEndpoint str
 // 2. txMatchData.Trades: includes information of matched orders.
 // 		a. PutObject them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
-func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB) error {
+func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB) error {
 	var (
 		// originTakerOrder: order get from db, nil if it doesn't exist
 		// takerOrderInTx: order decoded from txdata
@@ -486,7 +474,7 @@ func (tomox *TomoX) UpdateOrderCache(pair string, orderId uint64, txhash common.
 	} else {
 		orderCacheAtTxHash = c.(map[common.Hash]OrderHistoryItem)
 	}
-	orderKey := GetOrderHistoryKey(pair, orderId)
+	orderKey := tomox_state.GetOrderHistoryKey(pair, orderId)
 	_, ok = orderCacheAtTxHash[orderKey]
 	if !ok {
 		orderCacheAtTxHash[orderKey] = lastState
@@ -507,7 +495,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 			continue
 		}
 		orderCacheAtTxHash := c.(map[common.Hash]OrderHistoryItem)
-		orderHistoryItem, _ := orderCacheAtTxHash[GetOrderHistoryKey(order.PairName, order.OrderID)]
+		orderHistoryItem, _ := orderCacheAtTxHash[tomox_state.GetOrderHistoryKey(order.PairName, order.OrderID)]
 		if (orderHistoryItem == OrderHistoryItem{}) {
 			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", ToJSON(order))
 			if err := db.DeleteObject(order.Hash); err != nil {

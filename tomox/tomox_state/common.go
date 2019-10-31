@@ -1,8 +1,10 @@
 package tomox_state
 
 import (
+	"encoding/json"
 	"errors"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -90,3 +92,50 @@ var (
 		"_owner":      big.NewInt(5),
 	}
 )
+
+type TxDataMatch struct {
+	Order         []byte // serialized data of order has been processed in this tx
+	Trades        []map[string]string
+	RejectedOders []*OrderItem
+}
+
+type TxMatchBatch struct {
+	Data      []TxDataMatch
+	Timestamp int64
+	TxHash    common.Hash
+}
+
+func EncodeTxMatchesBatch(txMatchBatch TxMatchBatch) ([]byte, error) {
+	data, err := json.Marshal(txMatchBatch)
+	if err != nil || data == nil {
+		return []byte{}, err
+	}
+	return data, nil
+}
+
+func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
+	txMatchResult := TxMatchBatch{}
+	if err := json.Unmarshal(data, &txMatchResult); err != nil {
+		return TxMatchBatch{}, err
+	}
+	return txMatchResult, nil
+}
+
+func GetOrderHistoryKey(pairName string, orderId uint64) common.Hash {
+	return common.StringToHash(pairName + strconv.FormatUint(orderId, 10))
+}
+func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
+	order := &OrderItem{}
+	if err := DecodeBytesItem(tx.Order, order); err != nil {
+		return order, err
+	}
+	return order, nil
+}
+
+func (tx TxDataMatch) GetTrades() []map[string]string {
+	return tx.Trades
+}
+
+func (tx TxDataMatch) GetRejectedOrders() []*OrderItem {
+	return tx.RejectedOders
+}

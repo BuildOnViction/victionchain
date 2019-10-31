@@ -3,11 +3,8 @@ package tomox
 import (
 	"encoding/json"
 	"errors"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
-	"math/big"
-	"strconv"
-
 	"github.com/ethereum/go-ethereum/common"
+	"math/big"
 )
 
 type Comparator func(a, b []byte) int
@@ -251,41 +248,6 @@ func IsEqualOrGreaterThan(x, y *big.Int) bool {
 
 func IsEqualOrSmallerThan(x, y *big.Int) bool {
 	return (IsEqual(x, y) || IsSmallerThan(x, y))
-}
-
-func EncodeTxMatchesBatch(txMatchBatch TxMatchBatch) ([]byte, error) {
-	data, err := json.Marshal(txMatchBatch)
-	if err != nil || data == nil {
-		return []byte{}, err
-	}
-	return data, nil
-}
-
-func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
-	txMatchResult := TxMatchBatch{}
-	if err := json.Unmarshal(data, &txMatchResult); err != nil {
-		return TxMatchBatch{}, err
-	}
-	return txMatchResult, nil
-}
-
-func GetOrderHistoryKey(pairName string, orderId uint64) common.Hash {
-	return common.StringToHash(pairName + strconv.FormatUint(orderId, 10))
-}
-func (tx TxDataMatch) DecodeOrder() (*tomox_state.OrderItem, error) {
-	order := &tomox_state.OrderItem{}
-	if err := DecodeBytesItem(tx.Order, order); err != nil {
-		return order, err
-	}
-	return order, nil
-}
-
-func (tx TxDataMatch) GetTrades() []map[string]string {
-	return tx.Trades
-}
-
-func (tx TxDataMatch) GetRejectedOrders() []*tomox_state.OrderItem {
-	return tx.RejectedOders
 }
 
 func GetOrderBookHash(baseToken common.Address, quoteToken common.Address) common.Hash {
