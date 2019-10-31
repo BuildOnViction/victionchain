@@ -491,7 +491,11 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 			for _, candidate := range candidates {
 				result = append(result, candidate.Address)
 			}
-			return result[:150], nil
+			if len(result) > 150 {
+				return result[:150], nil
+			} else {
+				return result, nil
+			}
 		}
 
 		// Hook calculates reward for masternodes
