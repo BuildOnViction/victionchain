@@ -471,7 +471,8 @@ func (tomox *TomoX) GetTokenDecimal(chain consensus.ChainContext, statedb *state
 	if err != nil {
 		return nil, err
 	}
-	result, err := RunContract(chain, statedb, coinbase, tokenAddr, contractABI, "decimals")
+	stateCopy := statedb.Copy()
+	result, err := RunContract(chain, stateCopy, coinbase, tokenAddr, contractABI, "decimals")
 	if err != nil {
 		return nil, err
 	}
