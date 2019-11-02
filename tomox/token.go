@@ -2,6 +2,7 @@ package tomox
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"strings"
 
@@ -462,6 +463,10 @@ func (tomox *TomoX) GetTokenDecimal(chain consensus.ChainContext, statedb *state
 		tomox.tokenDecimalCache.Add(tokenAddr, common.BasePrice)
 		return common.BasePrice, nil
 	}
+	var decimals uint8
+	defer func() {
+		log.Debug("GetTokenDecimal from ", "relayerSMC", common.RelayerRegistrationSMC, "tokenAddr", tokenAddr.Hex(), "decimals", decimals)
+	}()
 	contractABI, err := GetTokenAbi()
 	if err != nil {
 		return nil, err
@@ -470,7 +475,7 @@ func (tomox *TomoX) GetTokenDecimal(chain consensus.ChainContext, statedb *state
 	if err != nil {
 		return nil, err
 	}
-	decimals := result.(uint8)
+	decimals = result.(uint8)
 
 	tokenDecimal := new(big.Int).SetUint64(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	tomox.tokenDecimalCache.Add(tokenAddr, tokenDecimal)
