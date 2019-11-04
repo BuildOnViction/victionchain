@@ -123,7 +123,7 @@ func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStat
 		posvEngine, _  := v.bc.Engine().(*posv.Posv)
 		if posvEngine != nil {
 			if tomoXService := posvEngine.GetTomoXService(); tomoXService != nil {
-				if _, _,  err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
+				if _, _,  err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tomox_state.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
 					return err
 				}
 			}
@@ -177,8 +177,4 @@ func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox_state
 		}
 	}
 	return txMatchBatchData, nil
-}
-
-func GetOrderBookHash(baseToken common.Address, quoteToken common.Address) common.Hash {
-	return common.BytesToHash(append(baseToken[:16], quoteToken[4:]...))
 }

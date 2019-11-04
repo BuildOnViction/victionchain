@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/tomox"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"sort"
@@ -1892,7 +1891,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToke
 	if err != nil {
 		return result, err
 	}
-	result.Price, result.Volume = tomoxState.GetBestBidPrice(tomox.GetOrderBookHash(baseToken,quoteToken))
+	result.Price, result.Volume = tomoxState.GetBestBidPrice(tomox_state.GetOrderBookHash(baseToken,quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Bid tree not found")
 	}
@@ -1914,7 +1913,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToke
 	if err != nil {
 		return result, err
 	}
-	result.Price, result.Volume = tomoxState.GetBestAskPrice(tomox.GetOrderBookHash(baseToken,quoteToken))
+	result.Price, result.Volume = tomoxState.GetBestAskPrice(tomox_state.GetOrderBookHash(baseToken,quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Ask tree not found")
 	}
@@ -1934,7 +1933,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToke
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpBidTrie(tomox.GetOrderBookHash(baseToken,quoteToken))
+	result, err := tomoxState.DumpBidTrie(tomox_state.GetOrderBookHash(baseToken,quoteToken))
 	if err != nil {
 		return nil, err
 	}
@@ -1954,7 +1953,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToke
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpAskTrie(tomox.GetOrderBookHash(baseToken,quoteToken))
+	result, err := tomoxState.DumpAskTrie(tomox_state.GetOrderBookHash(baseToken,quoteToken))
 	if err != nil {
 		return nil, err
 	}
@@ -1975,7 +1974,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseTo
 		return nil, err
 	}
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderId))
-	orderitem := tomoxState.GetOrder(tomox.GetOrderBookHash(baseToken,quoteToken), orderIdHash)
+	orderitem := tomoxState.GetOrder(tomox_state.GetOrderBookHash(baseToken,quoteToken), orderIdHash)
 	if orderitem.Quantity == nil || orderitem.Quantity.Sign() == 0 {
 		return nil, errors.New("Order not found")
 	}

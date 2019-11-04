@@ -41,8 +41,6 @@ var (
 	ErrInvalidRelayer        = errors.New("verify order: invalid relayer")
 	ErrInvalidOrderType      = errors.New("verify order: unsupported order type")
 	ErrInvalidOrderSide      = errors.New("verify order: invalid order side")
-	ErrOrderBookHashNotMatch = errors.New("verify order: orderbook hash not match")
-	ErrOrderTreeHashNotMatch = errors.New("verify order: ordertree hash not match")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
@@ -138,4 +136,76 @@ func (tx TxDataMatch) GetTrades() []map[string]string {
 
 func (tx TxDataMatch) GetRejectedOrders() []*OrderItem {
 	return tx.RejectedOders
+}
+
+
+type OrderHistoryItem struct {
+	TxHash       common.Hash
+	FilledAmount *big.Int
+	Status       string
+}
+
+// use alloc to prevent reference manipulation
+func EmptyKey() []byte {
+	key := make([]byte, common.HashLength)
+	return key
+}
+
+
+// ToJSON : log json string
+func ToJSON(object interface{}, args ...string) string {
+	var str []byte
+	if len(args) == 2 {
+		str, _ = json.MarshalIndent(object, args[0], args[1])
+	} else {
+		str, _ = json.Marshal(object)
+	}
+	return string(str)
+}
+
+func Mul(x, y *big.Int) *big.Int {
+	return big.NewInt(0).Mul(x, y)
+}
+
+func Div(x, y *big.Int) *big.Int {
+	return big.NewInt(0).Div(x, y)
+}
+
+func Add(x, y *big.Int) *big.Int {
+	return big.NewInt(0).Add(x, y)
+}
+
+func Sub(x, y *big.Int) *big.Int {
+	return big.NewInt(0).Sub(x, y)
+}
+
+func Neg(x *big.Int) *big.Int {
+	return big.NewInt(0).Neg(x)
+}
+
+func ToBigInt(s string) *big.Int {
+	res := big.NewInt(0)
+	res.SetString(s, 10)
+	return res
+}
+
+func CloneBigInt(bigInt *big.Int) *big.Int {
+	res := new(big.Int).SetBytes(bigInt.Bytes())
+	return res
+}
+
+func Exp(x, y *big.Int) *big.Int {
+	return big.NewInt(0).Exp(x, y, nil)
+}
+
+func Max(a, b *big.Int) *big.Int {
+	if a.Cmp(b) == 1 {
+		return a
+	} else {
+		return b
+	}
+}
+
+func GetOrderBookHash(baseToken common.Address, quoteToken common.Address) common.Hash {
+	return common.BytesToHash(append(baseToken[:16], quoteToken[4:]...))
 }
