@@ -21,10 +21,10 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/core/vm"
+	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/go-tomochain/params"
 )
 
 var (

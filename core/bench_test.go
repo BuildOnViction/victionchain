@@ -23,14 +23,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/common/math"
+	"github.com/tomochain/go-tomochain/consensus/ethash"
+	"github.com/tomochain/go-tomochain/core/types"
+	"github.com/tomochain/go-tomochain/core/vm"
+	"github.com/tomochain/go-tomochain/crypto"
+	"github.com/tomochain/go-tomochain/ethdb"
+	"github.com/tomochain/go-tomochain/params"
 )
 
 func BenchmarkInsertChain_empty_memdb(b *testing.B) {

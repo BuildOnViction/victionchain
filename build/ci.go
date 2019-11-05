@@ -47,7 +47,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/internal/build"
+	"github.com/tomochain/go-tomochain/internal/build"
 )
 
 var (

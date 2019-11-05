@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/crypto/sha3"
 	"github.com/globalsign/mgo/bson"
 )
 

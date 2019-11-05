@@ -18,9 +18,9 @@ package tomox_state
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/go-tomochain/rlp"
 	"io"
 	"math/big"
 )

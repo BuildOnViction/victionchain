@@ -23,10 +23,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/trie"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/go-tomochain/trie"
 )
 
 type revision struct {

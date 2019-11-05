@@ -4,10 +4,10 @@
 package contract
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/tomochain/go-tomochain/accounts/abi"
+	"github.com/tomochain/go-tomochain/accounts/abi/bind"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/core/types"
 	"strings"
 )
 

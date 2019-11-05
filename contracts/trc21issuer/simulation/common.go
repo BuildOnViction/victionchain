@@ -1,7 +1,7 @@
 package simulation
 
 import (
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/tomochain/go-tomochain/crypto"
 	"math/big"
 )
 

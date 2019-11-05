@@ -27,9 +27,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/go-tomochain/swarm/storage"
 )
 
 const (

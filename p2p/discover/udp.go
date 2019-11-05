@@ -25,11 +25,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/ethereum/go-ethereum/p2p/netutil"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/tomochain/go-tomochain/crypto"
+	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/go-tomochain/p2p/nat"
+	"github.com/tomochain/go-tomochain/p2p/netutil"
+	"github.com/tomochain/go-tomochain/rlp"
 )
 
 const Version = 4

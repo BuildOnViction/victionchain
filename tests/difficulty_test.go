@@ -21,8 +21,8 @@ import (
 
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/params"
 )
 
 var (

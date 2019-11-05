@@ -24,12 +24,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/tomochain/go-tomochain"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/common/hexutil"
+	"github.com/tomochain/go-tomochain/core/types"
+	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/go-tomochain/rpc"
 )
 
 // Client defines typed wrappers for the Ethereum RPC API.

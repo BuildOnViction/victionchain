@@ -22,14 +22,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/contracts/ens"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/swarm/network"
-	"github.com/ethereum/go-ethereum/swarm/services/swap"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/contracts/ens"
+	"github.com/tomochain/go-tomochain/crypto"
+	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/go-tomochain/node"
+	"github.com/tomochain/go-tomochain/swarm/network"
+	"github.com/tomochain/go-tomochain/swarm/services/swap"
+	"github.com/tomochain/go-tomochain/swarm/storage"
 )
 
 const (

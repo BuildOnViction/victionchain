@@ -2,7 +2,7 @@ package tomox
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/tomochain/go-tomochain/tomox/tomox_state"
 	"math/big"
 	"time"
 )

@@ -21,8 +21,8 @@ import (
 
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/tomochain/go-tomochain/consensus"
+	"github.com/tomochain/go-tomochain/log"
 )
 
 type CpuAgent struct {

@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/go-tomochain/metrics"
 )
 
 //metrics variables

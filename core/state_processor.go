@@ -22,14 +22,14 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-tomochain/common"
+	"github.com/ethereum/go-tomochain/consensus"
+	"github.com/ethereum/go-tomochain/consensus/misc"
+	"github.com/ethereum/go-tomochain/core/state"
+	"github.com/ethereum/go-tomochain/core/types"
+	"github.com/ethereum/go-tomochain/core/vm"
+	"github.com/ethereum/go-tomochain/crypto"
+	"github.com/ethereum/go-tomochain/params"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning

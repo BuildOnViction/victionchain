@@ -21,13 +21,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/contracts"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/tomochain/go-tomochain/accounts/abi/bind"
+	"github.com/tomochain/go-tomochain/accounts/abi/bind/backends"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/contracts"
+	"github.com/tomochain/go-tomochain/core"
+	"github.com/tomochain/go-tomochain/core/types"
+	"github.com/tomochain/go-tomochain/crypto"
 )
 
 var (

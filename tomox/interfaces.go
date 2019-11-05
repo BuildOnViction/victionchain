@@ -1,9 +1,9 @@
 package tomox
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/go-tomochain/ethdb"
+	"github.com/tomochain/go-tomochain/tomox/tomox_state"
 	"github.com/globalsign/mgo"
 )
 

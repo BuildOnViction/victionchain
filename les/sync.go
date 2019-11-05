@@ -20,9 +20,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/light"
+	"github.com/tomochain/go-tomochain/core"
+	"github.com/tomochain/go-tomochain/eth/downloader"
+	"github.com/tomochain/go-tomochain/light"
 )
 
 const (
