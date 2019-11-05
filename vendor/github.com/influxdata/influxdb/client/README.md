@@ -72,6 +72,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer c.Close()
 
 	// Create a new point batch
 	bp, err := client.NewBatchPoints(client.BatchPointsConfig{
@@ -99,6 +100,11 @@ func main() {
 	// Write the batch
 	if err := c.Write(bp); err != nil {
 		log.Fatal(err)
+	}
+
+	// Close client resources
+	if err := c.Close(); err != nil {
+    		log.Fatal(err)
 	}
 }
 
@@ -244,11 +250,12 @@ The **InfluxDB** client also supports writing over UDP.
 ```go
 func WriteUDP() {
 	// Make client
-	c, err := client.NewUDPClient("localhost:8089")
+	// PayloadSize is default value(512)
+	c, err := client.NewUDPClient(client.UDPConfig{Addr: "localhost:8089"})
 	if err != nil {
 		panic(err.Error())
 	}
-	
+
 	// Create a new point batch
 	bp, _ := client.NewBatchPoints(client.BatchPointsConfig{
 		Precision: "s",
