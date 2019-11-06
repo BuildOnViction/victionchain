@@ -41,7 +41,7 @@ require (
 	github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d
 	github.com/rs/cors v1.7.0
 	github.com/stretchr/testify v1.4.0
-	github.com/syndtr/goleveldb v1.0.0
+	github.com/syndtr/goleveldb v0.0.0-20190318030020-c3a204f8e965
 	golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf
 	golang.org/x/net v0.0.0-20190912160710-24e19bdeb0f2
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
