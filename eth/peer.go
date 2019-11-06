@@ -27,7 +27,7 @@ import (
 	"github.com/tomochain/go-tomochain/core/types"
 	"github.com/tomochain/go-tomochain/p2p"
 	"github.com/tomochain/go-tomochain/rlp"
-	"gopkg.in/fatih/set.v0"
+	mapset "github.com/deckarep/golang-set"
 )
 
 var (
@@ -65,9 +65,9 @@ type peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	knownTxs      *set.Set // Set of transaction hashes known to be known by this peer
-	knownBlocks   *set.Set // Set of block hashes known to be known by this peer
-	knownOrderTxs *set.Set // Set of order transaction hashes known to be known by this peer
+	knownTxs    mapset.Set                // Set of transaction hashes known to be known by this peer
+	knownBlocks mapset.Set                // Set of block hashes known to be known by this peer
+	knownOrderTxs mapset.Set // Set of order transaction hashes known to be known by this peer
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -78,9 +78,9 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		rw:            rw,
 		version:       version,
 		id:            fmt.Sprintf("%x", id[:8]),
-		knownTxs:      set.New(),
-		knownBlocks:   set.New(),
-		knownOrderTxs: set.New(),
+		knownTxs:      mapset.NewSet(),
+		knownBlocks:   mapset.NewSet(),
+		knownOrderTxs: mapset.NewSet(),
 	}
 }
 
@@ -118,7 +118,7 @@ func (p *peer) SetHead(hash common.Hash, td *big.Int) {
 // never be propagated to this particular peer.
 func (p *peer) MarkBlock(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known block hash
-	for p.knownBlocks.Size() >= maxKnownBlocks {
+	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
 		p.knownBlocks.Pop()
 	}
 	p.knownBlocks.Add(hash)
@@ -128,7 +128,7 @@ func (p *peer) MarkBlock(hash common.Hash) {
 // will never be propagated to this particular peer.
 func (p *peer) MarkTransaction(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownTxs.Size() >= maxKnownTxs {
+	for p.knownTxs.Cardinality() >= maxKnownTxs {
 		p.knownTxs.Pop()
 	}
 	p.knownTxs.Add(hash)
@@ -138,7 +138,7 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 // will never be propagated to this particular peer.
 func (p *peer) MarkOrderTransaction(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownOrderTxs.Size() >= maxKnownOrderTxs {
+	for p.knownOrderTxs.Cardinality() >= maxKnownOrderTxs {
 		p.knownOrderTxs.Pop()
 	}
 	p.knownOrderTxs.Add(hash)
@@ -442,7 +442,7 @@ func (ps *peerSet) PeersWithoutBlock(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownBlocks.Has(hash) {
+		if !p.knownBlocks.Contains(hash) {
 			list = append(list, p)
 		}
 	}
@@ -457,7 +457,7 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownTxs.Has(hash) {
+		if !p.knownTxs.Contains(hash) {
 			list = append(list, p)
 		}
 	}
@@ -472,7 +472,7 @@ func (ps *peerSet) OrderPeersWithoutTx(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownOrderTxs.Has(hash) {
+		if !p.knownOrderTxs.Contains(hash) {
 			list = append(list, p)
 		}
 	}

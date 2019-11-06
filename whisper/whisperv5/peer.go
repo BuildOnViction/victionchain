@@ -24,7 +24,7 @@ import (
 	"github.com/tomochain/go-tomochain/log"
 	"github.com/tomochain/go-tomochain/p2p"
 	"github.com/tomochain/go-tomochain/rlp"
-	set "gopkg.in/fatih/set.v0"
+	mapset "github.com/deckarep/golang-set"
 )
 
 // peer represents a whisper protocol peer connection.
@@ -34,7 +34,7 @@ type Peer struct {
 	ws      p2p.MsgReadWriter
 	trusted bool
 
-	known *set.Set // Messages already known by the peer to avoid wasting bandwidth
+	known mapset.Set // Messages already known by the peer to avoid wasting bandwidth
 
 	quit chan struct{}
 }
@@ -46,7 +46,7 @@ func newPeer(host *Whisper, remote *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 		peer:    remote,
 		ws:      rw,
 		trusted: false,
-		known:   set.New(),
+		known:   mapset.NewSet(),
 		quit:    make(chan struct{}),
 	}
 }
@@ -127,7 +127,7 @@ func (peer *Peer) mark(envelope *Envelope) {
 
 // marked checks if an envelope is already known to the remote peer.
 func (peer *Peer) marked(envelope *Envelope) bool {
-	return peer.known.Has(envelope.Hash())
+	return peer.known.Contains(envelope.Hash())
 }
 
 // expire iterates over all the known envelopes in the host and removes all
