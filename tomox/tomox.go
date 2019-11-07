@@ -309,6 +309,12 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 	if updatedTakerOrder.CreatedAt.IsZero() {
 		updatedTakerOrder.CreatedAt = txMatchTime
 	}
+	if !txMatchTime.After(updatedTakerOrder.UpdatedAt) {
+		log.Debug("Ignore old orders/trades", "txHash", txHash.Hex(), "txTime", txMatchTime)
+		return nil
+	}
+	tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.OrderID, txHash, lastState)
+	updatedTakerOrder.UpdatedAt = txMatchTime
 
 	// 2. put trades to db and update status to FILLED
 	trades := txDataMatch.GetTrades()
@@ -380,21 +386,18 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 			updatedTakerOrder.Status = OrderStatusFilled
 		}
 	}
-	if txMatchTime.After(updatedTakerOrder.UpdatedAt) {
-		tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.OrderID, txHash, lastState)
-		updatedTakerOrder.UpdatedAt = txMatchTime
-		log.Debug("PutObject processed takerOrder",
-			"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
-			"price", updatedTakerOrder.Price, "quantity", updatedTakerOrder.Quantity, "filledAmount", updatedTakerOrder.FilledAmount, "status", updatedTakerOrder.Status,
-			"hash", updatedTakerOrder.Hash.Hex(), "txHash", updatedTakerOrder.TxHash.Hex())
-		if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
-			return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
-		}
+
+	log.Debug("PutObject processed takerOrder",
+		"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
+		"price", updatedTakerOrder.Price, "quantity", updatedTakerOrder.Quantity, "filledAmount", updatedTakerOrder.FilledAmount, "status", updatedTakerOrder.Status,
+		"hash", updatedTakerOrder.Hash.Hex(), "txHash", updatedTakerOrder.TxHash.Hex())
+	if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
+		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
 	}
 	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
 	log.Debug("Maker dirty orders", "len", len(makerOrders), "txhash", txHash.Hex())
 	for _, o := range makerOrders {
-		if txMatchTime.Before(o.UpdatedAt) {
+		if !txMatchTime.After(o.UpdatedAt) {
 			continue
 		}
 		lastState = OrderHistoryItem{
@@ -446,7 +449,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		}
 		dirtyRejectedOrders := db.GetListOrderByHashes(rejectedHashes)
 		for _, order := range dirtyRejectedOrders {
-			if txMatchTime.Before(order.UpdatedAt) {
+			if !txMatchTime.After(order.UpdatedAt) {
 				continue
 			}
 			// cache order history for handling reorg
