@@ -381,7 +381,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 		}
 	}
 	if txMatchTime.After(updatedTakerOrder.UpdatedAt) {
-		tomox.UpdateOrderCache(updatedTakerOrder.PairName, updatedTakerOrder.OrderID, txHash, lastState)
+		tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.OrderID, txHash, lastState)
 		updatedTakerOrder.UpdatedAt = txMatchTime
 		log.Debug("PutObject processed takerOrder",
 			"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
@@ -402,7 +402,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 			FilledAmount: CloneBigInt(o.FilledAmount),
 			Status:       o.Status,
 		}
-		tomox.UpdateOrderCache(o.PairName, o.OrderID, txHash, lastState)
+		tomox.UpdateOrderCache(o.BaseToken, o.QuoteToken, o.OrderID, txHash, lastState)
 		o.TxHash = txHash
 		o.UpdatedAt = txMatchTime
 		o.FilledAmount.Add(o.FilledAmount, makerDirtyFilledAmount[o.Hash.Hex()])
@@ -436,7 +436,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 					FilledAmount: CloneBigInt(updatedTakerOrder.FilledAmount),
 					Status:       updatedTakerOrder.Status,
 				}
-				tomox.UpdateOrderCache(updatedTakerOrder.PairName, updatedTakerOrder.OrderID, txHash, orderHistoryRecord)
+				tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.OrderID, txHash, orderHistoryRecord)
 
 				updatedTakerOrder.Status = OrderStatusRejected
 				if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
@@ -455,7 +455,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch TxDataMatch, txHash common.Has
 				FilledAmount: CloneBigInt(order.FilledAmount),
 				Status:       order.Status,
 			}
-			tomox.UpdateOrderCache(order.PairName, order.OrderID, txHash, orderHistoryRecord)
+			tomox.UpdateOrderCache(order.BaseToken, order.QuoteToken, order.OrderID, txHash, orderHistoryRecord)
 
 			order.Status = OrderStatusRejected
 			if err = db.PutObject(order.Hash, order); err != nil {
@@ -492,7 +492,7 @@ func (tomox *TomoX) GetTomoxStateRoot(block *types.Block) (common.Hash, error) {
 	return tomox_state.EmptyRoot, nil
 }
 
-func (tomox *TomoX) UpdateOrderCache(pair string, orderId uint64, txhash common.Hash, lastState OrderHistoryItem) {
+func (tomox *TomoX) UpdateOrderCache(baseToken, quoteToken common.Address, orderId uint64, txhash common.Hash, lastState OrderHistoryItem) {
 	var orderCacheAtTxHash map[common.Hash]OrderHistoryItem
 	c, ok := tomox.orderCache.Get(txhash)
 	if !ok || c == nil {
@@ -500,7 +500,7 @@ func (tomox *TomoX) UpdateOrderCache(pair string, orderId uint64, txhash common.
 	} else {
 		orderCacheAtTxHash = c.(map[common.Hash]OrderHistoryItem)
 	}
-	orderKey := GetOrderHistoryKey(pair, orderId)
+	orderKey := GetOrderHistoryKey(baseToken, quoteToken, orderId)
 	_, ok = orderCacheAtTxHash[orderKey]
 	if !ok {
 		orderCacheAtTxHash[orderKey] = lastState
@@ -521,7 +521,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 			continue
 		}
 		orderCacheAtTxHash := c.(map[common.Hash]OrderHistoryItem)
-		orderHistoryItem, _ := orderCacheAtTxHash[GetOrderHistoryKey(order.PairName, order.OrderID)]
+		orderHistoryItem, _ := orderCacheAtTxHash[GetOrderHistoryKey(order.BaseToken, order.QuoteToken, order.OrderID)]
 		if (orderHistoryItem == OrderHistoryItem{}) {
 			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", ToJSON(order))
 			if err := db.DeleteObject(order.Hash); err != nil {
