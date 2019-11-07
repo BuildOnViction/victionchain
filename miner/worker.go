@@ -615,47 +615,6 @@ func (self *worker) commitNewWork() {
 		txMatches           []tomox.TxDataMatch
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
-	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 && self.chain.Config().IsTIPTomoX(header.Number) {
-		tomoX := self.eth.GetTomoX()
-		if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
-			log.Debug("Start processing order pending")
-			orderPending, _ := self.eth.OrderPool().Pending()
-			log.Debug("Start processing order pending", "len", len(orderPending))
-			txMatches = tomoX.ProcessOrderPending(self.coinbase, self.chain.IPCEndpoint, orderPending, work.state, work.tomoxState)
-			log.Debug("transaction matches found", "txMatches", len(txMatches))
-		}
-	}
-	TomoxStateRoot := work.tomoxState.IntermediateRoot()
-	txMatchBatch := &tomox.TxMatchBatch{
-		Data:      txMatches,
-		Timestamp: time.Now().UnixNano(),
-		TxHash:    common.Hash{},
-	}
-	wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})
-	if err != nil {
-		log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
-		return
-	}
-	txMatchBytes, err := tomox.EncodeTxMatchesBatch(*txMatchBatch)
-	if err != nil {
-		log.Error("Fail to marshal txMatch", "error", err)
-		return
-	}
-	nonce := work.state.GetNonce(self.coinbase)
-	tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
-	txM, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
-	if err != nil {
-		log.Error("Fail to create tx matches", "error", err)
-		return
-	} else {
-		matchingTransaction = txM
-	}
-	tx = types.NewTransaction(nonce, common.HexToAddress(common.TomoXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), TomoxStateRoot.Bytes())
-	txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
-	if err != nil {
-		log.Error("Fail to create tx state root", "error", err)
-		return
-	}
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		pending, err := self.eth.TxPool().Pending()
 		if err != nil {
@@ -664,9 +623,52 @@ func (self *worker) commitNewWork() {
 		}
 		txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity)
 	}
-	// force adding matching transaction to this block
-	specialTxs = append(specialTxs, matchingTransaction)
-	specialTxs = append(specialTxs, txStateRoot)
+	if atomic.LoadInt32(&self.mining) == 1 {
+		if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 && self.chain.Config().IsTIPTomoX(header.Number) {
+			tomoX := self.eth.GetTomoX()
+			if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
+				log.Debug("Start processing order pending")
+				orderPending, _ := self.eth.OrderPool().Pending()
+				log.Debug("Start processing order pending", "len", len(orderPending))
+				txMatches = tomoX.ProcessOrderPending(self.coinbase, self.chain.IPCEndpoint, orderPending, work.state, work.tomoxState)
+				log.Debug("transaction matches found", "txMatches", len(txMatches))
+			}
+		}
+		TomoxStateRoot := work.tomoxState.IntermediateRoot()
+		txMatchBatch := &tomox.TxMatchBatch{
+			Data:      txMatches,
+			Timestamp: time.Now().UnixNano(),
+			TxHash:    common.Hash{},
+		}
+		wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})
+		if err != nil {
+			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
+			return
+		}
+		txMatchBytes, err := tomox.EncodeTxMatchesBatch(*txMatchBatch)
+		if err != nil {
+			log.Error("Fail to marshal txMatch", "error", err)
+			return
+		}
+		nonce := work.state.GetNonce(self.coinbase)
+		tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
+		txM, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
+		if err != nil {
+			log.Error("Fail to create tx matches", "error", err)
+			return
+		} else {
+			matchingTransaction = txM
+		}
+		tx = types.NewTransaction(nonce, common.HexToAddress(common.TomoXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), TomoxStateRoot.Bytes())
+		txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
+		if err != nil {
+			log.Error("Fail to create tx state root", "error", err)
+			return
+		}
+		// force adding matching transaction to this block
+		specialTxs = append(specialTxs, matchingTransaction)
+		specialTxs = append(specialTxs, txStateRoot)
+	}
 	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
 	// compute uncles for the new block.
 	var (
@@ -698,7 +700,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	if atomic.LoadInt32(&self.mining) == 1 {
-		log.Info("Committing new block", "number", work.Block.Number(), "tomox state root", common.BytesToHash(txStateRoot.Data()), "state root", work.state.IntermediateRoot(false).Hex(), "txs", work.tcount, "special-txs", len(specialTxs), "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
+		log.Info("Committing new block", "number", work.Block.Number(), "txs", work.tcount, "special-txs", len(specialTxs), "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 		self.lastParentBlockCommit = parent.Hash().Hex()
 	}
