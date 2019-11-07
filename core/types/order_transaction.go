@@ -71,7 +71,7 @@ type ordertxdata struct {
 	S *big.Int `json:"s" gencodec:"required"`
 
 	// This is only used when marshaling to JSON.
-	Hash common.Hash `json:"hash" rlp:"-"`
+	Hash common.Hash `json:"hash"`
 }
 
 // IsCancelledOrder check if tx is cancelled transaction
