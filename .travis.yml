@@ -27,7 +27,7 @@ jobs:
     - sudo chown root:$USER /etc/fuse.conf
     - go run build/ci.go install
     - while sleep 540; do echo "[ still running ]"; done &
-    - go run build/ci.go test -coverage
+    - travis_wait 60 go run build/ci.go test -coverage
     - kill %1
   - go: '1.11.x'
     script:
@@ -36,7 +36,7 @@ jobs:
     - sudo chown root:$USER /etc/fuse.conf
     - go run build/ci.go install
     - while sleep 540; do echo "[ still running ]"; done &
-    - go run build/ci.go test -coverage
+    - travis_wait 60  go run build/ci.go test -coverage
     - kill %1
 
   - stage: Github release

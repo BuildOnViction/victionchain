@@ -279,8 +279,8 @@ gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951 h1:DMTcQRFbEH6
 gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951/go.mod h1:owOxCRGGeAx1uugABik6K9oeNu1cgxP/R9ItzLDxNWA=
 gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce h1:+JknDZhAj8YMt7GC73Ei8pv4MzjDUNPHgQWJdtMAaDU=
 gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce/go.mod h1:5AcXVHNjg+BDxry382+8OKon8SEWiKktQR07RKPsv1c=
-gopkg.in/olebedev/go-duktape.v3 v3.0.0-20190709231704-1e4459ed25ff h1:uuol9OUzSvZntY1v963NAbVd7A+PHLMz1FlCe3Lorcs=
-gopkg.in/olebedev/go-duktape.v3 v3.0.0-20190709231704-1e4459ed25ff/go.mod h1:uAJfkITjFhyEEuUfm7bsmCZRbW5WRq8s9EY8HZ6hCns=
+gopkg.in/olebedev/go-duktape.v3 v3.0.0-20180302121509-abf0ba0be5d5 h1:VWXVtmkY4YFVuF1FokZ0PUsuvtx3Di6z/m47daSP5f0=
+gopkg.in/olebedev/go-duktape.v3 v3.0.0-20180302121509-abf0ba0be5d5/go.mod h1:uAJfkITjFhyEEuUfm7bsmCZRbW5WRq8s9EY8HZ6hCns=
 gopkg.in/redis.v4 v4.2.4/go.mod h1:8KREHdypkCEojGKQcjMqAODMICIVwZAONWq8RowTITA=
 gopkg.in/sourcemap.v1 v1.0.5 h1:inv58fC9f9J3TK2Y2R1NPntXEn3/wjWHkonhIUODNTI=
 gopkg.in/sourcemap.v1 v1.0.5/go.mod h1:2RlvNNSMglmRrcvhfuzp4hQHwOtjxlbjX7UPY/GXb78=
