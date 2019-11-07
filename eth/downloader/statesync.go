@@ -22,13 +22,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/core/state"
-	"github.com/tomochain/go-tomochain/crypto/sha3"
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/trie"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/trie"
 )
 
 // stateReq represents a batch of state fetch requests groupped together into

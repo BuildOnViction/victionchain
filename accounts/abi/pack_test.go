@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 func TestPack(t *testing.T) {

@@ -23,10 +23,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/p2p"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/rlp"
 	mapset "github.com/deckarep/golang-set"
 )
 

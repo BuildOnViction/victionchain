@@ -19,7 +19,7 @@ package storage
 import (
 	"encoding/binary"
 
-	"github.com/tomochain/go-tomochain/metrics"
+	"github.com/tomochain/tomochain/metrics"
 )
 
 //metrics variables

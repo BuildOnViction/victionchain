@@ -6,10 +6,10 @@ package contract
 import (
 	"strings"
 
-	"github.com/tomochain/go-tomochain/accounts/abi"
-	"github.com/tomochain/go-tomochain/accounts/abi/bind"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
+	"github.com/tomochain/tomochain/accounts/abi"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 )
 
 // FIFSRegistrarABI is the input ABI used to generate the binding from.

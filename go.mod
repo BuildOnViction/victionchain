@@ -1,4 +1,4 @@
-module github.com/tomochain/go-tomochain
+module github.com/tomochain/tomochain
 
 go 1.13
 

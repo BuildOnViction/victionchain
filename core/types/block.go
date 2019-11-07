@@ -27,10 +27,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/hexutil"
-	"github.com/tomochain/go-tomochain/crypto/sha3"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 var (

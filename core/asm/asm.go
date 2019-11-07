@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/tomochain/go-tomochain/core/vm"
+	"github.com/tomochain/tomochain/core/vm"
 )
 
 // Iterator for disassembled EVM instructions

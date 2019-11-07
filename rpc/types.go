@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/common/hexutil"
 	mapset "github.com/deckarep/golang-set"
 )
 

@@ -23,9 +23,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common/math"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/params"
 )
 
 type diffTest struct {

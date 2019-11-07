@@ -19,7 +19,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 // ensureVirtualHost checks whether a reverse-proxy is running on the specified

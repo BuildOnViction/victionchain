@@ -24,10 +24,10 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/consensus"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/log"
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies

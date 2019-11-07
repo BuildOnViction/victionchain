@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/params"
 )
 
 const (

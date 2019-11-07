@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 // Iterator is a key-value trie iterator that traverses a Trie.

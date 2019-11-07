@@ -24,13 +24,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/metrics"
-	"github.com/tomochain/go-tomochain/params"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/metrics"
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 // DatabaseReader wraps the Get method of a backing data store.

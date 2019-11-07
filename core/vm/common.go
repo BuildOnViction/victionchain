@@ -19,8 +19,8 @@ package vm
 import (
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/math"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/math"
 )
 
 // calculates the memory size required for a step

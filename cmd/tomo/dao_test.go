@@ -23,9 +23,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/ethdb"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/ethdb"
 )
 
 // Genesis block for nodes which don't care about the DAO fork (i.e. not configured)

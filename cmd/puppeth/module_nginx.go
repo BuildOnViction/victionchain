@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 // nginxDockerfile is theis the Dockerfile required to build an nginx reverse-

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 type NodeData interface {

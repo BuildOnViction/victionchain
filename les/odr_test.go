@@ -23,17 +23,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/math"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/core/state"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/core/vm"
-	"github.com/tomochain/go-tomochain/eth"
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/light"
-	"github.com/tomochain/go-tomochain/params"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/light"
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 type odrTestFn func(ctx context.Context, db ethdb.Database, config *params.ChainConfig, bc *core.BlockChain, lc *light.LightChain, bhash common.Hash) []byte

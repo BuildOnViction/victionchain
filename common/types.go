@@ -23,8 +23,8 @@ import (
 	"math/rand"
 	"reflect"
 
-	"github.com/tomochain/go-tomochain/common/hexutil"
-	"github.com/tomochain/go-tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/crypto/sha3"
 )
 
 const (

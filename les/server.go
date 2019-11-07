@@ -23,17 +23,17 @@ import (
 	"math"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/eth"
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/les/flowcontrol"
-	"github.com/tomochain/go-tomochain/light"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/p2p"
-	"github.com/tomochain/go-tomochain/p2p/discv5"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/les/flowcontrol"
+	"github.com/tomochain/tomochain/light"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/p2p/discv5"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 type LesServer struct {

@@ -25,7 +25,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 const (

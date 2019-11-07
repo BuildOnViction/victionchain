@@ -25,7 +25,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 // ethstatsDockerfile is the Dockerfile required to build an ethstats backend

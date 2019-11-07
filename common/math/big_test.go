@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 func TestHexOrDecimal256(t *testing.T) {

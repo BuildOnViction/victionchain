@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/metrics"
-	"github.com/tomochain/go-tomochain/swarm/storage"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/metrics"
+	"github.com/tomochain/tomochain/swarm/storage"
 )
 
 //metrics variables

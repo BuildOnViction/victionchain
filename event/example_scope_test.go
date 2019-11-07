@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/event"
+	"github.com/tomochain/tomochain/event"
 )
 
 // This example demonstrates how SubscriptionScope can be used to control the lifetime of

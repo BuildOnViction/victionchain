@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/rpc"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 func TestUnmarshalJSONNewFilterArgs(t *testing.T) {

@@ -24,13 +24,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/mclock"
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/crypto/sha3"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/p2p/netutil"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/mclock"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/p2p/netutil"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 var (

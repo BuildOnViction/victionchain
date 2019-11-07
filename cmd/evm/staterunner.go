@@ -23,10 +23,10 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/tomochain/go-tomochain/core/state"
-	"github.com/tomochain/go-tomochain/core/vm"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/tests"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/tests"
 
 	cli "gopkg.in/urfave/cli.v1"
 )

@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/tomochain/go-tomochain/accounts/keystore"
-	"github.com/tomochain/go-tomochain/cmd/utils"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/crypto"
+	"github.com/tomochain/tomochain/accounts/keystore"
+	"github.com/tomochain/tomochain/cmd/utils"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
 	"gopkg.in/urfave/cli.v1"
 )
 

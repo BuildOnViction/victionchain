@@ -26,13 +26,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/eth"
-	"github.com/tomochain/go-tomochain/les/flowcontrol"
-	"github.com/tomochain/go-tomochain/light"
-	"github.com/tomochain/go-tomochain/p2p"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/les/flowcontrol"
+	"github.com/tomochain/tomochain/light"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 var (

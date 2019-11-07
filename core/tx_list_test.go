@@ -20,8 +20,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/crypto"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto"
 )
 
 // Tests that transactions can be added to strict lists and list contents and

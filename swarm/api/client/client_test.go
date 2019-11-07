@@ -25,8 +25,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/swarm/api"
-	"github.com/tomochain/go-tomochain/swarm/testutil"
+	"github.com/tomochain/tomochain/swarm/api"
+	"github.com/tomochain/tomochain/swarm/testutil"
 )
 
 // TestClientUploadDownloadRaw test uploading and downloading raw data to swarm

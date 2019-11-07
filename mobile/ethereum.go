@@ -21,8 +21,8 @@ package geth
 import (
 	"errors"
 
-	ethereum "github.com/tomochain/go-tomochain"
-	"github.com/tomochain/go-tomochain/common"
+	ethereum "github.com/tomochain/tomochain"
+	"github.com/tomochain/tomochain/common"
 )
 
 // Subscription represents an event subscription where events are

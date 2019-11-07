@@ -16,7 +16,7 @@
 
 package ethclient
 
-import "github.com/tomochain/go-tomochain"
+import "github.com/tomochain/tomochain"
 
 // Verify that Client implements the ethereum interfaces.
 var (

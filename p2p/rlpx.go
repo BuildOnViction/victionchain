@@ -35,12 +35,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/crypto/ecies"
-	"github.com/tomochain/go-tomochain/crypto/secp256k1"
-	"github.com/tomochain/go-tomochain/crypto/sha3"
-	"github.com/tomochain/go-tomochain/p2p/discover"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/crypto/ecies"
+	"github.com/tomochain/tomochain/crypto/secp256k1"
+	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/rlp"
 	"github.com/golang/snappy"
 )
 

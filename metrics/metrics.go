@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 // Enabled is checked by the constructor functions for all of the

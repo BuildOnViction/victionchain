@@ -24,13 +24,13 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/math"
-	"github.com/tomochain/go-tomochain/consensus"
-	"github.com/tomochain/go-tomochain/consensus/misc"
-	"github.com/tomochain/go-tomochain/core/state"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/consensus/misc"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/params"
 	mapset "github.com/deckarep/golang-set"
 )
 

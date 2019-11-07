@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/core/vm"
+	"github.com/tomochain/tomochain/core/vm"
 )
 
 func TestState(t *testing.T) {

@@ -21,9 +21,9 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/state"
-	"github.com/tomochain/go-tomochain/ethdb"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/ethdb"
 )
 
 var dumper = spew.ConfigState{Indent: "    "}

@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/hexutil"
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/p2p/discover"
-	"github.com/tomochain/go-tomochain/rpc"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 const (

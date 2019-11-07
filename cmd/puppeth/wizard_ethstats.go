@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 // deployEthstats queries the user for various input on deploying an ethstats

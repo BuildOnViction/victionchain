@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 const testSectionSize = 4096

@@ -24,9 +24,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/swarm/storage"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/swarm/storage"
 )
 
 func testApi(t *testing.T, f func(*Api)) {

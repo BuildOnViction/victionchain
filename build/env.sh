@@ -11,10 +11,10 @@ fi
 workspace="$PWD/build/_workspace"
 root="$PWD"
 ethdir="$workspace/src/github.com/tomochain"
-if [ ! -L "$ethdir/go-tomochain" ]; then
+if [ ! -L "$ethdir/tomochain" ]; then
     mkdir -p "$ethdir"
     cd "$ethdir"
-    ln -s ../../../../../. go-tomochain
+    ln -s ../../../../../. tomochain
     cd "$root"
 fi
 
@@ -23,8 +23,8 @@ GOPATH="$workspace"
 export GOPATH
 
 # Run the command inside the workspace.
-cd "$ethdir/go-tomochain"
-PWD="$ethdir/go-tomochain"
+cd "$ethdir/tomochain"
+PWD="$ethdir/tomochain"
 
 # Launch the arguments with the configured environment.
 exec "$@"

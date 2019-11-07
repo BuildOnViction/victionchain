@@ -28,10 +28,10 @@ import (
 	mrand "math/rand"
 	"strconv"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/crypto/ecies"
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/crypto/ecies"
+	"github.com/tomochain/tomochain/log"
 )
 
 // MessageParams specifies the exact way a message should be wrapped

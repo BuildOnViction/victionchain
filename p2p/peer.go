@@ -24,11 +24,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common/mclock"
-	"github.com/tomochain/go-tomochain/event"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/p2p/discover"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common/mclock"
+	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 const (

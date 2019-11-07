@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/tomochain/go-tomochain/metrics"
+	"github.com/tomochain/tomochain/metrics"
 )
 
 // a regexp for extracting the unit from time.Duration.String

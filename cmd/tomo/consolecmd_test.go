@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/params"
 )
 
 const (

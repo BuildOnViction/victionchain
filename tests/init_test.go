@@ -29,7 +29,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/params"
 )
 
 var (

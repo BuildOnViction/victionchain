@@ -23,8 +23,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tomochain/go-tomochain/common/math"
-	"github.com/tomochain/go-tomochain/core/vm"
+	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/core/vm"
 )
 
 // Compiler contains information about the parsed source

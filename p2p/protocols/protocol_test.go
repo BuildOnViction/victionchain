@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/p2p"
-	"github.com/tomochain/go-tomochain/p2p/discover"
-	"github.com/tomochain/go-tomochain/p2p/simulations/adapters"
-	p2ptest "github.com/tomochain/go-tomochain/p2p/testing"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/simulations/adapters"
+	p2ptest "github.com/tomochain/tomochain/p2p/testing"
 )
 
 // handshake message type

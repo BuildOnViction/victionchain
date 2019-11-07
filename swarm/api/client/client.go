@@ -33,7 +33,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tomochain/go-tomochain/swarm/api"
+	"github.com/tomochain/tomochain/swarm/api"
 )
 
 var (

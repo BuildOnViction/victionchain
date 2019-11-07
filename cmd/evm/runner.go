@@ -27,16 +27,16 @@ import (
 
 	goruntime "runtime"
 
-	"github.com/tomochain/go-tomochain/cmd/evm/internal/compiler"
-	"github.com/tomochain/go-tomochain/cmd/utils"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/core/state"
-	"github.com/tomochain/go-tomochain/core/vm"
-	"github.com/tomochain/go-tomochain/core/vm/runtime"
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/cmd/evm/internal/compiler"
+	"github.com/tomochain/tomochain/cmd/utils"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/core/vm/runtime"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/params"
 	cli "gopkg.in/urfave/cli.v1"
 )
 

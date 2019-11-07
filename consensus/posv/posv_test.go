@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/params"
 )
 
 func TestGetM1M2FromCheckpointHeader(t *testing.T) {

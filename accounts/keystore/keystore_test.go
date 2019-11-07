@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/accounts"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/event"
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/event"
 )
 
 var testSigData = make([]byte, 32)

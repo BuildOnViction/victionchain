@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/metrics"
+	"github.com/tomochain/tomochain/metrics"
 )
 
 /*

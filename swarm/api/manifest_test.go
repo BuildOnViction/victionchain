@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/swarm/storage"
+	"github.com/tomochain/tomochain/swarm/storage"
 )
 
 func manifest(paths ...string) (manifestReader storage.LazySectionReader) {

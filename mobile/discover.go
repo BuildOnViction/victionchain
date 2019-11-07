@@ -22,7 +22,7 @@ package geth
 import (
 	"errors"
 
-	"github.com/tomochain/go-tomochain/p2p/discv5"
+	"github.com/tomochain/tomochain/p2p/discv5"
 )
 
 // Enode represents a host on the network.

@@ -26,8 +26,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/internal/jsre/deps"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/internal/jsre/deps"
 	"github.com/robertkrimen/otto"
 )
 

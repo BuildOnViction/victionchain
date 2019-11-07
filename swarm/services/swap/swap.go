@@ -26,14 +26,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/accounts/abi/bind"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/contracts/chequebook"
-	"github.com/tomochain/go-tomochain/contracts/chequebook/contract"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/swarm/services/swap/swap"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/contracts/chequebook"
+	"github.com/tomochain/tomochain/contracts/chequebook/contract"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/swarm/services/swap/swap"
 )
 
 // SwAP       Swarm Accounting Protocol with

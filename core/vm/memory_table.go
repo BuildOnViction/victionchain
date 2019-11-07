@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/common/math"
+	"github.com/tomochain/tomochain/common/math"
 )
 
 func memorySha3(stack *Stack) *big.Int {

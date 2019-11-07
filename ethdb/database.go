@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/metrics"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/metrics"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/filter"

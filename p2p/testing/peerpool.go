@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/p2p/discover"
 )
 
 type TestPeer interface {

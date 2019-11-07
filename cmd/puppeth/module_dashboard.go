@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 // dashboardContent is the actual dashboard HTML content to serve up when users

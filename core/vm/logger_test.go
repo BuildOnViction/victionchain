@@ -20,8 +20,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/params"
 )
 
 type dummyContractRef struct {

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 // deployWallet creates a new web wallet based on some user input.

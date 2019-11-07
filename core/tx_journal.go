@@ -21,10 +21,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 // errNoActiveJournal is returned if a transaction is attempted to be inserted

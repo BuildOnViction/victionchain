@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"fmt"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/state"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 )
 
 var emptyAddress = common.StringToAddress("")

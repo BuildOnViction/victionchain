@@ -24,7 +24,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 type brokenLimitedReader struct {

@@ -21,7 +21,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/common/hexutil"
 )
 
 // Tests that data bitset encoding and decoding works and is bijective.

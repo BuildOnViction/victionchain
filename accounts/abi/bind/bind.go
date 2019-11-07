@@ -28,7 +28,7 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/tomochain/go-tomochain/accounts/abi"
+	"github.com/tomochain/tomochain/accounts/abi"
 	"golang.org/x/tools/imports"
 )
 

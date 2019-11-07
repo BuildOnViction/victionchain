@@ -19,8 +19,8 @@
 package whisperv6
 
 import (
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
 )
 
 // TopicType represents a cryptographically secure, probabilistic partial

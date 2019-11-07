@@ -27,8 +27,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/swarm/api"
-	"github.com/tomochain/go-tomochain/swarm/storage"
+	"github.com/tomochain/tomochain/swarm/api"
+	"github.com/tomochain/tomochain/swarm/storage"
 )
 
 type fileInfo struct {

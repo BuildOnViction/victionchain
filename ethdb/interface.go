@@ -16,7 +16,7 @@
 
 package ethdb
 
-import "github.com/tomochain/go-tomochain/common"
+import "github.com/tomochain/tomochain/common"
 
 // Code using batches should try to add this much data to the batch.
 // The value was determined empirically.

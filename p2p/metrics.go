@@ -21,7 +21,7 @@ package p2p
 import (
 	"net"
 
-	"github.com/tomochain/go-tomochain/metrics"
+	"github.com/tomochain/tomochain/metrics"
 )
 
 var (

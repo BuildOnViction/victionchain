@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common/mclock"
+	"github.com/tomochain/tomochain/common/mclock"
 )
 
 const rcConst = 1000000

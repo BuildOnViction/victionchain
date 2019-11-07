@@ -21,7 +21,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/event"
+	"github.com/tomochain/tomochain/event"
 )
 
 // Manager is an overarching account manager that can communicate with various

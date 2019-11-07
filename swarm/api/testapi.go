@@ -17,7 +17,7 @@
 package api
 
 import (
-	"github.com/tomochain/go-tomochain/swarm/network"
+	"github.com/tomochain/tomochain/swarm/network"
 )
 
 type Control struct {

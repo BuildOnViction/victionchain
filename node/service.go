@@ -19,11 +19,11 @@ package node
 import (
 	"reflect"
 
-	"github.com/tomochain/go-tomochain/accounts"
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/event"
-	"github.com/tomochain/go-tomochain/p2p"
-	"github.com/tomochain/go-tomochain/rpc"
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 // ServiceContext is a collection of service independent options inherited from

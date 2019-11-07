@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/tomochain/go-tomochain/accounts/keystore"
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/accounts/keystore"
+	"github.com/tomochain/tomochain/log"
 )
 
 // deployFaucet queries the user for various input on deploying a faucet, after

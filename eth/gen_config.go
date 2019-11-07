@@ -5,12 +5,12 @@ package eth
 import (
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/hexutil"
-	"github.com/tomochain/go-tomochain/consensus/ethash"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/eth/downloader"
-	"github.com/tomochain/go-tomochain/eth/gasprice"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/eth/downloader"
+	"github.com/tomochain/tomochain/eth/gasprice"
 )
 
 var _ = (*configMarshaling)(nil)

@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/ethclient"
-	"github.com/tomochain/go-tomochain/rpc"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/ethclient"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 type OrderMsg struct {

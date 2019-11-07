@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/tomochain/go-tomochain/cmd/evm/internal/compiler"
+	"github.com/tomochain/tomochain/cmd/evm/internal/compiler"
 
 	cli "gopkg.in/urfave/cli.v1"
 )

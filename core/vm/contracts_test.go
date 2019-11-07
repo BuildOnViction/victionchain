@@ -21,7 +21,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.

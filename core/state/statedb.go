@@ -23,12 +23,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/rlp"
-	"github.com/tomochain/go-tomochain/trie"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/trie"
 )
 
 type revision struct {

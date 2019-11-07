@@ -16,9 +16,9 @@
 package randomize
 
 import (
-	"github.com/tomochain/go-tomochain/accounts/abi/bind"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/contracts/randomize/contract"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/contracts/randomize/contract"
 )
 
 type Randomize struct {

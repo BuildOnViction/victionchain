@@ -28,12 +28,12 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/accounts"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/hexutil"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 // ledgerOpcode is an enumeration encoding the supported Ledger opcodes.

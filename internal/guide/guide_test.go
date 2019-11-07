@@ -30,8 +30,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/accounts/keystore"
-	"github.com/tomochain/go-tomochain/core/types"
+	"github.com/tomochain/tomochain/accounts/keystore"
+	"github.com/tomochain/tomochain/core/types"
 )
 
 // Tests that the account management snippets work correctly.

@@ -17,7 +17,7 @@
 package tomox_state
 
 import (
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 	"math/big"
 )
 

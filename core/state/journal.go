@@ -19,7 +19,7 @@ package state
 import (
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 type journalEntry interface {

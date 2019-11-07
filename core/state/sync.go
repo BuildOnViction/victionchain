@@ -19,9 +19,9 @@ package state
 import (
 	"bytes"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/rlp"
-	"github.com/tomochain/go-tomochain/trie"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/trie"
 )
 
 // NewStateSync create a new state trie download scheduler.

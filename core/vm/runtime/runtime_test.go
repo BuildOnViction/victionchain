@@ -21,11 +21,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/accounts/abi"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/state"
-	"github.com/tomochain/go-tomochain/core/vm"
-	"github.com/tomochain/go-tomochain/ethdb"
+	"github.com/tomochain/tomochain/accounts/abi"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/ethdb"
 )
 
 func TestDefaults(t *testing.T) {

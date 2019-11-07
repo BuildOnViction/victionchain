@@ -21,7 +21,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/core/types"
+	"github.com/tomochain/tomochain/core/types"
 )
 
 // Tests that batched bloom bits are correctly rotated from the input bloom

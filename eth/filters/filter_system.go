@@ -25,12 +25,12 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/tomochain/go-tomochain"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/event"
-	"github.com/tomochain/go-tomochain/rpc"
+	ethereum "github.com/tomochain/tomochain"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 // Type determines the kind of filter and is used to put the filter in to

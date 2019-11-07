@@ -17,9 +17,9 @@
 package runtime
 
 import (
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/core/vm"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/vm"
 )
 
 func NewEnv(cfg *Config) *vm.EVM {

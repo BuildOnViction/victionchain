@@ -34,8 +34,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 type allocItem struct{ Addr, Balance *big.Int }

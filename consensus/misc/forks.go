@@ -19,9 +19,9 @@ package misc
 import (
 	"fmt"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/params"
 )
 
 // VerifyForkHashes verifies that blocks conforming to network hard-forks do have

@@ -22,8 +22,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 )
 
 // NotFound is returned by API methods if the requested item does not exist.

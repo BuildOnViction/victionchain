@@ -27,15 +27,15 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/internal/debug"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/node"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/internal/debug"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/node"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 const (

@@ -30,9 +30,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/log"
 	"golang.org/x/crypto/ssh/terminal"
 )
 

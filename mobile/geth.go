@@ -24,17 +24,17 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/eth"
-	"github.com/tomochain/go-tomochain/eth/downloader"
-	"github.com/tomochain/go-tomochain/ethclient"
-	"github.com/tomochain/go-tomochain/ethstats"
-	"github.com/tomochain/go-tomochain/les"
-	"github.com/tomochain/go-tomochain/node"
-	"github.com/tomochain/go-tomochain/p2p"
-	"github.com/tomochain/go-tomochain/p2p/nat"
-	"github.com/tomochain/go-tomochain/params"
-	whisper "github.com/tomochain/go-tomochain/whisper/whisperv6"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/eth/downloader"
+	"github.com/tomochain/tomochain/ethclient"
+	"github.com/tomochain/tomochain/ethstats"
+	"github.com/tomochain/tomochain/les"
+	"github.com/tomochain/tomochain/node"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/p2p/nat"
+	"github.com/tomochain/tomochain/params"
+	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
 )
 
 // NodeConfig represents the collection of configuration values to fine tune the Geth

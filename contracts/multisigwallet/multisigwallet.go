@@ -16,9 +16,9 @@
 package multisigwallet
 
 import (
-	"github.com/tomochain/go-tomochain/accounts/abi/bind"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/contracts/multisigwallet/contract"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/contracts/multisigwallet/contract"
 	"math/big"
 )
 

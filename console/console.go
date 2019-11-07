@@ -28,9 +28,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/tomochain/go-tomochain/internal/jsre"
-	"github.com/tomochain/go-tomochain/internal/web3ext"
-	"github.com/tomochain/go-tomochain/rpc"
+	"github.com/tomochain/tomochain/internal/jsre"
+	"github.com/tomochain/tomochain/internal/web3ext"
+	"github.com/tomochain/tomochain/rpc"
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"

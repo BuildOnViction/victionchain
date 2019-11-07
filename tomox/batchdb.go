@@ -3,13 +3,13 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"github.com/globalsign/mgo"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/log"
 	lru "github.com/hashicorp/golang-lru"
 )
 

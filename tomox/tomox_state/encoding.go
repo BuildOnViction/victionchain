@@ -1,7 +1,7 @@
 package tomox_state
 
 import (
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 func EncodeBytesItem(val interface{}) ([]byte, error) {

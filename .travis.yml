@@ -1,6 +1,6 @@
 sudo: required
 language: go
-go_import_path: github.com/tomochain/go-tomochain
+go_import_path: github.com/tomochain/tomochain
 
 env:
   global:

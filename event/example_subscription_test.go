@@ -19,7 +19,7 @@ package event_test
 import (
 	"fmt"
 
-	"github.com/tomochain/go-tomochain/event"
+	"github.com/tomochain/tomochain/event"
 )
 
 func ExampleNewSubscription() {

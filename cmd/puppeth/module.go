@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 var (

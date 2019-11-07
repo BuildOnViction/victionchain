@@ -22,9 +22,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/go-tomochain/accounts"
-	"github.com/tomochain/go-tomochain/event"
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/log"
 	"github.com/karalabe/hid"
 )
 

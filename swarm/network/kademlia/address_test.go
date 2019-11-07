@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 func (Address) Generate(rand *rand.Rand, size int) reflect.Value {

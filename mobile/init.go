@@ -22,7 +22,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 func init() {

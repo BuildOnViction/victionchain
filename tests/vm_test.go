@@ -19,7 +19,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/tomochain/go-tomochain/core/vm"
+	"github.com/tomochain/tomochain/core/vm"
 )
 
 func TestVM(t *testing.T) {

@@ -25,11 +25,11 @@ import (
 	"io/ioutil"
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/accounts/abi/bind"
-	"github.com/tomochain/go-tomochain/accounts/abi/bind/backends"
-	"github.com/tomochain/go-tomochain/contracts/chequebook/contract"
-	"github.com/tomochain/go-tomochain/core"
-	"github.com/tomochain/go-tomochain/crypto"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
+	"github.com/tomochain/tomochain/contracts/chequebook/contract"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/crypto"
 )
 
 var (

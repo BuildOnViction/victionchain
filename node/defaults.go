@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/tomochain/go-tomochain/p2p"
-	"github.com/tomochain/go-tomochain/p2p/nat"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/p2p/nat"
 )
 
 const (

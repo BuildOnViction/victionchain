@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/ethdb"
-	"github.com/tomochain/go-tomochain/trie"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/trie"
 	lru "github.com/hashicorp/golang-lru"
 )
 

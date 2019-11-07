@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
+	"github.com/tomochain/tomochain/common"
 	"golang.org/x/crypto/pbkdf2"
 )
 

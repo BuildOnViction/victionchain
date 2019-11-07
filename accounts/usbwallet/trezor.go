@@ -27,12 +27,12 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/accounts"
-	"github.com/tomochain/go-tomochain/accounts/usbwallet/internal/trezor"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/hexutil"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/accounts/usbwallet/internal/trezor"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/log"
 	"github.com/golang/protobuf/proto"
 )
 

@@ -26,7 +26,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 var (

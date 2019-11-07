@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/tomochain/go-tomochain/crypto"
+	"github.com/tomochain/tomochain/crypto"
 )
 
 const (

@@ -22,9 +22,9 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/tomochain/go-tomochain/cmd/utils"
-	"github.com/tomochain/go-tomochain/console"
-	"github.com/tomochain/go-tomochain/crypto"
+	"github.com/tomochain/tomochain/cmd/utils"
+	"github.com/tomochain/tomochain/console"
+	"github.com/tomochain/tomochain/crypto"
 	"gopkg.in/urfave/cli.v1"
 )
 

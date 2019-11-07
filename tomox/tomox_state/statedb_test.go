@@ -18,9 +18,9 @@ package tomox_state
 
 import (
 	"fmt"
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/common/math"
-	"github.com/tomochain/go-tomochain/ethdb"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/ethdb"
 	"math/big"
 	"testing"
 )

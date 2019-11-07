@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/vm"
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/params"
 )
 
 type account struct{}

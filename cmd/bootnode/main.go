@@ -24,13 +24,13 @@ import (
 	"net"
 	"os"
 
-	"github.com/tomochain/go-tomochain/cmd/utils"
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/log"
-	"github.com/tomochain/go-tomochain/p2p/discover"
-	"github.com/tomochain/go-tomochain/p2p/discv5"
-	"github.com/tomochain/go-tomochain/p2p/nat"
-	"github.com/tomochain/go-tomochain/p2p/netutil"
+	"github.com/tomochain/tomochain/cmd/utils"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/discv5"
+	"github.com/tomochain/tomochain/p2p/nat"
+	"github.com/tomochain/tomochain/p2p/netutil"
 )
 
 func main() {

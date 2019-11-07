@@ -20,8 +20,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 )
 
 // senderFromServer is a types.Signer that remembers the sender address returned by the RPC

@@ -21,8 +21,8 @@ import (
 	mrand "math/rand"
 	"testing"
 
-	"github.com/tomochain/go-tomochain/crypto"
-	"github.com/tomochain/go-tomochain/rlp"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 func generateMessageParams() (*MessageParams, error) {

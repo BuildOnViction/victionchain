@@ -19,7 +19,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/log"
 )
 
 // deployDashboard queries the user for various input on deploying a web-service

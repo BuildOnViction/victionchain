@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/crypto"
-	whisper "github.com/tomochain/go-tomochain/whisper/whisperv6"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
+	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
 )
 
 const powRequirement = 0.00001

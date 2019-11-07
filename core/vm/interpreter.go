@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/tomochain/go-tomochain/common/math"
-	"github.com/tomochain/go-tomochain/params"
+	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/params"
 )
 
 // Config are the configuration options for the Interpreter

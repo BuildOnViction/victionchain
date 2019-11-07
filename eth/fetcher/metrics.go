@@ -19,7 +19,7 @@
 package fetcher
 
 import (
-	"github.com/tomochain/go-tomochain/metrics"
+	"github.com/tomochain/tomochain/metrics"
 )
 
 var (

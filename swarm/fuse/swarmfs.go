@@ -17,7 +17,7 @@
 package fuse
 
 import (
-	"github.com/tomochain/go-tomochain/swarm/api"
+	"github.com/tomochain/tomochain/swarm/api"
 	"sync"
 	"time"
 )

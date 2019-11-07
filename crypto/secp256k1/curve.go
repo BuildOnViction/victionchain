@@ -36,7 +36,7 @@ import (
 	"math/big"
 	"unsafe"
 
-	"github.com/tomochain/go-tomochain/common/math"
+	"github.com/tomochain/tomochain/common/math"
 )
 
 /*

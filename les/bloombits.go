@@ -19,8 +19,8 @@ package les
 import (
 	"time"
 
-	"github.com/tomochain/go-tomochain/common/bitutil"
-	"github.com/tomochain/go-tomochain/light"
+	"github.com/tomochain/tomochain/common/bitutil"
+	"github.com/tomochain/tomochain/light"
 )
 
 const (

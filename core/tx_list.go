@@ -22,9 +22,9 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/tomochain/go-tomochain/common"
-	"github.com/tomochain/go-tomochain/core/types"
-	"github.com/tomochain/go-tomochain/log"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/log"
 )
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for

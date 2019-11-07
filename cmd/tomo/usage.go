@@ -24,8 +24,8 @@ import (
 
 	"strings"
 
-	"github.com/tomochain/go-tomochain/cmd/utils"
-	"github.com/tomochain/go-tomochain/internal/debug"
+	"github.com/tomochain/tomochain/cmd/utils"
+	"github.com/tomochain/tomochain/internal/debug"
 	"gopkg.in/urfave/cli.v1"
 )
 
