@@ -486,12 +486,14 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 			sort.Slice(candidates, func(i, j int) bool {
 				return candidates[i].Stake.Cmp(candidates[j].Stake) >= 0
 			})
-			candidates = candidates[:150]
+			if len(candidates) > 150 {
+				candidates = candidates[:150]	
+			}
 			result := []common.Address{}
 			for _, candidate := range candidates {
 				result = append(result, candidate.Address)
 			}
-			return result[:150], nil
+			return result, nil
 		}
 
 		// Hook calculates reward for masternodes
