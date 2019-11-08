@@ -98,4 +98,4 @@ var Blacklist = map[Address]bool{
 	HexToAddress("0x3538a544021c07869c16b764424c5987409cba48"): true,
 	HexToAddress("0xe187cf86c2274b1f16e8225a7da9a75aba4f1f5f"): true,
 }
-var TIPTRC21Fee = big.NewInt(13221000‬)
+var TIPTRC21Fee = big.NewInt(13523400)
