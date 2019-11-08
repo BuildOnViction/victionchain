@@ -19,7 +19,9 @@ package eth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -161,6 +163,11 @@ func (b *EthApiBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 
 func (b *EthApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.eth.txPool.AddLocal(signedTx)
+}
+
+// SendOrderTx send order via backend
+func (b *EthApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
+	return b.eth.orderPool.AddLocal(signedTx)
 }
 
 func (b *EthApiBackend) GetPoolTransactions() (types.Transactions, error) {
@@ -400,4 +407,21 @@ func (b *EthApiBackend) GetBlocksHashCache(blockNr uint64) []common.Hash {
 
 func (b *EthApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bool {
 	return b.eth.blockchain.AreTwoBlockSamePath(bh1, bh2)
+}
+
+// GetOrderNonce get order nonce
+func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
+	tomoxService := b.eth.GetTomoX()
+	if tomoxService != nil {
+		tomoxState, err := tomoxService.GetTomoxState(b.CurrentBlock())
+		if err != nil {
+			return 0, err
+		}
+		return tomoxState.GetNonce(address), nil
+	}
+	return 0, errors.New("cannot find tomox service")
+}
+
+func (b *EthApiBackend) TomoxService() *tomox.TomoX {
+	return b.eth.TomoX
 }

@@ -65,7 +65,7 @@ type LeafCallback func(leaf []byte, parent common.Hash) error
 //
 // Trie is not safe for concurrent use.
 type Trie struct {
-	db           *Database
+	Db           *Database
 	root         Node
 	originalRoot common.Hash
 
@@ -92,13 +92,13 @@ func (t *Trie) newFlag() nodeFlag {
 // If root is the zero hash or the sha3 hash of an empty string, the
 // trie is initially empty and does not require a database. Otherwise,
 // New will panic if db is nil and returns a MissingNodeError if root does
-// not exist in the database. Accessing the trie loads nodes from db on demand.
+// not exist in the database. Accessing the trie loads nodes from Db on demand.
 func New(root common.Hash, db *Database) (*Trie, error) {
 	if db == nil {
 		panic("trie.New called without a database")
 	}
 	trie := &Trie{
-		db:           db,
+		Db:           db,
 		originalRoot: root,
 	}
 	if (root != common.Hash{}) && root != emptyRoot {
@@ -175,6 +175,159 @@ func (t *Trie) tryGet(origNode Node, key []byte, pos int) (value []byte, newnode
 	default:
 		panic(fmt.Sprintf("%T: invalid node: %v", origNode, origNode))
 	}
+}
+
+//func (t *Trie) TryGetBestLeftKey() ([]byte, error) {
+//	key, newroot, didResolve, err := t.tryGetBestLeftKey(t.root, []byte{})
+//	if err == nil && didResolve {
+//		t.root = newroot
+//	}
+//	return hexToKeybytes(key), err
+//}
+//
+//func (t *Trie) tryGetBestLeftKey(origNode Node, prefix []byte) (key []byte, newnode Node, didResolve bool, err error) {
+//	switch n := (origNode).(type) {
+//	case nil:
+//		return nil, nil, false, nil
+//	case *ShortNode:
+//		switch n.Val.(type) {
+//		case ValueNode:
+//			return append(prefix, n.Key...), n, false, nil
+//		default:
+//		}
+//		key, newnode, didResolve, err = t.tryGetBestLeftKey(n.Val, append(prefix, n.Key...))
+//		if err == nil && didResolve {
+//			n = n.copy()
+//			n.Val = newnode
+//			n.flags.gen = t.cachegen
+//		}
+//		return key, n, didResolve, err
+//	case *FullNode:
+//		for i := byte(0); i < byte(len(n.Children)); i++ {
+//			if n.Children[i] == nil {
+//				continue
+//			}
+//			key, newnode, didResolve, err = t.tryGetBestLeftKey(n.Children[i], append(prefix, i))
+//			if err == nil && didResolve {
+//				n = n.copy()
+//				n.flags.gen = t.cachegen
+//				n.Children[i] = newnode
+//			}
+//			return key, n, didResolve, err
+//		}
+//	case HashNode:
+//		child, err := t.resolveHash(n, nil)
+//		if err != nil {
+//			return nil, n, true, err
+//		}
+//		key, newnode, _, err := t.tryGetBestLeftKey(child, prefix)
+//		return key, newnode, true, err
+//	default:
+//		return nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
+//	}
+//	return nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
+//}
+
+func (t *Trie) TryGetBestLeftKeyAndValue() ([]byte, []byte, error) {
+	key, value, newroot, didResolve, err := t.tryGetBestLeftKeyAndValue(t.root, []byte{})
+	if err == nil && didResolve {
+		t.root = newroot
+	}
+	return hexToKeybytes(key), value, err
+}
+
+func (t *Trie) tryGetBestLeftKeyAndValue(origNode Node, prefix []byte) (key []byte, value []byte, newnode Node, didResolve bool, err error) {
+	switch n := (origNode).(type) {
+	case nil:
+		return nil, nil, nil, false, nil
+	case *ShortNode:
+		switch v := n.Val.(type) {
+		case ValueNode:
+			return append(prefix, n.Key...), v, n, false, nil
+		default:
+		}
+		key, value, newnode, didResolve, err = t.tryGetBestLeftKeyAndValue(n.Val, append(prefix, n.Key...))
+		if err == nil && didResolve {
+			n = n.copy()
+			n.Val = newnode
+			n.flags.gen = t.cachegen
+		}
+		return key, value, n, didResolve, err
+	case *FullNode:
+		for i := byte(0); i < byte(len(n.Children)); i++ {
+			if n.Children[i] == nil {
+				continue
+			}
+			key, value, newnode, didResolve, err = t.tryGetBestLeftKeyAndValue(n.Children[i], append(prefix, i))
+			if err == nil && didResolve {
+				n = n.copy()
+				n.flags.gen = t.cachegen
+				n.Children[i] = newnode
+			}
+			return key, value, n, didResolve, err
+		}
+	case HashNode:
+		child, err := t.resolveHash(n, nil)
+		if err != nil {
+			return nil, nil, n, true, err
+		}
+		key, value, newnode, _, err := t.tryGetBestLeftKeyAndValue(child, prefix)
+		return key, value, newnode, true, err
+	default:
+		return nil, nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
+	}
+	return nil, nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
+}
+
+func (t *Trie) TryGetBestRightKeyAndValue() ([]byte, []byte, error) {
+	key, value, newroot, didResolve, err := t.tryGetBestRightKeyAndValue(t.root, []byte{})
+	if err == nil && didResolve {
+		t.root = newroot
+	}
+	return hexToKeybytes(key), value, err
+}
+
+func (t *Trie) tryGetBestRightKeyAndValue(origNode Node, prefix []byte) (key []byte, value []byte, newnode Node, didResolve bool, err error) {
+	switch n := (origNode).(type) {
+	case nil:
+		return nil, nil, nil, false, nil
+	case *ShortNode:
+		switch v := n.Val.(type) {
+		case ValueNode:
+			return append(prefix, n.Key...), v, n, false, nil
+		default:
+		}
+		key, value, newnode, didResolve, err = t.tryGetBestRightKeyAndValue(n.Val, append(prefix, n.Key...))
+		if err == nil && didResolve {
+			n = n.copy()
+			n.Val = newnode
+			n.flags.gen = t.cachegen
+		}
+		return key, value, n, didResolve, err
+	case *FullNode:
+		for i := byte(len(n.Children) - 1); i >= 0; i-- {
+			if n.Children[i] == nil {
+				continue
+			}
+			key, value, newnode, didResolve, err = t.tryGetBestRightKeyAndValue(n.Children[i], append(prefix, i))
+			if err == nil && didResolve {
+				n = n.copy()
+				n.flags.gen = t.cachegen
+				n.Children[i] = newnode
+			}
+			return key, value, n, didResolve, err
+		}
+	case HashNode:
+		child, err := t.resolveHash(n, nil)
+		if err != nil {
+			return nil, nil, n, true, err
+		}
+		key, value, newnode, _, err := t.tryGetBestRightKeyAndValue(child, prefix)
+		return key, value, newnode, true, err
+	default:
+		return nil, nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
+	}
+	return nil, nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
 }
 
 // Update associates key with value in the trie. Subsequent calls to
@@ -434,7 +587,7 @@ func (t *Trie) resolveHash(n HashNode, prefix []byte) (Node, error) {
 
 	hash := common.BytesToHash(n)
 
-	enc, err := t.db.Node(hash)
+	enc, err := t.Db.Node(hash)
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
 	}
@@ -456,10 +609,10 @@ func (t *Trie) Hash() common.Hash {
 // Commit writes all nodes to the trie's memory database, tracking the internal
 // and external (for account tries) references.
 func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
-	if t.db == nil {
+	if t.Db == nil {
 		panic("commit called on trie with nil database")
 	}
-	hash, cached, err := t.hashRoot(t.db, onleaf)
+	hash, cached, err := t.hashRoot(t.Db, onleaf)
 	if err != nil {
 		return common.Hash{}, err
 	}

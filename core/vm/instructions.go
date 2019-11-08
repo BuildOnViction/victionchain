@@ -578,7 +578,8 @@ func opSload(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *St
 }
 
 func opSstore(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	loc := common.BigToHash(stack.pop())
+	s := stack.pop()
+	loc := common.BigToHash(s)
 	val := stack.pop()
 	evm.StateDB.SetState(contract.Address(), loc, common.BigToHash(val))
 

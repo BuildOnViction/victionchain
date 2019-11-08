@@ -70,6 +70,12 @@ var (
 		//utils.EthashDatasetDirFlag,
 		//utils.EthashDatasetsInMemoryFlag,
 		//utils.EthashDatasetsOnDiskFlag,
+		utils.TomoXEnabledFlag,
+		utils.TomoXDataDirFlag,
+		utils.TomoXDBEngineFlag,
+		utils.TomoXDBConnectionUrlFlag,
+		utils.TomoXDBReplicaSetNameFlag,
+		utils.TomoXDBNameFlag,
 		utils.TxPoolNoLocalsFlag,
 		utils.TxPoolJournalFlag,
 		utils.TxPoolRejournalFlag,
@@ -178,7 +184,7 @@ func init() {
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
-	//app.Flags = append(app.Flags, whisperFlags...)
+	app.Flags = append(app.Flags, whisperFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		runtime.GOMAXPROCS(runtime.NumCPU())

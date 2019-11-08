@@ -20,6 +20,7 @@ package core
 import (
 	"errors"
 	"fmt"
+
 	"io"
 	"math/big"
 	"os"
@@ -29,6 +30,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/tomox"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -79,11 +83,12 @@ type CacheConfig struct {
 	TrieTimeLimit time.Duration // Time limit after which to flush the current in-memory trie to disk
 }
 type ResultProcessBlock struct {
-	logs     []*types.Log
-	receipts []*types.Receipt
-	state    *state.StateDB
-	proctime time.Duration
-	usedGas  uint64
+	logs       []*types.Log
+	receipts   []*types.Receipt
+	state      *state.StateDB
+	tomoxState *tomox_state.TomoXStateDB
+	proctime   time.Duration
+	usedGas    uint64
 }
 
 // BlockChain represents the canonical chain given a database with a genesis
@@ -104,9 +109,10 @@ type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
-	db     ethdb.Database // Low level persistent database to store final content in
-	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
+	db      ethdb.Database // Low level persistent database to store final content in
+	tomoxDb ethdb.TomoxDatabase
+	triegc  *prque.Prque  // Priority queue mapping block numbers to tries to gc
+	gcproc  time.Duration // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
 	rmLogsFeed    event.Feed
@@ -125,16 +131,17 @@ type BlockChain struct {
 	currentBlock     atomic.Value // Current head of the block chain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache       state.Database // State database to reuse between imports (contains state cache)
-	bodyCache        *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache     *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	blockCache       *lru.Cache     // Cache for the most recent entire blocks
-	futureBlocks     *lru.Cache     // future blocks are blocks added for later processing
-	resultProcess    *lru.Cache     // Cache for processed blocks
-	calculatingBlock *lru.Cache     // Cache for processing blocks
-	downloadingBlock *lru.Cache     // Cache for downloading blocks (avoid duplication from fetcher)
-	quit             chan struct{}  // blockchain quit channel
-	running          int32          // running must be called atomically
+	stateCache state.Database // State database to reuse between imports (contains state cache)
+
+	bodyCache        *lru.Cache    // Cache for the most recent block bodies
+	bodyRLPCache     *lru.Cache    // Cache for the most recent block bodies in RLP encoded format
+	blockCache       *lru.Cache    // Cache for the most recent entire blocks
+	futureBlocks     *lru.Cache    // future blocks are blocks added for later processing
+	resultProcess    *lru.Cache    // Cache for processed blocks
+	calculatingBlock *lru.Cache    // Cache for processing blocks
+	downloadingBlock *lru.Cache    // Cache for downloading blocks (avoid duplication from fetcher)
+	quit             chan struct{} // blockchain quit channel
+	running          int32         // running must be called atomically
 	// procInterrupt must be atomically called
 	procInterrupt int32          // interrupt signaler for block processing
 	wg            sync.WaitGroup // chain processing wait group for shutting down
@@ -224,8 +231,24 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	return bc, nil
 }
 
+// NewBlockChainEx extend old blockchain, add order state db
+func NewBlockChainEx(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+	blockchain, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig)
+	if err != nil {
+		return nil, err
+	}
+	if blockchain != nil {
+		blockchain.addTomoxDb(tomoxDb)
+	}
+	return blockchain, nil
+}
+
 func (bc *BlockChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&bc.procInterrupt) == 1
+}
+
+func (bc *BlockChain) addTomoxDb(tomoxDb ethdb.TomoxDatabase) {
+	bc.tomoxDb = tomoxDb
 }
 
 // loadLastState loads the last known chain state from the database. This method
@@ -245,8 +268,32 @@ func (bc *BlockChain) loadLastState() error {
 		log.Warn("Head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
+	repair := false
 	// Make sure the state associated with the block is available
-	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
+	_, err := state.New(currentBlock.Root(), bc.stateCache)
+	if err != nil {
+		repair = true
+	} else {
+		var tomoXService *tomox.TomoX
+		engine, ok := bc.Engine().(*posv.Posv)
+		if ok {
+			tomoXService = engine.GetTomoXService()
+			if bc.Config().IsTIPTomoX(currentBlock.Number()) && tomoXService != nil {
+				tomoxRoot, err := tomoXService.GetTomoxStateRoot(currentBlock)
+				if err != nil {
+					repair = true
+				} else {
+					if tomoXService.StateCache != nil {
+						_, err = tomox_state.New(tomoxRoot, tomoXService.StateCache)
+						if err != nil {
+							repair = true
+						}
+					}
+				}
+			}
+		}
+	}
+	if repair {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 		if err := bc.repair(&currentBlock); err != nil {
@@ -418,6 +465,26 @@ func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 	return state.New(root, bc.stateCache)
 }
 
+// OrderStateAt returns a new mutable state based on a particular point in time.
+func (bc *BlockChain) OrderStateAt(block *types.Block) (*tomox_state.TomoXStateDB, error) {
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+		if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+			log.Debug("OrderStateAt", "blocknumber", block.Header().Number)
+			tomoxState, err := tomoXService.GetTomoxState(block)
+			if err == nil {
+				return tomoxState, nil
+			} else {
+				return nil, err
+			}
+		}
+	}
+	return nil, errors.New("Get tomox state fail")
+
+}
+
 // Reset purges the entire blockchain, restoring it to its genesis state.
 func (bc *BlockChain) Reset() error {
 	return bc.ResetWithGenesisBlock(bc.genesisBlock)
@@ -461,7 +528,24 @@ func (bc *BlockChain) repair(head **types.Block) error {
 		// Abort if we've rewound to a head block that does have associated state
 		if _, err := state.New((*head).Root(), bc.stateCache); err == nil {
 			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
-			return nil
+			var tomoXService *tomox.TomoX
+			engine, ok := bc.Engine().(*posv.Posv)
+			if ok {
+				tomoXService = engine.GetTomoXService()
+				if bc.Config().IsTIPTomoX((*head).Number()) && tomoXService != nil {
+					tomoxRoot, err := tomoXService.GetTomoxStateRoot(*head)
+					if err == nil {
+						_, err = tomox_state.New(tomoxRoot, tomoXService.StateCache)
+						if err == nil {
+							return nil
+						}
+					}
+				} else {
+					return nil
+				}
+			} else {
+				return nil
+			}
 		}
 		// Otherwise rewind one block and recheck state availability there
 		(*head) = bc.GetBlock((*head).ParentHash(), (*head).NumberU64()-1)
@@ -518,8 +602,10 @@ func (bc *BlockChain) insert(block *types.Block) {
 
 	// save cache BlockSigners
 	if bc.chainConfig.Posv != nil && !bc.chainConfig.IsTIPSigning(block.Number()) {
-		engine := bc.Engine().(*posv.Posv)
-		engine.CacheData(block.Header(), block.Transactions(), bc.GetReceiptsByHash(block.Hash()))
+		engine, ok := bc.Engine().(*posv.Posv)
+		if ok {
+			engine.CacheData(block.Header(), block.Transactions(), bc.GetReceiptsByHash(block.Hash()))
+		}
 	}
 
 	// If the block is better than our head or is on a different chain, force update heads
@@ -710,7 +796,16 @@ func (bc *BlockChain) Stop() {
 	//  - HEAD-1:   So we don't do large reorgs if our HEAD becomes an uncle
 	//  - HEAD-127: So we have a hard limit on the number of blocks reexecuted
 	if !bc.cacheConfig.Disabled {
+		var tomoXService *tomox.TomoX
+		var tomoxTriedb *trie.Database
+		engine, ok := bc.Engine().(*posv.Posv)
+		if ok {
+			tomoXService = engine.GetTomoXService()
+		}
 		triedb := bc.stateCache.TrieDB()
+		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && tomoXService != nil && tomoXService.StateCache != nil {
+			tomoxTriedb = tomoXService.StateCache.TrieDB()
+		}
 		for _, offset := range []uint64{0, 1, triesInMemory - 1} {
 			if number := bc.CurrentBlock().NumberU64(); number > offset {
 				recent := bc.GetBlockByNumber(number - offset)
@@ -719,10 +814,23 @@ func (bc *BlockChain) Stop() {
 				if err := triedb.Commit(recent.Root(), true); err != nil {
 					log.Error("Failed to commit recent state trie", "err", err)
 				}
+				if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && tomoXService != nil {
+					tomoxRoot, _ := tomoXService.GetTomoxStateRoot(recent)
+					if !common.EmptyHash(tomoxRoot) && tomoxTriedb != nil {
+						if err := tomoxTriedb.Commit(tomoxRoot, true); err != nil {
+							log.Error("Failed to commit recent state trie", "err", err)
+						}
+					}
+				}
 			}
 		}
 		for !bc.triegc.Empty() {
 			triedb.Dereference(bc.triegc.PopItem().(common.Hash), common.Hash{})
+		}
+		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && tomoXService != nil && tomoxTriedb != nil && tomoXService.Triegc != nil {
+			for !tomoXService.Triegc.Empty() {
+				tomoxTriedb.Dereference(tomoXService.Triegc.PopItem().(common.Hash), common.Hash{})
+			}
 		}
 		if size := triedb.Size(); size != 0 {
 			log.Error("Dangling trie nodes after full cleanup")
@@ -932,7 +1040,7 @@ func (bc *BlockChain) WriteBlockWithoutState(block *types.Block, td *big.Int) (e
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
+func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB, tomoxState *tomox_state.TomoXStateDB) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -962,6 +1070,22 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	if err != nil {
 		return NonStatTy, err
 	}
+	tomoxRoot := common.Hash{}
+	if tomoxState != nil {
+		tomoxRoot, err = tomoxState.Commit()
+		if err != nil {
+			return NonStatTy, err
+		}
+	}
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
+	var tomoxTrieDb *trie.Database
+	if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+		tomoxTrieDb = tomoXService.StateCache.TrieDB()
+	}
 	triedb := bc.stateCache.TrieDB()
 
 	// If we're running an archive node, always flush
@@ -969,16 +1093,27 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		if err := triedb.Commit(root, false); err != nil {
 			return NonStatTy, err
 		}
+		if tomoxTrieDb != nil {
+			if err := tomoxTrieDb.Commit(tomoxRoot, false); err != nil {
+				return NonStatTy, err
+			}
+		}
 	} else {
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
-
+		if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+			tomoxTrieDb.Reference(tomoxRoot, common.Hash{})
+			tomoXService.Triegc.Push(tomoxRoot, -float32(block.NumberU64()))
+		}
 		if current := block.NumberU64(); current > triesInMemory {
 			// Find the next state trie we need to commit
 			header := bc.GetHeaderByNumber(current - triesInMemory)
 			chosen := header.Number.Uint64()
-
+			oldTomoXRoot := common.Hash{}
+			if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+				oldTomoXRoot, _ = tomoXService.GetTomoxStateRoot(bc.GetBlock(header.Hash(), current-triesInMemory))
+			}
 			// Only write to disk if we exceeded our memory allowance *and* also have at
 			// least a given number of tries gapped.
 			var (
@@ -1001,6 +1136,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 					triedb.Commit(header.Root, true)
 					lastWrite = chosen
 					bc.gcproc = 0
+					if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+						tomoxTrieDb.Commit(oldTomoXRoot, true)
+					}
 				}
 			}
 			// Garbage collect anything below our required write retention
@@ -1011,6 +1149,16 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 					break
 				}
 				triedb.Dereference(root.(common.Hash), common.Hash{})
+			}
+			if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+				for !tomoXService.Triegc.Empty() {
+					tomoRoot, number := tomoXService.Triegc.Pop()
+					if uint64(-number) > chosen {
+						tomoXService.Triegc.Push(tomoRoot, number)
+						break
+					}
+					tomoxTrieDb.Dereference(tomoRoot.(common.Hash), common.Hash{})
+				}
 			}
 		}
 	}
@@ -1055,8 +1203,10 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	}
 	// save cache BlockSigners
 	if bc.chainConfig.Posv != nil && bc.chainConfig.IsTIPSigning(block.Number()) {
-		engine := bc.Engine().(*posv.Posv)
-		engine.CacheSigner(block.Header().Hash(), block.Transactions())
+		engine, ok := bc.Engine().(*posv.Posv)
+		if ok {
+			engine.CacheSigner(block.Header().Hash(), block.Transactions())
+		}
 	}
 	bc.futureBlocks.Remove(block.Hash())
 	return status, nil
@@ -1078,6 +1228,12 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
 func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*types.Log, error) {
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
+
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].NumberU64() != chain[i-1].NumberU64()+1 || chain[i].ParentHash() != chain[i-1].Hash() {
@@ -1211,6 +1367,45 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
+		author, err := bc.Engine().Author(block.Header()) // Ignore error, we're past header validation
+		if err != nil {
+			bc.reportBlock(block, nil, err)
+			return i, events, coalescedLogs, err
+		}
+		// clear the previous dry-run cache
+		var tomoxState *tomox_state.TomoXStateDB
+		if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+			txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+			if err != nil {
+				bc.reportBlock(block, nil, err)
+				return i, events, coalescedLogs, err
+			}
+			tomoxState, err = tomoXService.GetTomoxState(parent)
+			if err != nil {
+				bc.reportBlock(block, nil, err)
+				return i, events, coalescedLogs, err
+			}
+			for _, txMatchBatch := range txMatchBatchData {
+				log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
+				err := bc.Validator().ValidateMatchingOrder(tomoXService, statedb, tomoxState, txMatchBatch, author)
+				if err != nil {
+					bc.reportBlock(block, nil, err)
+					return i, events, coalescedLogs, err
+				}
+			}
+			if len(txMatchBatchData) > 0 {
+				gotRoot := tomoxState.IntermediateRoot()
+				expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
+				if gotRoot != expectRoot {
+					err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+					bc.reportBlock(block, nil, err)
+					return i, events, coalescedLogs, err
+				}
+			}
+			parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
+			nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
+			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+		}
 		feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 		// Process block using the parent state as reference point.
 		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig, feeCapacity)
@@ -1225,9 +1420,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			return i, events, coalescedLogs, err
 		}
 		proctime := time.Since(bstart)
-
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteBlockWithState(block, receipts, statedb)
+		status, err := bc.WriteBlockWithState(block, receipts, statedb, tomoxState)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
@@ -1260,6 +1454,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
 			bc.UpdateBlocksHashCache(block)
+			if bc.chainConfig.IsTIPTomoX(block.Number()) {
+				bc.logExchangeData(block)
+			}
 		case SideStatTy:
 			log.Debug("Inserted forked block from downloader", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
@@ -1275,6 +1472,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// epoch block
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 				CheckpointCh <- 1
+
 			}
 			// prepare set of masternodes for the next epoch
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == (bc.chainConfig.Posv.Epoch - bc.chainConfig.Posv.Gap) {
@@ -1398,6 +1596,49 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	if err != nil {
 		return nil, err
 	}
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
+	author, err := bc.Engine().Author(block.Header()) // Ignore error, we're past header validation
+	if err != nil {
+		bc.reportBlock(block, nil, err)
+		return nil, err
+	}
+	var tomoxState *tomox_state.TomoXStateDB
+	if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+		tomoxState, err = tomoXService.GetTomoxState(parent)
+		if err != nil {
+			bc.reportBlock(block, nil, err)
+			return nil, err
+		}
+		txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+		if err != nil {
+			bc.reportBlock(block, nil, err)
+			return nil, err
+		}
+		for _, txMatchBatch := range txMatchBatchData {
+			log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
+			err := bc.Validator().ValidateMatchingOrder(tomoXService, statedb, tomoxState, txMatchBatch, author)
+			if err != nil {
+				bc.reportBlock(block, nil, err)
+				return nil, err
+			}
+		}
+		if len(txMatchBatchData) > 0 {
+			gotRoot := tomoxState.IntermediateRoot()
+			expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
+			if gotRoot != expectRoot {
+				err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+				bc.reportBlock(block, nil, err)
+				return nil, err
+			}
+		}
+		parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
+		nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
+		log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	// Process block using the parent state as reference point.
 	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, bc.vmConfig, feeCapacity)
@@ -1417,7 +1658,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	proctime := time.Since(bstart)
 	log.Debug("Calculate new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)), "process", process)
-	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, proctime: proctime, usedGas: usedGas}, nil
+	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, tomoxState: tomoxState, proctime: proctime, usedGas: usedGas}, nil
 }
 
 // UpdateBlocksHashCache update BlocksHashCache by block number
@@ -1467,7 +1708,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	if bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return events, coalescedLogs, nil
 	}
-	status, err := bc.WriteBlockWithState(block, result.receipts, result.state)
+	status, err := bc.WriteBlockWithState(block, result.receipts, result.state, result.tomoxState)
 
 	if err != nil {
 		return events, coalescedLogs, err
@@ -1498,8 +1739,10 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 
 		// Only count canonical blocks for GC processing time
 		bc.gcproc += result.proctime
-
 		bc.UpdateBlocksHashCache(block)
+		if bc.chainConfig.IsTIPTomoX(block.Number()) {
+			bc.logExchangeData(block)
+		}
 	case SideStatTy:
 		log.Debug("Inserted forked block from fetcher", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 			common.PrettyDuration(time.Since(block.ReceivedAt)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
@@ -1516,6 +1759,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		// epoch block
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 			CheckpointCh <- 1
+
 		}
 		// prepare set of masternodes for the next epoch
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == (bc.chainConfig.Posv.Epoch - bc.chainConfig.Posv.Gap) {
@@ -1689,7 +1933,9 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 			}
 		}()
 	}
-
+	if bc.chainConfig.IsTIPTomoX(commonBlock.Number()) {
+		bc.reorgTxMatches(deletedTxs, newChain)
+	}
 	return nil
 }
 
@@ -1919,10 +2165,10 @@ func (bc *BlockChain) GetClient() (*ethclient.Client, error) {
 }
 
 func (bc *BlockChain) UpdateM1() error {
-	if bc.Config().Posv == nil {
+	engine, ok := bc.Engine().(*posv.Posv)
+	if bc.Config().Posv == nil || !ok {
 		return ErrNotPoSV
 	}
-	engine := bc.Engine().(*posv.Posv)
 	log.Info("It's time to update new set of masternodes for the next epoch...")
 	// get masternodes information from smart contract
 	client, err := bc.GetClient()
@@ -1985,4 +2231,75 @@ func (bc *BlockChain) UpdateM1() error {
 		log.Info("Masternodes are ready for the next epoch")
 	}
 	return nil
+}
+
+func (bc *BlockChain) logExchangeData(block *types.Block) {
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
+	if tomoXService == nil || !tomoXService.IsSDKNode() {
+		return
+	}
+	txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+	if err != nil {
+		log.Error("failed to extract matching transaction", "err", err)
+		return
+	}
+	if len(txMatchBatchData) == 0 {
+		return
+	}
+	currentState, err := bc.State()
+	if err != nil {
+		log.Error("failed to get current state", "err", err)
+		return
+	}
+	start := time.Now()
+	defer func() {
+		//The deferred call's arguments are evaluated immediately, but the function call is not executed until the surrounding function returns
+		// That's why we should put this log statement in an anonymous function
+		log.Debug("logExchangeData takes", "time", common.PrettyDuration(time.Since(start)), "blockNumber", block.NumberU64())
+	}()
+	for _, txMatchBatch := range txMatchBatchData {
+		for _, txMatch := range txMatchBatch.Data {
+			// the smallest time unit in mongodb is millisecond
+			// hence, we should update time in millisecond
+			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
+			milliSecond := txMatchBatch.Timestamp / 1e6
+			txMatchTime := time.Unix(0, milliSecond * 1e6).UTC()
+			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, txMatchTime, currentState); err != nil {
+				log.Error("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
+				return
+			}
+		}
+	}
+}
+
+func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain types.Blocks) {
+	var tomoXService *tomox.TomoX
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		tomoXService = engine.GetTomoXService()
+	}
+	if tomoXService == nil || !tomoXService.IsSDKNode() {
+		return
+	}
+	start := time.Now()
+	defer func() {
+		//The deferred call's arguments are evaluated immediately, but the function call is not executed until the surrounding function returns
+		// That's why we should put this log statement in an anonymous function
+		log.Debug("reorgTxMatches takes", "time", common.PrettyDuration(time.Since(start)))
+	}()
+	for _, deletedTx := range deletedTxs {
+		if deletedTx.IsMatchingTransaction() {
+			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
+			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
+		}
+	}
+
+	// apply new chain
+	for i := len(newChain) - 1; i >= 0; i-- {
+		bc.logExchangeData(newChain[i])
+	}
 }

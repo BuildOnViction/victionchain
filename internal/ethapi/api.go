@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/tomox"
+	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"sort"
 	"strings"
@@ -1500,9 +1502,20 @@ type PublicTransactionPoolAPI struct {
 	nonceLock *AddrLocker
 }
 
+// PublicTransactionPoolAPI exposes methods for the RPC interface
+type PublicTomoXTransactionPoolAPI struct {
+	b         Backend
+	nonceLock *AddrLocker
+}
+
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
 func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTransactionPoolAPI {
 	return &PublicTransactionPoolAPI{b, nonceLock}
+}
+
+// NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
+func NewPublicTomoXTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTomoXTransactionPoolAPI {
+	return &PublicTomoXTransactionPoolAPI{b, nonceLock}
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -1752,6 +1765,15 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	return tx.Hash(), nil
 }
 
+// submitTransaction is a helper function that submits tx to txPool and logs a message.
+func submitOrderTransaction(ctx context.Context, b Backend, tx *types.OrderTransaction) (common.Hash, error) {
+
+	if err := b.SendOrderTx(ctx, tx); err != nil {
+		return common.Hash{}, err
+	}
+	return tx.Hash(), nil
+}
+
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
@@ -1797,6 +1819,167 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	return submitTransaction(ctx, s.b, tx)
+}
+
+// SendOrderRawTransaction will add the signed transaction to the transaction pool.
+// The sender is responsible for signing the transaction and using the correct nonce.
+func (s *PublicTomoXTransactionPoolAPI) SendOrderRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	tx := new(types.OrderTransaction)
+	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
+		return common.Hash{}, err
+	}
+	return submitOrderTransaction(ctx, s.b, tx)
+}
+
+// OrderMsg struct
+type OrderMsg struct {
+	AccountNonce    uint64         `json:"nonce"    gencodec:"required"`
+	Quantity        *big.Int       `json:"quantity,omitempty"`
+	Price           *big.Int       `json:"price,omitempty"`
+	ExchangeAddress common.Address `json:"exchangeAddress,omitempty"`
+	UserAddress     common.Address `json:"userAddress,omitempty"`
+	BaseToken       common.Address `json:"baseToken,omitempty"`
+	QuoteToken      common.Address `json:"quoteToken,omitempty"`
+	Status          string         `json:"status,omitempty"`
+	Side            string         `json:"side,omitempty"`
+	Type            string         `json:"type,omitempty"`
+	PairName        string         `json:"pairName,omitempty"`
+	OrderID         uint64         `json:"orderid,omitempty"`
+	// Signature values
+	V *big.Int `json:"v" gencodec:"required"`
+	R *big.Int `json:"r" gencodec:"required"`
+	S *big.Int `json:"s" gencodec:"required"`
+
+	// This is only used when marshaling to JSON.
+	Hash common.Hash `json:"hash" rlp:"-"`
+}
+type PriceVolume struct {
+	Price  *big.Int `json:"price,omitempty"`
+	Volume *big.Int `json:"volume,omitempty"`
+}
+
+// SendOrder will add the signed transaction to the transaction pool.
+// The sender is responsible for signing the transaction and using the correct nonce.
+func (s *PublicTomoXTransactionPoolAPI) SendOrder(ctx context.Context, msg OrderMsg) (common.Hash, error) {
+	tx := types.NewOrderTransaction(msg.AccountNonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, msg.Hash, msg.OrderID)
+	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
+	return submitOrderTransaction(ctx, s.b, tx)
+}
+
+// GetOrderCount returns the number of transactions the given address has sent for the given block number
+func (s *PublicTomoXTransactionPoolAPI) GetOrderCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
+
+	nonce, err := s.b.GetOrderNonce(addr.Hash())
+	if err != nil {
+		return (*hexutil.Uint64)(&nonce), err
+	}
+	return (*hexutil.Uint64)(&nonce), err
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToken,quoteToken common.Address) (PriceVolume, error) {
+
+	result := PriceVolume{}
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return result, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return result, errors.New("TomoX service not found")
+	}
+
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return result, err
+	}
+	result.Price, result.Volume = tomoxState.GetBestBidPrice(tomox.GetOrderBookHash(baseToken,quoteToken))
+	if result.Price.Sign() == 0 {
+		return result, errors.New("Bid tree not found")
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToken,quoteToken common.Address) (PriceVolume, error) {
+	result := PriceVolume{}
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return result, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return result, errors.New("TomoX service not found")
+	}
+
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return result, err
+	}
+	result.Price, result.Volume = tomoxState.GetBestAskPrice(tomox.GetOrderBookHash(baseToken,quoteToken))
+	if result.Price.Sign() == 0 {
+		return result, errors.New("Ask tree not found")
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToken,quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return nil, err
+	}
+	result, err := tomoxState.DumpBidTrie(tomox.GetOrderBookHash(baseToken,quoteToken))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken,quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return nil, err
+	}
+	result, err := tomoxState.DumpAskTrie(tomox.GetOrderBookHash(baseToken,quoteToken))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseToken,quoteToken common.Address, orderId uint64) (interface{}, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTomoxState(block)
+	if err != nil {
+		return nil, err
+	}
+	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderId))
+	orderitem := tomoxState.GetOrder(tomox.GetOrderBookHash(baseToken,quoteToken), orderIdHash)
+	if orderitem.Quantity == nil || orderitem.Quantity.Sign() == 0 {
+		return nil, errors.New("Order not found")
+	}
+	return orderitem, nil
 }
 
 // Sign calculates an ECDSA signature for:

@@ -19,6 +19,7 @@ package ethapi
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/tomox"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -46,6 +47,7 @@ type Backend interface {
 	ChainDb() ethdb.Database
 	EventMux() *event.TypeMux
 	AccountManager() *accounts.Manager
+	TomoxService() *tomox.TomoX
 
 	// BlockChain API
 	SetHead(number uint64)
@@ -62,6 +64,7 @@ type Backend interface {
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
+	SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error
 	GetPoolTransactions() (types.Transactions, error)
 	GetPoolTransaction(txHash common.Hash) *types.Transaction
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
@@ -81,6 +84,7 @@ type Backend interface {
 	GetMasternodesCap(checkpoint uint64) map[common.Address]*big.Int
 	GetBlocksHashCache(blockNr uint64) []common.Hash
 	AreTwoBlockSamePath(newBlock common.Hash, oldBlock common.Hash) bool
+	GetOrderNonce(address common.Hash) (uint64, error)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
@@ -100,6 +104,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "eth",
 			Version:   "1.0",
 			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
+			Public:    true,
+		}, {
+			Namespace: "tomox",
+			Version:   "1.0",
+			Service:   NewPublicTomoXTransactionPoolAPI(apiBackend, nonceLock),
 			Public:    true,
 		}, {
 			Namespace: "txpool",

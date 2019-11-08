@@ -35,6 +35,9 @@ const (
 	RandomizeSMC        = "0x0000000000000000000000000000000000000090"
 	FoudationAddr       = "0x0000000000000000000000000000000000000068"
 	TeamAddr            = "0x0000000000000000000000000000000000000099"
+	TomoXAddr           = "0x0000000000000000000000000000000000000091"
+	TomoXStateAddr      = "0x0000000000000000000000000000000000000092"
+	TomoNativeAddress   = "0x0000000000000000000000000000000000000001"
 	VoteMethod          = "0x6dd7d8ea"
 	UnvoteMethod        = "0x02aa9be2"
 	ProposeMethod       = "0x01267951"
@@ -43,8 +46,10 @@ const (
 )
 
 var (
-	hashT    = reflect.TypeOf(Hash{})
-	addressT = reflect.TypeOf(Address{})
+	hashT                         = reflect.TypeOf(Hash{})
+	addressT                      = reflect.TypeOf(Address{})
+	RelayerRegistrationSMC        = "0x0342d186212b04E69eA682b3bed8e232b6b3361a"
+	RelayerRegistrationSMCTestnet = "0xe7c16037992bEcAFaeeE779Dacaf8991637953F3"
 )
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.

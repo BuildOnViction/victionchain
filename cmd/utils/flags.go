@@ -44,8 +44,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/ethstats"
-	"github.com/ethereum/go-ethereum/les"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
@@ -55,6 +53,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/tomox"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -206,6 +205,11 @@ var (
 	LightKDFFlag = cli.BoolFlag{
 		Name:  "lightkdf",
 		Usage: "Reduce key-derivation RAM & CPU usage at some expense of KDF strength",
+	}
+	// TomoX settings
+	TomoXEnabledFlag = cli.BoolFlag{
+		Name:  "tomox",
+		Usage: "Enable the tomoX protocol",
 	}
 	// Dashboard settings
 	DashboardEnabledFlag = cli.BoolFlag{
@@ -549,6 +553,30 @@ var (
 		Name:  "shh.pow",
 		Usage: "Minimum POW accepted",
 		Value: whisper.DefaultMinimumPoW,
+	}
+	TomoXDataDirFlag = DirectoryFlag{
+		Name:  "tomox.datadir",
+		Usage: "Data directory for the TomoX databases",
+		Value: DirectoryString{node.DefaultDataDir()},
+	}
+	TomoXDBEngineFlag = cli.StringFlag{
+		Name:  "tomox.dbengine",
+		Usage: "Database engine for TomoX (leveldb, mongodb)",
+		Value: "leveldb",
+	}
+	TomoXDBNameFlag = cli.StringFlag{
+		Name:  "tomox.dbName",
+		Usage: "Database name for TomoX",
+		Value: "tomodex",
+	}
+	TomoXDBConnectionUrlFlag = cli.StringFlag{
+		Name:  "tomox.dbConnectionUrl",
+		Usage: "ConnectionUrl to database if dbEngine is mongodb. Host:port. If there are multiple instances, separated by comma. Eg: localhost:27017,localhost:27018",
+		Value: "localhost:27017",
+	}
+	TomoXDBReplicaSetNameFlag = cli.StringFlag{
+		Name:  "tomox.dbReplicaSetName",
+		Usage: "ReplicaSetName if Master-Slave is setup",
 	}
 )
 
@@ -1034,6 +1062,34 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 	}
 }
 
+func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
+	if len(cfg.DataDir) == 0 {
+		if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
+			cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
+		} else {
+			cfg.DataDir = TomoXDataDirFlag.Value.String()
+		}
+	}
+	if ctx.GlobalIsSet(TomoXDBEngineFlag.Name) {
+		cfg.DBEngine = ctx.GlobalString(TomoXDBEngineFlag.Name)
+	} else {
+		cfg.DBEngine = TomoXDBEngineFlag.Value
+	}
+	if ctx.GlobalIsSet(TomoXDBNameFlag.Name) {
+		cfg.DBName = ctx.GlobalString(TomoXDBNameFlag.Name)
+	} else {
+		cfg.DBName = TomoXDBNameFlag.Value
+	}
+	if ctx.GlobalIsSet(TomoXDBConnectionUrlFlag.Name) {
+		cfg.ConnectionUrl = ctx.GlobalString(TomoXDBConnectionUrlFlag.Name)
+	} else {
+		cfg.ConnectionUrl = TomoXDBConnectionUrlFlag.Value
+	}
+	if ctx.GlobalIsSet(TomoXDBReplicaSetNameFlag.Name) {
+		cfg.ReplicaSetName = ctx.GlobalString(TomoXDBReplicaSetNameFlag.Name)
+	}
+}
+
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	// Avoid conflicting network flags
@@ -1148,61 +1204,6 @@ func SetDashboardConfig(ctx *cli.Context, cfg *dashboard.Config) {
 	cfg.Host = ctx.GlobalString(DashboardAddrFlag.Name)
 	cfg.Port = ctx.GlobalInt(DashboardPortFlag.Name)
 	cfg.Refresh = ctx.GlobalDuration(DashboardRefreshFlag.Name)
-}
-
-// RegisterEthService adds an Ethereum client to the stack.
-func RegisterEthService(stack *node.Node, cfg *eth.Config) {
-	var err error
-	if cfg.SyncMode == downloader.LightSync {
-		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-			return les.New(ctx, cfg)
-		})
-	} else {
-		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-			fullNode, err := eth.New(ctx, cfg)
-			if fullNode != nil && cfg.LightServ > 0 {
-				ls, _ := les.NewLesServer(fullNode, cfg)
-				fullNode.AddLesServer(ls)
-			}
-			return fullNode, err
-		})
-	}
-	if err != nil {
-		Fatalf("Failed to register the Ethereum service: %v", err)
-	}
-}
-
-// RegisterDashboardService adds a dashboard to the stack.
-func RegisterDashboardService(stack *node.Node, cfg *dashboard.Config, commit string) {
-	stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return dashboard.New(cfg, commit)
-	})
-}
-
-// RegisterShhService configures Whisper and adds it to the given node.
-func RegisterShhService(stack *node.Node, cfg *whisper.Config) {
-	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
-		return whisper.New(cfg), nil
-	}); err != nil {
-		Fatalf("Failed to register the Whisper service: %v", err)
-	}
-}
-
-// RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
-// th egiven node.
-func RegisterEthStatsService(stack *node.Node, url string) {
-	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		// Retrieve both eth and les services
-		var ethServ *eth.Ethereum
-		ctx.Service(&ethServ)
-
-		var lesServ *les.LightEthereum
-		ctx.Service(&lesServ)
-
-		return ethstats.New(url, ethServ, lesServ)
-	}); err != nil {
-		Fatalf("Failed to register the Ethereum Stats service: %v", err)
-	}
 }
 
 // SetupNetwork configures the system for either the main net or some test network.

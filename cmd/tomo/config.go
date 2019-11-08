@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/tomox"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/naoina/toml"
 )
@@ -94,6 +95,7 @@ type tomoConfig struct {
 	Node        node.Config
 	Ethstats    ethstatsConfig
 	Dashboard   dashboard.Config
+	TomoX       tomox.Config
 	Account     account
 	StakeEnable bool
 	Bootnodes   Bootnodes
@@ -130,6 +132,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	cfg := tomoConfig{
 		Eth:         eth.DefaultConfig,
 		Shh:         whisper.DefaultConfig,
+		TomoX:       tomox.DefaultConfig,
 		Node:        defaultNodeConfig(),
 		Dashboard:   dashboard.DefaultConfig,
 		StakeEnable: true,
@@ -158,6 +161,8 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 		common.IsTestnet = true
 		common.TRC21IssuerSMC = common.TRC21IssuerSMCTestNet
 		cfg.Eth.NetworkId = 89
+		common.RelayerRegistrationSMC = common.RelayerRegistrationSMCTestnet
+		common.TIPTRC21Fee = common.TIPTomoXTestnet
 	}
 
 	// Check rollback hash exist.
@@ -199,6 +204,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	}
 
 	utils.SetShhConfig(ctx, stack, &cfg.Shh)
+	utils.SetTomoXConfig(ctx, &cfg.TomoX)
 	utils.SetDashboardConfig(ctx, &cfg.Dashboard)
 
 	return stack, cfg
@@ -230,6 +236,10 @@ func enableWhisper(ctx *cli.Context) bool {
 func makeFullNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	stack, cfg := makeConfigNode(ctx)
 
+	// Register TomoX's OrderBook service if requested.
+	// enable in default
+	utils.RegisterTomoXService(stack, &cfg.TomoX)
+
 	utils.RegisterEthService(stack, &cfg.Eth)
 
 	if ctx.GlobalBool(utils.DashboardEnabledFlag.Name) {
@@ -252,6 +262,7 @@ func makeFullNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	if cfg.Ethstats.URL != "" {
 		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
 	}
+
 	return stack, cfg
 }
 

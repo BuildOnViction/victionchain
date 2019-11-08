@@ -59,6 +59,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/tomox"
 )
 
 type LesServer interface {
@@ -79,6 +80,7 @@ type Ethereum struct {
 
 	// Handlers
 	txPool          *core.TxPool
+	orderPool       *core.OrderPool
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
@@ -102,7 +104,8 @@ type Ethereum struct {
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	lock  sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	TomoX *tomox.TomoX
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -112,7 +115,7 @@ func (s *Ethereum) AddLesServer(ls LesServer) {
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
+func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Ethereum, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
 	}
@@ -128,6 +131,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
+
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
 	eth := &Ethereum{
@@ -146,6 +150,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
 
+	// Inject TomoX Service into main Eth Service.
+	if tomoXServ != nil {
+		eth.TomoX = tomoXServ
+	}
 	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
@@ -159,7 +167,13 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	if eth.chainConfig.Posv != nil {
+		c := eth.engine.(*posv.Posv)
+		c.GetTomoXService = func() *tomox.TomoX {
+			return eth.TomoX
+		}
+	}
+	eth.blockchain, err = core.NewBlockChainEx(chainDb, tomoXServ.GetDB(), cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +189,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
-
+	eth.orderPool = core.NewOrderPool(eth.chainConfig, eth.blockchain)
 	if common.RollbackHash != common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000") {
 		curBlock := eth.blockchain.CurrentBlock()
 		prevBlock := eth.blockchain.GetBlockByHash(common.RollbackHash)
@@ -195,7 +209,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		}
 	}
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
+	if eth.protocolManager, err = NewProtocolManagerEx(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.orderPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine, ctx.GetConfig().AnnounceTxs)
@@ -472,12 +486,14 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 			sort.Slice(candidates, func(i, j int) bool {
 				return candidates[i].Stake.Cmp(candidates[j].Stake) >= 0
 			})
-			candidates = candidates[:150]
+			if len(candidates) > 150 {
+				candidates = candidates[:150]	
+			}
 			result := []common.Address{}
 			for _, candidate := range candidates {
 				result = append(result, candidate.Address)
 			}
-			return result[:150], nil
+			return result, nil
 		}
 
 		// Hook calculates reward for masternodes
@@ -573,6 +589,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 			}
 			return false
 		}
+
 	}
 	return eth, nil
 }
@@ -921,4 +938,12 @@ func rewardInflation(chainReward *big.Int, number uint64, blockPerYear uint64) *
 
 func (s *Ethereum) GetPeer() int {
 	return len(s.protocolManager.peers.peers)
+}
+
+func (s *Ethereum) GetTomoX() *tomox.TomoX {
+	return s.TomoX
+}
+
+func (s *Ethereum) OrderPool() *core.OrderPool {
+	return s.orderPool
 }

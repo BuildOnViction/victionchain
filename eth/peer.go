@@ -38,6 +38,7 @@ var (
 
 const (
 	maxKnownTxs      = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
+	maxKnownOrderTxs = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks   = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 	handshakeTimeout = 5 * time.Second
 )
@@ -64,20 +65,22 @@ type peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	knownTxs    *set.Set // Set of transaction hashes known to be known by this peer
-	knownBlocks *set.Set // Set of block hashes known to be known by this peer
+	knownTxs      *set.Set // Set of transaction hashes known to be known by this peer
+	knownBlocks   *set.Set // Set of block hashes known to be known by this peer
+	knownOrderTxs *set.Set // Set of order transaction hashes known to be known by this peer
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	id := p.ID()
 
 	return &peer{
-		Peer:        p,
-		rw:          rw,
-		version:     version,
-		id:          fmt.Sprintf("%x", id[:8]),
-		knownTxs:    set.New(),
-		knownBlocks: set.New(),
+		Peer:          p,
+		rw:            rw,
+		version:       version,
+		id:            fmt.Sprintf("%x", id[:8]),
+		knownTxs:      set.New(),
+		knownBlocks:   set.New(),
+		knownOrderTxs: set.New(),
 	}
 }
 
@@ -131,6 +134,16 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	p.knownTxs.Add(hash)
 }
 
+// OrderMarkTransaction marks a order transaction as known for the peer, ensuring that it
+// will never be propagated to this particular peer.
+func (p *peer) MarkOrderTransaction(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for p.knownOrderTxs.Size() >= maxKnownOrderTxs {
+		p.knownOrderTxs.Pop()
+	}
+	p.knownOrderTxs.Add(hash)
+}
+
 // SendTransactions sends transactions to the peer and includes the hashes
 // in its transaction hash set for future reference.
 func (p *peer) SendTransactions(txs types.Transactions) error {
@@ -138,6 +151,15 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 		p.knownTxs.Add(tx.Hash())
 	}
 	return p2p.Send(p.rw, TxMsg, txs)
+}
+
+// SendTransactions sends transactions to the peer and includes the hashes
+// in its transaction hash set for future reference.
+func (p *peer) SendOrderTransactions(txs types.OrderTransactions) error {
+	for _, tx := range txs {
+		p.knownOrderTxs.Add(tx.Hash())
+	}
+	return p2p.Send(p.rw, OrderTxMsg, txs)
 }
 
 // SendNewBlockHashes announces the availability of a number of blocks through
@@ -436,6 +458,21 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if !p.knownTxs.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+// PeersWithoutTx retrieves a list of peers that do not have a given transaction
+// in their set of known hashes.
+func (ps *peerSet) OrderPeersWithoutTx(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownOrderTxs.Has(hash) {
 			list = append(list, p)
 		}
 	}

@@ -29,6 +29,7 @@ var Modules = map[string]string{
 	"personal":   Personal_JS,
 	"rpc":        RPC_JS,
 	"shh":        Shh_JS,
+	"tomox":      TomoX_JS,
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
 }
@@ -622,6 +623,145 @@ web3._extend({
 	]
 });
 `
+
+const TomoX_JS = `
+web3._extend({
+	property: 'tomox',
+	methods: [
+		new web3._extend.Method({
+			name: 'version',
+			call: 'tomox_version',
+			params: 0,
+			outputFormatter: web3._extend.utils.toDecimal
+		}),
+		new web3._extend.Method({
+			name: 'info',
+			call: 'tomox_info',
+			params: 0
+		}),
+		new web3._extend.Method({
+            name: 'markTrustedPeer',
+            call: 'tomox_markTrustedPeer',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'createOrder',
+            call: 'tomox_createOrder',
+            params: 1,
+            inputFormatter: [null]
+        }),
+        new web3._extend.Method({
+            name: 'cancelOrder',
+            call: 'tomox_cancelOrder',
+            params: 1,
+            inputFormatter: [null]
+        }),
+		new web3._extend.Method({
+            name: 'newTopic',
+            call: 'tomox_newTopic',
+            params: 1
+        }),
+        new web3._extend.Method({
+            name: 'deleteTopic',
+            call: 'tomox_deleteTopic',
+            params: 1
+        }),
+        new web3._extend.Method({
+            name: 'getOrders',
+            call: 'tomox_getOrders',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getOrderNonce',
+            call: 'tomox_getOrderNonce',
+            params: 1,
+            inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
+		new web3._extend.Method({
+            name: 'GetFeeByEpoch',
+            call: 'tomoX_GetFeeByEpoch',
+            params: 1,
+            inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]
+        }),
+		new web3._extend.Method({
+            name: 'getPendingOrders',
+            call: 'tomox_getPendingOrders',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getAllPendingHashes',
+            call: 'tomox_getAllPendingHashes',
+            params: 0
+        }),
+		new web3._extend.Method({
+            name: 'purgePendingOrders',
+            call: 'tomox_purgePendingOrders',
+            params: 0
+        }),
+		new web3._extend.Method({
+            name: 'getProcessedHashes',
+            call: 'tomox_getProcessedHashes',
+            params: 0
+        }),
+		new web3._extend.Method({
+            name: 'sendOrderRawTransaction',
+            call: 'tomox_sendOrderRawTransaction',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'sendOrderTransaction',
+            call: 'tomox_sendOrder',
+            params: 1
+		}),
+		new web3._extend.Method({
+            name: 'getOrderCount',
+            call: 'tomox_getOrderCount',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getBestBid',
+            call: 'tomox_getBestBid',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBestAsk',
+            call: 'tomox_getBestAsk',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBidTree',
+            call: 'tomox_getBidTree',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getAskTree',
+            call: 'tomox_getAskTree',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getOrderById',
+            call: 'tomox_getOrderById',
+            params: 3
+		}),
+	]
+});
+`
+
+/*
+   var sendOrderRawTransaction = new Method({
+       name: 'sendOrderRawTransaction',
+       call: 'eth_sendOrderRawTransaction',
+       params: 1,
+       inputFormatter: [null]
+   });
+
+   var sendOrderTransaction = new Method({
+       name: 'sendOrder',
+       call: 'tomox_sendOrder',
+       params: 1,
+       inputFormatter: [null]
+   });
+*/
 
 const SWARMFS_JS = `
 web3._extend({

@@ -5420,7 +5420,7 @@ var methods = function () {
         inputFormatter: [null, formatters.inputDefaultBlockNumberFormatter],
         outputFormatter: utils.toDecimal
     });
-
+    
     var sendRawTransaction = new Method({
         name: 'sendRawTransaction',
         call: 'eth_sendRawTransaction',
@@ -6172,7 +6172,7 @@ var shh = function () {
 
 module.exports = {
     eth: eth,
-    shh: shh
+    shh: shh,
 };
 
 
