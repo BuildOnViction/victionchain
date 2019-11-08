@@ -267,7 +267,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHas
 	)
 	db := tomox.GetMongoDB()
 	sc := db.InitBulk()
-
+	defer sc.Close()
 	// 1. put processed takerOrderInTx to db
 	if takerOrderInTx, err = txDataMatch.DecodeOrder(); err != nil {
 		log.Error("SDK node decode takerOrderInTx failed", "txDataMatch", txDataMatch)
@@ -456,7 +456,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHas
 		}
 	}
 
-	if err := db.CommitBulk(sc); err != nil {
+	if err := db.CommitBulk(); err != nil {
 		return fmt.Errorf("SDKNode fail to commit bulk update orders, trades at txhash %s . Error: %s", txHash.Hex(), err.Error())
 	}
 	return nil

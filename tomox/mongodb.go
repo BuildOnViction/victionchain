@@ -233,8 +233,7 @@ func (db *MongoDatabase) InitBulk() *mgo.Session {
 	return sc
 }
 
-func (db *MongoDatabase) CommitBulk(sc *mgo.Session) error {
-	defer sc.Close()
+func (db *MongoDatabase) CommitBulk() error {
 	if _, err := db.orderBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}

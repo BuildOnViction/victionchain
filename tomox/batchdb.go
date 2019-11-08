@@ -127,6 +127,6 @@ func (db *BatchDatabase) InitBulk() *mgo.Session {
 	return nil
 }
 
-func (db *BatchDatabase) CommitBulk(sc *mgo.Session) error {
+func (db *BatchDatabase) CommitBulk() error {
 	return nil
 }

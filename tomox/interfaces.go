@@ -21,7 +21,7 @@ type OrderDao interface {
 	GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem
 	DeleteTradeByTxHash(txhash common.Hash)
 	InitBulk() *mgo.Session
-	CommitBulk(sc *mgo.Session) error
+	CommitBulk() error
 
 	// leveldb methods
 	Put(key []byte, value []byte) error
