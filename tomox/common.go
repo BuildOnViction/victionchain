@@ -3,11 +3,11 @@ package tomox
 import (
 	"encoding/json"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 	"math/big"
 	"strconv"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Comparator func(a, b []byte) int
@@ -269,8 +269,8 @@ func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
 	return txMatchResult, nil
 }
 
-func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderId uint64) common.Hash {
-	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), []byte(strconv.FormatUint(orderId, 10)))
+func GetOrderHistoryKey(pairName string, orderId uint64) common.Hash {
+	return common.StringToHash(pairName + strconv.FormatUint(orderId, 10))
 }
 func (tx TxDataMatch) DecodeOrder() (*tomox_state.OrderItem, error) {
 	order := &tomox_state.OrderItem{}
