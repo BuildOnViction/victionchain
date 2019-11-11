@@ -221,7 +221,6 @@ func findMatch(mux map[string]func(Event), path string) string {
 	return pattern
 
 }
-
 // Remove all existing defined Handlers from the map
 func (es *EvtStream) ResetHandlers() {
 	for Path, _ := range es.Handlers {
@@ -310,7 +309,7 @@ func NewTimerCh(du time.Duration) chan Event {
 	return t
 }
 
-var DefaultHandler = func(e Event) {
+var DefualtHandler = func(e Event) {
 }
 
 var usrEvtCh = make(chan Event)

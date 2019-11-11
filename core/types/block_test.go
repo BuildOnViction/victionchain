@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"bytes"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/rlp"
 	"reflect"
 )
 

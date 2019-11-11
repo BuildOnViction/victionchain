@@ -25,8 +25,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/log"
-	"gopkg.in/fatih/set.v0"
+	"github.com/tomochain/tomochain/log"
+	mapset "github.com/deckarep/golang-set"
 )
 
 const MetadataApi = "rpc"
@@ -46,7 +46,7 @@ const (
 func NewServer() *Server {
 	server := &Server{
 		services: make(serviceRegistry),
-		codecs:   set.New(),
+		codecs:   mapset.NewSet(),
 		run:      1,
 	}
 

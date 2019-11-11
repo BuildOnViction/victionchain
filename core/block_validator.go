@@ -18,15 +18,15 @@ package core
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/consensus/posv"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/ethereum/tomochain/consensus/posv"
+	"github.com/ethereum/tomochain/tomox/tomox_state"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/tomochain/common"
+	"github.com/ethereum/tomochain/consensus"
+	"github.com/ethereum/tomochain/core/state"
+	"github.com/ethereum/tomochain/core/types"
+	"github.com/ethereum/tomochain/log"
+	"github.com/ethereum/tomochain/params"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
