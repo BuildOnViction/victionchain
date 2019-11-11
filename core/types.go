@@ -17,11 +17,11 @@
 package core
 
 import (
-	"github.com/ethereum/tomochain/common"
-	"github.com/ethereum/tomochain/core/state"
-	"github.com/ethereum/tomochain/core/types"
-	"github.com/ethereum/tomochain/core/vm"
-	"github.com/ethereum/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"math/big"
 )
 

@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/tomochain/tomochain/consensus"
 	"math/big"
 	"sync"
 	"time"

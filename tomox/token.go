@@ -2,16 +2,16 @@ package tomox
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/tomochain/tomochain"
+	"github.com/tomochain/tomochain/accounts/abi"
+	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/core/state"
 )
 
 const tokenAbi = `

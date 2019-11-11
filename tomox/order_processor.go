@@ -3,7 +3,7 @@ package tomox
 import (
 	"encoding/json"
 	"errors"
-	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/tomochain/tomochain/consensus"
 	"math/big"
 	"strconv"
 	"time"

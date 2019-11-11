@@ -1,13 +1,13 @@
 package tomox
 
 import (
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"math/big"
 	"time"
 
+	"github.com/globalsign/mgo/bson"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto/sha3"
-	"github.com/globalsign/mgo/bson"
 )
 
 const (

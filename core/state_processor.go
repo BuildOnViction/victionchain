@@ -22,14 +22,14 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/ethereum/tomochain/common"
-	"github.com/ethereum/tomochain/consensus"
-	"github.com/ethereum/tomochain/consensus/misc"
-	"github.com/ethereum/tomochain/core/state"
-	"github.com/ethereum/tomochain/core/types"
-	"github.com/ethereum/tomochain/core/vm"
-	"github.com/ethereum/tomochain/crypto"
-	"github.com/ethereum/tomochain/params"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/consensus/misc"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/params"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning

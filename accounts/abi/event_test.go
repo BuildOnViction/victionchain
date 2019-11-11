@@ -244,7 +244,7 @@ func unpackTestEventData(dest interface{}, hexData string, jsonEvent []byte, ass
 
 /*
 Taken from
-https://github.com/ethereum/go-ethereum/pull/15568
+https://github.com/tomochain/tomochain/pull/15568
 */
 
 type testResult struct {

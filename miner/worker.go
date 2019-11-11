@@ -27,7 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"

@@ -21,12 +21,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"math/big"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/keystore"
@@ -46,8 +48,6 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/rpc"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 const (
@@ -438,7 +438,7 @@ func signHash(data []byte) []byte {
 //
 // The key used to calculate the signature is decrypted with the given password.
 //
-// https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
+// https://github.com/tomochain/tomochain/wiki/Management-APIs#personal_sign
 func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: addr}
@@ -465,7 +465,7 @@ func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr c
 // Note, the signature must conform to the secp256k1 curve R, S and V values, where
 // the V value must be be 27 or 28 for legacy reasons.
 //
-// https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecover
+// https://github.com/tomochain/tomochain/wiki/Management-APIs#personal_ecRecover
 func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
 	if len(sig) != 65 {
 		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
@@ -1875,7 +1875,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderCount(ctx context.Context, addr 
 	return (*hexutil.Uint64)(&nonce), err
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToken,quoteToken common.Address) (PriceVolume, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToken, quoteToken common.Address) (PriceVolume, error) {
 
 	result := PriceVolume{}
 	block := s.b.CurrentBlock()
@@ -1891,14 +1891,14 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToke
 	if err != nil {
 		return result, err
 	}
-	result.Price, result.Volume = tomoxState.GetBestBidPrice(tomox_state.GetOrderBookHash(baseToken,quoteToken))
+	result.Price, result.Volume = tomoxState.GetBestBidPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Bid tree not found")
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToken,quoteToken common.Address) (PriceVolume, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToken, quoteToken common.Address) (PriceVolume, error) {
 	result := PriceVolume{}
 	block := s.b.CurrentBlock()
 	if block == nil {
@@ -1913,14 +1913,14 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToke
 	if err != nil {
 		return result, err
 	}
-	result.Price, result.Volume = tomoxState.GetBestAskPrice(tomox_state.GetOrderBookHash(baseToken,quoteToken))
+	result.Price, result.Volume = tomoxState.GetBestAskPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Ask tree not found")
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToken,quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -1933,14 +1933,14 @@ func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToke
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpBidTrie(tomox_state.GetOrderBookHash(baseToken,quoteToken))
+	result, err := tomoxState.DumpBidTrie(tomox_state.GetOrderBookHash(baseToken, quoteToken))
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken,quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -1953,14 +1953,14 @@ func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToke
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpAskTrie(tomox_state.GetOrderBookHash(baseToken,quoteToken))
+	result, err := tomoxState.DumpAskTrie(tomox_state.GetOrderBookHash(baseToken, quoteToken))
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseToken,quoteToken common.Address, orderId uint64) (interface{}, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseToken, quoteToken common.Address, orderId uint64) (interface{}, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -1974,7 +1974,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseTo
 		return nil, err
 	}
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderId))
-	orderitem := tomoxState.GetOrder(tomox_state.GetOrderBookHash(baseToken,quoteToken), orderIdHash)
+	orderitem := tomoxState.GetOrder(tomox_state.GetOrderBookHash(baseToken, quoteToken), orderIdHash)
 	if orderitem.Quantity == nil || orderitem.Quantity.Sign() == 0 {
 		return nil, errors.New("Order not found")
 	}

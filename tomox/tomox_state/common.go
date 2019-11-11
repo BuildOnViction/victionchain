@@ -3,7 +3,7 @@ package tomox_state
 import (
 	"encoding/json"
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/tomochain/tomochain/crypto"
 	"math/big"
 	"strconv"
 
