@@ -192,12 +192,6 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
-func ToBigInt(s string) *big.Int {
-	res := big.NewInt(0)
-	res.SetString(s, 10)
-	return res
-}
-
 // verify orderItem
 func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 	if err := o.VerifyBasicOrderInfo(); err != nil {

@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/consensus/posv"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/tomox"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -105,7 +105,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox.TxMatchBatch, coinbase common.Address) error {
+func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox_state.TxMatchBatch, coinbase common.Address) error {
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
 
 	for _, txMatch := range txMatchBatch.Data {
@@ -120,8 +120,13 @@ func (v *BlockValidator) ValidateMatchingOrder(tomoXService *tomox.TomoX, stated
 			return fmt.Errorf("invalid order . Error: %v", err)
 		}
 		// process Matching Engine
-		if _, _,  err := tomoXService.ApplyOrder(coinbase, v.bc.IPCEndpoint, statedb, tomoxStatedb, tomox.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
-			return err
+		posvEngine, _  := v.bc.Engine().(*posv.Posv)
+		if posvEngine != nil {
+			if tomoXService := posvEngine.GetTomoXService(); tomoXService != nil {
+				if _, _,  err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tomox_state.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -159,13 +164,13 @@ func CalcGasLimit(parent *types.Block) uint64 {
 	return limit
 }
 
-func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox.TxMatchBatch, error) {
-	txMatchBatchData := []tomox.TxMatchBatch{}
+func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox_state.TxMatchBatch, error) {
+	txMatchBatchData := []tomox_state.TxMatchBatch{}
 	for _, tx := range transactions {
 		if tx.IsMatchingTransaction() {
-			txMatchBatch, err := tomox.DecodeTxMatchesBatch(tx.Data())
+			txMatchBatch, err := tomox_state.DecodeTxMatchesBatch(tx.Data())
 			if err != nil {
-				return []tomox.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
+				return []tomox_state.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
 			}
 			txMatchBatch.TxHash = tx.Hash()
 			txMatchBatchData = append(txMatchBatchData, txMatchBatch)

@@ -1,4 +1,4 @@
-package tomox
+package tomox_state
 
 import (
 	"github.com/ethereum/go-ethereum/rlp"

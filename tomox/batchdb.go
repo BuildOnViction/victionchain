@@ -52,7 +52,7 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit int) *BatchDatabase {
 	batchDB := &BatchDatabase{
 		db:         db,
 		cacheItems: cacheItems,
-		emptyKey:   EmptyKey(), // pre alloc for comparison
+		emptyKey:   tomox_state.EmptyKey(), // pre alloc for comparison
 		cacheLimit: itemCacheLimit,
 	}
 

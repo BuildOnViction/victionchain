@@ -27,7 +27,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/tomox"
 	"github.com/ethereum/go-ethereum/tomox/tomox_state"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -612,7 +611,7 @@ func (self *worker) commitNewWork() {
 		txs                 *types.TransactionsByPriceAndNonce
 		specialTxs          types.Transactions
 		matchingTransaction *types.Transaction
-		txMatches           []tomox.TxDataMatch
+		txMatches           []tomox_state.TxDataMatch
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -630,12 +629,12 @@ func (self *worker) commitNewWork() {
 				log.Debug("Start processing order pending")
 				orderPending, _ := self.eth.OrderPool().Pending()
 				log.Debug("Start processing order pending", "len", len(orderPending))
-				txMatches = tomoX.ProcessOrderPending(self.coinbase, self.chain.IPCEndpoint, orderPending, work.state, work.tomoxState)
+				txMatches = tomoX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.tomoxState)
 				log.Debug("transaction matches found", "txMatches", len(txMatches))
 			}
 		}
 		TomoxStateRoot := work.tomoxState.IntermediateRoot()
-		txMatchBatch := &tomox.TxMatchBatch{
+		txMatchBatch := &tomox_state.TxMatchBatch{
 			Data:      txMatches,
 			Timestamp: time.Now().UnixNano(),
 			TxHash:    common.Hash{},
@@ -645,7 +644,7 @@ func (self *worker) commitNewWork() {
 			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
 			return
 		}
-		txMatchBytes, err := tomox.EncodeTxMatchesBatch(*txMatchBatch)
+		txMatchBytes, err := tomox_state.EncodeTxMatchesBatch(*txMatchBatch)
 		if err != nil {
 			log.Error("Fail to marshal txMatch", "error", err)
 			return

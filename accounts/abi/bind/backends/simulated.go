@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/consensus"
 	"math/big"
 	"sync"
 	"time"
@@ -197,6 +198,40 @@ func (b *SimulatedBackend) CallContract(ctx context.Context, call ethereum.CallM
 		return nil, err
 	}
 	rval, _, _, err := b.callContract(ctx, call, b.blockchain.CurrentBlock(), state)
+	return rval, err
+}
+
+
+// CallContractWithState executes a contract call at the given state.
+func (b *SimulatedBackend) CallContractWithState(ctx context.Context, call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
+	// Ensure message is initialized properly.
+	if call.GasPrice == nil {
+		call.GasPrice = big.NewInt(1)
+	}
+	if call.Gas == 0 {
+		call.Gas = 1000000
+	}
+	if call.Value == nil {
+		call.Value = new(big.Int)
+	}
+	// Execute the call.
+	msg := callmsg{call}
+	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
+	if msg.To() != nil {
+		if value, ok := feeCapacity[*msg.To()]; ok {
+			msg.CallMsg.BalanceTokenFee = value
+		}
+	}
+	evmContext := core.NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
+	// Create a new environment which holds all relevant information
+	// about the transaction and calling mechanisms.
+	vmenv := vm.NewEVM(evmContext, statedb, chain.Config(), vm.Config{})
+	gaspool := new(core.GasPool).AddGas(1000000)
+	owner := common.Address{}
+	rval, _, _ , err :=  core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
+	if err != nil {
+		return nil, err
+	}
 	return rval, err
 }
 

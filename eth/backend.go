@@ -149,7 +149,6 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
-
 	// Inject TomoX Service into main Eth Service.
 	if tomoXServ != nil {
 		eth.TomoX = tomoXServ
@@ -169,7 +168,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 	)
 	if eth.chainConfig.Posv != nil {
 		c := eth.engine.(*posv.Posv)
-		c.GetTomoXService = func() *tomox.TomoX {
+		c.GetTomoXService = func() posv.TomoXService {
 			return eth.TomoX
 		}
 	}

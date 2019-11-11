@@ -22,7 +22,6 @@ const (
 	MergeSignRange             = 15
 	RangeReturnSigner          = 150
 	MinimunMinerBlockPerEpoch  = 1
-	TomoXSnapshotInterval      = 100 // 100 blocks
 )
 
 var TIP2019Block = big.NewInt(1050000)
