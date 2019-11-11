@@ -3,6 +3,7 @@ package tomox_state
 import (
 	"encoding/json"
 	"errors"
+	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"strconv"
 
@@ -119,8 +120,8 @@ func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
 	return txMatchResult, nil
 }
 
-func GetOrderHistoryKey(pairName string, orderId uint64) common.Hash {
-	return common.StringToHash(pairName + strconv.FormatUint(orderId, 10))
+func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderId uint64)  common.Hash {
+	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), []byte(strconv.FormatUint(orderId, 10)))
 }
 func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
 	order := &OrderItem{}

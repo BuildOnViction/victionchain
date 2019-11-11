@@ -2261,10 +2261,16 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 		// That's why we should put this log statement in an anonymous function
 		log.Debug("logExchangeData takes", "time", common.PrettyDuration(time.Since(start)), "blockNumber", block.NumberU64())
 	}()
+
 	for _, txMatchBatch := range txMatchBatchData {
+		dirtyOrderCount := uint64(0)
 		for _, txMatch := range txMatchBatch.Data {
-			txMatchTime := time.Unix(0, txMatchBatch.Timestamp)
-			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, txMatchTime, currentState); err != nil {
+			// the smallest time unit in mongodb is millisecond
+			// hence, we should update time in millisecond
+			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
+			milliSecond := txMatchBatch.Timestamp / 1e6
+			txMatchTime := time.Unix(0, milliSecond * 1e6).UTC()
+			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, txMatchTime, currentState, &dirtyOrderCount); err != nil {
 				log.Error("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
 			}

@@ -255,7 +255,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 // 2. txMatchData.Trades: includes information of matched orders.
 // 		a. PutObject them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
-func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB) error {
+func (tomox *TomoX)  SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, dirtyOrderCount *uint64) error {
 	var (
 		// originTakerOrder: order get from db, nil if it doesn't exist
 		// takerOrderInTx: order decoded from txdata
@@ -267,7 +267,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHas
 	)
 	db := tomox.GetMongoDB()
 	sc := db.InitBulk()
-
+	defer sc.Close()
 	// 1. put processed takerOrderInTx to db
 	if takerOrderInTx, err = txDataMatch.DecodeOrder(); err != nil {
 		log.Error("SDK node decode takerOrderInTx failed", "txDataMatch", txDataMatch)
@@ -298,9 +298,14 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHas
 	if updatedTakerOrder.CreatedAt.IsZero() {
 		updatedTakerOrder.CreatedAt = txMatchTime
 	}
-	updatedTakerOrder.UpdatedAt = txMatchTime
+	if txMatchTime.Before(updatedTakerOrder.UpdatedAt) || (txMatchTime.Equal(updatedTakerOrder.UpdatedAt) && *dirtyOrderCount == 0) {
+		log.Debug("Ignore old orders/trades taker", "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
+		return nil
+	}
+	*dirtyOrderCount++
 
-	tomox.UpdateOrderCache(updatedTakerOrder.PairName, updatedTakerOrder.OrderID, txHash, lastState)
+	tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.OrderID, txHash, lastState)
+	updatedTakerOrder.UpdatedAt = txMatchTime
 
 	// 2. put trades to db and update status to FILLED
 	trades := txDataMatch.GetTrades()
@@ -383,12 +388,16 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHas
 	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
 	log.Debug("Maker dirty orders", "len", len(makerOrders), "txhash", txHash.Hex())
 	for _, o := range makerOrders {
+		if txMatchTime.Before(o.UpdatedAt) {
+			log.Debug("Ignore old orders/trades maker", "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
+			continue
+		}
 		lastState = tomox_state.OrderHistoryItem{
 			TxHash:       o.TxHash,
 			FilledAmount: tomox_state.CloneBigInt(o.FilledAmount),
 			Status:       o.Status,
 		}
-		tomox.UpdateOrderCache(o.PairName, o.OrderID, txHash, lastState)
+		tomox.UpdateOrderCache(o.BaseToken, o.QuoteToken, o.OrderID, txHash, lastState)
 		o.TxHash = txHash
 		o.UpdatedAt = txMatchTime
 		o.FilledAmount.Add(o.FilledAmount, makerDirtyFilledAmount[o.Hash.Hex()])
@@ -415,7 +424,15 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHas
 		// updateRejectedOrders
 		for _, rejectedOrder := range rejectedOrders {
 			rejectedHashes = append(rejectedHashes, rejectedOrder.Hash.Hex())
-			if updatedTakerOrder.Hash == rejectedOrder.Hash {
+			if updatedTakerOrder.Hash == rejectedOrder.Hash && !txMatchTime.Before(updatedTakerOrder.UpdatedAt) {
+				// cache order history for handling reorg
+				orderHistoryRecord := tomox_state.OrderHistoryItem{
+					TxHash:       updatedTakerOrder.TxHash,
+					FilledAmount: tomox_state.CloneBigInt(updatedTakerOrder.FilledAmount),
+					Status:       updatedTakerOrder.Status,
+				}
+				tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.OrderID, txHash, orderHistoryRecord)
+
 				updatedTakerOrder.Status = OrderStatusRejected
 				if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
 					return fmt.Errorf("SDKNode: failed to reject takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
@@ -424,13 +441,17 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHas
 		}
 		dirtyRejectedOrders := db.GetListOrderByHashes(rejectedHashes)
 		for _, order := range dirtyRejectedOrders {
+			if txMatchTime.Before(order.UpdatedAt) {
+				log.Debug("Ignore old orders/trades reject", "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
+				continue
+			}
 			// cache order history for handling reorg
 			orderHistoryRecord := tomox_state.OrderHistoryItem{
 				TxHash:       order.TxHash,
 				FilledAmount: tomox_state.CloneBigInt(order.FilledAmount),
 				Status:       order.Status,
 			}
-			tomox.UpdateOrderCache(order.PairName, order.OrderID, txHash, orderHistoryRecord)
+			tomox.UpdateOrderCache(order.BaseToken, order.QuoteToken, order.OrderID, txHash, orderHistoryRecord)
 
 			order.Status = OrderStatusRejected
 			if err = db.PutObject(order.Hash, order); err != nil {
@@ -439,7 +460,7 @@ func (tomox *TomoX) SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHas
 		}
 	}
 
-	if err := db.CommitBulk(sc); err != nil {
+	if err := db.CommitBulk(); err != nil {
 		return fmt.Errorf("SDKNode fail to commit bulk update orders, trades at txhash %s . Error: %s", txHash.Hex(), err.Error())
 	}
 	return nil
@@ -475,7 +496,7 @@ func (tomox *TomoX) GetTomoxStateRoot(block *types.Block) (common.Hash, error) {
 	return tomox_state.EmptyRoot, nil
 }
 
-func (tomox *TomoX) UpdateOrderCache(pair string, orderId uint64, txhash common.Hash, lastState tomox_state.OrderHistoryItem) {
+func (tomox *TomoX) UpdateOrderCache(baseToken, quoteToken common.Address, orderId uint64, txhash common.Hash, lastState tomox_state.OrderHistoryItem) {
 	var orderCacheAtTxHash map[common.Hash]tomox_state.OrderHistoryItem
 	c, ok := tomox.orderCache.Get(txhash)
 	if !ok || c == nil {
@@ -483,7 +504,7 @@ func (tomox *TomoX) UpdateOrderCache(pair string, orderId uint64, txhash common.
 	} else {
 		orderCacheAtTxHash = c.(map[common.Hash]tomox_state.OrderHistoryItem)
 	}
-	orderKey := tomox_state.GetOrderHistoryKey(pair, orderId)
+	orderKey := tomox_state.GetOrderHistoryKey(baseToken, quoteToken, orderId)
 	_, ok = orderCacheAtTxHash[orderKey]
 	if !ok {
 		orderCacheAtTxHash[orderKey] = lastState
@@ -504,7 +525,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 			continue
 		}
 		orderCacheAtTxHash := c.(map[common.Hash]tomox_state.OrderHistoryItem)
-		orderHistoryItem, _ := orderCacheAtTxHash[tomox_state.GetOrderHistoryKey(order.PairName, order.OrderID)]
+		orderHistoryItem, _ := orderCacheAtTxHash[tomox_state.GetOrderHistoryKey(order.BaseToken, order.QuoteToken, order.OrderID)]
 		if (orderHistoryItem == tomox_state.OrderHistoryItem{}) {
 			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", tomox_state.ToJSON(order))
 			if err := db.DeleteObject(order.Hash); err != nil {
