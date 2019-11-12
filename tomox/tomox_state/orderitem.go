@@ -358,7 +358,7 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 
 func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken common.Address) error {
 	baseTokenLength := GetBaseTokenLength(exchangeAddress, statedb)
-	quoteTokenLength := GetBaseTokenLength(exchangeAddress, statedb)
+	quoteTokenLength := GetQuoteTokenLength(exchangeAddress, statedb)
 	if baseTokenLength != quoteTokenLength {
 		return fmt.Errorf("invalid length of baseTokenList: %d . QuoteTokenList: %d", baseTokenLength, quoteTokenLength)
 	}
