@@ -276,6 +276,40 @@ func (c *Client) CallContext(ctx context.Context, result interface{}, method str
 	}
 }
 
+// CallContext performs a JSON-RPC call with the given arguments. If the context is
+// canceled before the call has successfully returned, CallContext returns immediately.
+//
+// The result must be a pointer so that package json can unmarshal into it. You
+// can also pass nil, in which case the result is ignored.
+func (c *Client) GetResultCallContext(ctx context.Context, result interface{}, method string, args ...interface{}) (json.RawMessage, error) {
+	msg, err := c.newMessage(method, args...)
+	if err != nil {
+		return nil, err
+	}
+	op := &requestOp{ids: []json.RawMessage{msg.ID}, resp: make(chan *jsonrpcMessage, 1)}
+
+	if c.isHTTP {
+		err = c.sendHTTP(ctx, op, msg)
+	} else {
+		err = c.send(ctx, op, msg)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// dispatch has accepted the request and will close the channel it when it quits.
+	switch resp, err := op.wait(ctx); {
+	case err != nil:
+		return nil, err
+	case resp.Error != nil:
+		return nil, resp.Error
+	case len(resp.Result) == 0:
+		return nil, ErrNoResult
+	default:
+		return resp.Result, json.Unmarshal(resp.Result, &result)
+	}
+}
+
 // BatchCall sends all given requests as a single batch and waits for the server
 // to return a response for all of them.
 //
