@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"github.com/tomochain/tomochain/dashboard"
 	"github.com/tomochain/tomochain/eth"
 	"github.com/tomochain/tomochain/eth/downloader"
 	"github.com/tomochain/tomochain/ethstats"
@@ -34,13 +33,6 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 	if err != nil {
 		Fatalf("Failed to register the Ethereum service: %v", err)
 	}
-}
-
-// RegisterDashboardService adds a dashboard to the stack.
-func RegisterDashboardService(stack *node.Node, cfg *dashboard.Config, commit string) {
-	stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return dashboard.New(cfg, commit)
-	})
 }
 
 // RegisterShhService configures Whisper and adds it to the given node.
