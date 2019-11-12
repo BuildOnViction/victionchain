@@ -26,6 +26,7 @@ func GetExRelayerFee(relayer common.Address, statedb *state.StateDB) *big.Int {
 	locHash := common.BigToHash(locBig)
 	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big()
 }
+
 func GetRelayerOwner(relayer common.Address, statedb *state.StateDB) common.Address {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
@@ -33,6 +34,17 @@ func GetRelayerOwner(relayer common.Address, statedb *state.StateDB) common.Addr
 	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_owner"])
 	locHash := common.BigToHash(locBig)
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Bytes())
+}
+
+// return true if relayer request to resign and have not withdraw locked fund
+func IsResignedRelayer(relayer common.Address, statedb *state.StateDB) bool {
+	slot := RelayerMappingSlot["RESIGN_REQUESTS"]
+	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
+	locHash := common.BigToHash(locBig)
+	if statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash) != (common.Hash{}) {
+		return true
+	}
+	return false
 }
 
 func GetBaseTokenLength(relayer common.Address, statedb *state.StateDB) uint64 {

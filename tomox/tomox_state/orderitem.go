@@ -350,6 +350,9 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 		log.Debug("Relayer is not in relayer list", "relayer", address.String(), "balance", balance)
 		return false
 	}
+	if IsResignedRelayer(address, statedb) {
+		return false
+	}
 	return true
 }
 
