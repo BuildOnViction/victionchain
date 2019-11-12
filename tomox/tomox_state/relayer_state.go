@@ -19,41 +19,6 @@ func GetLocMappingAtKey(key common.Hash, slot uint64) *big.Int {
 	return ret
 }
 
-// getCoinbaseCount get number of coinbase
-func getCoinbaseCount(statedb *state.StateDB) *big.Int {
-	slot := RelayerMappingSlot["RelayerCount"]
-	slotHash := common.BigToHash(big.NewInt(int64(slot)))
-	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), slotHash).Big()
-}
-
-// GetCoinbaseList get all coinbase
-func getCoinbaseList(statedb *state.StateDB) []common.Address {
-	var listCoinBase []common.Address
-	numberCoinbase := getCoinbaseCount(statedb)
-	log.Info("getCoinbaseList", "total", numberCoinbase)
-	slot := RelayerMappingSlot["RELAYER_COINBASES"]
-	for i := big.NewInt(0); i.Cmp(numberCoinbase) == -1; i.Add(i, big.NewInt(1)) {
-		locBig := GetLocMappingAtKey(common.BigToHash(i), slot)
-		locHash := common.BigToHash(locBig)
-		coinbase := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big()
-		listCoinBase = append(listCoinBase, common.BytesToAddress(coinbase.Bytes()))
-	}
-	return listCoinBase
-}
-
-//GetCoinbaseFeeList get add coinbase fee
-func GetCoinbaseFeeList(statedb *state.StateDB) map[common.Address]*big.Int {
-	log.Info("GetCoinbaseFeeList start...")
-	relayerFeeList := make(map[common.Address]*big.Int)
-	coinbaseList := getCoinbaseList(statedb)
-	for _, cb := range coinbaseList {
-		tradeFee := GetExRelayerFee(cb, statedb)
-		log.Info("GetCoinbaseFeeList", "coinbase", cb, "fee", tradeFee)
-		relayerFeeList[cb] = tradeFee
-	}
-	return relayerFeeList
-}
-
 func GetExRelayerFee(relayer common.Address, statedb *state.StateDB) *big.Int {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
