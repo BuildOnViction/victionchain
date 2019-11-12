@@ -19,19 +19,19 @@ package console
 import (
 	"bytes"
 	"errors"
-	"github.com/ethereum/go-ethereum/tomox"
+	"github.com/tomochain/tomochain/tomox"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/internal/jsre"
-	"github.com/ethereum/go-ethereum/node"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/internal/jsre"
+	"github.com/tomochain/tomochain/node"
 )
 
 const (

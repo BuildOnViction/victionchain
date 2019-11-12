@@ -24,22 +24,22 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/params"
 
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	blockSignerContract "github.com/ethereum/go-ethereum/contracts/blocksigner"
-	multiSignWalletContract "github.com/ethereum/go-ethereum/contracts/multisigwallet"
-	randomizeContract "github.com/ethereum/go-ethereum/contracts/randomize"
-	validatorContract "github.com/ethereum/go-ethereum/contracts/validator"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
+	blockSignerContract "github.com/tomochain/tomochain/contracts/blocksigner"
+	multiSignWalletContract "github.com/tomochain/tomochain/contracts/multisigwallet"
+	randomizeContract "github.com/tomochain/tomochain/contracts/randomize"
+	validatorContract "github.com/tomochain/tomochain/contracts/validator"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 // makeGenesis creates a new genesis struct based on some user input.

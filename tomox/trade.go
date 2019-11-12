@@ -1,12 +1,13 @@
 package tomox
 
 import (
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/globalsign/mgo/bson"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto/sha3"
 )
 
 const (
@@ -116,11 +117,11 @@ func (t *Trade) SetBSON(raw bson.Raw) error {
 	t.Hash = common.HexToHash(decoded.Hash)
 	t.TxHash = common.HexToHash(decoded.TxHash)
 	t.Status = decoded.Status
-	t.Amount = ToBigInt(decoded.Amount)
-	t.PricePoint = ToBigInt(decoded.PricePoint)
+	t.Amount = tomox_state.ToBigInt(decoded.Amount)
+	t.PricePoint = tomox_state.ToBigInt(decoded.PricePoint)
 
-	t.MakeFee = ToBigInt(decoded.MakeFee)
-	t.TakeFee = ToBigInt(decoded.TakeFee)
+	t.MakeFee = tomox_state.ToBigInt(decoded.MakeFee)
+	t.TakeFee = tomox_state.ToBigInt(decoded.TakeFee)
 
 	t.CreatedAt = decoded.CreatedAt
 	t.UpdatedAt = decoded.UpdatedAt

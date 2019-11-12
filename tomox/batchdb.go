@@ -3,13 +3,13 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"github.com/globalsign/mgo"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/log"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -52,7 +52,7 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit int) *BatchDatabase {
 	batchDB := &BatchDatabase{
 		db:         db,
 		cacheItems: cacheItems,
-		emptyKey:   EmptyKey(), // pre alloc for comparison
+		emptyKey:   tomox_state.EmptyKey(), // pre alloc for comparison
 		cacheLimit: itemCacheLimit,
 	}
 
@@ -127,6 +127,6 @@ func (db *BatchDatabase) InitBulk() *mgo.Session {
 	return nil
 }
 
-func (db *BatchDatabase) CommitBulk(sc *mgo.Session) error {
+func (db *BatchDatabase) CommitBulk() error {
 	return nil
 }
