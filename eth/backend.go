@@ -27,39 +27,39 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/eth/filters"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/eth/filters"
+	"github.com/tomochain/tomochain/rlp"
 
 	"bytes"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/consensus/posv"
-	"github.com/ethereum/go-ethereum/contracts"
-	contractValidator "github.com/ethereum/go-ethereum/contracts/validator/contract"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/bloombits"
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/consensus/posv"
+	"github.com/tomochain/tomochain/contracts"
+	contractValidator "github.com/tomochain/tomochain/contracts/validator/contract"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/bloombits"
 
-	//"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/eth/gasprice"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/tomox"
+	//"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/eth/downloader"
+	"github.com/tomochain/tomochain/eth/gasprice"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/internal/ethapi"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/miner"
+	"github.com/tomochain/tomochain/node"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/tomox"
 )
 
 type LesServer interface {
@@ -149,7 +149,6 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
-
 	// Inject TomoX Service into main Eth Service.
 	if tomoXServ != nil {
 		eth.TomoX = tomoXServ
@@ -169,7 +168,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 	)
 	if eth.chainConfig.Posv != nil {
 		c := eth.engine.(*posv.Posv)
-		c.GetTomoXService = func() *tomox.TomoX {
+		c.GetTomoXService = func() posv.TomoXService {
 			return eth.TomoX
 		}
 	}

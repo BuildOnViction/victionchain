@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/globalsign/mgo/bson"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"strconv"
 	"time"
@@ -183,19 +183,13 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	o.CreatedAt = decoded.CreatedAt
 	o.UpdatedAt = decoded.UpdatedAt
 	orderID, err := strconv.ParseInt(decoded.OrderID, 10, 64)
-	if err == nil {
-		fmt.Printf("%d of type %T", orderID, orderID)
+	if err != nil {
+		return err
 	}
 	o.OrderID = uint64(orderID)
 	o.Key = decoded.Key
 
 	return nil
-}
-
-func ToBigInt(s string) *big.Int {
-	res := big.NewInt(0)
-	res.SetString(s, 10)
-	return res
 }
 
 // verify orderItem

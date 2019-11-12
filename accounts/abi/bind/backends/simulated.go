@@ -20,25 +20,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tomochain/tomochain/consensus"
 	"math/big"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/eth/filters"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/tomochain/tomochain"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/bloombits"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/eth/filters"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 // This nil assignment ensures compile time that SimulatedBackend implements bind.ContractBackend.
@@ -197,6 +198,40 @@ func (b *SimulatedBackend) CallContract(ctx context.Context, call ethereum.CallM
 		return nil, err
 	}
 	rval, _, _, err := b.callContract(ctx, call, b.blockchain.CurrentBlock(), state)
+	return rval, err
+}
+
+
+// CallContractWithState executes a contract call at the given state.
+func (b *SimulatedBackend) CallContractWithState(ctx context.Context, call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
+	// Ensure message is initialized properly.
+	if call.GasPrice == nil {
+		call.GasPrice = big.NewInt(1)
+	}
+	if call.Gas == 0 {
+		call.Gas = 1000000
+	}
+	if call.Value == nil {
+		call.Value = new(big.Int)
+	}
+	// Execute the call.
+	msg := callmsg{call}
+	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
+	if msg.To() != nil {
+		if value, ok := feeCapacity[*msg.To()]; ok {
+			msg.CallMsg.BalanceTokenFee = value
+		}
+	}
+	evmContext := core.NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
+	// Create a new environment which holds all relevant information
+	// about the transaction and calling mechanisms.
+	vmenv := vm.NewEVM(evmContext, statedb, chain.Config(), vm.Config{})
+	gaspool := new(core.GasPool).AddGas(1000000)
+	owner := common.Address{}
+	rval, _, _ , err :=  core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
+	if err != nil {
+		return nil, err
+	}
 	return rval, err
 }
 

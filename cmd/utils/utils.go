@@ -1,14 +1,14 @@
 package utils
 
 import (
-	"github.com/ethereum/go-ethereum/dashboard"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/ethstats"
-	"github.com/ethereum/go-ethereum/les"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/tomox"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
+	"github.com/tomochain/tomochain/dashboard"
+	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/eth/downloader"
+	"github.com/tomochain/tomochain/ethstats"
+	"github.com/tomochain/tomochain/les"
+	"github.com/tomochain/tomochain/node"
+	"github.com/tomochain/tomochain/tomox"
+	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
 )
 
 // RegisterEthService adds an Ethereum client to the stack.

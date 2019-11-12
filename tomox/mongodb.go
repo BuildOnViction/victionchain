@@ -3,10 +3,10 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	lru "github.com/hashicorp/golang-lru"
@@ -233,8 +233,7 @@ func (db *MongoDatabase) InitBulk() *mgo.Session {
 	return sc
 }
 
-func (db *MongoDatabase) CommitBulk(sc *mgo.Session) error {
-	defer sc.Close()
+func (db *MongoDatabase) CommitBulk() error {
 	if _, err := db.orderBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}

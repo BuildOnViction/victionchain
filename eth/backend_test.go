@@ -1,7 +1,7 @@
 package eth
 
 import (
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/tomochain/tomochain/params"
 	"math/big"
 	"testing"
 )

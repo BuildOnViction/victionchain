@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 func initDbStore(t *testing.T) *DbStore {
