@@ -156,14 +156,6 @@ func (w *wizard) gatherStats(server string, pubkey []byte, client *sshClient) *s
 	} else {
 		stat.services["faucet"] = infos.Report()
 	}
-	logger.Debug("Checking for dashboard availability")
-	if infos, err := checkDashboard(client, w.network); err != nil {
-		if err != ErrServiceUnknown {
-			stat.services["dashboard"] = map[string]string{"offline": err.Error()}
-		}
-	} else {
-		stat.services["dashboard"] = infos.Report()
-	}
 	// Feed and newly discovered information into the wizard
 	w.lock.Lock()
 	defer w.lock.Unlock()

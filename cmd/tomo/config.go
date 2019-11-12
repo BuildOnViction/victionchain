@@ -30,7 +30,6 @@ import (
 
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/dashboard"
 	"github.com/tomochain/tomochain/eth"
 	"github.com/tomochain/tomochain/internal/debug"
 	"github.com/tomochain/tomochain/log"
@@ -94,7 +93,6 @@ type tomoConfig struct {
 	Shh         whisper.Config
 	Node        node.Config
 	Ethstats    ethstatsConfig
-	Dashboard   dashboard.Config
 	TomoX       tomox.Config
 	Account     account
 	StakeEnable bool
@@ -134,7 +132,6 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 		Shh:         whisper.DefaultConfig,
 		TomoX:       tomox.DefaultConfig,
 		Node:        defaultNodeConfig(),
-		Dashboard:   dashboard.DefaultConfig,
 		StakeEnable: true,
 		Verbosity:   3,
 		NAT:         "",
@@ -205,7 +202,6 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 
 	utils.SetShhConfig(ctx, stack, &cfg.Shh)
 	utils.SetTomoXConfig(ctx, &cfg.TomoX)
-	utils.SetDashboardConfig(ctx, &cfg.Dashboard)
 
 	return stack, cfg
 }
@@ -242,9 +238,6 @@ func makeFullNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 
 	utils.RegisterEthService(stack, &cfg.Eth)
 
-	if ctx.GlobalBool(utils.DashboardEnabledFlag.Name) {
-		utils.RegisterDashboardService(stack, &cfg.Dashboard, gitCommit)
-	}
 	// Whisper must be explicitly enabled by specifying at least 1 whisper flag or in dev mode
 	shhEnabled := enableWhisper(ctx)
 	shhAutoEnabled := !ctx.GlobalIsSet(utils.WhisperEnabledFlag.Name) && ctx.GlobalIsSet(utils.DeveloperFlag.Name)
