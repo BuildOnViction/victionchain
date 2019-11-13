@@ -351,6 +351,7 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 		return false
 	}
 	if IsResignedRelayer(address, statedb) {
+		log.Debug("Relayer has resigned", "relayer", address.String())
 		return false
 	}
 	return true
