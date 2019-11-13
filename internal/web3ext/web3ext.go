@@ -743,6 +743,11 @@ web3._extend({
             call: 'tomox_getOrderById',
             params: 3
 		}),
+		new web3._extend.Method({
+            name: 'getPrice',
+            call: 'tomox_getPrice',
+            params: 2
+		}),
 	]
 });
 `

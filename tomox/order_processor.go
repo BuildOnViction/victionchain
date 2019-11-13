@@ -270,9 +270,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 		if tradedQuantity.Sign() > 0 {
 			quantityToTrade = tomox_state.Sub(quantityToTrade, tradedQuantity)
 			tomoXstatedb.SubAmountOrderItem(orderBook, orderId, price, tradedQuantity, side)
-			if oldestOrder.QuoteToken.String() == common.TomoNativeAddress {
-				tomoXstatedb.SetPrice(orderBook, price)
-			}
+			tomoXstatedb.SetPrice(orderBook, price)
 			log.Debug("Update quantity for orderId", "orderId", orderId.Hex())
 			log.Debug("TRADE", "orderBook", orderBook, "Taker price", price, "maker price", order.Price, "Amount", tradedQuantity, "orderId", orderId, "side", side)
 
