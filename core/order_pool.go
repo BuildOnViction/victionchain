@@ -453,15 +453,21 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		return ErrInvalidOrderUserAddress
 	}
 
-	statedb, err := pool.chain.StateAt(pool.chain.CurrentBlock().Root())
-	if err != nil {
-		return fmt.Errorf("failed to get statedb Error: %v", err)
-	}
-	if !tomox_state.IsValidRelayer(statedb, tx.ExchangeAddress()) {
+	cloneState := pool.currentRootState.Copy()
+
+	if !tomox_state.IsValidRelayer(cloneState, tx.ExchangeAddress()) {
 		return fmt.Errorf("invalid relayer. ExchangeAddress: %s", tx.ExchangeAddress().Hex())
 	}
-	if err := tomox_state.VerifyPair(statedb, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
+	if err := tomox_state.VerifyPair(cloneState, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
 		return err
+	}
+	pending, err := pool.Pending()
+	if err != nil {
+		return fmt.Errorf("fail to get pending orders. err: %v", err)
+	}
+	pendingOrders, _ := pending[tx.UserAddress()]
+	if err := tomox_state.VerifyBalance(cloneState, pendingOrders, tx); err != nil {
+		return fmt.Errorf("not enough balance to make this transaction. Order: %v", tx)
 	}
 	return nil
 }
