@@ -41,6 +41,16 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
 		return nil, nil, ErrNonceTooLow
 	}
+	if order.Status == OrderStatusCancelled {
+		err := tomoXstatedb.CancelOrder(orderBook, order)
+		if err != nil {
+			log.Debug("Error when cancel order", "order", order)
+			return nil, nil, err
+		}
+		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
+		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+		return trades, rejects, nil
+	}
 	if order.Price.Sign() == 0 || common.BigToHash(order.Price).Big().Cmp(order.Price) != 0 {
 		log.Debug("Reject order price invalid", "price", order.Price)
 		rejects = append(rejects, order)
@@ -50,17 +60,6 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 	if order.Quantity.Sign() == 0 || common.BigToHash(order.Quantity).Big().Cmp(order.Quantity) != 0 {
 		log.Debug("Reject order quantity invalid", "quantity", order.Quantity)
 		rejects = append(rejects, order)
-		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
-		return trades, rejects, nil
-	}
-
-	if order.Status == OrderStatusCancelled {
-		err := tomoXstatedb.CancelOrder(orderBook, order)
-		if err != nil {
-			log.Debug("Error when cancel order", "order", order)
-			return nil, nil, err
-		}
-		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
