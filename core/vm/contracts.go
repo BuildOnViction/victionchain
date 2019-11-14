@@ -23,6 +23,7 @@ import (
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
+	privacy "github.com/tomochain/tomochain/core/vm/privacy"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/bn256"
 	"github.com/tomochain/tomochain/params"
@@ -49,14 +50,15 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
 // contracts used in the Byzantium release.
 var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
-	common.BytesToAddress([]byte{1}): &ecrecover{},
-	common.BytesToAddress([]byte{2}): &sha256hash{},
-	common.BytesToAddress([]byte{3}): &ripemd160hash{},
-	common.BytesToAddress([]byte{4}): &dataCopy{},
-	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256Add{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
-	common.BytesToAddress([]byte{8}): &bn256Pairing{},
+	common.BytesToAddress([]byte{1}):  &ecrecover{},
+	common.BytesToAddress([]byte{2}):  &sha256hash{},
+	common.BytesToAddress([]byte{3}):  &ripemd160hash{},
+	common.BytesToAddress([]byte{4}):  &dataCopy{},
+	common.BytesToAddress([]byte{5}):  &bigModExp{},
+	common.BytesToAddress([]byte{6}):  &bn256Add{},
+	common.BytesToAddress([]byte{7}):  &bn256ScalarMul{},
+	common.BytesToAddress([]byte{8}):  &bn256Pairing{},
+	common.BytesToAddress([]byte{30}): &ringSignatureVerifier{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -357,4 +359,39 @@ func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
 		return true32Byte, nil
 	}
 	return false32Byte, nil
+}
+
+type ringSignatureVerifier struct{}
+
+func (c *ringSignatureVerifier) RequiredGas(input []byte) uint64 {
+	//the gas should depends on the ringsize
+	return 100000
+}
+
+//function ringSignatureVerifier only contain the proof
+//The proof contains pretty much stuffs
+//Ring size rs: 1 byte => proof[0]
+//num input: number of real inputs: 1 byte => proof[1]
+//List of inputs/UTXO index typed uint64 => total size = rs * numInput * 8 = proof[0]*proof[1]*8
+//List of key images: total size = numInput * 33 = proof[1] * 33
+//number of output n: 1 byte
+//List of output => n * 130 bytes
+//transaction fee: uint256 => 32 byte
+//ringCT proof size ctSize: uint16 => 2 byte
+//ringCT proof: ctSize bytes
+//bulletproofs: bp
+func (c *ringSignatureVerifier) Run(proof []byte) ([]byte, error) {
+	der, err := privacy.Deserialize(proof)
+	if err != nil {
+		return []byte{}, errors.New("Fail to deserialize proof")
+	}
+	if !privacy.Verify(der) {
+		return []byte{}, errors.New("Fail to verify ring signature")
+	}
+	//h := crypto.Keccak256(proof)*/
+	/*b, _ := TestRingSignature()
+	if !b {
+		return []byte{}, errors.New("Fail to verify ring signature")
+	}*/
+	return []byte{}, nil
 }

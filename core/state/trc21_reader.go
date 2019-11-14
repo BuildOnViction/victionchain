@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"math/big"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
 )
 
