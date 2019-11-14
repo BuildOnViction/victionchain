@@ -39,7 +39,7 @@ var TomoXBaseFee = big.NewInt(1000)
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
-var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
+var TRC21IssuerSMC = HexToAddress("0x20FE90495eFbb9aA588ccA95E64E2D9Afb2D3f1b")
 var TRC21GasPriceBefore = big.NewInt(2500)
 var TRC21GasPrice = big.NewInt(250000000)
 var Blacklist = map[Address]bool{

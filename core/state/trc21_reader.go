@@ -2,9 +2,9 @@ package state
 
 import (
 	"bytes"
-	"github.com/tomochain/tomochain/common"
-	"github.com/hashicorp/golang-lru"
 	"math/big"
+
+	"github.com/tomochain/tomochain/common"
 )
 
 var (
@@ -125,6 +125,11 @@ func ValidateTRC21Tx(statedb *StateDB, from common.Address, token common.Address
 		if balance.Cmp(requiredMinBalance) < 0 {
 			return false
 		} else {
+			return true
+		}
+	} else {
+		minFeeTokenKey := GetLocSimpleVariable(SlotTRC21Token["minFee"])
+		if !common.EmptyHash(minFeeTokenKey) {
 			return true
 		}
 	}
