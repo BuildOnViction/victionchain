@@ -341,10 +341,10 @@ func (tomox *TomoX) getTradeQuantity(quotePrice *big.Int, coinbase common.Addres
 	log.Debug("GetTradeQuantity", "side", takerOrder.Side, "takerBalance", takerBalance, "makerBalance", makerBalance, "BaseToken", makerOrder.BaseToken, "QuoteToken", makerOrder.QuoteToken, "quantity", quantity, "rejectMaker", rejectMaker, "quotePrice", quotePrice)
 	if quantity.Sign() > 0 {
 		// Apply Match Order
-		setteBalance, err := tomox_state.GetSettleBalance(quotePrice, takerOrder.Side, takerFeeRate, makerOrder.BaseToken, makerOrder.QuoteToken, makerOrder.Price, makerFeeRate, baseTokenDecimal, quoteTokenDecimal, quantity)
-		log.Debug("GetSettleBalance", "setteBalance", setteBalance, "err", err)
+		settleBalanceResult, err := tomox_state.GetSettleBalance(quotePrice, takerOrder.Side, takerFeeRate, makerOrder.BaseToken, makerOrder.QuoteToken, makerOrder.Price, makerFeeRate, baseTokenDecimal, quoteTokenDecimal, quantity)
+		log.Debug("GetSettleBalance", "settleBalanceResult", settleBalanceResult, "err", err)
 		if err == nil {
-			err = SetteBalance(coinbase, takerOrder, makerOrder, setteBalance, statedb)
+			err = DoSettleBalance(coinbase, takerOrder, makerOrder, settleBalanceResult, statedb)
 		}
 		return quantity, rejectMaker, err
 	}
@@ -447,7 +447,7 @@ func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big
 	}
 }
 
-func SetteBalance(coinbase common.Address, takerOrder, makerOrder *tomox_state.OrderItem, settleBalance *tomox_state.SettleBalance, statedb *state.StateDB) error {
+func DoSettleBalance(coinbase common.Address, takerOrder, makerOrder *tomox_state.OrderItem, settleBalance *tomox_state.SettleBalance, statedb *state.StateDB) error {
 	takerExOwner := tomox_state.GetRelayerOwner(takerOrder.ExchangeAddress, statedb)
 	makerExOwner := tomox_state.GetRelayerOwner(makerOrder.ExchangeAddress, statedb)
 	matchingFee := big.NewInt(0)
