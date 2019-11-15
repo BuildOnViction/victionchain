@@ -377,7 +377,21 @@ func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken c
 	return fmt.Errorf("invalid exchange pair. Base: %s. Quote: %s. Exchange: %s", baseToken.Hex(), quoteToken.Hex(), exchangeAddress.Hex())
 }
 
-func VerifyBalance(statedb *state.StateDB, order *types.OrderTransaction, baseDecimal, quoteDecimal *big.Int) error {
+func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TomoXStateDB, order *types.OrderTransaction, baseDecimal, quoteDecimal *big.Int) error {
+	var quotePrice *big.Int
+	if order.QuoteToken().String() != common.TomoNativeAddress {
+		quotePrice = tomoxStateDb.GetPrice(GetOrderBookHash(order.QuoteToken(), common.HexToAddress(common.TomoNativeAddress)))
+	}
+	feeRate := GetExRelayerFee(order.ExchangeAddress(), statedb)
+	balanceResult, err := GetSettleBalance(quotePrice, order.Side(), feeRate, order.BaseToken(), order.QuoteToken(), common.Big0, order.Price(), baseDecimal, quoteDecimal, order.Quantity())
+	if err != nil {
+		return err
+	}
+	expectedBalance := balanceResult.Taker.OutTotal
+	actualBalance := GetTokenBalance(order.UserAddress(), balanceResult.Taker.OutToken, statedb)
+	if actualBalance.Cmp(expectedBalance) < 0 {
+		return fmt.Errorf("token: %s . ExpectedBalance: %s . ActualBalance: %s", balanceResult.Taker.OutToken.Hex(), expectedBalance.String(), actualBalance.String())
+	}
 	return nil
 }
 

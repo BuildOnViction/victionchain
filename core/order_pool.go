@@ -462,12 +462,13 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		return ErrInvalidOrderUserAddress
 	}
 
-	cloneState := pool.currentRootState.Copy()
+	cloneStateDb := pool.currentRootState.Copy()
+	cloneTomoXStateDb := pool.currentOrderState.Copy()
 
-	if !tomox_state.IsValidRelayer(cloneState, tx.ExchangeAddress()) {
+	if !tomox_state.IsValidRelayer(cloneStateDb, tx.ExchangeAddress()) {
 		return fmt.Errorf("invalid relayer. ExchangeAddress: %s", tx.ExchangeAddress().Hex())
 	}
-	if err := tomox_state.VerifyPair(cloneState, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
+	if err := tomox_state.VerifyPair(cloneStateDb, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
 		return err
 	}
 	posvEngine, ok := pool.chain.Engine().(*posv.Posv)
@@ -478,15 +479,15 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	if tomoXServ == nil {
 		return fmt.Errorf("tomox not found in order validation")
 	}
-	baseDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneState, pool.chain.CurrentBlock().Header().Coinbase, tx.BaseToken())
+	baseDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.BaseToken())
 	if err != nil {
 		return fmt.Errorf("validateOrder: failed to get baseDecimal. err: %v", err)
 	}
-	quoteDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneState, pool.chain.CurrentBlock().Header().Coinbase, tx.QuoteToken())
+	quoteDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.QuoteToken())
 	if err != nil {
 		return fmt.Errorf("validateOrder: failed to get quoteDecimal. err: %v", err)
 	}
-	if err := tomox_state.VerifyBalance(cloneState, tx, baseDecimal, quoteDecimal); err != nil {
+	if err := tomox_state.VerifyBalance(cloneStateDb, cloneTomoXStateDb, tx, baseDecimal, quoteDecimal); err != nil {
 		return fmt.Errorf("not enough balance to make this transaction. Order: %v", tx)
 	}
 	return nil
