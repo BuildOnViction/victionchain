@@ -377,7 +377,7 @@ func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken c
 	return fmt.Errorf("invalid exchange pair. Base: %s. Quote: %s. Exchange: %s", baseToken.Hex(), quoteToken.Hex(), exchangeAddress.Hex())
 }
 
-func VerifyBalance(statedb *state.StateDB, pending types.OrderTransactions, order *types.OrderTransaction) error {
+func VerifyBalance(statedb *state.StateDB, order *types.OrderTransaction) error {
 	return nil
 }
 
