@@ -71,6 +71,7 @@ type TomoXService interface {
 	IsSDKNode() bool
 	SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, dirtyOrderCount *uint64) error
 	RollbackReorgTxMatch(txhash common.Hash)
+	GetTokenDecimal(chain consensus.ChainContext, statedb *state.StateDB, coinbase common.Address, tokenAddr common.Address) (*big.Int, error)
 }
 
 // Posv proof-of-stake-voting protocol constants.

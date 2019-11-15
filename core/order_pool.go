@@ -19,6 +19,8 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/consensus/posv"
 	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"math/big"
 	"sort"
@@ -82,6 +84,13 @@ type blockChainTomox interface {
 	OrderStateAt(block *types.Block) (*tomox_state.TomoXStateDB, error)
 	StateAt(root common.Hash) (*state.StateDB, error)
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
+	Engine() consensus.Engine
+	// GetHeader returns the hash corresponding to their hash.
+	GetHeader(common.Hash, uint64) *types.Header
+	// CurrentHeader retrieves the current header from the local chain.
+	CurrentHeader() *types.Header
+	// Config retrieves the blockchain's chain configuration.
+	Config() *params.ChainConfig
 }
 
 // DefaultOrderPoolConfig contains the default configurations for the transaction
@@ -461,7 +470,23 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	if err := tomox_state.VerifyPair(cloneState, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
 		return err
 	}
-	if err := tomox_state.VerifyBalance(cloneState, tx); err != nil {
+	posvEngine, ok := pool.chain.Engine().(*posv.Posv)
+	if !ok {
+		return ErrNotPoSV
+	}
+	tomoXServ := posvEngine.GetTomoXService()
+	if tomoXServ == nil {
+		return fmt.Errorf("tomox not found in order validation")
+	}
+	baseDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneState, pool.chain.CurrentBlock().Header().Coinbase, tx.BaseToken())
+	if err != nil {
+		return fmt.Errorf("validateOrder: failed to get baseDecimal. err: %v", err)
+	}
+	quoteDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneState, pool.chain.CurrentBlock().Header().Coinbase, tx.QuoteToken())
+	if err != nil {
+		return fmt.Errorf("validateOrder: failed to get quoteDecimal. err: %v", err)
+	}
+	if err := tomox_state.VerifyBalance(cloneState, tx, baseDecimal, quoteDecimal); err != nil {
 		return fmt.Errorf("not enough balance to make this transaction. Order: %v", tx)
 	}
 	return nil
