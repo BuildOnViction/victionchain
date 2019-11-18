@@ -1,4 +1,4 @@
-FROM golang:1.11-alpine as builder
+FROM golang:1.12-alpine as builder
 
 RUN apk add --no-cache make gcc musl-dev linux-headers
 
@@ -6,8 +6,6 @@ ADD . /tomochain
 RUN cd /tomochain && make tomo
 
 FROM alpine:latest
-
-LABEL maintainer="etienne@tomochain.com"
 
 WORKDIR /tomochain
 
