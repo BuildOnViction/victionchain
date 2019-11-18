@@ -3,14 +3,20 @@ package tomox
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
+	"github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/tomox/tomox_state"
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
-	lru "github.com/hashicorp/golang-lru"
 	"strings"
+)
+
+const (
+	ordersCollection = "orders"
+	tradesCollection = "trades"
 )
 
 type MongoItem struct {
@@ -58,7 +64,9 @@ func NewMongoDatabase(session *mgo.Session, dbName string, mongoURL string, repl
 		dbName:     dbName,
 		cacheItems: cacheItems,
 	}
-
+	if err := db.EnsureIndexes(); err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 
@@ -300,6 +308,34 @@ func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.Or
 		return []*tomox_state.OrderItem{}
 	}
 	return result
+}
+
+func (db *MongoDatabase) EnsureIndexes() error {
+	orderHashIndex := mgo.Index{
+		Key:        []string{"hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_order_hash",
+	}
+	tradeHashIndex := mgo.Index{
+		Key:        []string{"hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_trade_hash",
+	}
+	sc := db.Session.Copy()
+	defer sc.Close()
+	if err := sc.DB(db.dbName).C(ordersCollection).EnsureIndex(orderHashIndex); err != nil {
+		return fmt.Errorf("failed to index orders.hash . Err: %v", err)
+	}
+	if err := sc.DB(db.dbName).C(tradesCollection).EnsureIndex(tradeHashIndex); err != nil {
+		return fmt.Errorf("failed to index trades.hash . Err: %v", err)
+	}
+	return nil
 }
 
 func (db *MongoDatabase) Close() {
