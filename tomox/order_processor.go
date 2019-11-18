@@ -19,10 +19,12 @@ var emptyAddress = common.StringToAddress("")
 var errQuantityTradeTooSmall = errors.New("Quantity trade too small")
 
 func (tomox *TomoX) CommitOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error) {
-	snap := tomoXstatedb.Snapshot()
+	tomoxSnap := tomoXstatedb.Snapshot()
+	dbSnap := statedb.Snapshot()
 	trades, rejects, err := tomox.ApplyOrder(coinbase, chain, statedb, tomoXstatedb, orderBook, order)
 	if err != nil {
-		tomoXstatedb.RevertToSnapshot(snap)
+		tomoXstatedb.RevertToSnapshot(tomoxSnap)
+		statedb.RevertToSnapshot(dbSnap)
 		return nil, nil, err
 	}
 	return trades, rejects, err
@@ -620,40 +622,40 @@ func SetteBalance(coinbase common.Address, takerOrder, makerOrder *tomox_state.O
 	}
 	if mapBalances[settleBalance.Taker.InToken] == nil {
 		mapBalances[settleBalance.Taker.InToken] = map[common.Address]*big.Int{}
-		mapBalances[settleBalance.Taker.InToken][takerOrder.UserAddress] = newTakerInTotal
 	}
+	mapBalances[settleBalance.Taker.InToken][takerOrder.UserAddress] = newTakerInTotal
 	newTakerOutTotal, err := tomox_state.CheckSubTokenBalance(takerOrder.UserAddress, settleBalance.Taker.OutTotal, settleBalance.Taker.OutToken, statedb, mapBalances)
 	if err != nil {
 		return err
 	}
 	if mapBalances[settleBalance.Taker.OutToken] == nil {
 		mapBalances[settleBalance.Taker.OutToken] = map[common.Address]*big.Int{}
-		mapBalances[settleBalance.Taker.OutToken][takerOrder.UserAddress] = newTakerOutTotal
 	}
+	mapBalances[settleBalance.Taker.OutToken][takerOrder.UserAddress] = newTakerOutTotal
 	newMakerInTotal, err := tomox_state.CheckAddTokenBalance(makerOrder.UserAddress, settleBalance.Maker.InTotal, settleBalance.Maker.InToken, statedb, mapBalances)
 	if err != nil {
 		return err
 	}
 	if mapBalances[settleBalance.Maker.InToken] == nil {
 		mapBalances[settleBalance.Maker.InToken] = map[common.Address]*big.Int{}
-		mapBalances[settleBalance.Maker.InToken][makerOrder.UserAddress] = newMakerInTotal
 	}
+	mapBalances[settleBalance.Maker.InToken][makerOrder.UserAddress] = newMakerInTotal
 	newMakerOutTotal, err := tomox_state.CheckSubTokenBalance(makerOrder.UserAddress, settleBalance.Maker.OutTotal, settleBalance.Maker.OutToken, statedb, mapBalances)
 	if err != nil {
 		return err
 	}
 	if mapBalances[settleBalance.Maker.OutToken] == nil {
 		mapBalances[settleBalance.Maker.OutToken] = map[common.Address]*big.Int{}
-		mapBalances[settleBalance.Maker.OutToken][makerOrder.UserAddress] = newMakerOutTotal
 	}
+	mapBalances[settleBalance.Maker.OutToken][makerOrder.UserAddress] = newMakerOutTotal
 	newTakerFee, err := tomox_state.CheckAddTokenBalance(takerExOwner, settleBalance.Taker.Fee, makerOrder.QuoteToken, statedb, mapBalances)
 	if err != nil {
 		return err
 	}
 	if mapBalances[makerOrder.QuoteToken] == nil {
 		mapBalances[makerOrder.QuoteToken] = map[common.Address]*big.Int{}
-		mapBalances[makerOrder.QuoteToken][takerExOwner] = newTakerFee
 	}
+	mapBalances[makerOrder.QuoteToken][takerExOwner] = newTakerFee
 	newMakerFee, err := tomox_state.CheckAddTokenBalance(makerExOwner, settleBalance.Maker.Fee, makerOrder.QuoteToken, statedb, mapBalances)
 	if err != nil {
 		return err
