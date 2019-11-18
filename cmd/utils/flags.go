@@ -557,6 +557,10 @@ var (
 		Name:  "tomox.dbReplicaSetName",
 		Usage: "ReplicaSetName if Master-Slave is setup",
 	}
+	TomoSlaveModeFlag = cli.BoolFlag{
+		Name:  "slave",
+		Usage: "Enable slave mode",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
