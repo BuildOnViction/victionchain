@@ -1,8 +1,6 @@
 package tomox
 
 import (
-	"encoding/json"
-	"errors"
 	"github.com/tomochain/tomochain/consensus"
 	"math/big"
 	"strconv"
@@ -14,9 +12,6 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/tomox/tomox_state"
 )
-
-var emptyAddress = common.StringToAddress("")
-var errQuantityTradeTooSmall = errors.New("Quantity trade too small")
 
 func (tomox *TomoX) CommitOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error) {
 	tomoxSnap := tomoXstatedb.Snapshot()
@@ -223,7 +218,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 			quotePrice = tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(oldestOrder.QuoteToken, common.HexToAddress(common.TomoNativeAddress)))
 		}
 		tradedQuantity, rejectMaker, err := tomox.getTradeQuantity(quotePrice, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
-		if err != nil && err == errQuantityTradeTooSmall {
+		if err != nil && err == tomox_state.ErrQuantityTradeTooSmall {
 			if tradedQuantity.Cmp(maxTradedQuantity) == 0 {
 				if quantityToTrade.Cmp(amount) == 0 { // reject Taker & maker
 					rejects = append(rejects, order)
@@ -348,10 +343,10 @@ func (tomox *TomoX) getTradeQuantity(quotePrice *big.Int, coinbase common.Addres
 	log.Debug("GetTradeQuantity", "side", takerOrder.Side, "takerBalance", takerBalance, "makerBalance", makerBalance, "BaseToken", makerOrder.BaseToken, "QuoteToken", makerOrder.QuoteToken, "quantity", quantity, "rejectMaker", rejectMaker, "quotePrice", quotePrice)
 	if quantity.Sign() > 0 {
 		// Apply Match Order
-		setteBalance, err := GetSettleBalance(quotePrice, takerOrder.Side, takerFeeRate, makerOrder.BaseToken, makerOrder.QuoteToken, makerOrder.Price, makerFeeRate, baseTokenDecimal, quoteTokenDecimal, quantity)
-		log.Debug("GetSettleBalance", "setteBalance", setteBalance, "err", err)
+		settleBalanceResult, err := tomox_state.GetSettleBalance(quotePrice, takerOrder.Side, takerFeeRate, makerOrder.BaseToken, makerOrder.QuoteToken, makerOrder.Price, makerFeeRate, baseTokenDecimal, quoteTokenDecimal, quantity)
+		log.Debug("GetSettleBalance", "settleBalanceResult", settleBalanceResult, "err", err)
 		if err == nil {
-			err = SetteBalance(coinbase, takerOrder, makerOrder, setteBalance, statedb)
+			err = DoSettleBalance(coinbase, takerOrder, makerOrder, settleBalanceResult, statedb)
 		}
 		return quantity, rejectMaker, err
 	}
@@ -454,156 +449,7 @@ func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big
 	}
 }
 
-type TradeResult struct {
-	Fee         *big.Int
-	InToken     common.Address
-	InQuantity  *big.Int
-	InTotal     *big.Int
-	OutToken    common.Address
-	OutQuantity *big.Int
-	OutTotal    *big.Int
-}
-type SettleBalance struct {
-	Taker TradeResult
-	Maker TradeResult
-}
-
-func (settleBalance *SettleBalance) String() string {
-	json, _ := json.Marshal(settleBalance)
-	return string(json)
-}
-
-func GetSettleBalance(quotePrice *big.Int, takerSide string, takerFeeRate *big.Int, baseToken, quoteToken common.Address, makerPrice *big.Int, makerFeeRate *big.Int, baseTokenDecimal *big.Int, quoteTokenDecimal *big.Int, quantityToTrade *big.Int) (*SettleBalance, error) {
-	log.Debug("GetSettleBalance", "takerSide", takerSide, "takerFeeRate", takerFeeRate, "baseToken", baseToken, "quoteToken", quoteToken, "makerPrice", makerPrice, "makerFeeRate", makerFeeRate, "baseTokenDecimal", baseTokenDecimal, "quantityToTrade", quantityToTrade)
-	var result *SettleBalance
-	//result = map[common.Address]map[string]interface{}{}
-	if takerSide == tomox_state.Bid {
-		// maker InQuantity quoteTokenQuantity=(quantityToTrade*maker.Price/baseTokenDecimal)
-		quoteTokenQuantity := new(big.Int).Mul(quantityToTrade, makerPrice)
-		quoteTokenQuantity = quoteTokenQuantity.Div(quoteTokenQuantity, baseTokenDecimal)
-		// Fee
-		// charge on the token he/she has before the trade, in this case: quoteToken
-		// charge on the token he/she has before the trade, in this case: baseToken
-		// takerFee = quoteTokenQuantity*takerFeeRate/baseFee=(quantityToTrade*maker.Price/baseTokenDecimal) * makerFeeRate/baseFee
-		takerFee := new(big.Int).Mul(quoteTokenQuantity, takerFeeRate)
-		takerFee = new(big.Int).Div(takerFee, common.TomoXBaseFee)
-		// charge on the token he/she has before the trade, in this case: baseToken
-		makerFee := new(big.Int).Mul(quoteTokenQuantity, makerFeeRate)
-		makerFee = new(big.Int).Div(makerFee, common.TomoXBaseFee)
-		if quoteTokenQuantity.Cmp(makerFee) <= 0 {
-			log.Debug("quantity trade too small", "quoteTokenQuantity", quoteTokenQuantity, "makerFee", makerFee)
-			return result, errQuantityTradeTooSmall
-		}
-		if quotePrice != nil && quotePrice.Cmp(common.Big0) > 0 {
-			exMakerReceivedFee := new(big.Int).Mul(makerFee, quotePrice)
-			exMakerReceivedFee = exMakerReceivedFee.Div(exMakerReceivedFee, quoteTokenDecimal)
-			log.Debug("exMakerReceivedFee", "quoteTokenQuantity", quoteTokenQuantity, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "quotePrice", quotePrice)
-			if exMakerReceivedFee.Cmp(common.RelayerFee) <= 0 {
-				log.Debug("makerFee too small", "quoteTokenQuantity", quoteTokenQuantity, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "quotePrice", quotePrice)
-				return result, errQuantityTradeTooSmall
-			}
-			exTakerReceivedFee := new(big.Int).Mul(takerFee, quotePrice)
-			exTakerReceivedFee = exTakerReceivedFee.Div(exTakerReceivedFee, quoteTokenDecimal)
-			log.Debug("exTakerReceivedFee", "quoteTokenQuantity", quoteTokenQuantity, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "quotePrice", quotePrice)
-			if exTakerReceivedFee.Cmp(common.RelayerFee) <= 0 {
-				log.Debug("takerFee too small", "quoteTokenQuantity", quoteTokenQuantity, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "quotePrice", quotePrice)
-				return result, errQuantityTradeTooSmall
-			}
-		}
-		inTotal := new(big.Int).Sub(quoteTokenQuantity, makerFee)
-		//takerOutTotal= quoteTokenQuantity + takerFee =  quantityToTrade*maker.Price/baseTokenDecimal + quantityToTrade*maker.Price/baseTokenDecimal * takerFeeRate/baseFee
-		// = quantityToTrade *  maker.Price/baseTokenDecimal ( 1 +  takerFeeRate/baseFee)
-		// = quantityToTrade * maker.Price * (baseFee + takerFeeRate ) / ( baseTokenDecimal * baseFee)
-		takerOutTotal := new(big.Int).Add(quoteTokenQuantity, takerFee)
-
-		result = &SettleBalance{
-			Taker: TradeResult{
-				Fee:         takerFee,
-				InToken:     baseToken,
-				InQuantity:  quantityToTrade,
-				InTotal:     quantityToTrade,
-				OutToken:    quoteToken,
-				OutQuantity: quoteTokenQuantity,
-				OutTotal:    takerOutTotal,
-			},
-			Maker: TradeResult{
-				Fee:         makerFee,
-				InToken:     quoteToken,
-				InQuantity:  quoteTokenQuantity,
-				InTotal:     inTotal,
-				OutToken:    baseToken,
-				OutQuantity: quantityToTrade,
-				OutTotal:    quantityToTrade,
-			},
-		}
-	} else {
-		// Taker InQuantity
-		// quoteTokenQuantity = quantityToTrade * makerPrice / baseTokenDecimal
-		quoteTokenQuantity := new(big.Int).Mul(quantityToTrade, makerPrice)
-		quoteTokenQuantity = quoteTokenQuantity.Div(quoteTokenQuantity, baseTokenDecimal)
-		// maker InQuantity
-
-		// Fee
-		// charge on the token he/she has before the trade, in this case: baseToken
-		// makerFee = quoteTokenQuantity * makerFeeRate / baseFee = quantityToTrade * makerPrice / baseTokenDecimal * makerFeeRate / baseFee
-		// charge on the token he/she has before the trade, in this case: quoteToken
-		makerFee := new(big.Int).Mul(quoteTokenQuantity, makerFeeRate)
-		makerFee = makerFee.Div(makerFee, common.TomoXBaseFee)
-
-		// charge on the token he/she has before the trade, in this case: baseToken
-		takerFee := new(big.Int).Mul(quoteTokenQuantity, takerFeeRate)
-		takerFee = new(big.Int).Div(takerFee, common.TomoXBaseFee)
-		if quoteTokenQuantity.Cmp(takerFee) <= 0 {
-			log.Debug("quantity trade too small", "quoteTokenQuantity", quoteTokenQuantity, "takerFee", takerFee)
-			return result, errQuantityTradeTooSmall
-		}
-		if quotePrice != nil && quotePrice.Cmp(common.Big0) > 0 {
-			exMakerReceivedFee := new(big.Int).Mul(makerFee, quotePrice)
-			exMakerReceivedFee = exMakerReceivedFee.Div(exMakerReceivedFee, quoteTokenDecimal)
-			log.Debug("exMakerReceivedFee", "quoteTokenQuantity", quoteTokenQuantity, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "quotePrice", quotePrice)
-			if exMakerReceivedFee.Cmp(common.RelayerFee) <= 0 {
-				log.Debug("makerFee too small", "quoteTokenQuantity", quoteTokenQuantity, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "quotePrice", quotePrice)
-				return result, errQuantityTradeTooSmall
-			}
-			exTakerReceivedFee := new(big.Int).Mul(takerFee, quotePrice)
-			exTakerReceivedFee = exTakerReceivedFee.Div(exTakerReceivedFee, quoteTokenDecimal)
-			log.Debug("exTakerReceivedFee", "quoteTokenQuantity", quoteTokenQuantity, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "quotePrice", quotePrice)
-			if exTakerReceivedFee.Cmp(common.RelayerFee) <= 0 {
-				log.Debug("takerFee too small", "quoteTokenQuantity", quoteTokenQuantity, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "quotePrice", quotePrice)
-				return result, errQuantityTradeTooSmall
-			}
-		}
-		inTotal := new(big.Int).Sub(quoteTokenQuantity, takerFee)
-		// makerOutTotal = quoteTokenQuantity + makerFee  = quantityToTrade * makerPrice / baseTokenDecimal + quantityToTrade * makerPrice / baseTokenDecimal * makerFeeRate / baseFee
-		// =  quantityToTrade * makerPrice / baseTokenDecimal * (1+makerFeeRate / baseFee)
-		// = quantityToTrade  * makerPrice * (baseFee + makerFeeRate) / ( baseTokenDecimal * baseFee )
-		makerOutTotal := new(big.Int).Add(quoteTokenQuantity, makerFee)
-		// Fee
-		result = &SettleBalance{
-			Taker: TradeResult{
-				Fee:         takerFee,
-				InToken:     quoteToken,
-				InQuantity:  quoteTokenQuantity,
-				InTotal:     inTotal,
-				OutToken:    baseToken,
-				OutQuantity: quantityToTrade,
-				OutTotal:    quantityToTrade,
-			},
-			Maker: TradeResult{
-				Fee:         makerFee,
-				InToken:     baseToken,
-				InQuantity:  quantityToTrade,
-				InTotal:     quantityToTrade,
-				OutToken:    quoteToken,
-				OutQuantity: quoteTokenQuantity,
-				OutTotal:    makerOutTotal,
-			},
-		}
-	}
-	return result, nil
-}
-
-func SetteBalance(coinbase common.Address, takerOrder, makerOrder *tomox_state.OrderItem, settleBalance *SettleBalance, statedb *state.StateDB) error {
+func DoSettleBalance(coinbase common.Address, takerOrder, makerOrder *tomox_state.OrderItem, settleBalance *tomox_state.SettleBalance, statedb *state.StateDB) error {
 	takerExOwner := tomox_state.GetRelayerOwner(takerOrder.ExchangeAddress, statedb)
 	makerExOwner := tomox_state.GetRelayerOwner(makerOrder.ExchangeAddress, statedb)
 	matchingFee := big.NewInt(0)

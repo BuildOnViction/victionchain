@@ -7,6 +7,7 @@ import (
 	"github.com/globalsign/mgo/bson"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/log"
@@ -378,6 +379,24 @@ func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken c
 		}
 	}
 	return fmt.Errorf("invalid exchange pair. Base: %s. Quote: %s. Exchange: %s", baseToken.Hex(), quoteToken.Hex(), exchangeAddress.Hex())
+}
+
+func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TomoXStateDB, order *types.OrderTransaction, baseDecimal, quoteDecimal *big.Int) error {
+	var quotePrice *big.Int
+	if order.QuoteToken().String() != common.TomoNativeAddress {
+		quotePrice = tomoxStateDb.GetPrice(GetOrderBookHash(order.QuoteToken(), common.HexToAddress(common.TomoNativeAddress)))
+	}
+	feeRate := GetExRelayerFee(order.ExchangeAddress(), statedb)
+	balanceResult, err := GetSettleBalance(quotePrice, order.Side(), feeRate, order.BaseToken(), order.QuoteToken(), order.Price(), common.Big0, baseDecimal, quoteDecimal, order.Quantity())
+	if err != nil {
+		return err
+	}
+	expectedBalance := balanceResult.Taker.OutTotal
+	actualBalance := GetTokenBalance(order.UserAddress(), balanceResult.Taker.OutToken, statedb)
+	if actualBalance.Cmp(expectedBalance) < 0 {
+		return fmt.Errorf("token: %s . ExpectedBalance: %s . ActualBalance: %s", balanceResult.Taker.OutToken.Hex(), expectedBalance.String(), actualBalance.String())
+	}
+	return nil
 }
 
 // MarshalSignature marshals the signature struct to []byte
