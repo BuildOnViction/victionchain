@@ -14,6 +14,7 @@ var (
 	Market    = "MO"
 	Limit     = "LO"
 	Cancel    = "CANCELLED"
+	OrderNew  = "NEW"
 )
 
 var EmptyHash = common.Hash{}
@@ -41,6 +42,7 @@ var (
 	ErrInvalidOrderSide      = errors.New("verify order: invalid order side")
 	ErrOrderBookHashNotMatch = errors.New("verify order: orderbook hash not match")
 	ErrOrderTreeHashNotMatch = errors.New("verify order: ordertree hash not match")
+	ErrInvalidStatus         = errors.New("verify order: invalid status")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
