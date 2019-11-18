@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/tomochain/tomochain/params"
 )
 
 // This table defines supported forks and their chain config.

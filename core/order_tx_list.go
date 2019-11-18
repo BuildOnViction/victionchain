@@ -20,7 +20,7 @@ import (
 	"container/heap"
 	"sort"
 
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/tomochain/tomochain/core/types"
 )
 
 // txSortedMap is a nonce->transaction hash map with a heap based index to allow

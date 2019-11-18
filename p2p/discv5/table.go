@@ -29,7 +29,7 @@ import (
 	"net"
 	"sort"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/tomochain/tomochain/common"
 )
 
 const (

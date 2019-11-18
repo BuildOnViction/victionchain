@@ -19,7 +19,7 @@ package vm
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/tomochain/tomochain/params"
 )
 
 func makeStackFunc(pop, push int) stackValidationFunc {

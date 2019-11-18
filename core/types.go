@@ -17,12 +17,11 @@
 package core
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/tomox"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"math/big"
 )
 
@@ -38,7 +37,7 @@ type Validator interface {
 	// gas used.
 	ValidateState(block, parent *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error
 
-	ValidateMatchingOrder(tomoXService *tomox.TomoX, statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox.TxMatchBatch, coinbase common.Address) error
+	ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox_state.TxMatchBatch, coinbase common.Address) error
 }
 
 // Processor is an interface for processing blocks using a given initial state.

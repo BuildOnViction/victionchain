@@ -26,11 +26,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/swarm/api"
-	swarm "github.com/ethereum/go-ethereum/swarm/api/client"
-	"github.com/ethereum/go-ethereum/swarm/storage"
-	"github.com/ethereum/go-ethereum/swarm/testutil"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/swarm/api"
+	swarm "github.com/tomochain/tomochain/swarm/api/client"
+	"github.com/tomochain/tomochain/swarm/storage"
+	"github.com/tomochain/tomochain/swarm/testutil"
 )
 
 func TestBzzGetPath(t *testing.T) {

@@ -1,20 +1,26 @@
 sudo: required
 language: go
-go_import_path: github.com/ethereum/go-ethereum
+go_import_path: github.com/tomochain/tomochain
+
+env:
+  global:
+    - GOPROXY=https://proxy.golang.org
+    - GO111MODULE=on
+
 
 jobs:
   include:
 
   - stage: Lint
     sudo: false
-    go: '1.10'
+    go: '1.12.x'
     git:
       submodules: false
       script:
         - go run build/ci.go lint
 
   - stage: Build and test
-    go: '1.11'
+    go: '1.12.x'
     script:
     - sudo modprobe fuse
     - sudo chmod 666 /dev/fuse
@@ -23,7 +29,7 @@ jobs:
     - while sleep 540; do echo "[ still running ]"; done &
     - go run build/ci.go test -coverage
     - kill %1
-  - go: '1.10'
+  - go: '1.11.x'
     script:
     - sudo modprobe fuse
     - sudo chmod 666 /dev/fuse
@@ -34,17 +40,17 @@ jobs:
     - kill %1
 
   - stage: Github release
-    go: '1.10'
+    go: '1.11.x'
     script:
       - make tomo-cross
     deploy:
       provider: releases
       api_key: $GITHUB_TOKEN
+      overwrite: true
       file_glob: true
       file: build/bin/tomo-*
       skip_cleanup: true
       on:
-        branch: master
         tags: true
 
   - stage: Build and push image

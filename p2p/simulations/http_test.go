@@ -27,12 +27,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/p2p/simulations/adapters"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/node"
+	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/simulations/adapters"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 // testService implements the node.Service interface and provides protocols

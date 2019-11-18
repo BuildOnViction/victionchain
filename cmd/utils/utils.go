@@ -1,14 +1,13 @@
 package utils
 
 import (
-	"github.com/ethereum/go-ethereum/dashboard"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/ethstats"
-	"github.com/ethereum/go-ethereum/les"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/tomox"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
+	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/eth/downloader"
+	"github.com/tomochain/tomochain/ethstats"
+	"github.com/tomochain/tomochain/les"
+	"github.com/tomochain/tomochain/node"
+	"github.com/tomochain/tomochain/tomox"
+	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
 )
 
 // RegisterEthService adds an Ethereum client to the stack.
@@ -34,13 +33,6 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 	if err != nil {
 		Fatalf("Failed to register the Ethereum service: %v", err)
 	}
-}
-
-// RegisterDashboardService adds a dashboard to the stack.
-func RegisterDashboardService(stack *node.Node, cfg *dashboard.Config, commit string) {
-	stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return dashboard.New(cfg, commit)
-	})
 }
 
 // RegisterShhService configures Whisper and adds it to the given node.

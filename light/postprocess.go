@@ -22,15 +22,15 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/trie"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/bitutil"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/trie"
 )
 
 const (

@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
 )
 
 var (

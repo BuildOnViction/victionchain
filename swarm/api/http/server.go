@@ -35,11 +35,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/swarm/api"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/metrics"
+	"github.com/tomochain/tomochain/swarm/api"
+	"github.com/tomochain/tomochain/swarm/storage"
 	"github.com/rs/cors"
 )
 

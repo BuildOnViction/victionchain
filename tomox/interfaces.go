@@ -1,9 +1,9 @@
 package tomox
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"github.com/globalsign/mgo"
 )
 
@@ -21,7 +21,7 @@ type OrderDao interface {
 	GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem
 	DeleteTradeByTxHash(txhash common.Hash)
 	InitBulk() *mgo.Session
-	CommitBulk(sc *mgo.Session) error
+	CommitBulk() error
 
 	// leveldb methods
 	Put(key []byte, value []byte) error

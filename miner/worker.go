@@ -27,24 +27,23 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/tomox"
-	"github.com/ethereum/go-ethereum/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/consensus/posv"
-	"github.com/ethereum/go-ethereum/contracts"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"gopkg.in/fatih/set.v0"
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/consensus/misc"
+	"github.com/tomochain/tomochain/consensus/posv"
+	"github.com/tomochain/tomochain/contracts"
+	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/params"
+	mapset "github.com/deckarep/golang-set"
 )
 
 const (
@@ -83,9 +82,9 @@ type Work struct {
 
 	state      *state.StateDB // apply state changes here
 	tomoxState *tomox_state.TomoXStateDB
-	ancestors  *set.Set // ancestor set (used for checking uncle parent validity)
-	family     *set.Set // family set (used for checking uncle invalidity)
-	uncles     *set.Set // uncle set
+	ancestors  mapset.Set // ancestor set (used for checking uncle parent validity)
+	family     mapset.Set // family set (used for checking uncle invalidity)
+	uncles     mapset.Set // uncle set
 	tcount     int      // tx count in cycle
 
 	Block *types.Block // the new block
@@ -466,9 +465,9 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 		signer:     types.NewEIP155Signer(self.config.ChainId),
 		state:      state,
 		tomoxState: tomoxState,
-		ancestors:  set.New(),
-		family:     set.New(),
-		uncles:     set.New(),
+		ancestors: mapset.NewSet(),
+		family:    mapset.NewSet(),
+		uncles:    mapset.NewSet(),
 		header:     header,
 		createdAt:  time.Now(),
 	}
@@ -614,7 +613,7 @@ func (self *worker) commitNewWork() {
 		txs                 *types.TransactionsByPriceAndNonce
 		specialTxs          types.Transactions
 		matchingTransaction *types.Transaction
-		txMatches           []tomox.TxDataMatch
+		txMatches           []tomox_state.TxDataMatch
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -632,12 +631,12 @@ func (self *worker) commitNewWork() {
 				log.Debug("Start processing order pending")
 				orderPending, _ := self.eth.OrderPool().Pending()
 				log.Debug("Start processing order pending", "len", len(orderPending))
-				txMatches = tomoX.ProcessOrderPending(self.coinbase, self.chain.IPCEndpoint, orderPending, work.state, work.tomoxState)
+				txMatches = tomoX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.tomoxState)
 				log.Debug("transaction matches found", "txMatches", len(txMatches))
 			}
 		}
 		TomoxStateRoot := work.tomoxState.IntermediateRoot()
-		txMatchBatch := &tomox.TxMatchBatch{
+		txMatchBatch := &tomox_state.TxMatchBatch{
 			Data:      txMatches,
 			Timestamp: time.Now().UnixNano(),
 			TxHash:    common.Hash{},
@@ -647,7 +646,7 @@ func (self *worker) commitNewWork() {
 			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
 			return
 		}
-		txMatchBytes, err := tomox.EncodeTxMatchesBatch(*txMatchBatch)
+		txMatchBytes, err := tomox_state.EncodeTxMatchesBatch(*txMatchBatch)
 		if err != nil {
 			log.Error("Fail to marshal txMatch", "error", err)
 			return
@@ -711,13 +710,13 @@ func (self *worker) commitNewWork() {
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 	hash := uncle.Hash()
-	if work.uncles.Has(hash) {
+	if work.uncles.Contains(hash) {
 		return fmt.Errorf("uncle not unique")
 	}
-	if !work.ancestors.Has(uncle.ParentHash) {
+	if !work.ancestors.Contains(uncle.ParentHash) {
 		return fmt.Errorf("uncle's parent unknown (%x)", uncle.ParentHash[0:4])
 	}
-	if work.family.Has(hash) {
+	if work.family.Contains(hash) {
 		return fmt.Errorf("uncle already in family (%x)", hash)
 	}
 	work.uncles.Add(uncle.Hash())

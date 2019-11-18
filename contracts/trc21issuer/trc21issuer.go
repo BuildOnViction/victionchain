@@ -1,9 +1,9 @@
 package trc21issuer
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/contracts/trc21issuer/contract"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/contracts/trc21issuer/contract"
 	"math/big"
 )
 

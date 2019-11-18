@@ -7,12 +7,12 @@ import (
 	"math/big"
 	"strings"
 
-	ethereum "github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
+	ethereum "github.com/tomochain/tomochain"
+	"github.com/tomochain/tomochain/accounts/abi"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/event"
 )
 
 // ITRC21ABI is the input ABI used to generate the binding from.

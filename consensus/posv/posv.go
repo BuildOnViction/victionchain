@@ -21,7 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/tomox"
+	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -32,22 +33,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/clique"
-	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/rpc"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/consensus/clique"
+	"github.com/tomochain/tomochain/consensus/misc"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 const (
@@ -59,6 +60,17 @@ const (
 type Masternode struct {
 	Address common.Address
 	Stake   *big.Int
+}
+
+type TomoXService interface {
+	GetTomoxStateRoot(block *types.Block) (common.Hash, error)
+	GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB, error)
+	GetStateCache() tomox_state.Database
+	GetTriegc() *prque.Prque
+	ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error)
+	IsSDKNode() bool
+	SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, dirtyOrderCount *uint64) error
+	RollbackReorgTxMatch(txhash common.Hash)
 }
 
 // Posv proof-of-stake-voting protocol constants.
@@ -228,13 +240,13 @@ type Posv struct {
 	signFn clique.SignerFn // Signer function to authorize hashes with
 	lock   sync.RWMutex    // Protects the signer fields
 
-	BlockSigners          *lru.Cache
-	HookReward            func(chain consensus.ChainReader, state *state.StateDB, header *types.Header) (error, map[string]interface{})
-	HookPenalty           func(chain consensus.ChainReader, blockNumberEpoc uint64) ([]common.Address, error)
-	HookPenaltyTIPSigning func(chain consensus.ChainReader, header *types.Header, candidate []common.Address) ([]common.Address, error)
-	HookValidator         func(header *types.Header, signers []common.Address) ([]byte, error)
-	HookVerifyMNs         func(header *types.Header, signers []common.Address) error
-	GetTomoXService       func() *tomox.TomoX
+	BlockSigners               *lru.Cache
+	HookReward                 func(chain consensus.ChainReader, state *state.StateDB, header *types.Header) (error, map[string]interface{})
+	HookPenalty                func(chain consensus.ChainReader, blockNumberEpoc uint64) ([]common.Address, error)
+	HookPenaltyTIPSigning      func(chain consensus.ChainReader, header *types.Header, candidate []common.Address) ([]common.Address, error)
+	HookValidator              func(header *types.Header, signers []common.Address) ([]byte, error)
+	HookVerifyMNs              func(header *types.Header, signers []common.Address) error
+	GetTomoXService            func() TomoXService
 	HookGetSignersFromContract func(blockHash common.Hash) ([]common.Address, error)
 }
 

@@ -18,11 +18,11 @@ package tomox_state
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/trie"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/trie"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/log"
 )
 
 // TomoXTrie wraps a trie with key hashing. In a secure trie, all

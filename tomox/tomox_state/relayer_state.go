@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
 	"github.com/pkg/errors"
 )
 
