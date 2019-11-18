@@ -346,16 +346,20 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locRelayerState, RelayerStructMappingSlot["_deposit"])
 	locHashDeposit := common.BigToHash(locBigDeposit)
 	balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
-	if balance.Cmp(new(big.Int).SetUint64(uint64(0))) > 0 {
-		return true
+	if balance.Cmp(new(big.Int).Mul(common.BasePrice, common.RelayerLockedFund)) <= 0 {
+		log.Debug("Relayer is not in relayer list", "relayer", address.String(), "balance", balance)
+		return false
 	}
-	log.Debug("Balance of relayer is not enough", "relayer", address.String(), "balance", balance)
-	return false
+	if IsResignedRelayer(address, statedb) {
+		log.Debug("Relayer has resigned", "relayer", address.String())
+		return false
+	}
+	return true
 }
 
 func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken common.Address) error {
 	baseTokenLength := GetBaseTokenLength(exchangeAddress, statedb)
-	quoteTokenLength := GetBaseTokenLength(exchangeAddress, statedb)
+	quoteTokenLength := GetQuoteTokenLength(exchangeAddress, statedb)
 	if baseTokenLength != quoteTokenLength {
 		return fmt.Errorf("invalid length of baseTokenList: %d . QuoteTokenList: %d", baseTokenLength, quoteTokenLength)
 	}
