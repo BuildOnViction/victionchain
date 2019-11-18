@@ -95,8 +95,8 @@ func (db *MongoDatabase) HasObject(hash common.Hash) (bool, error) {
 	)
 	query := bson.M{"hash": hash.Hex()}
 
-	// Find key in "orders" collection
-	count, err = sc.DB(db.dbName).C("orders").Find(query).Limit(1).Count()
+	// Find key in ordersCollection collection
+	count, err = sc.DB(db.dbName).C(ordersCollection).Find(query).Limit(1).Count()
 
 	if err != nil {
 		return false, err
@@ -105,8 +105,8 @@ func (db *MongoDatabase) HasObject(hash common.Hash) (bool, error) {
 	if count == 1 {
 		return true, nil
 	}
-	// Find key in "trades" collection
-	count, err = sc.DB(db.dbName).C("trades").Find(query).Limit(1).Count()
+	// Find key in tradesCollection collection
+	count, err = sc.DB(db.dbName).C(tradesCollection).Find(query).Limit(1).Count()
 
 	if err != nil {
 		return false, err
@@ -137,7 +137,7 @@ func (db *MongoDatabase) GetObject(hash common.Hash, val interface{}) (interface
 		switch val.(type) {
 		case *tomox_state.OrderItem:
 			var oi *tomox_state.OrderItem
-			err := sc.DB(db.dbName).C("orders").Find(query).One(&oi)
+			err := sc.DB(db.dbName).C(ordersCollection).Find(query).One(&oi)
 			if err != nil {
 				return nil, err
 			}
@@ -145,7 +145,7 @@ func (db *MongoDatabase) GetObject(hash common.Hash, val interface{}) (interface
 			return oi, nil
 		case *Trade:
 			var t *Trade
-			err := sc.DB(db.dbName).C("trades").Find(query).One(&t)
+			err := sc.DB(db.dbName).C(tradesCollection).Find(query).One(&t)
 			if err != nil {
 				return nil, err
 			}
@@ -163,13 +163,13 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 
 	switch val.(type) {
 	case *Trade:
-		// PutObject trade into "trades" collection
+		// PutObject trade into tradesCollection collection
 		if err := db.CommitTrade(val.(*Trade)); err != nil {
 			log.Error(err.Error())
 			return err
 		}
 	case *tomox_state.OrderItem:
-		// PutObject order into "orders" collection
+		// PutObject order into ordersCollection collection
 		// Store the key
 		o := val.(*tomox_state.OrderItem)
 		if len(o.Key) == 0 {
@@ -201,13 +201,13 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash) error {
 	}
 
 	if found {
-		err := sc.DB(db.dbName).C("trades").Remove(query)
+		err := sc.DB(db.dbName).C(tradesCollection).Remove(query)
 		if err != nil && err != mgo.ErrNotFound {
 			log.Error("Error when deleting trades", "error", err)
 			return err
 		}
 
-		err = sc.DB(db.dbName).C("orders").Remove(query)
+		err = sc.DB(db.dbName).C(ordersCollection).Remove(query)
 		if err != nil && err != mgo.ErrNotFound {
 			log.Error("Error when deleting order", "error", err)
 			return err
@@ -236,8 +236,8 @@ func (db *MongoDatabase) CommitTrade(t *Trade) error {
 
 func (db *MongoDatabase) InitBulk() *mgo.Session {
 	sc := db.Session.Copy()
-	db.orderBulk = sc.DB(db.dbName).C("orders").Bulk()
-	db.tradeBulk = sc.DB(db.dbName).C("trades").Bulk()
+	db.orderBulk = sc.DB(db.dbName).C(ordersCollection).Bulk()
+	db.tradeBulk = sc.DB(db.dbName).C(tradesCollection).Bulk()
 	return sc
 }
 
@@ -277,7 +277,7 @@ func (db *MongoDatabase) DeleteTradeByTxHash(txhash common.Hash) {
 
 	query := bson.M{"txHash": txhash.Hex()}
 
-	err := sc.DB(db.dbName).C("trades").Remove(query)
+	err := sc.DB(db.dbName).C(tradesCollection).Remove(query)
 	if err != nil && err != mgo.ErrNotFound {
 		log.Error("Error when deleting order", "error", err)
 	}
@@ -290,7 +290,7 @@ func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.Ord
 
 	query := bson.M{"txHash": txhash.Hex()}
 
-	if err := sc.DB(db.dbName).C("orders").Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+	if err := sc.DB(db.dbName).C(ordersCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
 		log.Error("failed to GetOrderByTxHash", "err", err, "Txhash", txhash)
 	}
 	return result
@@ -303,7 +303,7 @@ func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.Or
 
 	query := bson.M{"hash": bson.M{"$in": hashes}}
 
-	if err := sc.DB(db.dbName).C("orders").Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+	if err := sc.DB(db.dbName).C(ordersCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
 		log.Error("failed to GetListOrderByHashes", "err", err, "hashes", hashes)
 		return []*tomox_state.OrderItem{}
 	}
