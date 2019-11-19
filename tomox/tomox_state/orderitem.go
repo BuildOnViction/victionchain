@@ -1,19 +1,17 @@
 package tomox_state
 
 import (
-	"bytes"
-	"encoding/hex"
 	"fmt"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/globalsign/mgo/bson"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/log"
-	"math/big"
-	"strconv"
-	"time"
 )
 
 // OrderItem : info that will be store in database
@@ -193,7 +191,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
-// verify orderItem
+// VerifyOrder verify orderItem
 func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 	if err := o.VerifyBasicOrderInfo(); err != nil {
 		return err
@@ -201,26 +199,34 @@ func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 	if err := o.verifyRelayer(state); err != nil {
 		return err
 	}
-	if err := VerifyPair(state, o.ExchangeAddress, o.BaseToken, o.QuoteToken); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (o *OrderItem) VerifyBasicOrderInfo() error {
-	if o.Type == Limit {
-		if err := o.verifyPrice(); err != nil {
+	if o.Status == OrderNew {
+		if err := VerifyPair(state, o.ExchangeAddress, o.BaseToken, o.QuoteToken); err != nil {
 			return err
 		}
 	}
-	if err := o.verifyQuantity(); err != nil {
-		return err
+	return nil
+}
+
+// VerifyBasicOrderInfo verify basic info
+func (o *OrderItem) VerifyBasicOrderInfo() error {
+
+	if o.Status == OrderNew {
+		if o.Type == Limit {
+			if err := o.verifyPrice(); err != nil {
+				return err
+			}
+		}
+		if err := o.verifyQuantity(); err != nil {
+			return err
+		}
+		if err := o.verifyOrderSide(); err != nil {
+			return err
+		}
+		if err := o.verifyOrderType(); err != nil {
+			return err
+		}
 	}
-	if err := o.verifyOrderSide(); err != nil {
-		return err
-	}
-	if err := o.verifyOrderType(); err != nil {
+	if err := o.verifyStatus(); err != nil {
 		return err
 	}
 	if err := o.verifySignature(); err != nil {
@@ -237,60 +243,22 @@ func (o *OrderItem) verifyRelayer(state *state.StateDB) error {
 	return nil
 }
 
-// following: https://github.com/tomochain/tomox-sdk/blob/master/types/order.go#L125
-func (o *OrderItem) ComputeHash() common.Hash {
-	sha := sha3.NewKeccak256()
-	sha.Write(o.ExchangeAddress.Bytes())
-	sha.Write(o.UserAddress.Bytes())
-	sha.Write(o.BaseToken.Bytes())
-	sha.Write(o.QuoteToken.Bytes())
-	sha.Write(common.BigToHash(o.Quantity).Bytes())
-	if o.Price != nil {
-		sha.Write(common.BigToHash(o.Price).Bytes())
-	}
-	sha.Write(common.BigToHash(o.encodedSide()).Bytes())
-	sha.Write([]byte(o.Status))
-	sha.Write([]byte(o.Type))
-	sha.Write(common.BigToHash(o.Nonce).Bytes())
-	return common.BytesToHash(sha.Sum(nil))
-}
-
-func (o *OrderItem) ComputeOrderCancelHash() common.Hash {
-	sha := sha3.NewKeccak256()
-	sha.Write(o.Hash.Bytes())
-	sha.Write(common.BigToHash(o.Nonce).Bytes())
-	return common.BytesToHash(sha.Sum(nil))
-}
-
 //verify signatures
 func (o *OrderItem) verifySignature() error {
-	var (
-		hash common.Hash
-		err  error
-	)
-	if o.Status != Cancel {
-		hash = o.ComputeHash()
-		if hash != o.Hash {
-			log.Debug("Wrong orderhash", "expected", hex.EncodeToString(o.Hash.Bytes()), "actual", hex.EncodeToString(hash.Bytes()))
-			return ErrWrongHash
-		}
-	} else {
-		hash = o.ComputeOrderCancelHash()
-	}
-	message := crypto.Keccak256(
-		[]byte("\x19Ethereum Signed Message:\n32"), // FIXME: Signature signed by EtherJS library, update this one if order is signed by other standards
-		hash.Bytes(),
-	)
-
-	recoveredAddress, err := o.Signature.Verify(common.BytesToHash(message))
+	bigstr := o.Nonce.String()
+	n, err := strconv.ParseInt(bigstr, 10, 64)
 	if err != nil {
-		log.Debug("failed to recover userAddress")
 		return ErrInvalidSignature
 	}
-	if !bytes.Equal(recoveredAddress.Bytes(), o.UserAddress.Bytes()) {
-		log.Debug("userAddress mismatch",
-			"expected", hex.EncodeToString(o.UserAddress.Bytes()),
-			"actual", hex.EncodeToString(recoveredAddress.Bytes()))
+	V := big.NewInt(int64(o.Signature.V))
+	R := o.Signature.R.Big()
+	S := o.Signature.S.Big()
+
+	tx := types.NewOrderTransaction(uint64(n), o.Quantity, o.Price, o.ExchangeAddress, o.UserAddress,
+		o.BaseToken, o.QuoteToken, o.Status, o.Side, o.Type, o.PairName, o.Hash, o.OrderID)
+	tx.ImportSignature(V, R, S)
+	from, _ := types.OrderSender(types.OrderTxSigner{}, tx)
+	if from != tx.UserAddress() {
 		return ErrInvalidSignature
 	}
 	return nil
@@ -336,6 +304,15 @@ func (o *OrderItem) verifyQuantity() error {
 	if o.Quantity == nil || o.Quantity.Cmp(big.NewInt(0)) <= 0 {
 		log.Debug("Invalid quantity", "quantity", o.Quantity.String())
 		return ErrInvalidQuantity
+	}
+	return nil
+}
+
+// verifyStatus make sure status is NEW OR CANCELLED
+func (o *OrderItem) verifyStatus() error {
+	if o.Status != Cancel && o.Status != OrderNew {
+		log.Debug("Invalid status", "status", o.Status)
+		return ErrInvalidStatus
 	}
 	return nil
 }

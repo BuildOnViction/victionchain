@@ -3,9 +3,10 @@ package tomox_state
 import (
 	"encoding/json"
 	"errors"
-	"github.com/tomochain/tomochain/crypto"
 	"math/big"
 	"strconv"
+
+	"github.com/tomochain/tomochain/crypto"
 
 	"github.com/tomochain/tomochain/common"
 )
@@ -17,6 +18,7 @@ var (
 	Market    = "MO"
 	Limit     = "LO"
 	Cancel    = "CANCELLED"
+	OrderNew  = "NEW"
 )
 
 var EmptyHash = common.Hash{}
@@ -42,6 +44,9 @@ var (
 	ErrInvalidRelayer        = errors.New("verify order: invalid relayer")
 	ErrInvalidOrderType      = errors.New("verify order: unsupported order type")
 	ErrInvalidOrderSide      = errors.New("verify order: invalid order side")
+	ErrOrderBookHashNotMatch = errors.New("verify order: orderbook hash not match")
+	ErrOrderTreeHashNotMatch = errors.New("verify order: ordertree hash not match")
+	ErrInvalidStatus         = errors.New("verify order: invalid status")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
@@ -120,7 +125,7 @@ func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
 	return txMatchResult, nil
 }
 
-func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderId uint64)  common.Hash {
+func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderId uint64) common.Hash {
 	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), []byte(strconv.FormatUint(orderId, 10)))
 }
 func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
@@ -139,7 +144,6 @@ func (tx TxDataMatch) GetRejectedOrders() []*OrderItem {
 	return tx.RejectedOders
 }
 
-
 type OrderHistoryItem struct {
 	TxHash       common.Hash
 	FilledAmount *big.Int
@@ -151,7 +155,6 @@ func EmptyKey() []byte {
 	key := make([]byte, common.HashLength)
 	return key
 }
-
 
 // ToJSON : log json string
 func ToJSON(object interface{}, args ...string) string {
