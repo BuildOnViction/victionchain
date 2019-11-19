@@ -90,7 +90,7 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 
 func New(cfg *Config) *TomoX {
 	tokenDecimalCache, _ := lru.New(defaultCacheLimit)
-	orderCache, _ := lru.New(defaultCacheLimit)
+	orderCache, _ := lru.New(tomox_state.OrderCacheLimit)
 	tomoX := &TomoX{
 		orderNonce:        make(map[common.Address]*big.Int),
 		Triegc:            prque.New(),

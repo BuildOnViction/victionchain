@@ -157,8 +157,8 @@ type BlockChain struct {
 	// cache field for tracking finality purpose, can't use for tracking block vs block relationship
 	blocksHashCache *lru.Cache
 
-	resultTrade    *lru.Cache // trades result
-	rejectedOrders *lru.Cache // rejected orders
+	resultTrade    *lru.Cache // trades result: key - takerOrderHash, value: trades corresponding to takerOrder
+	rejectedOrders *lru.Cache // rejected orders: key - takerOrderHash, value: rejected orders corresponding to takerOrder
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -182,8 +182,8 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	downloadingBlock, _ := lru.New(blockCacheLimit)
 
 	// for tomox
-	resultTrade, _ := lru.New(blockCacheLimit)
-	rejectedOrders, _ := lru.New(blockCacheLimit)
+	resultTrade, _ := lru.New(tomox_state.OrderCacheLimit)
+	rejectedOrders, _ := lru.New(tomox_state.OrderCacheLimit)
 
 	bc := &BlockChain{
 		chainConfig:      chainConfig,
