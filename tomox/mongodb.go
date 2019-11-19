@@ -12,6 +12,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"strings"
+	"time"
 )
 
 const (
@@ -46,6 +47,7 @@ func NewMongoDatabase(session *mgo.Session, dbName string, mongoURL string, repl
 			Addrs:          hosts,
 			Database:       dbName,
 			ReplicaSetName: replicaSetName,
+			Timeout:        30 * time.Second,
 		}
 		ns, err := mgo.DialWithInfo(dbInfo)
 		if err != nil {
