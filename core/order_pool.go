@@ -34,7 +34,6 @@ import (
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
