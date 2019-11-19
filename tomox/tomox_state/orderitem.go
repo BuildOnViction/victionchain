@@ -324,16 +324,20 @@ func IsValidRelayer(statedb *state.StateDB, address common.Address) bool {
 	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locRelayerState, RelayerStructMappingSlot["_deposit"])
 	locHashDeposit := common.BigToHash(locBigDeposit)
 	balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
-	if balance.Cmp(new(big.Int).SetUint64(uint64(0))) > 0 {
-		return true
+	if balance.Cmp(new(big.Int).Mul(common.BasePrice, common.RelayerLockedFund)) <= 0 {
+		log.Debug("Relayer is not in relayer list", "relayer", address.String(), "balance", balance)
+		return false
 	}
-	log.Debug("Balance of relayer is not enough", "relayer", address.String(), "balance", balance)
-	return false
+	if IsResignedRelayer(address, statedb) {
+		log.Debug("Relayer has resigned", "relayer", address.String())
+		return false
+	}
+	return true
 }
 
 func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken common.Address) error {
 	baseTokenLength := GetBaseTokenLength(exchangeAddress, statedb)
-	quoteTokenLength := GetBaseTokenLength(exchangeAddress, statedb)
+	quoteTokenLength := GetQuoteTokenLength(exchangeAddress, statedb)
 	if baseTokenLength != quoteTokenLength {
 		return fmt.Errorf("invalid length of baseTokenList: %d . QuoteTokenList: %d", baseTokenLength, quoteTokenLength)
 	}
@@ -352,6 +356,24 @@ func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken c
 		}
 	}
 	return fmt.Errorf("invalid exchange pair. Base: %s. Quote: %s. Exchange: %s", baseToken.Hex(), quoteToken.Hex(), exchangeAddress.Hex())
+}
+
+func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TomoXStateDB, order *types.OrderTransaction, baseDecimal, quoteDecimal *big.Int) error {
+	var quotePrice *big.Int
+	if order.QuoteToken().String() != common.TomoNativeAddress {
+		quotePrice = tomoxStateDb.GetPrice(GetOrderBookHash(order.QuoteToken(), common.HexToAddress(common.TomoNativeAddress)))
+	}
+	feeRate := GetExRelayerFee(order.ExchangeAddress(), statedb)
+	balanceResult, err := GetSettleBalance(quotePrice, order.Side(), feeRate, order.BaseToken(), order.QuoteToken(), order.Price(), common.Big0, baseDecimal, quoteDecimal, order.Quantity())
+	if err != nil {
+		return err
+	}
+	expectedBalance := balanceResult.Taker.OutTotal
+	actualBalance := GetTokenBalance(order.UserAddress(), balanceResult.Taker.OutToken, statedb)
+	if actualBalance.Cmp(expectedBalance) < 0 {
+		return fmt.Errorf("token: %s . ExpectedBalance: %s . ActualBalance: %s", balanceResult.Taker.OutToken.Hex(), expectedBalance.String(), actualBalance.String())
+	}
+	return nil
 }
 
 // MarshalSignature marshals the signature struct to []byte
