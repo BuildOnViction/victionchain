@@ -29,6 +29,7 @@ import (
 
 	"github.com/tomochain/tomochain/tomox/tomox_state"
 
+	mapset "github.com/deckarep/golang-set"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -43,7 +44,6 @@ import (
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
-	mapset "github.com/deckarep/golang-set"
 )
 
 const (
@@ -85,7 +85,7 @@ type Work struct {
 	ancestors  mapset.Set // ancestor set (used for checking uncle parent validity)
 	family     mapset.Set // family set (used for checking uncle invalidity)
 	uncles     mapset.Set // uncle set
-	tcount     int      // tx count in cycle
+	tcount     int        // tx count in cycle
 
 	Block *types.Block // the new block
 
@@ -465,9 +465,9 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 		signer:     types.NewEIP155Signer(self.config.ChainId),
 		state:      state,
 		tomoxState: tomoxState,
-		ancestors: mapset.NewSet(),
-		family:    mapset.NewSet(),
-		uncles:    mapset.NewSet(),
+		ancestors:  mapset.NewSet(),
+		family:     mapset.NewSet(),
+		uncles:     mapset.NewSet(),
 		header:     header,
 		createdAt:  time.Now(),
 	}
@@ -614,6 +614,7 @@ func (self *worker) commitNewWork() {
 		specialTxs          types.Transactions
 		matchingTransaction *types.Transaction
 		txMatches           []tomox_state.TxDataMatch
+		matchingResults map[common.Hash]tomox_state.MatchingResult
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -631,8 +632,11 @@ func (self *worker) commitNewWork() {
 				log.Debug("Start processing order pending")
 				orderPending, _ := self.eth.OrderPool().Pending()
 				log.Debug("Start processing order pending", "len", len(orderPending))
-				txMatches = tomoX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.tomoxState)
+				txMatches, matchingResults = tomoX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.tomoxState)
 				log.Debug("transaction matches found", "txMatches", len(txMatches))
+				if tomoX.IsSDKNode() {
+					self.chain.AddMatchingResult(matchingResults)
+				}
 			}
 		}
 		TomoxStateRoot := work.tomoxState.IntermediateRoot()
