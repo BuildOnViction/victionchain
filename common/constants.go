@@ -36,7 +36,7 @@ var RollbackHash Hash
 var BasePrice = big.NewInt(1000000000000000000) // 1
 var RelayerLockedFund = big.NewInt(20000) // 20000 TOMO
 var RelayerFee = big.NewInt(1000000000000000)   // 0.001
-var TomoXBaseFee = big.NewInt(1000)
+var TomoXBaseFee = big.NewInt(10000)
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
