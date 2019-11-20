@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"strconv"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
 )
 
 type Bulletproof struct {
@@ -267,10 +268,15 @@ Proves that <a,b>=c
 This is a building block for BulletProofs
 */
 func InnerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []*big.Int, u ECPoint, P ECPoint) InnerProdArg {
+
+	// fmt.Println("Pprime ", P)
+	// fmt.Println("U  ", u)
+	// fmt.Println("G  ", G)
+	// fmt.Println("H  ", H)
+
 	//fmt.Printf("Proof so far: %s\n", proof)
 	if len(a) == 1 {
 		// Prover sends a & b
-		//fmt.Printf("a: %d && b: %d\n", a[0], b[0])
 		proof.A = a[0]
 		proof.B = b[0]
 		return proof
@@ -290,16 +296,18 @@ func InnerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []
 	proof.R[curIt] = R
 
 	// prover sends L & R and gets a challenge
-	s256 := sha256.Sum256([]byte(
-		L.X.String() + L.Y.String() +
-			R.X.String() + R.Y.String()))
+	LvalInBytes := append(PadTo32Bytes(L.X.Bytes()), PadTo32Bytes(L.Y.Bytes())...)
+	RvalInBytes := append(PadTo32Bytes(R.X.Bytes()), PadTo32Bytes(R.Y.Bytes())...)
+	input := append(LvalInBytes, RvalInBytes...)
+
+	s256 := crypto.Keccak256(input)
 
 	x := new(big.Int).SetBytes(s256[:])
 
 	proof.Challenges[curIt] = x
 
 	Gprime, Hprime, Pprime := GenerateNewParams(G, H, x, L, R, P)
-	//fmt.Printf("Prover - Intermediate Pprime value: %s \n", Pprime)
+
 	xinv := new(big.Int).ModInverse(x, EC.N)
 
 	// or these two lines
@@ -309,19 +317,6 @@ func InnerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []
 	bprime := VectorAdd(
 		ScalarVectorMul(b[:nprime], xinv),
 		ScalarVectorMul(b[nprime:], x))
-
-	s1 := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
-	chal1 := new(big.Int).SetBytes(s1[:])
-	ux := u.Mult(chal1)
-	ccalc := new(big.Int).Mod(new(big.Int).Mul(aprime[curIt], bprime[curIt]), EC.N)
-
-	Pcalc1 := Gprime[0].Mult(aprime[curIt])
-	Pcalc2 := Hprime[0].Mult(bprime[curIt])
-	Pcalc3 := ux.Mult(ccalc)
-	Pcalc := Pcalc1.Add(Pcalc2).Add(Pcalc3)
-
-	fmt.Printf("Final Pprime value: %s \n", Pprime)
-	fmt.Printf("Calculated Pprime value to check against: %s \n", Pcalc)
 
 	return InnerProductProveSub(proof, Gprime, Hprime, aprime, bprime, u, Pprime)
 }
@@ -342,13 +337,21 @@ func InnerProductProve(a []*big.Int, b []*big.Int, c *big.Int, P, U ECPoint, G, 
 		challenges}
 
 	// randomly generate an x value from public data
-	x := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
+	//x := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
+
+	// x := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes()))
+	// s256=crypto.Keccak256(append(PadTo32Bytes(sig.M[:]), l...))
+	input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
+
+	x := crypto.Keccak256(input)
 
 	runningProof.Challenges[loglen] = new(big.Int).SetBytes(x[:])
 
 	Pprime := P.Add(U.Mult(new(big.Int).Mul(new(big.Int).SetBytes(x[:]), c)))
+
 	ux := U.Mult(new(big.Int).SetBytes(x[:]))
 	//fmt.Printf("Prover Pprime value to run sub off of: %s\n", Pprime)
+
 	return InnerProductProveSub(runningProof, G, H, a, b, ux, Pprime)
 }
 
@@ -362,7 +365,11 @@ ipp : the proof
 func InnerProductVerify(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdArg) bool {
 	//fmt.Println("Verifying Inner Product Argument")
 	//fmt.Printf("Commitment Value: %s \n", P)
-	s1 := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
+	// s1 := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
+
+	input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
+	s1 := crypto.Keccak256(input)
+
 	chal1 := new(big.Int).SetBytes(s1[:])
 	ux := U.Mult(chal1)
 	curIt := len(ipp.Challenges) - 1
@@ -384,9 +391,15 @@ func InnerProductVerify(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdA
 		Rval := ipp.R[curIt]
 
 		// prover sends L & R and gets a challenge
-		s256 := sha256.Sum256([]byte(
-			Lval.X.String() + Lval.Y.String() +
-				Rval.X.String() + Rval.Y.String()))
+		// s256 := sha256.Sum256([]byte(
+		// 	Lval.X.String() + Lval.Y.String() +
+		// 		Rval.X.String() + Rval.Y.String()))
+		LvalInBytes := append(PadTo32Bytes(Lval.X.Bytes()), PadTo32Bytes(Lval.Y.Bytes())...)
+		RvalInBytes := append(PadTo32Bytes(Rval.X.Bytes()), PadTo32Bytes(Rval.Y.Bytes())...)
+		input := append(LvalInBytes, RvalInBytes...)
+		s256 := crypto.Keccak256(input)
+
+		fmt.Println("Challenge ", common.Bytes2Hex(s256))
 
 		chal2 := new(big.Int).SetBytes(s256[:])
 
@@ -406,9 +419,6 @@ func InnerProductVerify(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdA
 	Pcalc := Pcalc1.Add(Pcalc2).Add(Pcalc3)
 
 	if !Pprime.Equal(Pcalc) {
-		fmt.Println("IPVerify - Final Commitment checking failed")
-		fmt.Printf("Final Pprime value: %s \n", Pprime)
-		fmt.Printf("Calculated Pprime value to check against: %s \n", Pcalc)
 		return false
 	}
 
@@ -423,7 +433,12 @@ we replace n separate exponentiations with a single multi-exponentiation.
 func InnerProductVerifyFast(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdArg) bool {
 	//fmt.Println("Verifying Inner Product Argument")
 	//fmt.Printf("Commitment Value: %s \n", P)
-	s1 := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
+	// s1 := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
+
+	input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
+
+	s1 := crypto.Keccak256(input)
+
 	chal1 := new(big.Int).SetBytes(s1[:])
 	ux := U.Mult(chal1)
 	curIt := len(ipp.Challenges) - 1
@@ -439,9 +454,14 @@ func InnerProductVerifyFast(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerP
 		Rval := ipp.R[j]
 
 		// prover sends L & R and gets a challenge
-		s256 := sha256.Sum256([]byte(
-			Lval.X.String() + Lval.Y.String() +
-				Rval.X.String() + Rval.Y.String()))
+		// s256 := sha256.Sum256([]byte(
+		// 	Lval.X.String() + Lval.Y.String() +
+		// 		Rval.X.String() + Rval.Y.String()))
+
+		LvalInBytes := append(PadTo32Bytes(Lval.X.Bytes()), PadTo32Bytes(Lval.Y.Bytes())...)
+		RvalInBytes := append(PadTo32Bytes(Rval.X.Bytes()), PadTo32Bytes(Rval.Y.Bytes())...)
+		input := append(LvalInBytes, RvalInBytes...)
+		s256 := crypto.Keccak256(input)
 
 		chal2 := new(big.Int).SetBytes(s256[:])
 
@@ -1109,28 +1129,6 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 		}
 	}
 
-	//fmt.Println(zPowersTimesTwoVec)
-
-	// need to generate l(X), r(X), and t(X)=<l(X),r(X)>
-
-	/*
-			Java code on how to calculate t1 and t2
-		        //z^Q
-		        FieldVector zs = FieldVector.from(VectorX.iterate(m, z.pow(2), z::multiply).map(bi -> bi.mod(q)), q);
-		        //2^n
-		        VectorX<BigInteger> twoVector = VectorX.iterate(bitsPerNumber, BigInteger.ONE, bi -> bi.shiftLeft(1));
-		        FieldVector twos = FieldVector.from(twoVector, q);
-		        //2^n \cdot z || 2^n \cdot z^2 ...
-		        FieldVector twoTimesZs = FieldVector.from(zs.getVector().flatMap(twos::times), q);
-		        //l(X)
-		        FieldVector l0 = aL.add(z.negate());
-		        FieldVector l1 = sL;
-		        FieldVectorPolynomial lPoly = new FieldVectorPolynomial(l0, l1);
-		        //r(X)
-		        FieldVector r0 = ys.hadamard(aR.add(z)).add(twoTimesZs);
-		        FieldVector r1 = sR.hadamard(ys);
-				FieldVectorPolynomial rPoly = new FieldVectorPolynomial(r0, r1);
-	*/
 	PowerOfCY := PowerVector(EC.V, cy)
 	// fmt.Println(PowerOfCY)
 	l0 := VectorAddScalar(aLConcat, new(big.Int).Neg(cz))
@@ -1377,73 +1375,4 @@ func NewECPrimeGroupKey(n int) CryptoParams {
 		n,
 		cg,
 		ch}
-}
-
-func init() {
-	EC = NewECPrimeGroupKey(VecLength)
-	//fmt.Println(EC)
-}
-
-func main() {
-	argCount := len(os.Args[1:])
-	val := "11111111111111"
-
-	fmt.Printf("Multiple range proof gen and verify ")
-	EC = NewECPrimeGroupKey(64 * 2)
-	mRangeProof := MRPProve([]*big.Int{
-		new(big.Int).SetInt64(0x9999999),
-		new(big.Int).SetInt64(0x9999999),
-	})
-	// fmt.Printf("Value is : %s %s\n", 0x9999999999, 0x9999999999)
-	fmt.Printf("%+v\n", mRangeProof)
-	mv := MRPVerify(mRangeProof)
-	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
-
-	fmt.Printf("----- End multiple range proof gen and verify \n\n")
-
-	if argCount > 0 {
-		val = string(os.Args[1])
-	}
-	if argCount > 1 {
-		VecLength, _ = strconv.Atoi((os.Args[2]))
-	}
-
-	EC = NewECPrimeGroupKey(VecLength)
-	m, _ := new(big.Int).SetString(val, 10)
-	rtn := RPProve(m)
-	r := RPVerify(rtn)
-	fmt.Printf("Value is : %s\n", val)
-	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, r)
-
-	fmt.Printf("=== Public parameters:\n")
-	fmt.Printf(" Curve type:\tsecp256k1\n")
-	fmt.Printf(" G:\t%s\n", EC.G)
-	fmt.Printf(" H:\t%s\n", EC.H)
-	fmt.Printf(" Curve b value:\t%s\n", EC.C.Params().B)
-	fmt.Printf(" Curve prime value:\t%s\n", EC.C.Params().P)
-	fmt.Printf(" Gi[0]:\t%s\n", EC.BPG[0])
-	fmt.Printf(" Hi[0]:\t%s\n", EC.BPH[0])
-	fmt.Printf(" Vector length:\t%d\n", EC.V)
-
-	fmt.Printf("\n=== Proof\n")
-	fmt.Printf("Challenge:\n")
-	fmt.Printf(" Cx:\t%s\n", rtn.Cx)
-	fmt.Printf(" Cy:\t%s\n", rtn.Cy)
-	fmt.Printf(" Cz:\t%s\n", rtn.Cz)
-	fmt.Printf("A:\t%s\n", rtn.A)
-	fmt.Printf("S:\t%s\n", rtn.S)
-	fmt.Printf("T1:\t%s\n", rtn.T1)
-	fmt.Printf("T2:\t%s\n", rtn.T2)
-	fmt.Printf("Tau:\t%s\n", rtn.Tau)
-	fmt.Printf("Th:\t%s\n", rtn.Th)
-	fmt.Printf("Mu:\t%s\n", rtn.Mu)
-
-	fmt.Printf("\nIPP (Inner product proof):\n")
-	fmt.Printf(" a:\t%s\n", rtn.IPP.A)
-	fmt.Printf(" b:\t%s\n", rtn.IPP.B)
-	fmt.Printf(" L[0]:\t%s\n", rtn.IPP.L[0])
-	fmt.Printf(" R[0]:\t%s\n", rtn.IPP.R[0])
-	fmt.Printf(" L[1]:\t%s\n", rtn.IPP.L[1])
-	fmt.Printf(" R[1]:\t%s\n", rtn.IPP.R[1])
-
 }
