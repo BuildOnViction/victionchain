@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rpc"
-	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/sync/syncmap"
 )
 
@@ -90,7 +90,7 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 
 func New(cfg *Config) *TomoX {
 	tokenDecimalCache, _ := lru.New(defaultCacheLimit)
-	orderCache, _ := lru.New(defaultCacheLimit)
+	orderCache, _ := lru.New(tomox_state.OrderCacheLimit)
 	tomoX := &TomoX{
 		orderNonce:        make(map[common.Address]*big.Int),
 		Triegc:            prque.New(),
@@ -148,8 +148,10 @@ func (tomox *TomoX) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) []tomox_state.TxDataMatch {
+func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) ([]tomox_state.TxDataMatch, map[common.Hash]tomox_state.MatchingResult) {
 	txMatches := []tomox_state.TxDataMatch{}
+	matchingResults := map[common.Hash]tomox_state.MatchingResult{}
+
 	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
 	for {
 		tx := txs.Peek()
@@ -200,10 +202,9 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 			order.Status = OrderStatusCancelled
 		}
 
-		trades, rejects, err := tomox.CommitOrder(coinbase, chain, statedb, tomoXstatedb, tomox_state.GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		newTrades, newRejectedOrders, err := tomox.CommitOrder(coinbase, chain, statedb, tomoXstatedb, tomox_state.GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
 
-		log.Debug("List reject order", "rejects", len(rejects))
-		for _, reject := range rejects {
+		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)
 		}
 
@@ -240,14 +241,15 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 			continue
 		}
 		txMatch := tomox_state.TxDataMatch{
-			Order:  originalOrderValue,
-			Trades: trades,
-			RejectedOders: rejects,
+			Order: originalOrderValue,
 		}
 		txMatches = append(txMatches, txMatch)
-
+		matchingResults[order.Hash] = tomox_state.MatchingResult{
+			Trades:  newTrades,
+			Rejects: newRejectedOrders,
+		}
 	}
-	return txMatches
+	return txMatches, matchingResults
 }
 
 // there are 3 tasks need to complete to update data in SDK nodes after matching
@@ -255,24 +257,20 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 // 2. txMatchData.Trades: includes information of matched orders.
 // 		a. PutObject them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
-func (tomox *TomoX)  SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, dirtyOrderCount *uint64) error {
+func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*tomox_state.OrderItem, dirtyOrderCount *uint64) error {
 	var (
 		// originTakerOrder: order get from db, nil if it doesn't exist
 		// takerOrderInTx: order decoded from txdata
 		// updatedTakerOrder: order with new status, filledAmount, CreatedAt, UpdatedAt. This will be inserted to db
-		originTakerOrder, takerOrderInTx, updatedTakerOrder *tomox_state.OrderItem
-		makerDirtyHashes                                    []string
-		makerDirtyFilledAmount                              map[string]*big.Int
-		err                                                 error
+		originTakerOrder, updatedTakerOrder *tomox_state.OrderItem
+		makerDirtyHashes                    []string
+		makerDirtyFilledAmount              map[string]*big.Int
+		err                                 error
 	)
 	db := tomox.GetMongoDB()
 	sc := db.InitBulk()
 	defer sc.Close()
 	// 1. put processed takerOrderInTx to db
-	if takerOrderInTx, err = txDataMatch.DecodeOrder(); err != nil {
-		log.Error("SDK node decode takerOrderInTx failed", "txDataMatch", txDataMatch)
-		return fmt.Errorf("SDK node decode takerOrderInTx failed")
-	}
 	lastState := tomox_state.OrderHistoryItem{}
 	val, err := db.GetObject(takerOrderInTx.Hash, &tomox_state.OrderItem{})
 	if err == nil && val != nil {
@@ -308,7 +306,6 @@ func (tomox *TomoX)  SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHa
 	updatedTakerOrder.UpdatedAt = txMatchTime
 
 	// 2. put trades to db and update status to FILLED
-	trades := txDataMatch.GetTrades()
 	log.Debug("Got trades", "number", len(trades), "txhash", txHash.Hex())
 	makerDirtyFilledAmount = make(map[string]*big.Int)
 	for _, trade := range trades {
@@ -416,7 +413,6 @@ func (tomox *TomoX)  SyncDataToSDKNode(txDataMatch tomox_state.TxDataMatch, txHa
 	}
 
 	// 3. put rejected orders to db and update status REJECTED
-	rejectedOrders := txDataMatch.GetRejectedOrders()
 	log.Debug("Got rejected orders", "number", len(rejectedOrders), "rejectedOrders", rejectedOrders)
 
 	if len(rejectedOrders) > 0 {

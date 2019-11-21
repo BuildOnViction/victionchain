@@ -11,6 +11,10 @@ import (
 	"github.com/tomochain/tomochain/common"
 )
 
+const (
+	OrderCacheLimit = 10000
+)
+
 var (
 	EmptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 	Ask       = "SELL"
@@ -37,15 +41,12 @@ var EmptyOrder = OrderItem{
 }
 
 var (
-	ErrWrongHash             = errors.New("verify order: wrong hash")
 	ErrInvalidSignature      = errors.New("verify order: invalid signature")
 	ErrInvalidPrice          = errors.New("verify order: invalid price")
 	ErrInvalidQuantity       = errors.New("verify order: invalid quantity")
 	ErrInvalidRelayer        = errors.New("verify order: invalid relayer")
 	ErrInvalidOrderType      = errors.New("verify order: unsupported order type")
 	ErrInvalidOrderSide      = errors.New("verify order: invalid order side")
-	ErrOrderBookHashNotMatch = errors.New("verify order: orderbook hash not match")
-	ErrOrderTreeHashNotMatch = errors.New("verify order: ordertree hash not match")
 	ErrInvalidStatus         = errors.New("verify order: invalid status")
 
 	// supported order types
@@ -99,14 +100,17 @@ var (
 
 type TxDataMatch struct {
 	Order         []byte // serialized data of order has been processed in this tx
-	Trades        []map[string]string
-	RejectedOders []*OrderItem
 }
 
 type TxMatchBatch struct {
 	Data      []TxDataMatch
 	Timestamp int64
 	TxHash    common.Hash
+}
+
+type MatchingResult struct {
+	Trades []map[string]string
+	Rejects []*OrderItem
 }
 
 func EncodeTxMatchesBatch(txMatchBatch TxMatchBatch) ([]byte, error) {
@@ -134,14 +138,6 @@ func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
 		return order, err
 	}
 	return order, nil
-}
-
-func (tx TxDataMatch) GetTrades() []map[string]string {
-	return tx.Trades
-}
-
-func (tx TxDataMatch) GetRejectedOrders() []*OrderItem {
-	return tx.RejectedOders
 }
 
 type OrderHistoryItem struct {
