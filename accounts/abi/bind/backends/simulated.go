@@ -201,7 +201,7 @@ func (b *SimulatedBackend) CallContract(ctx context.Context, call ethereum.CallM
 	return rval, err
 }
 
-
+//FIXME: please use copyState for this function because this set fake balance at accounts/abi/bind/backends/simulated.go:217 to query contract data
 // CallContractWithState executes a contract call at the given state.
 func (b *SimulatedBackend) CallContractWithState(ctx context.Context, call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
 	// Ensure message is initialized properly.
@@ -214,6 +214,9 @@ func (b *SimulatedBackend) CallContractWithState(ctx context.Context, call ether
 	if call.Value == nil {
 		call.Value = new(big.Int)
 	}
+	// Set fake balance to the fake caller account.
+	from := statedb.GetOrNewStateObject(call.From)
+	from.SetBalance(big.NewInt(4000000))
 	// Execute the call.
 	msg := callmsg{call}
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
