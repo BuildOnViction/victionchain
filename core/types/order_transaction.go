@@ -41,6 +41,8 @@ const (
 	OrderStatusPartialFilled = "PARTIAL_FILLED"
 	OrderStatusFilled        = "FILLED"
 	OrderStatusCancelled     = "CANCELLED"
+	OrderTypeMo              = "MO"
+	OrderTypeLo              = "LO"
 )
 
 // OrderTransaction order transaction
@@ -77,6 +79,22 @@ type ordertxdata struct {
 // IsCancelledOrder check if tx is cancelled transaction
 func (tx *OrderTransaction) IsCancelledOrder() bool {
 	if tx.Status() == OrderStatusCancelled {
+		return true
+	}
+	return false
+}
+
+// IsMoTypeOrder check if tx type is MO Order
+func (tx *OrderTransaction) IsMoTypeOrder() bool {
+	if tx.Type() == OrderTypeMo {
+		return true
+	}
+	return false
+}
+
+// IsLoTypeOrder check if tx type is LO Order
+func (tx *OrderTransaction) IsLoTypeOrder() bool {
+	if tx.Type() == OrderTypeLo {
 		return true
 	}
 	return false
