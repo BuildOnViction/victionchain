@@ -446,25 +446,29 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		if err := tomox_state.VerifyPair(cloneStateDb, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
 			return err
 		}
-		posvEngine, ok := pool.chain.Engine().(*posv.Posv)
-		if !ok {
-			return ErrNotPoSV
+
+		if orderType == OrderTypeLimit {
+			posvEngine, ok := pool.chain.Engine().(*posv.Posv)
+			if !ok {
+				return ErrNotPoSV
+			}
+			tomoXServ := posvEngine.GetTomoXService()
+			if tomoXServ == nil {
+				return fmt.Errorf("tomox not found in order validation")
+			}
+			baseDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.BaseToken())
+			if err != nil {
+				return fmt.Errorf("validateOrder: failed to get baseDecimal. err: %v", err)
+			}
+			quoteDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.QuoteToken())
+			if err != nil {
+				return fmt.Errorf("validateOrder: failed to get quoteDecimal. err: %v", err)
+			}
+			if err := tomox_state.VerifyBalance(cloneStateDb, cloneTomoXStateDb, tx, baseDecimal, quoteDecimal); err != nil {
+				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. PairName: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.PairName(), err)
+			}
 		}
-		tomoXServ := posvEngine.GetTomoXService()
-		if tomoXServ == nil {
-			return fmt.Errorf("tomox not found in order validation")
-		}
-		baseDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.BaseToken())
-		if err != nil {
-			return fmt.Errorf("validateOrder: failed to get baseDecimal. err: %v", err)
-		}
-		quoteDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.QuoteToken())
-		if err != nil {
-			return fmt.Errorf("validateOrder: failed to get quoteDecimal. err: %v", err)
-		}
-		if err := tomox_state.VerifyBalance(cloneStateDb, cloneTomoXStateDb, tx, baseDecimal, quoteDecimal); err != nil {
-			return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. PairName: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.PairName(), err)
-		}
+
 	}
 
 	if orderStatus != OrderStatusNew && orderStatus != OrderStatusCancle {

@@ -262,8 +262,8 @@ func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) e
 	if stateOrderItem == nil || stateOrderItem.empty() {
 		return fmt.Errorf("Order item empty  order book : %s , order id  : %s , price  : %s ", orderBook, orderIdHash.Hex(), priceHash.Hex())
 	}
-	if stateOrderItem.data.Hash != order.Hash {
-		return fmt.Errorf("Error Order Hash mismatch when cancel order book : %s , order id  : %s , got : %s , expect : %s ", orderBook, orderIdHash.Hex(), stateOrderItem.data.Hash.Hex(), order.Hash.Hex())
+	if stateOrderItem.data.UserAddress != order.UserAddress {
+		return fmt.Errorf("Error Order User Address mismatch when cancel order book : %s , order id  : %s , got : %s , expect : %s ", orderBook, orderIdHash.Hex(), stateOrderItem.data.UserAddress.Hex(), order.UserAddress.Hex())
 	}
 	self.journal = append(self.journal, cancelOrder{
 		orderBook: orderBook,
