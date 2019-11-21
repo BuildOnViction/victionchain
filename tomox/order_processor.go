@@ -48,11 +48,13 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
-	if order.Price.Sign() == 0 || common.BigToHash(order.Price).Big().Cmp(order.Price) != 0 {
-		log.Debug("Reject order price invalid", "price", order.Price)
-		rejects = append(rejects, order)
-		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
-		return trades, rejects, nil
+	if order.Type != tomox_state.Market {
+		if order.Price.Sign() == 0 || common.BigToHash(order.Price).Big().Cmp(order.Price) != 0 {
+			log.Debug("Reject order price invalid", "price", order.Price)
+			rejects = append(rejects, order)
+			tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+			return trades, rejects, nil
+		}
 	}
 	if order.Quantity.Sign() == 0 || common.BigToHash(order.Quantity).Big().Cmp(order.Quantity) != 0 {
 		log.Debug("Reject order quantity invalid", "quantity", order.Quantity)
