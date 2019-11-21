@@ -122,7 +122,7 @@ contract RelayerRegistration {
 
 
     function update(address coinbase, uint16 tradeFee, address[] memory fromTokens, address[] memory toTokens) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
-        require(tradeFee >= 1 && tradeFee < 10000, "Invalid Maker Fee");
+        require(tradeFee >= 1 && tradeFee < 1000, "Invalid Maker Fee");
         require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
         require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
 
