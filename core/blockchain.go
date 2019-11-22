@@ -2287,20 +2287,20 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			}
 
 			// getTrades from cache
-			resultTrades, ok := bc.resultTrade.Get(takerOrderInTx.Hash)
+			resultTrades, ok := bc.resultTrade.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 			if ok && resultTrades != nil {
 				trades = resultTrades.([]map[string]string)
 			}
 			// remove from cache
-			bc.resultTrade.Remove(takerOrderInTx.Hash)
+			bc.resultTrade.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 
 			// getRejectedOrder from cache
-			rejected, ok := bc.rejectedOrders.Get(takerOrderInTx.Hash)
+			rejected, ok := bc.rejectedOrders.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 			if ok && rejected != nil {
 				rejectedOrders = rejected.([]*tomox_state.OrderItem)
 			}
 			// remove from cache
-			bc.rejectedOrders.Remove(takerOrderInTx.Hash)
+			bc.rejectedOrders.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 
 			// the smallest time unit in mongodb is millisecond
 			// hence, we should update time in millisecond
@@ -2343,9 +2343,9 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	}
 }
 
-func (bc *BlockChain) AddMatchingResult(matchingResults map[common.Hash]tomox_state.MatchingResult) {
+func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]tomox_state.MatchingResult) {
 	for hash, result := range matchingResults {
-		bc.resultTrade.Add(hash, result.Trades)
-		bc.rejectedOrders.Add(hash, result.Rejects)
+		bc.resultTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
+		bc.rejectedOrders.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
 	}
 }

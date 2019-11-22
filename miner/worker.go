@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/tomochain/tomochain/accounts"
 
 	"math/big"
 	"os"
@@ -30,7 +31,6 @@ import (
 	"github.com/tomochain/tomochain/tomox/tomox_state"
 
 	mapset "github.com/deckarep/golang-set"
-	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/misc"
@@ -626,6 +626,11 @@ func (self *worker) commitNewWork() {
 		txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity)
 	}
 	if atomic.LoadInt32(&self.mining) == 1 {
+		wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})
+		if err != nil {
+			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
+			return
+		}
 		if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 && self.chain.Config().IsTIPTomoX(header.Number) {
 			tomoX := self.eth.GetTomoX()
 			if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
@@ -634,45 +639,41 @@ func (self *worker) commitNewWork() {
 				log.Debug("Start processing order pending", "len", len(orderPending))
 				txMatches, matchingResults = tomoX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.tomoxState)
 				log.Debug("transaction matches found", "txMatches", len(txMatches))
-				if tomoX.IsSDKNode() {
-					self.chain.AddMatchingResult(matchingResults)
+			}
+			txMatchBatch := &tomox_state.TxMatchBatch{
+				Data:      txMatches,
+				Timestamp: time.Now().UnixNano(),
+				TxHash:    common.Hash{},
+			}
+			txMatchBytes, err := tomox_state.EncodeTxMatchesBatch(*txMatchBatch)
+			if err != nil {
+				log.Error("Fail to marshal txMatch", "error", err)
+				return
+			}
+			nonce := work.state.GetNonce(self.coinbase)
+			tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
+			txM, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
+			if err != nil {
+				log.Error("Fail to create tx matches", "error", err)
+				return
+			} else {
+				matchingTransaction = txM
+				if tomoX != nil && tomoX.IsSDKNode() {
+					self.chain.AddMatchingResult(matchingTransaction.Hash(), matchingResults)
 				}
 			}
+			// force adding matching transaction to this block
+			specialTxs = append(specialTxs, matchingTransaction)
 		}
 		TomoxStateRoot := work.tomoxState.IntermediateRoot()
-		txMatchBatch := &tomox_state.TxMatchBatch{
-			Data:      txMatches,
-			Timestamp: time.Now().UnixNano(),
-			TxHash:    common.Hash{},
-		}
-		wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})
-		if err != nil {
-			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
-			return
-		}
-		txMatchBytes, err := tomox_state.EncodeTxMatchesBatch(*txMatchBatch)
-		if err != nil {
-			log.Error("Fail to marshal txMatch", "error", err)
-			return
-		}
-		nonce := work.state.GetNonce(self.coinbase)
-		tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
-		txM, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
-		if err != nil {
-			log.Error("Fail to create tx matches", "error", err)
-			return
-		} else {
-			matchingTransaction = txM
-		}
-		tx = types.NewTransaction(nonce, common.HexToAddress(common.TomoXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), TomoxStateRoot.Bytes())
+		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TomoXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), TomoxStateRoot.Bytes())
 		txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
 		if err != nil {
 			log.Error("Fail to create tx state root", "error", err)
 			return
 		}
-		// force adding matching transaction to this block
-		specialTxs = append(specialTxs, matchingTransaction)
 		specialTxs = append(specialTxs, txStateRoot)
+
 	}
 	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
 	// compute uncles for the new block.
