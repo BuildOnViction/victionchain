@@ -1,9 +1,9 @@
-# Tomochain
+# TomoChain
 
 [![Build Status](https://travis-ci.org/tomochain/tomochain.svg?branch=master)](https://travis-ci.org/tomochain/tomochain)
 [![Join the chat at https://gitter.im/tomochain/tomochain](https://badges.gitter.im/tomochain/tomochain.svg)](https://gitter.im/tomochain/tomochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-## About Tomochain
+## About TomoChain
 
 TomoChain is an innovative solution to the scalability problem with the Ethereum blockchain.
 Our mission is to be a leading force in building the Internet of Value, and its infrastructure.
@@ -38,7 +38,7 @@ $ make tomo
 
 Alternatively, you could quickly download our pre-complied binary from our [github release page](https://github.com/tomochain/tomochain/releases)
 
-## Running tomo
+## Running `tomo`
 
 ### Running a tomo masternode
 
@@ -58,67 +58,61 @@ $ tomo attach https://testnet.tomochain.com
 
 This will open the JavaScript console and let you query the blockchain directly via RPC.
 
-### Running tomo locally
+### Running `tomo` locally
 
 #### Download genesis block
 $GENESIS_PATH : location of genesis file you would like to put
 ```bash
-    export GENESIS_PATH=path/to/genesis.json
+export GENESIS_PATH=path/to/genesis.json
 ```
-   - Testnet
-   ```bash
-        curl -L https://raw.githubusercontent.com/tomochain/tomochain/master/genesis/testnet.json -o $GENESIS_PATH
-   ```
+- Testnet
+```bash
+curl -L https://raw.githubusercontent.com/tomochain/tomochain/master/genesis/testnet.json -o $GENESIS_PATH
+```
 
-   - Mainnet
-   ```bash
-        curl -L https://raw.githubusercontent.com/tomochain/tomochain/master/genesis/mainnet.json -o $GENESIS_PATH
-   ```
+- Mainnet
+```bash
+curl -L https://raw.githubusercontent.com/tomochain/tomochain/master/genesis/mainnet.json -o $GENESIS_PATH
+```
 
 #### Create datadir
-   - create a folder to store tomochain data on your machine
+- create a folder to store tomochain data on your machine
 
-   ```bash
-        export DATA_DIR=/path/to/your/data/folder
-        
-        mkdir -p $DATA_DIR/tomo
-   ```
+```bash
+export DATA_DIR=/path/to/your/data/folder 
+mkdir -p $DATA_DIR/tomo
+```
 #### Initialize the chain from genesis
 
 ```bash
-    tomo init $GENESIS_PATH --datadir $DATA_DIR
+tomo init $GENESIS_PATH --datadir $DATA_DIR
 ```
 
 #### Initialize / Import accounts for the nodes's keystore
 If you already had an existing account, import it. Otherwise, please initialize new accounts 
 
 ```bash
-    export KEYSTORE_DIR=path/to/keystore
+export KEYSTORE_DIR=path/to/keystore
 ```
 
 ##### Initialize new accounts
-   ```bash
-        
-        tomo account new \
-        
-          --password [YOUR_PASSWORD_FILE_TO_LOCK_YOUR_ACCOUNT] \
-        
-          --keystore $KEYSTORE_DIR
-   ```
+```bash
+tomo account new \
+  --password [YOUR_PASSWORD_FILE_TO_LOCK_YOUR_ACCOUNT] \
+  --keystore $KEYSTORE_DIR
+```
     
 ##### Import accounts
-   ```bash
-        tomo  account import [PRIVATE_KEY_FILE_OF_YOUR_ACCOUNT] \
-    
-        --keystore $KEYSTORE_DIR \
-    
-        --password [YOUR_PASSWORD_FILE_TO_LOCK_YOUR_ACCOUNT]
-   ```
+```bash
+tomo  account import [PRIVATE_KEY_FILE_OF_YOUR_ACCOUNT] \
+     --keystore $KEYSTORE_DIR \
+     --password [YOUR_PASSWORD_FILE_TO_LOCK_YOUR_ACCOUNT]
+```
 
 ##### List all available accounts in keystore folder
 
 ```bash
-    tomo account list --datadir ./  --keystore $KEYSTORE_DIR
+tomo account list --datadir ./  --keystore $KEYSTORE_DIR
 ```
 
 #### Start a node
@@ -134,88 +128,51 @@ If you already had an existing account, import it. Otherwise, please initialize 
     
 ##### Let's start a node
 ```bash
-    tomo  --syncmode "full" \
-        
-        --datadir $DATA_DIR --networkid $NETWORK_ID --port 30303 \
-        
-        --keystore $KEYSTORE_DIR --password $PASSWORD \
-        
-        --rpc --rpccorsdomain "*" --rpcaddr 0.0.0.0 --rpcport 8545 --rpcvhosts "*" \
-        
-        --rpcapi "db,eth,net,web3,personal,debug" \
-        
-        --gcmode "archive" \
-        
-        --ws --wsaddr 0.0.0.0 --wsport 8546 --wsorigins "*" --unlock "$YOUR_COINBASE_ADDRESS" \
-        
-        --identity $IDENTITY \
-        
-        --mine --gasprice 2500 \
-        
-        --bootnodes $BOOTNODES \
-        
-        --ethstats $IDENTITY:$WS_SECRET@$NETSTATS_HOST:$NETSTATS_PORT
-        
-        console
+tomo  --syncmode "full" \    
+    --datadir $DATA_DIR --networkid $NETWORK_ID --port 30303 \   
+    --keystore $KEYSTORE_DIR --password $PASSWORD \    
+    --rpc --rpccorsdomain "*" --rpcaddr 0.0.0.0 --rpcport 8545 --rpcvhosts "*" \   
+    --rpcapi "db,eth,net,web3,personal,debug" \    
+    --gcmode "archive" \   
+    --ws --wsaddr 0.0.0.0 --wsport 8546 --wsorigins "*" --unlock "$YOUR_COINBASE_ADDRESS" \   
+    --identity $IDENTITY \  
+    --mine --gasprice 2500 \  
+    --bootnodes $BOOTNODES \   
+    --ethstats $IDENTITY:$WS_SECRET@$NETSTATS_HOST:$NETSTATS_PORT 
+    console
 ```
 
 
-##### Some explanations on the flags
-   
+##### Some explanations on the flags   
 ```
-           --verbosity: log level from 1 to 5. Here we're using 4 for debug messages
-           
-           --datadir: path to your data directory created above.
-           
-           --keystore: path to your account's keystore created above.
-           
-           --identity: your full-node's name.
-           
-           --password: your account's password.
-           
-           --networkid: our network ID.
-           
-           --tomo-testnet: required when the networkid is testnet(89).
-           
-           --port: your full-node's listening port (default to 30303)
-           
-           --rpc, --rpccorsdomain, --rpcaddr, --rpcport, --rpcvhosts: your full-node will accept RPC requests at 8545 TCP.
-           
-           --ws, --wsaddr, --wsport, --wsorigins: your full-node will accept Websocket requests at 8546 TCP.
-           
-           --mine: your full-node wants to register to be a candidate for masternode selection.
-           
-           --gasprice: Minimal gas price to accept for mining a transaction.
-           
-           --targetgaslimit: Target gas limit sets the artificial target gas floor for the blocks to mine (default: 4712388)
-           
-           --bootnode: bootnode information to help to discover other nodes in the network
-           
-           --gcmode: blockchain garbage collection mode ("full", "archive")
-           
-           --synmode: blockchain sync mode ("fast", "full", or "light". More detail: https://github.com/tomochain/tomochain/blob/master/eth/downloader/modes.go#L24)
-           
-           --ethstats: send data to stats website
+--verbosity: log level from 1 to 5. Here we're using 4 for debug messages
+--datadir: path to your data directory created above.
+--keystore: path to your account's keystore created above.
+--identity: your full-node's name.
+--password: your account's password.
+--networkid: our network ID.
+--tomo-testnet: required when the networkid is testnet(89).
+--port: your full-node's listening port (default to 30303)
+--rpc, --rpccorsdomain, --rpcaddr, --rpcport, --rpcvhosts: your full-node will accept RPC requests at 8545 TCP.
+--ws, --wsaddr, --wsport, --wsorigins: your full-node will accept Websocket requests at 8546 TCP.
+--mine: your full-node wants to register to be a candidate for masternode selection.
+--gasprice: Minimal gas price to accept for mining a transaction.
+--targetgaslimit: Target gas limit sets the artificial target gas floor for the blocks to mine (default: 4712388)
+--bootnode: bootnode information to help to discover other nodes in the network
+--gcmode: blockchain garbage collection mode ("full", "archive")
+--synmode: blockchain sync mode ("fast", "full", or "light". More detail: https://github.com/tomochain/tomochain/blob/master/eth/downloader/modes.go#L24)           
+--ethstats: send data to stats website
 ```
-   To see all flags usage
+To see all flags usage
    
 ```bash
-      tomo --help
+tomo --help
 ```
 
 #### See your node on stats page
    - Testnet: https://stats.testnet.tomochain.com
    - Mainnet: http://stats.tomochain.com
 
-
-## Road map
-
-The implementation of the following features is being studied by our research team:
-
-- Layer 2 scalability with state sharding
-- DEX integration
-- Spam filtering
-- Multi-chain interoperabilty
 
 ## Contributing and technical discussion
 
