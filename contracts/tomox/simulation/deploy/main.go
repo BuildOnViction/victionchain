@@ -106,6 +106,14 @@ func main() {
 	fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
 	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
 
+	// BTC/USD
+	fromTokens = append(fromTokens, tokenList[0]["address"].(common.Address))
+	toTokens = append(toTokens, tokenList[9]["address"].(common.Address))
+
+	// ETH/USD
+	fromTokens = append(fromTokens, tokenList[1]["address"].(common.Address))
+	toTokens = append(toTokens, tokenList[9]["address"].(common.Address))
+
 	_, err = relayerRegistration.Register(simulation.RelayerCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
 	if err != nil {
 		log.Fatal("relayerRegistration Register ", err)
