@@ -620,9 +620,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	balance := pool.currentState.GetBalance(from)
 	cost := tx.Cost()
 	minGasPrice := common.MinGasPrice
+	feeCapacity := big.NewInt(0)
+
 	if tx.To() != nil {
 		if value, ok := pool.trc21FeeCapacity[*tx.To()]; ok {
-			balance = value
+			feeCapacity = value
 			if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
 				return ErrInsufficientFunds
 			}
@@ -630,7 +632,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 			minGasPrice = common.TRC21GasPrice
 		}
 	}
-	if balance.Cmp(cost) < 0 {
+	if balance.Add(balance, feeCapacity).Cmp(cost) < 0 {
 		return ErrInsufficientFunds
 	}
 
