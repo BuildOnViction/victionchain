@@ -107,7 +107,7 @@ func CheckRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateD
 	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, RelayerStructMappingSlot["_deposit"])
 	locHashDeposit := common.BigToHash(locBigDeposit)
 	balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
-	if balance.Cmp(fee) < 0 {
+	if new(big.Int).Sub(balance,fee).Cmp(new(big.Int).Mul(common.BasePrice, common.RelayerLockedFund)) < 0 {
 		return errors.Errorf("relayer %s isn't enough tomo fee : balance %d , fee : %d ", relayer.Hex(), balance.Uint64(), fee.Uint64())
 	}
 	return nil
