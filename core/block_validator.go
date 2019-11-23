@@ -138,7 +138,7 @@ func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStat
 		}
 	}
 	if tomoXService.IsSDKNode() {
-		v.bc.AddMatchingResult(matchingResult)
+		v.bc.AddMatchingResult(txMatchBatch.TxHash, matchingResult)
 	}
 	return nil
 }
