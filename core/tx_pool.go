@@ -632,7 +632,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 			minGasPrice = common.TRC21GasPrice
 		}
 	}
-	if balance.Add(balance, feeCapacity).Cmp(cost) < 0 {
+	if new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
 		return ErrInsufficientFunds
 	}
 
