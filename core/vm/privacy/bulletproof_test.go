@@ -334,12 +334,18 @@ func TestMRPProve(t *testing.T) {
 	fmt.Printf("Multiple range proof gen and verify ")
 	EC = genECPrimeGroupKey(64)
 	mRangeProof := MRPProve([]*big.Int{
-		new(big.Int).SetInt64(0x5000000000),
+		new(big.Int).SetInt64(0x50000),
 	})
 	// fmt.Printf("Value is : %s %s\n", 0x9999999999, 0x9999999999)
-	fmt.Printf("%+v\n", mRangeProof)
+	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
 	mv := MRPVerify(mRangeProof)
 	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
+
+	if mv {
+		fmt.Println("MRProof correct")
+	} else {
+		t.Error("MRProof incorrect")
+	}
 }
 
 type Point struct {
@@ -387,7 +393,8 @@ func parseTestData(filePath string) MultiRangeProof {
 
 	json.Unmarshal([]byte(byteValue), &result)
 
-	fmt.Println("result ", result)
+	fmt.Println("result ", result.Tau)
+	fmt.Println("result ", result.Th)
 	fmt.Println("result.Ipp ", result.Ipp)
 
 	ipp := result.Ipp
@@ -399,6 +406,8 @@ func parseTestData(filePath string) MultiRangeProof {
 		T1:    ECPointFromHex(result.T1),
 		T2:    ECPointFromHex(result.T2),
 		Th:    bigIFromHex(result.Th),
+		Tau:   bigIFromHex(result.Tau),
+		Mu:    bigIFromHex(result.Mu),
 		Cx:    bigIFromHex(result.Cx),
 		Cy:    bigIFromHex(result.Cy),
 		Cz:    bigIFromHex(result.Cz),
@@ -446,7 +455,7 @@ func MapECPoint(list []map[string]string, f func(Point) ECPoint) []ECPoint {
 }
 
 func bigIFromHex(hex string) *big.Int {
-	tmp, _ := new(big.Int).SetString("54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798", 16)
+	tmp, _ := new(big.Int).SetString(hex, 16)
 	return tmp
 }
 
@@ -466,12 +475,13 @@ func ECPointFromPoint(ecpoint Point) ECPoint {
 
 func TestMRPProveFromJS(t *testing.T) {
 	mRangeProof := parseTestData("./bulletproof.json")
-	fmt.Printf("%+v\n", mRangeProof)
+	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
 	mv := MRPVerify(mRangeProof)
 	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
 
 	if mv {
-
+		fmt.Println("MRProof synced JS correct")
+	} else {
+		t.Error("MRProof synced JS incorrect")
 	}
-
 }

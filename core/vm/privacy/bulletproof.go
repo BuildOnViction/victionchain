@@ -268,13 +268,6 @@ Proves that <a,b>=c
 This is a building block for BulletProofs
 */
 func InnerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []*big.Int, u ECPoint, P ECPoint) InnerProdArg {
-
-	// fmt.Println("Pprime ", P)
-	// fmt.Println("U  ", u)
-	// fmt.Println("G  ", G)
-	// fmt.Println("H  ", H)
-
-	//fmt.Printf("Proof so far: %s\n", proof)
 	if len(a) == 1 {
 		// Prover sends a & b
 		proof.A = a[0]
@@ -285,8 +278,6 @@ func InnerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []
 	curIt := int(math.Log2(float64(len(a)))) - 1
 
 	nprime := len(a) / 2
-	//fmt.Println(nprime)
-	//fmt.Println(len(H))
 	cl := InnerProduct(a[:nprime], b[nprime:]) // either this line
 	cr := InnerProduct(a[nprime:], b[:nprime]) // or this line
 	L := TwoVectorPCommitWithGens(G[nprime:], H[:nprime], a[:nprime], b[nprime:]).Add(u.Mult(cl))
@@ -749,7 +740,7 @@ type MultiRangeProof struct {
 }
 
 func pedersenCommitment(gamma *big.Int, value *big.Int) ECPoint {
-	return EC.G.Mult(gamma).Add(EC.H.Mult(value))
+	return EC.G.Mult(value).Add(EC.H.Mult(gamma))
 }
 
 /*
@@ -835,6 +826,8 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 
 	S := TwoVectorPCommitWithGens(EC.BPG, EC.BPH, sL, sR).Add(EC.H.Mult(rho))
 	MRPResult.S = S
+
+	fmt.Println("A ", A)
 
 	input := append(PadTo32Bytes(A.X.Bytes()), PadTo32Bytes(A.Y.Bytes())...)
 	chal1s256 := crypto.Keccak256(input)
@@ -967,21 +960,46 @@ func MRPVerify(mrp MultiRangeProof) bool {
 	// check 1 changes since it includes all commitments
 	// check 2 commitment generation is also different
 
+	fmt.Println("A ", mrp.A)
+
 	// verify the challenges
-	chal1s256 := sha256.Sum256([]byte(mrp.A.X.String() + mrp.A.Y.String()))
+	input := append(PadTo32Bytes(mrp.A.X.Bytes()), PadTo32Bytes(mrp.A.Y.Bytes())...)
+	chal1s256 := crypto.Keccak256(input)
+
+	fmt.Println("input ", input)
+	fmt.Println("chal1s256 ", chal1s256)
+
 	cy := new(big.Int).SetBytes(chal1s256[:])
+
+	fmt.Println("cy ", cy)
+	fmt.Println("mrp.Cy ", mrp.Cy)
+
 	if cy.Cmp(mrp.Cy) != 0 {
 		fmt.Println("MRPVerify - Challenge Cy failing!")
 		return false
 	}
-	chal2s256 := sha256.Sum256([]byte(mrp.S.X.String() + mrp.S.Y.String()))
+
+	input = append(PadTo32Bytes(mrp.S.X.Bytes()), PadTo32Bytes(mrp.S.Y.Bytes())...)
+	chal2s256 := crypto.Keccak256(input)
+
+	// chal2s256 := sha256.Sum256([]byte(mrp.S.X.String() + mrp.S.Y.String()))
 	cz := new(big.Int).SetBytes(chal2s256[:])
 	if cz.Cmp(mrp.Cz) != 0 {
 		fmt.Println("MRPVerify - Challenge Cz failing!")
 		return false
 	}
-	chal3s256 := sha256.Sum256([]byte(mrp.T1.X.String() + mrp.T1.Y.String() + mrp.T2.X.String() + mrp.T2.Y.String()))
+
+	t1Byte := append(PadTo32Bytes(mrp.T1.X.Bytes()), PadTo32Bytes(mrp.T1.Y.Bytes())...)
+	t2Byte := append(PadTo32Bytes(mrp.T2.X.Bytes()), PadTo32Bytes(mrp.T2.Y.Bytes())...)
+	input = append(t1Byte, t2Byte...)
+	chal3s256 := crypto.Keccak256(input)
+
+	// chal3s256 := sha256.Sum256([]byte(T1.X.String() + T1.Y.String() + T2.X.String() + T2.Y.String()))
+	// cx := new(big.Int).SetBytes(chal3s256[:])
+	//chal3s256 := sha256.Sum256([]byte(mrp.T1.X.String() + mrp.T1.Y.String() + mrp.T2.X.String() + mrp.T2.Y.String()))
+
 	cx := new(big.Int).SetBytes(chal3s256[:])
+
 	if cx.Cmp(mrp.Cx) != 0 {
 		fmt.Println("RPVerify - Challenge Cx failing!")
 		return false
@@ -992,6 +1010,8 @@ func MRPVerify(mrp MultiRangeProof) bool {
 
 	// t_hat * G + tau * H
 	lhs := pedersenCommitment(mrp.Tau, mrp.Th) //EC.G.Mult(mrp.Th).Add(EC.H.Mult(mrp.Tau))
+
+	fmt.Println("lhs ", lhs)
 
 	// z^2 * \bold{z}^m \bold{V} + delta(y,z) * G + x * T1 + x^2 * T2
 	CommPowers := EC.Zero()
