@@ -174,9 +174,6 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 		// PutObject order into ordersCollection collection
 		// Store the key
 		o := val.(*tomox_state.OrderItem)
-		if len(o.Key) == 0 {
-			o.Key = cacheKey
-		}
 		if err := db.CommitOrder(o); err != nil {
 			log.Error(err.Error())
 			return err
