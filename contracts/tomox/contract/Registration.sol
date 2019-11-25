@@ -7,6 +7,7 @@ contract RelayerRegistration {
     address public CONTRACT_OWNER;
     uint public MaximumRelayers;
     uint public MaximumTokenList;
+    address constant private tomoNative = 0x0000000000000000000000000000000000000001;
 
     /// @dev Data types
     struct Relayer {
@@ -92,7 +93,6 @@ contract RelayerRegistration {
                          MinimumDeposit);
     }
 
-
     /// @dev State-Alter Methods
     function register(address coinbase, uint16 tradeFee, address[] memory fromTokens, address[] memory toTokens) public payable {
         require(msg.sender != CONTRACT_OWNER, "Contract Owner is forbidden to create a Relayer");
@@ -106,6 +106,9 @@ contract RelayerRegistration {
 
         require(RELAYER_LIST[coinbase]._deposit == 0, "Coinbase already registered.");
         require(RelayerCount < MaximumRelayers, "Maximum relayers registered");
+
+        // check valid tokens, token must pair with tomo(x/TOMO)
+        require(validateTokens(fromTokens, toTokens) == true, "Invalid quote tokens");
 
         /// @notice Do we need to check the duplication of Token trade-pairs?
         Relayer memory relayer = Relayer(msg.value, tradeFee, fromTokens, toTokens, RelayerCount, msg.sender);
@@ -126,6 +129,8 @@ contract RelayerRegistration {
         require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
         require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
 
+        require(validateTokens(fromTokens, toTokens) == true, "Invalid quote tokens");
+
         RELAYER_LIST[coinbase]._tradeFee = tradeFee;
         RELAYER_LIST[coinbase]._fromTokens = fromTokens;
         RELAYER_LIST[coinbase]._toTokens = toTokens;
@@ -135,7 +140,6 @@ contract RelayerRegistration {
                          RELAYER_LIST[coinbase]._fromTokens,
                          RELAYER_LIST[coinbase]._toTokens);
     }
-
 
     function transfer(address coinbase, address new_owner) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
         require(new_owner != address(0) && new_owner != msg.sender);
@@ -239,4 +243,57 @@ contract RelayerRegistration {
                 RELAYER_LIST[coinbase]._toTokens);
     }
 
+    function indexOf(address[] tomoPair, address target) private pure returns (bool){
+        for (uint i = 0; i < tomoPair.length; i ++) {
+            if (tomoPair[i] == target) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function getTomoPairLength(address[] array) private pure returns (uint) {
+        uint count = 0;
+        for (uint i = 0; i < array.length; i++) {
+            if (array[i] == tomoNative) {
+                count++;
+            }
+        }
+        return count;
+    }
+    function getNonTomoPairLength(address[] array) private pure returns(uint) {
+        uint count = 0;
+        for (uint i = 0; i < array.length; i++) {
+            if (array[i] != tomoNative) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+     // check valid tokens
+    function validateTokens(address[] fromTokens, address[] toTokens) private pure returns(bool) {
+        uint countPair = 0;
+        uint countNonPair = 0;
+
+        address[] memory tomoPairs = new address[](getTomoPairLength(toTokens));
+        address[] memory nonTomoPairs = new address[](getNonTomoPairLength(toTokens));
+
+        for (uint i = 0; i < toTokens.length; i++) {
+            if (toTokens[i] == tomoNative) {
+                tomoPairs[countPair] = fromTokens[i];
+                countPair++;
+            } else {
+                nonTomoPairs[countNonPair] = toTokens[i];
+                countNonPair++;
+            }
+        }
+
+        for (uint j = 0; j < nonTomoPairs.length; j++) {
+            if (!indexOf(tomoPairs, nonTomoPairs[j])) {
+                return false;
+            }
+        }
+        return true;
+    }
 }
