@@ -1,8 +1,11 @@
 package privacy
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -329,7 +332,7 @@ func TestInnerProductVerifyFastLen64Rand(t *testing.T) {
 
 func TestMRPProve(t *testing.T) {
 	fmt.Printf("Multiple range proof gen and verify ")
-	EC = NewECPrimeGroupKey(64)
+	EC = genECPrimeGroupKey(64)
 	mRangeProof := MRPProve([]*big.Int{
 		new(big.Int).SetInt64(0x5000000000),
 	})
@@ -337,5 +340,138 @@ func TestMRPProve(t *testing.T) {
 	fmt.Printf("%+v\n", mRangeProof)
 	mv := MRPVerify(mRangeProof)
 	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
+}
+
+type Point struct {
+	x string
+	y string
+}
+
+type IPP struct {
+	L          []map[string]string `json:"L"`
+	R          []map[string]string `json:"R"`
+	A          string              `json:"A"`
+	B          string              `json:"B"`
+	Challenges []string            `json:"Challenges"`
+}
+
+type BulletProof struct {
+	Comms []string `json:"Comms"`
+	A     string   `json:"A"`
+	S     string   `json:"S"`
+	Cx    string   `json:"Cx"`
+	Cy    string   `json:"Cy"`
+	Cz    string   `json:"Cz"`
+	T1    string   `json:"T1"`
+	T2    string   `json:"T2"`
+	Th    string   `json:"Th"`
+	Tau   string   `json:"Tau"`
+	Mu    string   `json:"Mu"`
+	Ipp   IPP      `json:"Ipp"`
+}
+
+func parseTestData(filePath string) MultiRangeProof {
+	jsonFile, err := os.Open(filePath)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer jsonFile.Close()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	// we initialize our Users array
+	// var result map[string]interface{}
+	result := BulletProof{}
+
+	json.Unmarshal([]byte(byteValue), &result)
+
+	fmt.Println("result ", result)
+	fmt.Println("result.Ipp ", result.Ipp)
+
+	ipp := result.Ipp
+
+	proof := MultiRangeProof{
+		Comms: MapECPointFromHex(result.Comms, ECPointFromHex),
+		A:     ECPointFromHex(result.A),
+		S:     ECPointFromHex(result.S),
+		T1:    ECPointFromHex(result.T1),
+		T2:    ECPointFromHex(result.T2),
+		Th:    bigIFromHex(result.Th),
+		Cx:    bigIFromHex(result.Cx),
+		Cy:    bigIFromHex(result.Cy),
+		Cz:    bigIFromHex(result.Cz),
+		IPP: InnerProdArg{
+			L:          MapECPoint(ipp.L, ECPointFromPoint),
+			R:          MapECPoint(ipp.R, ECPointFromPoint),
+			A:          bigIFromHex(ipp.A),
+			B:          bigIFromHex(ipp.B),
+			Challenges: MapBigI(ipp.Challenges, bigIFromHex),
+		},
+	}
+
+	fmt.Println(proof)
+	return proof
+}
+
+func MapBigI(list []string, f func(string) *big.Int) []*big.Int {
+	result := make([]*big.Int, len(list))
+
+	for i, item := range list {
+		result[i] = f(item)
+	}
+	return result
+}
+
+func MapECPointFromHex(list []string, f func(string) ECPoint) []ECPoint {
+	result := make([]ECPoint, len(list))
+
+	for i, item := range list {
+		result[i] = f(item)
+	}
+	return result
+}
+
+func MapECPoint(list []map[string]string, f func(Point) ECPoint) []ECPoint {
+	result := make([]ECPoint, len(list))
+
+	for i, item := range list {
+		result[i] = f(Point{
+			x: item["x"],
+			y: item["y"],
+		})
+	}
+	return result
+}
+
+func bigIFromHex(hex string) *big.Int {
+	tmp, _ := new(big.Int).SetString("54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798", 16)
+	return tmp
+}
+
+func ECPointFromHex(hex string) ECPoint {
+	Px, _ := new(big.Int).SetString(hex[:64], 16)
+	Py, _ := new(big.Int).SetString(hex[64:], 16)
+	P := ECPoint{Px, Py}
+	return P
+}
+
+func ECPointFromPoint(ecpoint Point) ECPoint {
+	Px, _ := new(big.Int).SetString(ecpoint.x, 16)
+	Py, _ := new(big.Int).SetString(ecpoint.y, 16)
+	P := ECPoint{Px, Py}
+	return P
+}
+
+func TestMRPProveFromJS(t *testing.T) {
+	mRangeProof := parseTestData("./bulletproof.json")
+	fmt.Printf("%+v\n", mRangeProof)
+	mv := MRPVerify(mRangeProof)
+	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
+
+	if mv {
+
+	}
 
 }
