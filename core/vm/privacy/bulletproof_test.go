@@ -40,12 +40,6 @@ func genECPrimeGroupKey(n int) CryptoParams {
 		big.NewInt(int64(n + 3)),
 	)
 
-	fmt.Println("Gi ", gen1Vals)
-	fmt.Println("Hi ", gen2Vals)
-	fmt.Println("u ", u)
-	fmt.Println("cg ", cg)
-	fmt.Println("ch ", ch)
-
 	return CryptoParams{
 		btcec.S256(),
 		btcec.S256(),
@@ -331,13 +325,16 @@ func TestInnerProductVerifyFastLen64Rand(t *testing.T) {
 }
 
 func TestMRPProve(t *testing.T) {
-	fmt.Printf("Multiple range proof gen and verify ")
 	EC = genECPrimeGroupKey(64)
 	mRangeProof := MRPProve([]*big.Int{
-		new(big.Int).SetInt64(0x50000),
+		new(big.Int).SetInt64(327680),
 	})
 	// fmt.Printf("Value is : %s %s\n", 0x9999999999, 0x9999999999)
-	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
+	fmt.Printf("\n\n\n mRangeProof %+v\n\n\n", mRangeProof)
+
+	// expectedMRangeProof := parseTestData("./bulletproof.json")
+	// fmt.Printf("\n\n\n expectedMRangeProof %+v\n\n\n", expectedMRangeProof)
+
 	mv := MRPVerify(mRangeProof)
 	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
 
@@ -474,6 +471,7 @@ func ECPointFromPoint(ecpoint Point) ECPoint {
 }
 
 func TestMRPProveFromJS(t *testing.T) {
+	EC = genECPrimeGroupKey(64)
 	mRangeProof := parseTestData("./bulletproof.json")
 	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
 	mv := MRPVerify(mRangeProof)

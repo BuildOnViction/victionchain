@@ -11,7 +11,6 @@ import (
 	"strconv"
 
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
 )
 
@@ -389,8 +388,6 @@ func InnerProductVerify(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdA
 		RvalInBytes := append(PadTo32Bytes(Rval.X.Bytes()), PadTo32Bytes(Rval.Y.Bytes())...)
 		input := append(LvalInBytes, RvalInBytes...)
 		s256 := crypto.Keccak256(input)
-
-		fmt.Println("Challenge ", common.Bytes2Hex(s256))
 
 		chal2 := new(big.Int).SetBytes(s256[:])
 
@@ -772,7 +769,6 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 	aLConcat := make([]*big.Int, EC.V)
 	aRConcat := make([]*big.Int, EC.V)
 
-	fmt.Println("bitsPerValue %n ", bitsPerValue)
 	for j := range values {
 		v := values[j]
 		if v.Cmp(big.NewInt(0)) == -1 {
@@ -784,8 +780,6 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 		}
 
 		gamma, err := rand.Int(rand.Reader, EC.N)
-
-		fmt.Println("gamma ", gamma)
 
 		check(err)
 		Comms[j] = pedersenCommitment(gamma, v)
@@ -802,14 +796,7 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 	}
 
 	//compare aL, aR
-	fmt.Printf("aL %+v \n ", aLConcat)
-	fmt.Printf("aR %+v \n ", aRConcat)
-
-	fmt.Printf("BaseG length %+v \n ", len(EC.BPG))
-	fmt.Printf("BaseH length %+v \n ", len(EC.BPH))
-
 	MRPResult.Comms = Comms
-	fmt.Println("Comms ", Comms)
 
 	alpha, err := rand.Int(rand.Reader, EC.N)
 	check(err)
@@ -826,8 +813,6 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 
 	S := TwoVectorPCommitWithGens(EC.BPG, EC.BPH, sL, sR).Add(EC.H.Mult(rho))
 	MRPResult.S = S
-
-	fmt.Println("A ", A)
 
 	input := append(PadTo32Bytes(A.X.Bytes()), PadTo32Bytes(A.Y.Bytes())...)
 	chal1s256 := crypto.Keccak256(input)
@@ -960,19 +945,11 @@ func MRPVerify(mrp MultiRangeProof) bool {
 	// check 1 changes since it includes all commitments
 	// check 2 commitment generation is also different
 
-	fmt.Println("A ", mrp.A)
-
 	// verify the challenges
 	input := append(PadTo32Bytes(mrp.A.X.Bytes()), PadTo32Bytes(mrp.A.Y.Bytes())...)
 	chal1s256 := crypto.Keccak256(input)
 
-	fmt.Println("input ", input)
-	fmt.Println("chal1s256 ", chal1s256)
-
 	cy := new(big.Int).SetBytes(chal1s256[:])
-
-	fmt.Println("cy ", cy)
-	fmt.Println("mrp.Cy ", mrp.Cy)
 
 	if cy.Cmp(mrp.Cy) != 0 {
 		fmt.Println("MRPVerify - Challenge Cy failing!")
@@ -1010,8 +987,6 @@ func MRPVerify(mrp MultiRangeProof) bool {
 
 	// t_hat * G + tau * H
 	lhs := pedersenCommitment(mrp.Tau, mrp.Th) //EC.G.Mult(mrp.Th).Add(EC.H.Mult(mrp.Tau))
-
-	fmt.Println("lhs ", lhs)
 
 	// z^2 * \bold{z}^m \bold{V} + delta(y,z) * G + x * T1 + x^2 * T2
 	CommPowers := EC.Zero()
