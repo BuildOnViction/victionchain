@@ -368,7 +368,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		//updatedTakerOrder = tomox.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 		//  update filledAmount, status of takerOrder
 		updatedTakerOrder.FilledAmount.Add(updatedTakerOrder.FilledAmount, filledAmount)
-		if updatedTakerOrder.FilledAmount.Cmp(updatedTakerOrder.Quantity) < 0 {
+		if updatedTakerOrder.FilledAmount.Cmp(updatedTakerOrder.Quantity) < 0 && updatedTakerOrder.Type == tomox_state.Limit {
 			updatedTakerOrder.Status = OrderStatusPartialFilled
 		} else {
 			updatedTakerOrder.Status = OrderStatusFilled
