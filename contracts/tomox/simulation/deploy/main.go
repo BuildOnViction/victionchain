@@ -126,7 +126,11 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 	tokenListResult := []map[string]interface{}{}
 	for _, tokenName := range tokenNameList {
 		auth.Nonce = big.NewInt(int64(nonce))
-		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, 18, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
+		d := uint8(18)
+		if tokenName == "USD" {
+			d = 8
+		}
+		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, d, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
 		if err != nil {
 			log.Fatal("DeployTRC21 ", tokenName, err)
 		}
