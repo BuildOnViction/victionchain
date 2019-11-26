@@ -510,6 +510,8 @@ func (tomox *TomoX) UpdateOrderCache(baseToken, quoteToken common.Address, order
 
 func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 	db := tomox.GetMongoDB()
+	defer tomox.orderCache.Remove(txhash)
+
 	for _, order := range db.GetOrderByTxHash(txhash) {
 		c, ok := tomox.orderCache.Get(txhash)
 		log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", tomox_state.ToJSON(order), "orderHistoryItem", c)
