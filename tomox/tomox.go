@@ -430,6 +430,8 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 				tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.Hash, txHash, orderHistoryRecord)
 
 				updatedTakerOrder.Status = OrderStatusRejected
+				updatedTakerOrder.TxHash = txHash
+				updatedTakerOrder.UpdatedAt = txMatchTime
 				if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
 					return fmt.Errorf("SDKNode: failed to reject takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
 				}
@@ -450,6 +452,8 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 			tomox.UpdateOrderCache(order.BaseToken, order.QuoteToken, order.Hash, txHash, orderHistoryRecord)
 
 			order.Status = OrderStatusRejected
+			order.TxHash = txHash
+			order.UpdatedAt = txMatchTime
 			if err = db.PutObject(order.Hash, order); err != nil {
 				return fmt.Errorf("SDKNode: failed to update rejectedOder to sdkNode %s", err.Error())
 			}
