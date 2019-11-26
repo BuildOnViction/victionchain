@@ -34,11 +34,7 @@ type OrderItem struct {
 	CreatedAt       time.Time      `json:"createdAt,omitempty"`
 	UpdatedAt       time.Time      `json:"updatedAt,omitempty"`
 	OrderID         uint64         `json:"orderID,omitempty"`
-	// *OrderMeta
-	NextOrder []byte `json:"-"`
-	PrevOrder []byte `json:"-"`
-	OrderList []byte `json:"-"`
-	Key       string `json:"key"`
+	ExtraData       string         `json:"extraData,omitempty"`
 }
 
 // Signature struct
@@ -73,10 +69,7 @@ type OrderItemBSON struct {
 	CreatedAt       time.Time        `json:"createdAt,omitempty" bson:"createdAt"`
 	UpdatedAt       time.Time        `json:"updatedAt,omitempty" bson:"updatedAt"`
 	OrderID         string           `json:"orderID,omitempty" bson:"orderID"`
-	NextOrder       string           `json:"nextOrder,omitempty" bson:"nextOrder"`
-	PrevOrder       string           `json:"prevOrder,omitempty" bson:"prevOrder"`
-	OrderList       string           `json:"orderList,omitempty" bson:"orderList"`
-	Key             string           `json:"key" bson:"key"`
+	ExtraData       string           `json:"extraData,omitempty" bson:"extraData"`
 }
 
 func (o *OrderItem) GetBSON() (interface{}, error) {
@@ -97,7 +90,7 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 		CreatedAt:       o.CreatedAt,
 		UpdatedAt:       o.UpdatedAt,
 		OrderID:         strconv.FormatUint(o.OrderID, 10),
-		Key:             o.Key,
+		ExtraData:       o.ExtraData,
 	}
 
 	if o.FilledAmount != nil {
@@ -138,7 +131,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		CreatedAt       time.Time        `json:"createdAt" bson:"createdAt"`
 		UpdatedAt       time.Time        `json:"updatedAt" bson:"updatedAt"`
 		OrderID         string           `json:"orderID" bson:"orderID"`
-		Key             string           `json:"key" bson:"key"`
+		ExtraData       string           `json:"extraData,omitempty" bson:"extraData"`
 	})
 
 	err := raw.Unmarshal(decoded)
@@ -186,8 +179,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		return err
 	}
 	o.OrderID = uint64(orderID)
-	o.Key = decoded.Key
-
+	o.ExtraData = decoded.ExtraData
 	return nil
 }
 
