@@ -106,6 +106,14 @@ func main() {
 	fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
 	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
 
+	// BTC/USD
+	fromTokens = append(fromTokens, tokenList[0]["address"].(common.Address))
+	toTokens = append(toTokens, tokenList[9]["address"].(common.Address))
+
+	// ETH/USD
+	fromTokens = append(fromTokens, tokenList[1]["address"].(common.Address))
+	toTokens = append(toTokens, tokenList[9]["address"].(common.Address))
+
 	_, err = relayerRegistration.Register(simulation.RelayerCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
 	if err != nil {
 		log.Fatal("relayerRegistration Register ", err)
@@ -118,7 +126,11 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 	tokenListResult := []map[string]interface{}{}
 	for _, tokenName := range tokenNameList {
 		auth.Nonce = big.NewInt(int64(nonce))
-		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, 18, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
+		d := uint8(18)
+		if tokenName == "USD" {
+			d = 8
+		}
+		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, d, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
 		if err != nil {
 			log.Fatal("DeployTRC21 ", tokenName, err)
 		}
