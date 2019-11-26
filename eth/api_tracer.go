@@ -199,7 +199,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 							balacne = value
 						}
 					}
-					msg, _ := tx.AsMessage(signer, balacne,task.block.Number())
+					msg, _ := tx.AsMessage(signer, balacne, task.block.Number())
 					vmctx := core.NewEVMContext(msg, task.block.Header(), api.eth.blockchain, nil)
 
 					res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -438,7 +438,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 						balacne = value
 					}
 				}
-				msg, _ := txs[task.index].AsMessage(signer, balacne,block.Number())
+				msg, _ := txs[task.index].AsMessage(signer, balacne, block.Number())
 				vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 				res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -463,7 +463,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 			}
 		}
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer, balacne,block.Number())
+		msg, _ := tx.AsMessage(signer, balacne, block.Number())
 		vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 		vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{})
@@ -572,6 +572,89 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 	return api.traceTx(ctx, msg, vmctx, statedb, config)
 }
 
+// TraceTransaction returns the structured logs created during the execution of EVM
+// and returns them as a JSON object.
+func (api *PrivateDebugAPI) TraceInternalTransaction(ctx context.Context, hash common.Hash, config *TraceConfig) (interface{}, error) {
+	// Retrieve the transaction and assemble its EVM context
+	tx, blockHash, _, index := core.GetTransaction(api.eth.ChainDb(), hash)
+	if tx == nil {
+		return nil, fmt.Errorf("transaction %x not found", hash)
+	}
+	reexec := defaultTraceReexec
+	if config != nil && config.Reexec != nil {
+		reexec = *config.Reexec
+	}
+	msg, vmctx, statedb, err := api.computeTxEnv(blockHash, int(index), reexec)
+	if err != nil {
+		return nil, err
+	}
+	log.Debug("TraceInternalTransaction traceInternalTx", "nonce", tx.Nonce(), "waited", statedb.GetNonce(*tx.From()))
+	// Trace the transaction and return
+	return api.traceInternalTx(ctx, msg, vmctx, statedb, config)
+}
+
+// traceTx configures a new tracer according to the provided configuration, and
+// executes the given message in the provided environment. The return value will
+// be tracer dependent.
+func (api *PrivateDebugAPI) traceInternalTx(ctx context.Context, message core.Message, vmctx vm.Context, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+	// Assemble the structured logger or the JavaScript tracer
+	var (
+		tracer vm.Tracer
+		err    error
+	)
+	switch {
+	case config != nil && config.Tracer != nil:
+		// Define a meaningful timeout of a single transaction trace
+		timeout := defaultTraceTimeout
+		if config.Timeout != nil {
+			if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
+				return nil, err
+			}
+		}
+		// Constuct the JavaScript tracer to execute with
+		if tracer, err = tracers.New(*config.Tracer); err != nil {
+			return nil, err
+		}
+		// Handle timeouts and RPC cancellations
+		deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
+		go func() {
+			<-deadlineCtx.Done()
+			tracer.(*tracers.Tracer).Stop(errors.New("execution timeout"))
+		}()
+		defer cancel()
+
+	case config == nil:
+		tracer = vm.NewStructLogger(nil)
+
+	default:
+		tracer = vm.NewStructLogger(config.LogConfig)
+	}
+	// Run the transaction with tracing enabled.
+	vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{DebugInternalTx: true, Tracer: tracer})
+
+	owner := common.Address{}
+	ret, gas, failed, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()), owner)
+	if err != nil {
+		return nil, fmt.Errorf("tracing failed: %v", err)
+	}
+	// Depending on the tracer type, format and return the output
+	switch tracer := tracer.(type) {
+	case *vm.StructLogger:
+		return &ethapi.ExecutionResult{
+			Gas:         gas,
+			Failed:      failed,
+			ReturnValue: fmt.Sprintf("%x", ret),
+			StructLogs:  ethapi.FormatLogs(tracer.StructLogs()),
+		}, nil
+
+	case *tracers.Tracer:
+		return tracer.GetResult()
+
+	default:
+		panic(fmt.Sprintf("bad tracer type %T", tracer))
+	}
+}
+
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
@@ -649,6 +732,9 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	if err != nil {
 		return nil, vm.Context{}, nil, err
 	}
+	config := api.eth.chainConfig
+	header := block.Header()
+	usedGas := new(uint64)
 	// Recompute transactions up to the target index.
 	signer := types.MakeSigner(api.config, block.Number())
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
@@ -660,15 +746,13 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 			}
 		}
 		// Assemble the transaction call message and return if the requested offset
-		msg, _ := tx.AsMessage(signer, balacne,block.Number())
+		msg, _ := tx.AsMessage(signer, balacne, block.Number())
 		context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 		if idx == txIndex {
 			return msg, context, statedb, nil
 		}
-		// Not yet the searched for transaction, execute on top of the current state
-		vmenv := vm.NewEVM(context, statedb, api.config, vm.Config{})
-		owner := common.Address{}
-		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas()), owner); err != nil {
+		_, _, err, _ := core.ApplyTransaction(config, feeCapacity, api.eth.blockchain, nil, new(core.GasPool), statedb, header, tx, usedGas, vm.Config{})
+		if err != nil {
 			return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 		}
 		statedb.DeleteSuicides()

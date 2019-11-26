@@ -28,6 +28,8 @@ import (
 type Config struct {
 	// Debug enabled debugging Interpreter options
 	Debug bool
+	// Debug enabled debugging Internal Tx Interpreter options
+	DebugInternalTx bool
 	// Tracer is the op code logger
 	Tracer Tracer
 	// NoRecursion disabled Interpreter call, callcode,
@@ -133,7 +135,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 	)
 	contract.Input = input
 
-	if in.cfg.Debug {
+	if in.cfg.Debug || (in.cfg.DebugInternalTx && op >= CREATE && op <= STATICCALL) {
 		defer func() {
 			if err != nil {
 				if !logged {
@@ -149,7 +151,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 	// the execution of one of the operations or until the done flag is set by the
 	// parent context.
 	for atomic.LoadInt32(&in.evm.abort) == 0 {
-		if in.cfg.Debug {
+		if in.cfg.Debug || (in.cfg.DebugInternalTx && op >= CREATE && op <= STATICCALL) {
 			// Capture pre-execution values for tracing.
 			logged, pcCopy, gasCopy = false, pc, contract.Gas
 		}
@@ -193,7 +195,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 			mem.Resize(memorySize)
 		}
 
-		if in.cfg.Debug {
+		if in.cfg.Debug || (in.cfg.DebugInternalTx && op >= CREATE && op <= STATICCALL) {
 			in.cfg.Tracer.CaptureState(in.evm, pc, op, gasCopy, cost, mem, stack, contract, in.evm.depth, err)
 			logged = true
 		}
