@@ -450,7 +450,10 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 				Status:       order.Status,
 			}
 			tomox.UpdateOrderCache(order.BaseToken, order.QuoteToken, order.Hash, txHash, orderHistoryRecord)
-
+			dirtyFilledAmount, ok := makerDirtyFilledAmount[order.Hash.Hex()]
+			if ok && dirtyFilledAmount != nil {
+				order.FilledAmount.Add(order.FilledAmount, dirtyFilledAmount)
+			}
 			order.Status = OrderStatusRejected
 			order.TxHash = txHash
 			order.UpdatedAt = txMatchTime
