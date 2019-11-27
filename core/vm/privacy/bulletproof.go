@@ -224,6 +224,17 @@ func ScalarVectorMul(v []*big.Int, s *big.Int) []*big.Int {
 	return result
 }
 
+func HashPointsToBytes(points []ECPoint) []byte {
+	input := []byte{}
+
+	for index := 0; index < len(points); index++ {
+		pointInByte := append(PadTo32Bytes(points[index].X.Bytes()), PadTo32Bytes(points[index].Y.Bytes())...)
+		input = append(input, pointInByte...)
+	}
+
+	return crypto.Keccak256(input)
+}
+
 /*
 InnerProd Proof
 This stores the argument values
@@ -286,11 +297,11 @@ func InnerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []
 	proof.R[curIt] = R
 
 	// prover sends L & R and gets a challenge
-	LvalInBytes := append(PadTo32Bytes(L.X.Bytes()), PadTo32Bytes(L.Y.Bytes())...)
-	RvalInBytes := append(PadTo32Bytes(R.X.Bytes()), PadTo32Bytes(R.Y.Bytes())...)
-	input := append(LvalInBytes, RvalInBytes...)
-
-	s256 := crypto.Keccak256(input)
+	// LvalInBytes := append(PadTo32Bytes(L.X.Bytes()), PadTo32Bytes(L.Y.Bytes())...)
+	// RvalInBytes := append(PadTo32Bytes(R.X.Bytes()), PadTo32Bytes(R.Y.Bytes())...)
+	// input := append(LvalInBytes, RvalInBytes...)
+	// s256 := crypto.Keccak256(input)
+	s256 := HashPointsToBytes([]ECPoint{L, R})
 
 	x := new(big.Int).SetBytes(s256[:])
 
@@ -327,13 +338,9 @@ func InnerProductProve(a []*big.Int, b []*big.Int, c *big.Int, P, U ECPoint, G, 
 		challenges}
 
 	// randomly generate an x value from public data
-	//x := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
-
-	// x := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes()))
-	// s256=crypto.Keccak256(append(PadTo32Bytes(sig.M[:]), l...))
-	input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
-
-	x := crypto.Keccak256(input)
+	// input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
+	// x := crypto.Keccak256(input)
+	x := HashPointsToBytes([]ECPoint{P})
 
 	runningProof.Challenges[loglen] = new(big.Int).SetBytes(x[:])
 
@@ -357,8 +364,9 @@ func InnerProductVerify(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdA
 	//fmt.Printf("Commitment Value: %s \n", P)
 	// s1 := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
 
-	input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
-	s1 := crypto.Keccak256(input)
+	// input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
+	// s1 := crypto.Keccak256(input)
+	s1 := HashPointsToBytes([]ECPoint{P})
 
 	chal1 := new(big.Int).SetBytes(s1[:])
 	ux := U.Mult(chal1)
@@ -384,10 +392,11 @@ func InnerProductVerify(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdA
 		// s256 := sha256.Sum256([]byte(
 		// 	Lval.X.String() + Lval.Y.String() +
 		// 		Rval.X.String() + Rval.Y.String()))
-		LvalInBytes := append(PadTo32Bytes(Lval.X.Bytes()), PadTo32Bytes(Lval.Y.Bytes())...)
-		RvalInBytes := append(PadTo32Bytes(Rval.X.Bytes()), PadTo32Bytes(Rval.Y.Bytes())...)
-		input := append(LvalInBytes, RvalInBytes...)
-		s256 := crypto.Keccak256(input)
+		// LvalInBytes := append(PadTo32Bytes(Lval.X.Bytes()), PadTo32Bytes(Lval.Y.Bytes())...)
+		// RvalInBytes := append(PadTo32Bytes(Rval.X.Bytes()), PadTo32Bytes(Rval.Y.Bytes())...)
+		// input := append(LvalInBytes, RvalInBytes...)
+		// s256 := crypto.Keccak256(input)
+		s256 := HashPointsToBytes([]ECPoint{Lval, Rval})
 
 		chal2 := new(big.Int).SetBytes(s256[:])
 
@@ -419,13 +428,9 @@ we replace n separate exponentiations with a single multi-exponentiation.
 */
 
 func InnerProductVerifyFast(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdArg) bool {
-	//fmt.Println("Verifying Inner Product Argument")
-	//fmt.Printf("Commitment Value: %s \n", P)
-	// s1 := sha256.Sum256([]byte(P.X.String() + P.Y.String()))
-
-	input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
-
-	s1 := crypto.Keccak256(input)
+	// input := append(PadTo32Bytes(P.X.Bytes()), PadTo32Bytes(P.Y.Bytes())...)
+	// s1 := crypto.Keccak256(input)
+	s1 := HashPointsToBytes([]ECPoint{P})
 
 	chal1 := new(big.Int).SetBytes(s1[:])
 	ux := U.Mult(chal1)
@@ -442,14 +447,11 @@ func InnerProductVerifyFast(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerP
 		Rval := ipp.R[j]
 
 		// prover sends L & R and gets a challenge
-		// s256 := sha256.Sum256([]byte(
-		// 	Lval.X.String() + Lval.Y.String() +
-		// 		Rval.X.String() + Rval.Y.String()))
-
-		LvalInBytes := append(PadTo32Bytes(Lval.X.Bytes()), PadTo32Bytes(Lval.Y.Bytes())...)
-		RvalInBytes := append(PadTo32Bytes(Rval.X.Bytes()), PadTo32Bytes(Rval.Y.Bytes())...)
-		input := append(LvalInBytes, RvalInBytes...)
-		s256 := crypto.Keccak256(input)
+		// LvalInBytes := append(PadTo32Bytes(Lval.X.Bytes()), PadTo32Bytes(Lval.Y.Bytes())...)
+		// RvalInBytes := append(PadTo32Bytes(Rval.X.Bytes()), PadTo32Bytes(Rval.Y.Bytes())...)
+		// input := append(LvalInBytes, RvalInBytes...)
+		// s256 := crypto.Keccak256(input)
+		s256 := HashPointsToBytes([]ECPoint{Lval, Rval})
 
 		chal2 := new(big.Int).SetBytes(s256[:])
 
@@ -705,7 +707,9 @@ func DeltaMRP(y []*big.Int, z *big.Int, m int) *big.Int {
 
 	// \sum_j z^3+j<1^n, 2^n>
 	// <1^n, 2^n> = 2^n - 1
-	po2sum := new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(EC.V/m)), EC.N), big.NewInt(1))
+	po2sum := new(big.Int).Sub(
+		new(big.Int).Exp(
+			big.NewInt(2), big.NewInt(int64(EC.V/m)), EC.N), big.NewInt(1))
 	t3 := big.NewInt(0)
 
 	for j := 0; j < m; j++ {
@@ -814,15 +818,17 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 	S := TwoVectorPCommitWithGens(EC.BPG, EC.BPH, sL, sR).Add(EC.H.Mult(rho))
 	MRPResult.S = S
 
-	input := append(PadTo32Bytes(A.X.Bytes()), PadTo32Bytes(A.Y.Bytes())...)
-	chal1s256 := crypto.Keccak256(input)
+	// input := append(PadTo32Bytes(A.X.Bytes()), PadTo32Bytes(A.Y.Bytes())...)
+	// chal1s256 := crypto.Keccak256(input)
+	chal1s256 := HashPointsToBytes(append(Comms, A))
 
 	// chal1s256 := sha256.Sum256([]byte(A.X.String() + A.Y.String()))
 	cy := new(big.Int).SetBytes(chal1s256[:])
 	MRPResult.Cy = cy
 
-	input = append(PadTo32Bytes(S.X.Bytes()), PadTo32Bytes(S.Y.Bytes())...)
-	chal2s256 := crypto.Keccak256(input)
+	// input = append(PadTo32Bytes(S.X.Bytes()), PadTo32Bytes(S.Y.Bytes())...)
+	// chal2s256 := crypto.Keccak256(input)
+	chal2s256 := HashPointsToBytes(append(Comms, A, S))
 
 	// chal2s256 := sha256.Sum256([]byte(S.X.String() + S.Y.String()))
 	cz := new(big.Int).SetBytes(chal2s256[:])
@@ -876,10 +882,11 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 	MRPResult.T1 = T1
 	MRPResult.T2 = T2
 
-	t1Byte := append(PadTo32Bytes(T1.X.Bytes()), PadTo32Bytes(T1.Y.Bytes())...)
-	t2Byte := append(PadTo32Bytes(T2.X.Bytes()), PadTo32Bytes(T2.Y.Bytes())...)
-	input = append(t1Byte, t2Byte...)
-	chal3s256 := crypto.Keccak256(input)
+	// t1Byte := append(PadTo32Bytes(T1.X.Bytes()), PadTo32Bytes(T1.Y.Bytes())...)
+	// t2Byte := append(PadTo32Bytes(T2.X.Bytes()), PadTo32Bytes(T2.Y.Bytes())...)
+	// input = append(t1Byte, t2Byte...)
+	// chal3s256 := crypto.Keccak256(input)
+	chal3s256 := HashPointsToBytes(append(Comms, A, S, T1, T2))
 
 	// chal3s256 := sha256.Sum256([]byte(T1.X.String() + T1.Y.String() + T2.X.String() + T2.Y.String()))
 	cx := new(big.Int).SetBytes(chal3s256[:])
@@ -946,8 +953,9 @@ func MRPVerify(mrp MultiRangeProof) bool {
 	// check 2 commitment generation is also different
 
 	// verify the challenges
-	input := append(PadTo32Bytes(mrp.A.X.Bytes()), PadTo32Bytes(mrp.A.Y.Bytes())...)
-	chal1s256 := crypto.Keccak256(input)
+	// input := append(PadTo32Bytes(mrp.A.X.Bytes()), PadTo32Bytes(mrp.A.Y.Bytes())...)
+	// chal1s256 := crypto.Keccak256(input)
+	chal1s256 := HashPointsToBytes(append(mrp.Comms, mrp.A))
 
 	cy := new(big.Int).SetBytes(chal1s256[:])
 
@@ -956,8 +964,9 @@ func MRPVerify(mrp MultiRangeProof) bool {
 		return false
 	}
 
-	input = append(PadTo32Bytes(mrp.S.X.Bytes()), PadTo32Bytes(mrp.S.Y.Bytes())...)
-	chal2s256 := crypto.Keccak256(input)
+	// input = append(PadTo32Bytes(mrp.S.X.Bytes()), PadTo32Bytes(mrp.S.Y.Bytes())...)
+	// chal2s256 := crypto.Keccak256(input)
+	chal2s256 := HashPointsToBytes(append(mrp.Comms, mrp.A, mrp.S))
 
 	// chal2s256 := sha256.Sum256([]byte(mrp.S.X.String() + mrp.S.Y.String()))
 	cz := new(big.Int).SetBytes(chal2s256[:])
@@ -966,10 +975,11 @@ func MRPVerify(mrp MultiRangeProof) bool {
 		return false
 	}
 
-	t1Byte := append(PadTo32Bytes(mrp.T1.X.Bytes()), PadTo32Bytes(mrp.T1.Y.Bytes())...)
-	t2Byte := append(PadTo32Bytes(mrp.T2.X.Bytes()), PadTo32Bytes(mrp.T2.Y.Bytes())...)
-	input = append(t1Byte, t2Byte...)
-	chal3s256 := crypto.Keccak256(input)
+	// t1Byte := append(PadTo32Bytes(mrp.T1.X.Bytes()), PadTo32Bytes(mrp.T1.Y.Bytes())...)
+	// t2Byte := append(PadTo32Bytes(mrp.T2.X.Bytes()), PadTo32Bytes(mrp.T2.Y.Bytes())...)
+	// input = append(t1Byte, t2Byte...)
+	// chal3s256 := crypto.Keccak256(input)
+	chal3s256 := HashPointsToBytes(append(mrp.Comms, mrp.A, mrp.S, mrp.T1, mrp.T2))
 
 	// chal3s256 := sha256.Sum256([]byte(T1.X.String() + T1.Y.String() + T2.X.String() + T2.Y.String()))
 	// cx := new(big.Int).SetBytes(chal3s256[:])
