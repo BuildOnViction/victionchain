@@ -1,8 +1,10 @@
 package privacy
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"gotest.tools/assert"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -281,25 +283,93 @@ func TestInnerProductVerifyFastLen64Rand(t *testing.T) {
 
 }
 
-func TestMRPProve(t *testing.T) {
-	EC = genECPrimeGroupKey(64)
-	mRangeProof := MRPProve([]*big.Int{
-		new(big.Int).SetInt64(327680),
+func TestMRPProveZERO(t *testing.T) {
+	EC = genECPrimeGroupKey(512)
+	mRangeProof, _ := MRPProve([]*big.Int{
+		new(big.Int).SetInt64(0),
 	})
-	// fmt.Printf("Value is : %s %s\n", 0x9999999999, 0x9999999999)
-	fmt.Printf("\n\n\n mRangeProof %+v\n\n\n", mRangeProof)
-
-	// expectedMRangeProof := parseTestData("./bulletproof.json")
-	// fmt.Printf("\n\n\n expectedMRangeProof %+v\n\n\n", expectedMRangeProof)
-
 	mv := MRPVerify(mRangeProof)
-	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
+	assert.Assert(t, mv, " MRProof incorrect")
+}
 
-	if mv {
-		fmt.Println("MRProof correct")
-	} else {
-		t.Error("MRProof incorrect")
+func TestMRPProve_MAX_2_POW_64(t *testing.T) {
+	EC = genECPrimeGroupKey(512)
+	mRangeProof, _ := MRPProve([]*big.Int{
+		new(big.Int).SetUint64(0xFFFFFFFFFFFFFFFF),
+	})
+	mv := MRPVerify(mRangeProof)
+	assert.Assert(t, mv, " MRProof incorrect")
+}
+
+func TestMRPProveOutOfSupportedRange(t *testing.T) {
+	EC = genECPrimeGroupKey(256)
+	value, _ := new(big.Int).SetString("FFFFFFFFFFFFFFFFFFFF", 16)
+	_, err := MRPProve([]*big.Int{
+		value,
+	})
+	assert.Assert(t, err != nil, " MRProof incorrect")
+}
+
+func TestMRPProve_RANDOM(t *testing.T) {
+	EC = genECPrimeGroupKey(512)
+	mRangeProof, _ := MRPProve(Rand64Vector(1))
+	mv := MRPVerify(mRangeProof)
+	assert.Assert(t, mv, " MRProof incorrect")
+
+	mRangeProof, _ = MRPProve(Rand64Vector(2))
+	mv = MRPVerify(mRangeProof)
+	assert.Assert(t, mv, " MRProof incorrect")
+
+	mRangeProof, _ = MRPProve(Rand64Vector(4))
+	mv = MRPVerify(mRangeProof)
+	assert.Assert(t, mv, " MRProof incorrect")
+
+	mRangeProof, _ = MRPProve(Rand64Vector(8))
+	mv = MRPVerify(mRangeProof)
+	assert.Assert(t, mv, " MRProof incorrect")
+}
+
+func Rand64Vector(l int) []*big.Int {
+	result := make([]*big.Int, l)
+
+	for i := 0; i < l; i++ {
+		x, err := rand.Int(rand.Reader, big.NewInt(0xFFFFFFFFFFFFFFF))
+		check(err)
+		result[i] = x
 	}
+
+	return result
+}
+
+func TestMRPProveValueNumberNotSupported(t *testing.T) {
+	EC = genECPrimeGroupKey(512)
+	_, err := MRPProve(Rand64Vector(3))
+	assert.Assert(t, err != nil, "MRProof incorrect - accepted 3 inputs")
+
+	_, err = MRPProve(Rand64Vector(5))
+	assert.Assert(t, err != nil, "MRProof incorrect - accepted 5 inputs")
+
+	_, err = MRPProve(Rand64Vector(6))
+	assert.Assert(t, err != nil, "MRProof incorrect - accepted 6 inputs")
+
+	_, err = MRPProve(Rand64Vector(7))
+	assert.Assert(t, err != nil, "MRProof incorrect - accepted 7 inputs")
+
+	_, err = MRPProve(Rand64Vector(10))
+	assert.Assert(t, err != nil, "MRProof incorrect - accepted 10 inputs")
+
+	_, err = MRPProve(Rand64Vector(1))
+	assert.Assert(t, err == nil, "MRProof incorrect - not accepted 1 inputs")
+
+	_, err = MRPProve(Rand64Vector(2))
+	assert.Assert(t, err == nil, "MRProof incorrect - not accepted 2 inputs")
+
+	_, err = MRPProve(Rand64Vector(4))
+	fmt.Println(err)
+	assert.Assert(t, err == nil, "MRProof incorrect - not accepted 4 inputs")
+
+	_, err = MRPProve(Rand64Vector(8))
+	assert.Assert(t, err == nil, "MRProof incorrect - not accepted 8 inputs")
 }
 
 type Point struct {
@@ -378,6 +448,9 @@ func parseTestData(filePath string) MultiRangeProof {
 	return proof
 }
 
+/**
+Utils for parsing data from json
+*/
 func MapBigI(list []string, f func(string) *big.Int) []*big.Int {
 	result := make([]*big.Int, len(list))
 
@@ -427,16 +500,20 @@ func ECPointFromPoint(ecpoint Point) ECPoint {
 	return P
 }
 
-func TestMRPProveFromJS(t *testing.T) {
-	EC = genECPrimeGroupKey(64)
-	mRangeProof := parseTestData("./bulletproof.json")
-	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
-	mv := MRPVerify(mRangeProof)
-	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
+/**
+END Utils for parsing data from json
+*/
 
-	if mv {
-		fmt.Println("MRProof synced JS correct")
-	} else {
-		t.Error("MRProof synced JS incorrect")
-	}
-}
+// func TestMRPProveFromJS(t *testing.T) {
+// 	EC = genECPrimeGroupKey(512)
+// 	mRangeProof := parseTestData("./bulletproof.json")
+// 	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
+// 	mv := MRPVerify(mRangeProof)
+// 	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
+
+// 	if mv {
+// 		fmt.Println("MRProof synced JS correct")
+// 	} else {
+// 		t.Error("MRProof synced JS incorrect")
+// 	}
+// }

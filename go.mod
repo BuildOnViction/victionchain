@@ -60,4 +60,5 @@ require (
 	gopkg.in/olebedev/go-duktape.v3 v3.0.0-20180302121509-abf0ba0be5d5
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0
+	gotest.tools v2.2.0+incompatible
 )

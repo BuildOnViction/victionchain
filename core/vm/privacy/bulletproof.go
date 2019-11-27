@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -19,7 +20,7 @@ type Bulletproof struct {
 }
 
 var EC CryptoParams
-var VecLength = 64
+var VecLength = 512 // support maximum 8 spending value, each 64 bit (gwei is unit)
 
 /*
 Implementation of BulletProofs
@@ -744,6 +745,8 @@ func pedersenCommitment(gamma *big.Int, value *big.Int) ECPoint {
 	return EC.G.Mult(value).Add(EC.H.Mult(gamma))
 }
 
+var MAX_64_BITS = new(big.Int).SetUint64(0xFFFFFFFFFFFFFFFF)
+
 /*
 MultiRangeProof Prove
 Takes in a list of values and provides an aggregate
@@ -756,12 +759,21 @@ changes:
 {(g, h \in G, \textbf{V} \in G^m ; \textbf{v, \gamma} \in Z_p^m) :
 	V_j = h^{\gamma_j}g^{v_j} \wedge v_j \in [0, 2^n - 1] \forall j \in [1, m]}
 */
-func MRPProve(values []*big.Int) MultiRangeProof {
-	// EC.V has the total number of values and bits we can support
+func MRPProve(values []*big.Int) (MultiRangeProof, error) {
+	var acceptedInputNumber bool
 
 	MRPResult := MultiRangeProof{}
 
 	m := len(values)
+
+	if m == 1 || m == 2 || m == 4 || m == 8 {
+		acceptedInputNumber = true
+	}
+
+	if !acceptedInputNumber {
+		return MultiRangeProof{}, errors.New("Value number is not supported - just 1, 2, 4, 8")
+	}
+
 	bitsPerValue := EC.V / m
 
 	// we concatenate the binary representation of the values
@@ -776,11 +788,15 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 	for j := range values {
 		v := values[j]
 		if v.Cmp(big.NewInt(0)) == -1 {
-			panic("Value is below range! Not proving")
+			return MultiRangeProof{}, errors.New("Value is below range! Not proving")
+		}
+
+		if v.Cmp(MAX_64_BITS) == 1 {
+			return MultiRangeProof{}, errors.New("Value is above range! Not proving")
 		}
 
 		if v.Cmp(new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(bitsPerValue)), EC.N)) == 1 {
-			panic("Value is above range! Not proving.")
+			return MultiRangeProof{}, errors.New("Value is above range! Not proving")
 		}
 
 		gamma, err := rand.Int(rand.Reader, EC.N)
@@ -937,7 +953,7 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 
 	MRPResult.IPP = InnerProductProve(left, right, that, P, EC.U, EC.BPG, HPrime)
 
-	return MRPResult
+	return MRPResult, nil
 }
 
 /*
