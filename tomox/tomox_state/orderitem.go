@@ -356,7 +356,7 @@ func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TomoXStateDB, order *ty
 		quotePrice = tomoxStateDb.GetPrice(GetOrderBookHash(order.QuoteToken(), common.HexToAddress(common.TomoNativeAddress)))
 	}
 	feeRate := GetExRelayerFee(order.ExchangeAddress(), statedb)
-	balanceResult, err := GetSettleBalance(quotePrice, order.Side(), feeRate, order.BaseToken(), order.QuoteToken(), order.Price(), common.Big0, baseDecimal, quoteDecimal, order.Quantity())
+	balanceResult, err := GetSettleBalance(quotePrice, order.Side(), feeRate, order.BaseToken(), order.QuoteToken(), order.Price(), feeRate, baseDecimal, quoteDecimal, order.Quantity())
 	if err != nil {
 		return err
 	}
