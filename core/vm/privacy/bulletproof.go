@@ -1116,7 +1116,57 @@ func NewECPrimeGroupKey(n int) CryptoParams {
 		ch}
 }
 
+func genECPrimeGroupKey(n int) CryptoParams {
+	// curValue := btcec.S256().Gx
+	// s256 := sha256.New()
+	gen1Vals := make([]ECPoint, n)
+	gen2Vals := make([]ECPoint, n)
+	// u := ECPoint{big.NewInt(0), big.NewInt(0)}
+	hx, _ := new(big.Int).SetString("50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0", 16)
+	hy, _ := new(big.Int).SetString("31d3c6863973926e049e637cb1b5f40a36dac28af1766968c30c2313f3a38904", 16)
+	ch := ECPoint{hx, hy}
+
+	gx, _ := new(big.Int).SetString("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", 16)
+	gy, _ := new(big.Int).SetString("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", 16)
+	cg := ECPoint{gx, gy}
+
+	i := 0
+	for i < n {
+		gen2Vals[i] = ch.Mult(
+			big.NewInt(int64(i*2 + 1)),
+		)
+		gen1Vals[i] = cg.Mult(
+			big.NewInt(int64(i*2 + 2)),
+		)
+		i++
+	}
+
+	u := cg.Mult(
+		big.NewInt(int64(n + 3)),
+	)
+
+	return CryptoParams{
+		btcec.S256(),
+		btcec.S256(),
+		gen1Vals,
+		gen2Vals,
+		btcec.S256().N,
+		u,
+		n,
+		cg,
+		ch}
+}
+
 func init() {
-	EC = NewECPrimeGroupKey(VecLength)
-	//fmt.Println(EC)
+	// just need the base parameter N, P, G, H for this init, ignore everything else
+	EC = CryptoParams{
+		btcec.S256(),
+		btcec.S256(),
+		make([]ECPoint, VecLength),
+		make([]ECPoint, VecLength),
+		btcec.S256().N,
+		ECPoint{big.NewInt(0), big.NewInt(0)},
+		VecLength,
+		ECPoint{big.NewInt(0), big.NewInt(0)},
+		ECPoint{big.NewInt(0), big.NewInt(0)}}
 }
