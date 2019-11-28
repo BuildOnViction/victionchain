@@ -428,8 +428,8 @@ func ECPointFromPoint(ecpoint Point) ECPoint {
 }
 
 func TestMRPProveFromJS(t *testing.T) {
-	EC = genECPrimeGroupKey(64)
 	mRangeProof := parseTestData("./bulletproof.json")
+	EC = genECPrimeGroupKey(len(mRangeProof.Comms) * 64)
 	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
 	mv := MRPVerify(mRangeProof)
 	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)

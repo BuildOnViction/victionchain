@@ -19,7 +19,7 @@ type Bulletproof struct {
 }
 
 var EC CryptoParams
-var VecLength = 64
+var VecLength = 512
 
 /*
 Implementation of BulletProofs
@@ -762,7 +762,8 @@ func MRPProve(values []*big.Int) MultiRangeProof {
 	MRPResult := MultiRangeProof{}
 
 	m := len(values)
-	bitsPerValue := EC.V / m
+	// bitsPerValue := EC.V / m
+	bitsPerValue := 64
 
 	// we concatenate the binary representation of the values
 
