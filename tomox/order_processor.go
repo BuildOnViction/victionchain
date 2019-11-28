@@ -219,6 +219,12 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 		var quotePrice *big.Int
 		if oldestOrder.QuoteToken.String() != common.TomoNativeAddress {
 			quotePrice = tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(oldestOrder.QuoteToken, common.HexToAddress(common.TomoNativeAddress)))
+			if quotePrice == nil && oldestOrder.BaseToken.String() != common.TomoNativeAddress {
+				inversePrice := tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(common.HexToAddress(common.TomoNativeAddress), oldestOrder.QuoteToken))
+				if inversePrice != nil {
+					quotePrice = new(big.Int).Div(common.BasePrice, inversePrice)
+				}
+			}
 		}
 		tradedQuantity, rejectMaker, err := tomox.getTradeQuantity(quotePrice, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
 		if err != nil && err == tomox_state.ErrQuantityTradeTooSmall {
