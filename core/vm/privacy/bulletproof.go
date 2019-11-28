@@ -759,6 +759,8 @@ changes:
 {(g, h \in G, \textbf{V} \in G^m ; \textbf{v, \gamma} \in Z_p^m) :
 	V_j = h^{\gamma_j}g^{v_j} \wedge v_j \in [0, 2^n - 1] \forall j \in [1, m]}
 */
+var bitsPerValue = 64
+
 func MRPProve(values []*big.Int) (MultiRangeProof, error) {
 	var acceptedInputNumber bool
 
@@ -774,7 +776,7 @@ func MRPProve(values []*big.Int) (MultiRangeProof, error) {
 		return MultiRangeProof{}, errors.New("Value number is not supported - just 1, 2, 4, 8")
 	}
 
-	bitsPerValue := EC.V / m
+	EC = genECPrimeGroupKey(m * bitsPerValue)
 
 	// we concatenate the binary representation of the values
 

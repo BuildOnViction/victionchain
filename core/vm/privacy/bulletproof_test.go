@@ -284,7 +284,7 @@ func TestInnerProductVerifyFastLen64Rand(t *testing.T) {
 }
 
 func TestMRPProveZERO(t *testing.T) {
-	EC = genECPrimeGroupKey(512)
+
 	mRangeProof, _ := MRPProve([]*big.Int{
 		new(big.Int).SetInt64(0),
 	})
@@ -293,7 +293,7 @@ func TestMRPProveZERO(t *testing.T) {
 }
 
 func TestMRPProve_MAX_2_POW_64(t *testing.T) {
-	EC = genECPrimeGroupKey(512)
+
 	mRangeProof, _ := MRPProve([]*big.Int{
 		new(big.Int).SetUint64(0xFFFFFFFFFFFFFFFF),
 	})
@@ -302,7 +302,7 @@ func TestMRPProve_MAX_2_POW_64(t *testing.T) {
 }
 
 func TestMRPProveOutOfSupportedRange(t *testing.T) {
-	EC = genECPrimeGroupKey(256)
+
 	value, _ := new(big.Int).SetString("FFFFFFFFFFFFFFFFFFFF", 16)
 	_, err := MRPProve([]*big.Int{
 		value,
@@ -311,7 +311,7 @@ func TestMRPProveOutOfSupportedRange(t *testing.T) {
 }
 
 func TestMRPProve_RANDOM(t *testing.T) {
-	EC = genECPrimeGroupKey(512)
+
 	mRangeProof, _ := MRPProve(Rand64Vector(1))
 	mv := MRPVerify(mRangeProof)
 	assert.Assert(t, mv, " MRProof incorrect")
@@ -342,7 +342,7 @@ func Rand64Vector(l int) []*big.Int {
 }
 
 func TestMRPProveValueNumberNotSupported(t *testing.T) {
-	EC = genECPrimeGroupKey(512)
+
 	_, err := MRPProve(Rand64Vector(3))
 	assert.Assert(t, err != nil, "MRProof incorrect - accepted 3 inputs")
 
@@ -500,20 +500,16 @@ func ECPointFromPoint(ecpoint Point) ECPoint {
 	return P
 }
 
-/**
-END Utils for parsing data from json
-*/
+func TestMRPProveFromJS(t *testing.T) {
+	mRangeProof := parseTestData("./bulletproof.json")
 
-// func TestMRPProveFromJS(t *testing.T) {
-// 	EC = genECPrimeGroupKey(512)
-// 	mRangeProof := parseTestData("./bulletproof.json")
-// 	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
-// 	mv := MRPVerify(mRangeProof)
-// 	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
+	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
+	mv := MRPVerify(mRangeProof)
+	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
 
-// 	if mv {
-// 		fmt.Println("MRProof synced JS correct")
-// 	} else {
-// 		t.Error("MRProof synced JS incorrect")
-// 	}
-// }
+	if mv {
+		fmt.Println("MRProof synced JS correct")
+	} else {
+		t.Error("MRProof synced JS incorrect")
+	}
+}
