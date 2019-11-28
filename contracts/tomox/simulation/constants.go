@@ -23,7 +23,7 @@ var (
 	MaxRelayers  = big.NewInt(200)
 	MaxTokenList = big.NewInt(200)
 	MinDeposit   = big.NewInt(0).Mul(big.NewInt(25000), BaseTOMO) // 25000 TOMO
-	TradeFee     = uint16(10) // trade fee decimals 10
+	TradeFee     = uint16(10)                                     // trade fee decimals 10
 
 	RelayerCoinbaseKey, _ = crypto.HexToECDSA(os.Getenv("RELAYER_COINBASE_KEY")) //
 	RelayerCoinbaseAddr   = crypto.PubkeyToAddress(RelayerCoinbaseKey.PublicKey) // 0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e
@@ -54,5 +54,8 @@ var (
 		common.HexToAddress("0xf76ddbda664ea47088937e1cf9ff15036714dee3"), // EOSTOMO
 		common.HexToAddress("0xc465ee82440dada9509feb235c7cd7d896acf13c"), // ETHBTC
 		common.HexToAddress("0xb95bdc136c579dc3fd2b2424a8e925a90228d2c2"), // XRPBTC
+		common.HexToAddress("0xe36c1842365595D44854eEcd64B11c8115E133EF"), // USDTOMO
+		common.HexToAddress("0xaaC1959F6F0fb539F653409079Ec4146267B7555"), // BTCUSD
+		common.HexToAddress("0x726DA688e2e09f01A2e1aB4c10F25B7CEdD4a0f3"), // ETHUSD
 	}
 )
