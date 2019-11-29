@@ -141,6 +141,25 @@ contract RelayerRegistration {
                          RELAYER_LIST[coinbase]._toTokens);
     }
 
+    // List new tokens
+    function listTokens(address coinbase, address[] memory fromTokens, address[] memory toTokens) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
+        require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
+        require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
+
+        bool tokensValidation = addingTokenValidation(coinbase, fromTokens, toTokens);
+        require(tokensValidation == true, "Invalid token list");
+
+        for (uint i = 0; i < toTokens.length; i++) {
+            RELAYER_LIST[coinbase]._fromTokens.push(fromTokens[i]);
+            RELAYER_LIST[coinbase]._toTokens.push(toTokens[i]);
+        }
+
+        emit UpdateEvent(RELAYER_LIST[coinbase]._deposit,
+                         RELAYER_LIST[coinbase]._tradeFee,
+                         RELAYER_LIST[coinbase]._fromTokens,
+                         RELAYER_LIST[coinbase]._toTokens);
+    }
+
     function transfer(address coinbase, address new_owner) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
         require(new_owner != address(0) && new_owner != msg.sender);
         require(RELAYER_LIST[new_owner]._tradeFee == 0, "Owner address must not be currently used as relayer-coinbase");
@@ -243,7 +262,7 @@ contract RelayerRegistration {
                 RELAYER_LIST[coinbase]._toTokens);
     }
 
-    function indexOf(address[] tomoPair, address target) private pure returns (bool){
+    function indexOf(address[] memory tomoPair, address target) private pure returns (bool){
         for (uint i = 0; i < tomoPair.length; i ++) {
             if (tomoPair[i] == target) {
                 return true;
@@ -252,38 +271,46 @@ contract RelayerRegistration {
         return false;
     }
 
-    function getTomoPairLength(address[] array) private pure returns (uint) {
+    function getTomoPairLength(address[] memory fromTokens, address[] memory toTokens) private pure returns (uint) {
         uint count = 0;
-        for (uint i = 0; i < array.length; i++) {
-            if (array[i] == tomoNative) {
+        for (uint i = 0; i < toTokens.length; i++) {
+            if (toTokens[i] == tomoNative || fromTokens[i] == tomoNative) {
                 count++;
             }
         }
         return count;
     }
-    function getNonTomoPairLength(address[] array) private pure returns(uint) {
+    function getNonTomoPairLength(address[] memory toTokens) private pure returns(uint) {
         uint count = 0;
-        for (uint i = 0; i < array.length; i++) {
-            if (array[i] != tomoNative) {
+        for (uint i = 0; i < toTokens.length; i++) {
+            if (toTokens[i] != tomoNative) {
                 count++;
             }
         }
         return count;
     }
 
-     // check valid tokens
-    function validateTokens(address[] fromTokens, address[] toTokens) private pure returns(bool) {
+    function validateTokens(address[] memory fromTokens, address[] memory toTokens) private pure returns(bool) {
+        // check valid tokens
         uint countPair = 0;
         uint countNonPair = 0;
 
-        address[] memory tomoPairs = new address[](getTomoPairLength(toTokens));
+        address[] memory tomoPairs = new address[](getTomoPairLength(fromTokens, toTokens));
         address[] memory nonTomoPairs = new address[](getNonTomoPairLength(toTokens));
+
+        if (nonTomoPairs.length == 0) {
+            return true;
+        }
 
         for (uint i = 0; i < toTokens.length; i++) {
             if (toTokens[i] == tomoNative) {
                 tomoPairs[countPair] = fromTokens[i];
                 countPair++;
             } else {
+                if (fromTokens[i] == tomoNative) {
+                    tomoPairs[countPair] = toTokens[i];
+                    countPair++;
+                }
                 nonTomoPairs[countNonPair] = toTokens[i];
                 countNonPair++;
             }
@@ -291,6 +318,56 @@ contract RelayerRegistration {
 
         for (uint j = 0; j < nonTomoPairs.length; j++) {
             if (!indexOf(tomoPairs, nonTomoPairs[j])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function addingTokenValidation(address coinbase, address[] memory fromTokens, address[] memory toTokens) private view returns(bool){
+        uint countPair = 0;
+        uint countNonPair = 0;
+
+        uint length = getTomoPairLength(fromTokens, toTokens) +
+            getTomoPairLength(RELAYER_LIST[coinbase]._fromTokens, RELAYER_LIST[coinbase]._toTokens);
+
+        address[] memory tomoPairs = new address[](length);
+
+        address[] memory nonTomoPairs = new address[](getNonTomoPairLength(toTokens));
+
+        if (nonTomoPairs.length == 0) {
+            return true;
+        }
+
+        // get tokens pairing with tomo from current list
+        for (uint i = 0; i < RELAYER_LIST[coinbase]._toTokens.length; i++) {
+            if (RELAYER_LIST[coinbase]._toTokens[i] == tomoNative) {
+                tomoPairs[countPair] = RELAYER_LIST[coinbase]._fromTokens[i];
+                countPair++;
+            } else if (RELAYER_LIST[coinbase]._fromTokens[i] == tomoNative) {
+                tomoPairs[countPair] = RELAYER_LIST[coinbase]._toTokens[i];
+                countPair++;
+            }
+        }
+
+        // update the list with from tokens
+        for (uint j = 0; j < toTokens.length; j++) {
+            if (toTokens[j] == tomoNative) {
+                tomoPairs[countPair] = fromTokens[j];
+                countPair++;
+            } else {
+                // get tokens that does not quote tomo
+                nonTomoPairs[countNonPair] = toTokens[j];
+                countNonPair++;
+                if (fromTokens[j] == tomoNative) {
+                    tomoPairs[countPair] = toTokens[j];
+                    countPair++;
+                }
+            }
+        }
+
+        for (uint z = 0; z < nonTomoPairs.length; z++) {
+            if (!indexOf(tomoPairs, nonTomoPairs[z])) {
                 return false;
             }
         }
