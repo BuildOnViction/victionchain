@@ -113,7 +113,7 @@ func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 			}
 			return err
 		}
-		statedb, err := state.New(blockchain.GetBlockByHash(block.ParentHash()).Root(), blockchain.stateCache)
+		statedb, err := state.New(blockchain.GetBlockByHash(block.ParentHash()).Root(), blockchain.StateCache)
 		if err != nil {
 			return err
 		}
@@ -1261,10 +1261,10 @@ func TestTrieForkGC(t *testing.T) {
 	}
 	// Dereference all the recent tries and ensure no past trie is left in
 	for i := 0; i < triesInMemory; i++ {
-		chain.stateCache.TrieDB().Dereference(blocks[len(blocks)-1-i].Root(), common.Hash{})
-		chain.stateCache.TrieDB().Dereference(forks[len(blocks)-1-i].Root(), common.Hash{})
+		chain.StateCache.TrieDB().Dereference(blocks[len(blocks)-1-i].Root(), common.Hash{})
+		chain.StateCache.TrieDB().Dereference(forks[len(blocks)-1-i].Root(), common.Hash{})
 	}
-	if len(chain.stateCache.TrieDB().Nodes()) > 0 {
+	if len(chain.StateCache.TrieDB().Nodes()) > 0 {
 		t.Fatalf("stale tries still alive after garbase collection")
 	}
 }
@@ -1297,7 +1297,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 		t.Fatalf("failed to insert shared chain: %v", err)
 	}
 	// Ensure that the state associated with the forking point is pruned away
-	if node, _ := chain.stateCache.TrieDB().Node(shared[len(shared)-1].Root()); node != nil {
+	if node, _ := chain.StateCache.TrieDB().Node(shared[len(shared)-1].Root()); node != nil {
 		t.Fatalf("common-but-old ancestor still cache")
 	}
 	// Import the competitor chain without exceeding the canonical's TD and ensure
@@ -1306,7 +1306,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 		t.Fatalf("failed to insert competitor chain: %v", err)
 	}
 	for i, block := range competitor[:len(competitor)-2] {
-		if node, _ := chain.stateCache.TrieDB().Node(block.Root()); node != nil {
+		if node, _ := chain.StateCache.TrieDB().Node(block.Root()); node != nil {
 			t.Fatalf("competitor %d: low TD chain became processed", i)
 		}
 	}
@@ -1316,7 +1316,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 		t.Fatalf("failed to finalize competitor chain: %v", err)
 	}
 	for i, block := range competitor[:len(competitor)-triesInMemory] {
-		if node, _ := chain.stateCache.TrieDB().Node(block.Root()); node != nil {
+		if node, _ := chain.StateCache.TrieDB().Node(block.Root()); node != nil {
 			t.Fatalf("competitor %d: competing chain state missing", i)
 		}
 	}

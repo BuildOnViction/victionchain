@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -588,7 +589,7 @@ func (api *PrivateDebugAPI) TraceInternalTransaction(ctx context.Context, hash c
 	if err != nil {
 		return nil, err
 	}
-	log.Debug("TraceInternalTransaction traceInternalTx", "nonce", tx.Nonce(), "waited", statedb.GetNonce(*tx.From()))
+	log.Debug("TraceInternalTransaction traceInternalTx", "config", config)
 	// Trace the transaction and return
 	return api.traceInternalTx(ctx, msg, vmctx, statedb, config)
 }
@@ -630,8 +631,8 @@ func (api *PrivateDebugAPI) traceInternalTx(ctx context.Context, message core.Me
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
 	// Run the transaction with tracing enabled.
-	vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{DebugInternalTx: true, Tracer: tracer})
-
+	vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{Debug: true, Tracer: tracer})
+	log.Debug("TraceInternalTransaction traceInternalTx", "tracer", reflect.TypeOf(tracer))
 	owner := common.Address{}
 	ret, gas, failed, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()), owner)
 	if err != nil {

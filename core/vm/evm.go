@@ -174,7 +174,8 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	start := time.Now()
 
 	// Capture the tracer start/end events in debug mode
-	if (evm.vmConfig.Debug || evm.vmConfig.DebugInternalTx) && evm.depth == 0 {
+	//if (evm.vmConfig.Debug || evm.vmConfig.DebugInternalTx) && evm.depth == 0 {
+	if evm.vmConfig.Debug && evm.depth == 0 {
 		evm.vmConfig.Tracer.CaptureStart(caller.Address(), addr, false, input, gas, value)
 
 		defer func() { // Lazy evaluation of the parameters
@@ -349,8 +350,8 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, contractAddr, gas, nil
 	}
-
-	if (evm.vmConfig.Debug || evm.vmConfig.DebugInternalTx) && evm.depth == 0 {
+	//if (evm.vmConfig.Debug || evm.vmConfig.DebugInternalTx) && evm.depth == 0 {
+	if evm.vmConfig.Debug && evm.depth == 0 {
 		evm.vmConfig.Tracer.CaptureStart(caller.Address(), contractAddr, true, code, gas, value)
 	}
 	start := time.Now()
@@ -385,7 +386,8 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 	if maxCodeSizeExceeded && err == nil {
 		err = errMaxCodeSizeExceeded
 	}
-	if (evm.vmConfig.Debug || evm.vmConfig.DebugInternalTx) && evm.depth == 0 {
+	//if (evm.vmConfig.Debug || evm.vmConfig.DebugInternalTx) && evm.depth == 0 {
+	if evm.vmConfig.Debug && evm.depth == 0 {
 		evm.vmConfig.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(start), err)
 	}
 	return ret, contractAddr, contract.Gas, err

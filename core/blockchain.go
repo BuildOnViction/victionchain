@@ -129,7 +129,7 @@ type BlockChain struct {
 	currentBlock     atomic.Value // Current head of the block chain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache state.Database // State database to reuse between imports (contains state cache)
+	StateCache state.Database // State database to reuse between imports (contains state cache)
 
 	bodyCache        *lru.Cache    // Cache for the most recent block bodies
 	bodyRLPCache     *lru.Cache    // Cache for the most recent block bodies in RLP encoded format
@@ -190,7 +190,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		cacheConfig:      cacheConfig,
 		db:               db,
 		triegc:           prque.New(),
-		stateCache:       state.NewDatabase(db),
+		StateCache:       state.NewDatabase(db),
 		quit:             make(chan struct{}),
 		bodyCache:        bodyCache,
 		bodyRLPCache:     bodyRLPCache,
@@ -278,28 +278,28 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	repair := false
 	// Make sure the state associated with the block is available
-	_, err := state.New(currentBlock.Root(), bc.stateCache)
+	_, err := state.New(currentBlock.Root(), bc.StateCache)
 	if err != nil {
 		repair = true
 	} else {
-		engine, ok := bc.Engine().(*posv.Posv)
-		if ok {
-			tomoXService := engine.GetTomoXService()
-			if bc.Config().IsTIPTomoX(currentBlock.Number()) && tomoXService != nil {
-				tomoxRoot, err := tomoXService.GetTomoxStateRoot(currentBlock)
-				if err != nil {
-					repair = true
-				} else {
-
-					if tomoXService.GetStateCache() != nil {
-						_, err = tomox_state.New(tomoxRoot, tomoXService.GetStateCache())
-						if err != nil {
-							repair = true
-						}
-					}
-				}
-			}
-		}
+		//engine, ok := bc.Engine().(*posv.Posv)
+		//if ok {
+		//	tomoXService := engine.GetTomoXService()
+		//	if bc.Config().IsTIPTomoX(currentBlock.Number()) && tomoXService != nil {
+		//		tomoxRoot, err := tomoXService.GetTomoxStateRoot(currentBlock)
+		//		if err != nil {
+		//			repair = true
+		//		} else {
+		//
+		//			if tomoXService.GetStateCache() != nil {
+		//				_, err = tomox_state.New(tomoxRoot, tomoXService.GetStateCache())
+		//				if err != nil {
+		//					repair = true
+		//				}
+		//			}
+		//		}
+		//	}
+		//}
 	}
 	if repair {
 		// Dangling block without a state associated, init from scratch
@@ -371,7 +371,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 		bc.currentBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
 	}
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
-		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
+		if _, err := state.New(currentBlock.Root(), bc.StateCache); err != nil {
 			// Rewound state missing, rolled back to before pivot, reset to genesis
 			bc.currentBlock.Store(bc.genesisBlock)
 		}
@@ -406,7 +406,7 @@ func (bc *BlockChain) FastSyncCommitHead(hash common.Hash) error {
 	if block == nil {
 		return fmt.Errorf("non existent block [%x…]", hash[:4])
 	}
-	if _, err := trie.NewSecure(block.Root(), bc.stateCache.TrieDB(), 0); err != nil {
+	if _, err := trie.NewSecure(block.Root(), bc.StateCache.TrieDB(), 0); err != nil {
 		return err
 	}
 	// If all checks out, manually set the head block
@@ -470,7 +470,7 @@ func (bc *BlockChain) State() (*state.StateDB, error) {
 
 // StateAt returns a new mutable state based on a particular point in time.
 func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
-	return state.New(root, bc.stateCache)
+	return state.New(root, bc.StateCache)
 }
 
 // OrderStateAt returns a new mutable state based on a particular point in time.
@@ -533,7 +533,7 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 func (bc *BlockChain) repair(head **types.Block) error {
 	for {
 		// Abort if we've rewound to a head block that does have associated state
-		if _, err := state.New((*head).Root(), bc.stateCache); err == nil {
+		if _, err := state.New((*head).Root(), bc.StateCache); err == nil {
 			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
 			engine, ok := bc.Engine().(*posv.Posv)
 			if ok {
@@ -674,7 +674,7 @@ func (bc *BlockChain) HasBlock(hash common.Hash, number uint64) bool {
 
 // HasState checks if state trie is fully present in the database or not.
 func (bc *BlockChain) HasState(hash common.Hash) bool {
-	_, err := bc.stateCache.OpenTrie(hash)
+	_, err := bc.StateCache.OpenTrie(hash)
 	return err == nil
 }
 
@@ -780,7 +780,7 @@ func (bc *BlockChain) GetUnclesInChain(block *types.Block, length int) []*types.
 // TrieNode retrieves a blob of data associated with a trie node (or code hash)
 // either from ephemeral in-memory cache, or from persistent storage.
 func (bc *BlockChain) TrieNode(hash common.Hash) ([]byte, error) {
-	return bc.stateCache.TrieDB().Node(hash)
+	return bc.StateCache.TrieDB().Node(hash)
 }
 
 // Stop stops the blockchain service. If any imports are currently in progress
@@ -804,7 +804,7 @@ func (bc *BlockChain) Stop() {
 	if !bc.cacheConfig.Disabled {
 		var tomoxTriedb *trie.Database
 		engine, _ := bc.Engine().(*posv.Posv)
-		triedb := bc.stateCache.TrieDB()
+		triedb := bc.StateCache.TrieDB()
 		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil {
 			if tomoXService := engine.GetTomoXService(); tomoXService != nil && tomoXService.GetStateCache() != nil {
 				tomoxTriedb = tomoXService.GetStateCache().TrieDB()
@@ -1092,7 +1092,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			tomoxTrieDb = tomoXService.GetStateCache().TrieDB()
 		}
 	}
-	triedb := bc.stateCache.TrieDB()
+	triedb := bc.StateCache.TrieDB()
 
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.Disabled {
@@ -1373,7 +1373,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		} else {
 			parent = chain[i-1]
 		}
-		statedb, err := state.New(parent.Root(), bc.stateCache)
+		statedb, err := state.New(parent.Root(), bc.StateCache)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
@@ -1479,7 +1479,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		stats.processed++
 		stats.usedGas += usedGas
-		stats.report(chain, i, bc.stateCache.TrieDB().Size())
+		stats.report(chain, i, bc.StateCache.TrieDB().Size())
 		if status == CanonStatTy && bc.chainConfig.Posv != nil {
 			// epoch block
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
@@ -1604,7 +1604,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	// Create a new statedb using the parent block and report an
 	// error if it fails.
 	var parent = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
-	statedb, err := state.New(parent.Root(), bc.stateCache)
+	statedb, err := state.New(parent.Root(), bc.StateCache)
 	if err != nil {
 		return nil, err
 	}
@@ -1764,7 +1764,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	}
 	stats.processed++
 	stats.usedGas += result.usedGas
-	stats.report(types.Blocks{block}, 0, bc.stateCache.TrieDB().Size())
+	stats.report(types.Blocks{block}, 0, bc.StateCache.TrieDB().Size())
 	if status == CanonStatTy && bc.chainConfig.Posv != nil {
 		// epoch block
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {

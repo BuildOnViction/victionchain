@@ -28,7 +28,7 @@ var TIP2019Block = big.NewInt(1050000)
 var TIPSigning = big.NewInt(3000000)
 var TIPRandomize = big.NewInt(3464000)
 var BlackListHFNumber = uint64(9349100)
-var TIPTomoX = big.NewInt(0)
+var TIPTomoX = big.NewInt(1111303000)
 var TIPTomoXTestnet = big.NewInt(11303000)
 var IsTestnet bool = false
 var StoreRewardFolder string

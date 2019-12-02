@@ -242,7 +242,7 @@ type Posv struct {
 	lock   sync.RWMutex    // Protects the signer fields
 
 	BlockSigners               *lru.Cache
-	HookReward                 func(chain consensus.ChainReader, state *state.StateDB, header *types.Header) (error, map[string]interface{})
+	HookReward                 func(chain consensus.ChainReader, state *state.StateDB, parentState *state.StateDB, header *types.Header) (error, map[string]interface{})
 	HookPenalty                func(chain consensus.ChainReader, blockNumberEpoc uint64) ([]common.Address, error)
 	HookPenaltyTIPSigning      func(chain consensus.ChainReader, header *types.Header, candidate []common.Address) ([]common.Address, error)
 	HookValidator              func(header *types.Header, signers []common.Address) ([]byte, error)
@@ -941,7 +941,7 @@ func (c *Posv) UpdateMasternodes(chain consensus.ChainReader, header *types.Head
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
-func (c *Posv) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (c *Posv) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, parentState *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// set block reward
 	number := header.Number.Uint64()
 	rCheckpoint := chain.Config().Posv.RewardCheckpoint
@@ -949,7 +949,7 @@ func (c *Posv) Finalize(chain consensus.ChainReader, header *types.Header, state
 	// _ = c.CacheData(header, txs, receipts)
 
 	if c.HookReward != nil && number%rCheckpoint == 0 {
-		err, rewards := c.HookReward(chain, state, header)
+		err, rewards := c.HookReward(chain, state, parentState, header)
 		if err != nil {
 			return nil, err
 		}
