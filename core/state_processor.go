@@ -77,6 +77,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if common.TIPSigning.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
 	balanceUpdated := map[common.Address]*big.Int{}
 	totalFeeUsed := big.NewInt(0)
@@ -111,7 +112,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
+	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -134,6 +135,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
 	}
+	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
 	balanceUpdated := map[common.Address]*big.Int{}
 	totalFeeUsed := big.NewInt(0)
@@ -177,7 +179,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	}
 	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
+	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -201,7 +203,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 			balanceFee = value
 		}
 	}
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee,header.Number)
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number)
 	if err != nil {
 		return nil, 0, err, false
 	}

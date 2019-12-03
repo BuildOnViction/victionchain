@@ -199,7 +199,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 							balacne = value
 						}
 					}
-					msg, _ := tx.AsMessage(signer, balacne,task.block.Number())
+					msg, _ := tx.AsMessage(signer, balacne, task.block.Number())
 					vmctx := core.NewEVMContext(msg, task.block.Header(), api.eth.blockchain, nil)
 
 					res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -438,7 +438,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 						balacne = value
 					}
 				}
-				msg, _ := txs[task.index].AsMessage(signer, balacne,block.Number())
+				msg, _ := txs[task.index].AsMessage(signer, balacne, block.Number())
 				vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 				res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -463,7 +463,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 			}
 		}
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer, balacne,block.Number())
+		msg, _ := tx.AsMessage(signer, balacne, block.Number())
 		vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 		vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{})
@@ -536,8 +536,12 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 		if err != nil {
 			return nil, err
 		}
+		root := statedb.IntermediateRoot(true)
+		if root != block.Root() {
+			return nil, fmt.Errorf("invalid merkle root (number :%d  got : %x expect: %x)", block.NumberU64(), root.Hex(), block.Root())
+		}
 		// Finalize the state so any modifications are written to the trie
-		root, err := statedb.Commit(true)
+		root, err = statedb.Commit(true)
 		if err != nil {
 			return nil, err
 		}
@@ -660,7 +664,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 			}
 		}
 		// Assemble the transaction call message and return if the requested offset
-		msg, _ := tx.AsMessage(signer, balacne,block.Number())
+		msg, _ := tx.AsMessage(signer, balacne, block.Number())
 		context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 		if idx == txIndex {
 			return msg, context, statedb, nil
