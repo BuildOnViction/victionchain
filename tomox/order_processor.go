@@ -219,10 +219,18 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 		var quotePrice *big.Int
 		if oldestOrder.QuoteToken.String() != common.TomoNativeAddress {
 			quotePrice = tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(oldestOrder.QuoteToken, common.HexToAddress(common.TomoNativeAddress)))
+			log.Debug("TryGet quotePrice QuoteToken/TOMO", "quotePrice", quotePrice)
 			if quotePrice == nil && oldestOrder.BaseToken.String() != common.TomoNativeAddress {
 				inversePrice := tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(common.HexToAddress(common.TomoNativeAddress), oldestOrder.QuoteToken))
+				quoteTokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, coinbase, oldestOrder.QuoteToken)
+				if err != nil || quoteTokenDecimal.Sign() == 0 {
+					return nil, nil, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", oldestOrder.QuoteToken.String(), err)
+				}
+				log.Debug("TryGet inversePrice TOMO/QuoteToken", "inversePrice", inversePrice)
 				if inversePrice != nil {
 					quotePrice = new(big.Int).Div(common.BasePrice, inversePrice)
+					quotePrice = new(big.Int).Mul(quotePrice, quoteTokenDecimal)
+					log.Debug("TryGet quotePrice after get inversePrice TOMO/QuoteToken", "quotePrice", quotePrice, "quoteTokenDecimal", quoteTokenDecimal)
 				}
 			}
 		}
