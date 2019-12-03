@@ -111,9 +111,16 @@ contract RelayerRegistration {
         require(validateTokens(fromTokens, toTokens) == true, "Invalid quote tokens");
 
         /// @notice Do we need to check the duplication of Token trade-pairs?
-        Relayer memory relayer = Relayer(msg.value, tradeFee, fromTokens, toTokens, RelayerCount, msg.sender);
+        // Relayer memory relayer = Relayer(msg.value, tradeFee, fromTokens, toTokens, RelayerCount, msg.sender);
         RELAYER_COINBASES[RelayerCount] = coinbase;
-        RELAYER_LIST[coinbase] = relayer;
+        RELAYER_LIST[coinbase] = Relayer({
+            _deposit: msg.value,
+            _tradeFee: tradeFee,
+            _fromTokens: fromTokens,
+            _toTokens: toTokens,
+            _index: RelayerCount,
+            _owner: msg.sender
+        });
 
         RelayerCount++;
 
@@ -142,17 +149,36 @@ contract RelayerRegistration {
     }
 
     // List new tokens
-    function listTokens(address coinbase, address[] memory fromTokens, address[] memory toTokens) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
-        require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
-        require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
+    function listToken(
+        address coinbase,
+        address fromToken,
+        address toToken
+    ) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
+        require(RELAYER_LIST[coinbase]._fromTokens.length < MaximumTokenList, "Exceeding number of trade pairs");
 
-        bool tokensValidation = addingTokenValidation(coinbase, fromTokens, toTokens);
-        require(tokensValidation == true, "Invalid token list");
+        require(addingTokenValidation(coinbase, fromToken, toToken) == true, "Invalid pair");
 
-        for (uint i = 0; i < toTokens.length; i++) {
-            RELAYER_LIST[coinbase]._fromTokens.push(fromTokens[i]);
-            RELAYER_LIST[coinbase]._toTokens.push(toTokens[i]);
-        }
+        RELAYER_LIST[coinbase]._fromTokens.push(fromToken);
+        RELAYER_LIST[coinbase]._toTokens.push(toToken);
+
+        emit UpdateEvent(RELAYER_LIST[coinbase]._deposit,
+                         RELAYER_LIST[coinbase]._tradeFee,
+                         RELAYER_LIST[coinbase]._fromTokens,
+                         RELAYER_LIST[coinbase]._toTokens);
+    }
+
+    // delist a token
+    function deListToken(
+        address coinbase,
+        address fromToken,
+        address toToken
+    ) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
+        (address[] memory newFromTokens, address[] memory newToTokens) = deList(coinbase, fromToken, toToken);
+
+        require(validateTokens(newFromTokens, newToTokens) == true, "Invalid quote tokens");
+
+        RELAYER_LIST[coinbase]._fromTokens = newFromTokens;
+        RELAYER_LIST[coinbase]._toTokens = newToTokens;
 
         emit UpdateEvent(RELAYER_LIST[coinbase]._deposit,
                          RELAYER_LIST[coinbase]._tradeFee,
@@ -262,7 +288,7 @@ contract RelayerRegistration {
                 RELAYER_LIST[coinbase]._toTokens);
     }
 
-    function indexOf(address[] memory tomoPair, address target) private pure returns (bool){
+    function indexOf(address[] memory tomoPair, address target) internal pure returns (bool){
         for (uint i = 0; i < tomoPair.length; i ++) {
             if (tomoPair[i] == target) {
                 return true;
@@ -271,36 +297,13 @@ contract RelayerRegistration {
         return false;
     }
 
-    function getTomoPairLength(address[] memory fromTokens, address[] memory toTokens) private pure returns (uint) {
-        uint count = 0;
-        for (uint i = 0; i < toTokens.length; i++) {
-            if (toTokens[i] == tomoNative || fromTokens[i] == tomoNative) {
-                count++;
-            }
-        }
-        return count;
-    }
-    function getNonTomoPairLength(address[] memory toTokens) private pure returns(uint) {
-        uint count = 0;
-        for (uint i = 0; i < toTokens.length; i++) {
-            if (toTokens[i] != tomoNative) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    function validateTokens(address[] memory fromTokens, address[] memory toTokens) private pure returns(bool) {
+    function validateTokens(address[] memory fromTokens, address[] memory toTokens) internal pure returns(bool) {
         // check valid tokens
         uint countPair = 0;
         uint countNonPair = 0;
 
-        address[] memory tomoPairs = new address[](getTomoPairLength(fromTokens, toTokens));
-        address[] memory nonTomoPairs = new address[](getNonTomoPairLength(toTokens));
-
-        if (nonTomoPairs.length == 0) {
-            return true;
-        }
+        address[] memory tomoPairs = new address[](fromTokens.length);
+        address[] memory nonTomoPairs = new address[](fromTokens.length);
 
         for (uint i = 0; i < toTokens.length; i++) {
             if (toTokens[i] == tomoNative) {
@@ -324,53 +327,52 @@ contract RelayerRegistration {
         return true;
     }
 
-    function addingTokenValidation(address coinbase, address[] memory fromTokens, address[] memory toTokens) private view returns(bool){
+    // add a token validation
+    function addingTokenValidation(
+        address coinbase,
+        address fromToken,
+        address toToken
+    ) internal view returns(bool){
         uint countPair = 0;
-        uint countNonPair = 0;
 
-        uint length = getTomoPairLength(fromTokens, toTokens) +
-            getTomoPairLength(RELAYER_LIST[coinbase]._fromTokens, RELAYER_LIST[coinbase]._toTokens);
+        address[] memory tomoPairs = new address[](RELAYER_LIST[coinbase]._toTokens.length + 1);
 
-        address[] memory tomoPairs = new address[](length);
-
-        address[] memory nonTomoPairs = new address[](getNonTomoPairLength(toTokens));
-
-        if (nonTomoPairs.length == 0) {
+        if (fromToken == tomoNative || toToken == tomoNative) {
             return true;
         }
-
-        // get tokens pairing with tomo from current list
+        // get tokens that paired with tomo
         for (uint i = 0; i < RELAYER_LIST[coinbase]._toTokens.length; i++) {
             if (RELAYER_LIST[coinbase]._toTokens[i] == tomoNative) {
                 tomoPairs[countPair] = RELAYER_LIST[coinbase]._fromTokens[i];
                 countPair++;
-            } else if (RELAYER_LIST[coinbase]._fromTokens[i] == tomoNative) {
-                tomoPairs[countPair] = RELAYER_LIST[coinbase]._toTokens[i];
-                countPair++;
-            }
-        }
-
-        // update the list with from tokens
-        for (uint j = 0; j < toTokens.length; j++) {
-            if (toTokens[j] == tomoNative) {
-                tomoPairs[countPair] = fromTokens[j];
-                countPair++;
             } else {
-                // get tokens that does not quote tomo
-                nonTomoPairs[countNonPair] = toTokens[j];
-                countNonPair++;
-                if (fromTokens[j] == tomoNative) {
-                    tomoPairs[countPair] = toTokens[j];
+                if (RELAYER_LIST[coinbase]._fromTokens[i] == tomoNative) {
+                    tomoPairs[countPair] = RELAYER_LIST[coinbase]._toTokens[i];
                     countPair++;
                 }
             }
         }
-
-        for (uint z = 0; z < nonTomoPairs.length; z++) {
-            if (!indexOf(tomoPairs, nonTomoPairs[z])) {
-                return false;
-            }
+        if (!indexOf(tomoPairs, toToken)) {
+            return false;
         }
         return true;
+    }
+
+    // create new arrays of base and quote tokens
+    function deList(address coinbase, address fromToken, address toToken) private view returns(address[], address[]) {
+        address[] memory newFromTokens = new address[](RELAYER_LIST[coinbase]._toTokens.length);
+        address[] memory newToTokens = new address[](RELAYER_LIST[coinbase]._toTokens.length);
+        uint count = 0;
+
+        for (uint i = 0; i < RELAYER_LIST[coinbase]._toTokens.length; i++) {
+            if (RELAYER_LIST[coinbase]._toTokens[i] != toToken ||
+                RELAYER_LIST[coinbase]._fromTokens[i] != fromToken) {
+                newFromTokens[count] = RELAYER_LIST[coinbase]._fromTokens[i];
+                newToTokens[count] = RELAYER_LIST[coinbase]._toTokens[i];
+                count++;
+            }
+        }
+
+        return (newFromTokens, newToTokens);
     }
 }
