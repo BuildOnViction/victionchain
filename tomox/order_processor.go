@@ -39,20 +39,24 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 		return nil, nil, ErrNonceTooLow
 	}
 	if order.Status == OrderStatusCancelled {
-		err := tomoXstatedb.CancelOrder(orderBook, order)
+		err, reject := tomox.ProcessCancelOrder(tomoXstatedb, statedb, chain, coinbase, orderBook, order)
 		if err != nil {
-			log.Debug("Error when cancel order", "order", order)
 			return nil, nil, err
+		}
+		if reject {
+			rejects = append(rejects, order)
 		}
 		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
-	if order.Price.Sign() == 0 || common.BigToHash(order.Price).Big().Cmp(order.Price) != 0 {
-		log.Debug("Reject order price invalid", "price", order.Price)
-		rejects = append(rejects, order)
-		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
-		return trades, rejects, nil
+	if order.Type != tomox_state.Market {
+		if order.Price.Sign() == 0 || common.BigToHash(order.Price).Big().Cmp(order.Price) != 0 {
+			log.Debug("Reject order price invalid", "price", order.Price)
+			rejects = append(rejects, order)
+			tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+			return trades, rejects, nil
+		}
 	}
 	if order.Quantity.Sign() == 0 || common.BigToHash(order.Quantity).Big().Cmp(order.Quantity) != 0 {
 		log.Debug("Reject order quantity invalid", "quantity", order.Quantity)
@@ -215,6 +219,20 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 		var quotePrice *big.Int
 		if oldestOrder.QuoteToken.String() != common.TomoNativeAddress {
 			quotePrice = tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(oldestOrder.QuoteToken, common.HexToAddress(common.TomoNativeAddress)))
+			log.Debug("TryGet quotePrice QuoteToken/TOMO", "quotePrice", quotePrice)
+			if quotePrice == nil && oldestOrder.BaseToken.String() != common.TomoNativeAddress {
+				inversePrice := tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(common.HexToAddress(common.TomoNativeAddress), oldestOrder.QuoteToken))
+				quoteTokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, coinbase, oldestOrder.QuoteToken)
+				if err != nil || quoteTokenDecimal.Sign() == 0 {
+					return nil, nil, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", oldestOrder.QuoteToken.String(), err)
+				}
+				log.Debug("TryGet inversePrice TOMO/QuoteToken", "inversePrice", inversePrice)
+				if inversePrice != nil {
+					quotePrice = new(big.Int).Div(common.BasePrice, inversePrice)
+					quotePrice = new(big.Int).Mul(quotePrice, quoteTokenDecimal)
+					log.Debug("TryGet quotePrice after get inversePrice TOMO/QuoteToken", "quotePrice", quotePrice, "quoteTokenDecimal", quoteTokenDecimal)
+				}
+			}
 		}
 		tradedQuantity, rejectMaker, err := tomox.getTradeQuantity(quotePrice, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
 		if err != nil && err == tomox_state.ErrQuantityTradeTooSmall {
@@ -540,4 +558,72 @@ func DoSettleBalance(coinbase common.Address, takerOrder, makerOrder *tomox_stat
 	tomox_state.SetTokenBalance(takerExOwner, newTakerFee, makerOrder.QuoteToken, statedb)
 	tomox_state.SetTokenBalance(makerExOwner, newMakerFee, makerOrder.QuoteToken, statedb)
 	return nil
+}
+
+func (tomox *TomoX) ProcessCancelOrder(tomoXstatedb *tomox_state.TomoXStateDB, statedb *state.StateDB, chain consensus.ChainContext, coinbase common.Address, orderBook common.Hash, order *tomox_state.OrderItem) (error, bool) {
+	if err := tomox_state.CheckRelayerFee(order.ExchangeAddress, common.RelayerCancelFee, statedb); err != nil {
+		log.Debug("Relayer not enough fee when cancel order", "err", err)
+		return nil, true
+	}
+	baseTokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, coinbase, order.BaseToken)
+	if err != nil || baseTokenDecimal.Sign() == 0 {
+		log.Debug("Fail to get tokenDecimal ", "Token", order.BaseToken.String(), "err", err)
+		return err, false
+	}
+	var tokenBalance *big.Int
+	switch order.Side {
+	case tomox_state.Ask:
+		tokenBalance = tomox_state.GetTokenBalance(order.UserAddress, order.BaseToken, statedb)
+	case tomox_state.Bid:
+		tokenBalance = tomox_state.GetTokenBalance(order.UserAddress, order.QuoteToken, statedb)
+	default:
+		log.Debug("Not found order side", "Side", order.Side)
+		return nil, true
+	}
+	log.Debug("ProcessCancelOrder", "baseToken", order.BaseToken, "quoteToken", order.QuoteToken, "makerPrice", order.Price, "baseTokenDecimal", baseTokenDecimal, "quantity", order.Quantity)
+	feeRate := tomox_state.GetExRelayerFee(order.ExchangeAddress, statedb)
+	tokenCancelFee := getCancelFee(baseTokenDecimal, feeRate, order)
+	if tokenBalance.Cmp(tokenCancelFee) < 0 {
+		log.Debug("User not enough balance when cancel order", "Side", order.Side, "Price", order.Price, "Quantity", order.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
+		return nil, true
+	}
+	err = tomoXstatedb.CancelOrder(orderBook, order)
+	if err != nil {
+		log.Debug("Error when cancel order", "order", order)
+		return err, false
+	}
+	tomox_state.SubRelayerFee(order.ExchangeAddress, common.RelayerCancelFee, statedb)
+	switch order.Side {
+	case tomox_state.Ask:
+		tomox_state.SubTokenBalance(order.UserAddress, tokenCancelFee, order.BaseToken, statedb)
+	case tomox_state.Bid:
+		tomox_state.SubTokenBalance(order.UserAddress, tokenCancelFee, order.QuoteToken, statedb)
+	default:
+	}
+	masternodeOwner := statedb.GetOwner(coinbase)
+	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
+	return nil, false
+}
+
+func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tomox_state.OrderItem) *big.Int {
+	cancelFee := big.NewInt(0)
+	if order.Side == tomox_state.Ask {
+		// SELL 1 BTC => TOMO ,,
+		// order.Quantity =1 && fee rate =2
+		// ==> cancel fee = 2/10000
+		baseTokenQuantity := new(big.Int).Mul(order.Quantity, baseTokenDecimal)
+		cancelFee = new(big.Int).Mul(baseTokenQuantity, feeRate)
+		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
+	} else {
+		// BUY 1 BTC => TOMO with Price : 10000
+		// quoteTokenQuantity = 10000 && fee rate =2
+		// => cancel fee =2
+		quoteTokenQuantity := new(big.Int).Mul(order.Quantity, order.Price)
+		quoteTokenQuantity = quoteTokenQuantity.Div(quoteTokenQuantity, baseTokenDecimal)
+		// Fee
+		// makerFee = quoteTokenQuantity * feeRate / baseFee = quantityToTrade * makerPrice / baseTokenDecimal * feeRate / baseFee
+		cancelFee = new(big.Int).Mul(quoteTokenQuantity, feeRate)
+		cancelFee = new(big.Int).Div(quoteTokenQuantity, common.TomoXBaseCancelFee)
+	}
+	return cancelFee
 }

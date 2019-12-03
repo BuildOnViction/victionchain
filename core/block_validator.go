@@ -106,8 +106,16 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 }
 
 func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox_state.TxMatchBatch, coinbase common.Address) error {
+	posvEngine, ok := v.bc.Engine().(*posv.Posv)
+	if posvEngine == nil || !ok {
+		return ErrNotPoSV
+	}
+	tomoXService := posvEngine.GetTomoXService()
+	if tomoXService == nil {
+		return fmt.Errorf("tomox not found")
+	}
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
-
+	matchingResult := map[common.Hash]tomox_state.MatchingResult{}
 	for _, txMatch := range txMatchBatch.Data {
 		// verify orderItem
 		order, err := txMatch.DecodeOrder()
@@ -120,16 +128,18 @@ func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStat
 			return fmt.Errorf("invalid order . Error: %v", err)
 		}
 		// process Matching Engine
-		posvEngine, _  := v.bc.Engine().(*posv.Posv)
-		if posvEngine != nil {
-			if tomoXService := posvEngine.GetTomoXService(); tomoXService != nil {
-				if _, _,  err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tomox_state.GetOrderBookHash(order.BaseToken,order.QuoteToken), order); err != nil {
-					return err
-				}
-			}
+		newTrades, newRejectedOrders, err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tomox_state.GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		if err != nil {
+			return err
+		}
+		matchingResult[order.Hash] = tomox_state.MatchingResult{
+			Trades:  newTrades,
+			Rejects: newRejectedOrders,
 		}
 	}
-
+	if tomoXService.IsSDKNode() {
+		v.bc.AddMatchingResult(txMatchBatch.TxHash, matchingResult)
+	}
 	return nil
 }
 

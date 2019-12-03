@@ -201,13 +201,12 @@ func (b *SimulatedBackend) CallContract(ctx context.Context, call ethereum.CallM
 	return rval, err
 }
 
-
+//FIXME: please use copyState for this function
 // CallContractWithState executes a contract call at the given state.
 func (b *SimulatedBackend) CallContractWithState(ctx context.Context, call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
 	// Ensure message is initialized properly.
-	if call.GasPrice == nil {
-		call.GasPrice = big.NewInt(1)
-	}
+	call.GasPrice = big.NewInt(0)
+
 	if call.Gas == 0 {
 		call.Gas = 1000000
 	}

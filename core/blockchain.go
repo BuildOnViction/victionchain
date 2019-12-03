@@ -31,6 +31,7 @@ import (
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/tomox/tomox_state"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/mclock"
 	"github.com/tomochain/tomochain/consensus"
@@ -48,7 +49,6 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
-	lru "github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -156,6 +156,9 @@ type BlockChain struct {
 	// Blocks hash array by block number
 	// cache field for tracking finality purpose, can't use for tracking block vs block relationship
 	blocksHashCache *lru.Cache
+
+	resultTrade    *lru.Cache // trades result: key - takerOrderHash, value: trades corresponding to takerOrder
+	rejectedOrders *lru.Cache // rejected orders: key - takerOrderHash, value: rejected orders corresponding to takerOrder
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -177,6 +180,11 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	resultProcess, _ := lru.New(blockCacheLimit)
 	preparingBlock, _ := lru.New(blockCacheLimit)
 	downloadingBlock, _ := lru.New(blockCacheLimit)
+
+	// for tomox
+	resultTrade, _ := lru.New(tomox_state.OrderCacheLimit)
+	rejectedOrders, _ := lru.New(tomox_state.OrderCacheLimit)
+
 	bc := &BlockChain{
 		chainConfig:      chainConfig,
 		cacheConfig:      cacheConfig,
@@ -195,6 +203,8 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		vmConfig:         vmConfig,
 		badBlocks:        badBlocks,
 		blocksHashCache:  blocksHashCache,
+		resultTrade:      resultTrade,
+		rejectedOrders:   rejectedOrders,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -1077,7 +1087,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	}
 	engine, _ := bc.Engine().(*posv.Posv)
 	var tomoxTrieDb *trie.Database
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil{
+	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
 		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
 			tomoxTrieDb = tomoXService.GetStateCache().TrieDB()
 		}
@@ -2265,12 +2275,39 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 	for _, txMatchBatch := range txMatchBatchData {
 		dirtyOrderCount := uint64(0)
 		for _, txMatch := range txMatchBatch.Data {
+			var (
+				takerOrderInTx *tomox_state.OrderItem
+				trades         []map[string]string
+				rejectedOrders []*tomox_state.OrderItem
+			)
+
+			if takerOrderInTx, err = txMatch.DecodeOrder(); err != nil {
+				log.Error("SDK node decode takerOrderInTx failed", "txDataMatch", txMatch)
+				return
+			}
+
+			// getTrades from cache
+			resultTrades, ok := bc.resultTrade.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
+			if ok && resultTrades != nil {
+				trades = resultTrades.([]map[string]string)
+			}
+			// remove from cache
+			bc.resultTrade.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
+
+			// getRejectedOrder from cache
+			rejected, ok := bc.rejectedOrders.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
+			if ok && rejected != nil {
+				rejectedOrders = rejected.([]*tomox_state.OrderItem)
+			}
+			// remove from cache
+			bc.rejectedOrders.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
+
 			// the smallest time unit in mongodb is millisecond
 			// hence, we should update time in millisecond
 			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
 			milliSecond := txMatchBatch.Timestamp / 1e6
-			txMatchTime := time.Unix(0, milliSecond * 1e6).UTC()
-			if err := tomoXService.SyncDataToSDKNode(txMatch, txMatchBatch.TxHash, txMatchTime, currentState, &dirtyOrderCount); err != nil {
+			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
+			if err := tomoXService.SyncDataToSDKNode(takerOrderInTx, txMatchBatch.TxHash, txMatchTime, currentState, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Error("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
 			}
@@ -2303,5 +2340,12 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	// apply new chain
 	for i := len(newChain) - 1; i >= 0; i-- {
 		bc.logExchangeData(newChain[i])
+	}
+}
+
+func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]tomox_state.MatchingResult) {
+	for hash, result := range matchingResults {
+		bc.resultTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
+		bc.rejectedOrders.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
 	}
 }

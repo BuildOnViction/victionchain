@@ -93,10 +93,46 @@ func main() {
 
 	fromTokens := []common.Address{}
 	toTokens := []common.Address{}
-	for _, token := range tokenList {
-		fromTokens = append(fromTokens, token["address"].(common.Address))
-		toTokens = append(toTokens, simulation.TOMONative)
-	}
+
+	/*
+		for _, token := range tokenList {
+			fromTokens = append(fromTokens, token["address"].(common.Address))
+			toTokens = append(toTokens, simulation.TOMONative)
+		}
+	*/
+
+	// TOMO/BTC
+	fromTokens = append(fromTokens, simulation.TOMONative)
+	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
+
+	// TOMO/USD
+	fromTokens = append(fromTokens, simulation.TOMONative)
+	toTokens = append(toTokens, tokenList[9]["address"].(common.Address))
+
+	// ETH/TOMO
+	fromTokens = append(fromTokens, tokenList[1]["address"].(common.Address))
+	toTokens = append(toTokens, simulation.TOMONative)
+
+	fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
+	toTokens = append(toTokens, simulation.TOMONative)
+
+	fromTokens = append(fromTokens, tokenList[3]["address"].(common.Address))
+	toTokens = append(toTokens, simulation.TOMONative)
+
+	fromTokens = append(fromTokens, tokenList[4]["address"].(common.Address))
+	toTokens = append(toTokens, simulation.TOMONative)
+
+	fromTokens = append(fromTokens, tokenList[5]["address"].(common.Address))
+	toTokens = append(toTokens, simulation.TOMONative)
+
+	fromTokens = append(fromTokens, tokenList[6]["address"].(common.Address))
+	toTokens = append(toTokens, simulation.TOMONative)
+
+	fromTokens = append(fromTokens, tokenList[7]["address"].(common.Address))
+	toTokens = append(toTokens, simulation.TOMONative)
+
+	fromTokens = append(fromTokens, tokenList[8]["address"].(common.Address))
+	toTokens = append(toTokens, simulation.TOMONative)
 
 	// ETH/BTC
 	fromTokens = append(fromTokens, tokenList[1]["address"].(common.Address))
@@ -105,6 +141,14 @@ func main() {
 	// XRP/BTC
 	fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
 	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
+
+	// BTC/USD
+	fromTokens = append(fromTokens, tokenList[0]["address"].(common.Address))
+	toTokens = append(toTokens, tokenList[9]["address"].(common.Address))
+
+	// ETH/USD
+	fromTokens = append(fromTokens, tokenList[1]["address"].(common.Address))
+	toTokens = append(toTokens, tokenList[9]["address"].(common.Address))
 
 	_, err = relayerRegistration.Register(simulation.RelayerCoinbaseAddr, simulation.TradeFee, fromTokens, toTokens)
 	if err != nil {
@@ -118,7 +162,11 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 	tokenListResult := []map[string]interface{}{}
 	for _, tokenName := range tokenNameList {
 		auth.Nonce = big.NewInt(int64(nonce))
-		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, 18, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
+		d := uint8(18)
+		if tokenName == "USD" {
+			d = 8
+		}
+		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, d, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
 		if err != nil {
 			log.Fatal("DeployTRC21 ", tokenName, err)
 		}
