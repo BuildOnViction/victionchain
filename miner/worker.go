@@ -80,12 +80,13 @@ type Work struct {
 	config *params.ChainConfig
 	signer types.Signer
 
-	state      *state.StateDB // apply state changes here
-	tomoxState *tomox_state.TomoXStateDB
-	ancestors  mapset.Set // ancestor set (used for checking uncle parent validity)
-	family     mapset.Set // family set (used for checking uncle invalidity)
-	uncles     mapset.Set // uncle set
-	tcount     int        // tx count in cycle
+	state       *state.StateDB // apply state changes here
+	parentState *state.StateDB
+	tomoxState  *tomox_state.TomoXStateDB
+	ancestors   mapset.Set // ancestor set (used for checking uncle parent validity)
+	family      mapset.Set // family set (used for checking uncle invalidity)
+	uncles      mapset.Set // uncle set
+	tcount      int        // tx count in cycle
 
 	Block *types.Block // the new block
 
@@ -461,15 +462,16 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	}
 
 	work := &Work{
-		config:     self.config,
-		signer:     types.NewEIP155Signer(self.config.ChainId),
-		state:      state,
-		tomoxState: tomoxState,
-		ancestors:  mapset.NewSet(),
-		family:     mapset.NewSet(),
-		uncles:     mapset.NewSet(),
-		header:     header,
-		createdAt:  time.Now(),
+		config:      self.config,
+		signer:      types.NewEIP155Signer(self.config.ChainId),
+		state:       state,
+		parentState: state.Copy(),
+		tomoxState:  tomoxState,
+		ancestors:   mapset.NewSet(),
+		family:      mapset.NewSet(),
+		uncles:      mapset.NewSet(),
+		header:      header,
+		createdAt:   time.Now(),
 	}
 
 	if self.config.Posv == nil {
@@ -614,7 +616,7 @@ func (self *worker) commitNewWork() {
 		specialTxs          types.Transactions
 		matchingTransaction *types.Transaction
 		txMatches           []tomox_state.TxDataMatch
-		matchingResults map[common.Hash]tomox_state.MatchingResult
+		matchingResults     map[common.Hash]tomox_state.MatchingResult
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -701,7 +703,7 @@ func (self *worker) commitNewWork() {
 		}
 	}
 	// Create the new block to seal with the consensus engine
-	if work.Block, err = self.engine.Finalize(self.chain, header, work.state, work.txs, uncles, work.receipts); err != nil {
+	if work.Block, err = self.engine.Finalize(self.chain, header, work.state, work.parentState, work.txs, uncles, work.receipts); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return
 	}
