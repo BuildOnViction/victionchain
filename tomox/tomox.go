@@ -375,6 +375,14 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		}
 	}
 
+	// update status for Market orders
+	if updatedTakerOrder.Type == tomox_state.Market {
+		if updatedTakerOrder.FilledAmount.Cmp(big.NewInt(0)) > 0 {
+			updatedTakerOrder.Status = OrderStatusFilled
+		} else {
+			updatedTakerOrder.Status = OrderStatusRejected
+		}
+	}
 	log.Debug("PutObject processed takerOrder",
 		"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
 		"price", updatedTakerOrder.Price, "quantity", updatedTakerOrder.Quantity, "filledAmount", updatedTakerOrder.FilledAmount, "status", updatedTakerOrder.Status,
