@@ -341,6 +341,11 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, tomox_state.GetExRelayerFee(common.HexToAddress(trade[TradeMakerExchange]), statedb))
 		makerFee = big.NewInt(0).Div(makerFee, common.TomoXBaseFee)
 		tradeRecord.MakeFee = makerFee
+
+		// set makerOrderType, takerOrderType
+		tradeRecord.MakerOrderType = trade[MakerOrderType]
+		tradeRecord.TakerOrderType = updatedTakerOrder.Type
+
 		if tradeRecord.CreatedAt.IsZero() {
 			tradeRecord.CreatedAt = txMatchTime
 		}
