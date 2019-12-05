@@ -3,10 +3,8 @@ package tomox_state
 import (
 	"encoding/json"
 	"errors"
-	"math/big"
-	"strconv"
-
 	"github.com/tomochain/tomochain/crypto"
+	"math/big"
 
 	"github.com/tomochain/tomochain/common"
 )
@@ -129,9 +127,12 @@ func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
 	return txMatchResult, nil
 }
 
-func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderId uint64) common.Hash {
-	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), []byte(strconv.FormatUint(orderId, 10)))
+// use orderHash instead of orderId
+// because both takerOrders don't have orderId
+func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderHash common.Hash) common.Hash {
+	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), orderHash.Bytes())
 }
+
 func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
 	order := &OrderItem{}
 	if err := DecodeBytesItem(tx.Order, order); err != nil {
