@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/tomochain/tomochain/crypto"
 	"math/big"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
 )
@@ -39,13 +40,13 @@ var EmptyOrder = OrderItem{
 }
 
 var (
-	ErrInvalidSignature      = errors.New("verify order: invalid signature")
-	ErrInvalidPrice          = errors.New("verify order: invalid price")
-	ErrInvalidQuantity       = errors.New("verify order: invalid quantity")
-	ErrInvalidRelayer        = errors.New("verify order: invalid relayer")
-	ErrInvalidOrderType      = errors.New("verify order: unsupported order type")
-	ErrInvalidOrderSide      = errors.New("verify order: invalid order side")
-	ErrInvalidStatus         = errors.New("verify order: invalid status")
+	ErrInvalidSignature = errors.New("verify order: invalid signature")
+	ErrInvalidPrice     = errors.New("verify order: invalid price")
+	ErrInvalidQuantity  = errors.New("verify order: invalid quantity")
+	ErrInvalidRelayer   = errors.New("verify order: invalid relayer")
+	ErrInvalidOrderType = errors.New("verify order: unsupported order type")
+	ErrInvalidOrderSide = errors.New("verify order: invalid order side")
+	ErrInvalidStatus    = errors.New("verify order: invalid status")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
@@ -97,7 +98,7 @@ var (
 )
 
 type TxDataMatch struct {
-	Order         []byte // serialized data of order has been processed in this tx
+	Order []byte // serialized data of order has been processed in this tx
 }
 
 type TxMatchBatch struct {
@@ -107,7 +108,7 @@ type TxMatchBatch struct {
 }
 
 type MatchingResult struct {
-	Trades []map[string]string
+	Trades  []map[string]string
 	Rejects []*OrderItem
 }
 
@@ -145,6 +146,7 @@ type OrderHistoryItem struct {
 	TxHash       common.Hash
 	FilledAmount *big.Int
 	Status       string
+	UpdatedAt    time.Time
 }
 
 // use alloc to prevent reference manipulation

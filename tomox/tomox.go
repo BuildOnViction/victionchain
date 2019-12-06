@@ -279,6 +279,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 			TxHash:       originTakerOrder.TxHash,
 			FilledAmount: tomox_state.CloneBigInt(originTakerOrder.FilledAmount),
 			Status:       originTakerOrder.Status,
+			UpdatedAt:    originTakerOrder.UpdatedAt,
 		}
 	}
 	if originTakerOrder != nil {
@@ -406,6 +407,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 			TxHash:       o.TxHash,
 			FilledAmount: tomox_state.CloneBigInt(o.FilledAmount),
 			Status:       o.Status,
+			UpdatedAt:    o.UpdatedAt,
 		}
 		tomox.UpdateOrderCache(o.BaseToken, o.QuoteToken, o.Hash, txHash, lastState)
 		o.TxHash = txHash
@@ -439,6 +441,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 					TxHash:       updatedTakerOrder.TxHash,
 					FilledAmount: tomox_state.CloneBigInt(updatedTakerOrder.FilledAmount),
 					Status:       updatedTakerOrder.Status,
+					UpdatedAt:    updatedTakerOrder.UpdatedAt,
 				}
 				tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.Hash, txHash, orderHistoryRecord)
 
@@ -461,6 +464,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 				TxHash:       order.TxHash,
 				FilledAmount: tomox_state.CloneBigInt(order.FilledAmount),
 				Status:       order.Status,
+				UpdatedAt:    order.UpdatedAt,
 			}
 			tomox.UpdateOrderCache(order.BaseToken, order.QuoteToken, order.Hash, txHash, orderHistoryRecord)
 			dirtyFilledAmount, ok := makerDirtyFilledAmount[order.Hash.Hex()]
@@ -554,6 +558,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 		order.TxHash = orderHistoryItem.TxHash
 		order.Status = orderHistoryItem.Status
 		order.FilledAmount = tomox_state.CloneBigInt(orderHistoryItem.FilledAmount)
+		order.UpdatedAt = orderHistoryItem.UpdatedAt
 		log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", tomox_state.ToJSON(order), "orderHistoryItem", orderHistoryItem)
 		if err := db.PutObject(order.Hash, order); err != nil {
 			log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", tomox_state.ToJSON(order))
