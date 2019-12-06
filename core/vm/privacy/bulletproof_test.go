@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"gotest.tools/assert"
 	"io/ioutil"
 	"math/big"
@@ -288,7 +289,7 @@ func TestMRPProveZERO(t *testing.T) {
 	mRangeProof, _ := MRPProve([]*big.Int{
 		new(big.Int).SetInt64(0),
 	})
-	mv := MRPVerify(mRangeProof)
+	mv := MRPVerify(&mRangeProof)
 	assert.Assert(t, mv, " MRProof incorrect")
 }
 
@@ -297,7 +298,7 @@ func TestMRPProve_MAX_2_POW_64(t *testing.T) {
 	mRangeProof, _ := MRPProve([]*big.Int{
 		new(big.Int).SetUint64(0xFFFFFFFFFFFFFFFF),
 	})
-	mv := MRPVerify(mRangeProof)
+	mv := MRPVerify(&mRangeProof)
 	assert.Assert(t, mv, " MRProof incorrect")
 }
 
@@ -313,19 +314,19 @@ func TestMRPProveOutOfSupportedRange(t *testing.T) {
 func TestMRPProve_RANDOM(t *testing.T) {
 
 	mRangeProof, _ := MRPProve(Rand64Vector(1))
-	mv := MRPVerify(mRangeProof)
+	mv := MRPVerify(&mRangeProof)
 	assert.Assert(t, mv, " MRProof incorrect")
 
 	mRangeProof, _ = MRPProve(Rand64Vector(2))
-	mv = MRPVerify(mRangeProof)
+	mv = MRPVerify(&mRangeProof)
 	assert.Assert(t, mv, " MRProof incorrect")
 
 	mRangeProof, _ = MRPProve(Rand64Vector(4))
-	mv = MRPVerify(mRangeProof)
+	mv = MRPVerify(&mRangeProof)
 	assert.Assert(t, mv, " MRProof incorrect")
 
 	mRangeProof, _ = MRPProve(Rand64Vector(8))
-	mv = MRPVerify(mRangeProof)
+	mv = MRPVerify(&mRangeProof)
 	assert.Assert(t, mv, " MRProof incorrect")
 }
 
@@ -502,9 +503,10 @@ func ECPointFromPoint(ecpoint Point) ECPoint {
 
 func TestMRPProveFromJS(t *testing.T) {
 	mRangeProof := parseTestData("./bulletproof.json")
-
+	serialized := mRangeProof.Serialize()
+	t.Logf("Proof: %s", common.Bytes2Hex(serialized))
 	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
-	mv := MRPVerify(mRangeProof)
+	mv := MRPVerify(&mRangeProof)
 	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
 
 	if mv {

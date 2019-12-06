@@ -23,7 +23,6 @@ import (
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
-	privacy "github.com/tomochain/tomochain/core/vm/privacy"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/bn256"
 	"github.com/tomochain/tomochain/params"
@@ -59,7 +58,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}):  &bn256ScalarMul{},
 	common.BytesToAddress([]byte{8}):  &bn256Pairing{},
 	common.BytesToAddress([]byte{30}): &ringSignatureVerifier{},
-	common.BytesToAddress([]byte{31}): &ringSignatureMessageVerifier{},
+	common.BytesToAddress([]byte{40}): &bulletproofVerifier{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -363,59 +362,37 @@ func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
 }
 
 type ringSignatureVerifier struct{}
+type bulletproofVerifier struct{}
+
+func (c *bulletproofVerifier) RequiredGas(input []byte) uint64 {
+	//the gas should depends on the ringsize
+	return 100000
+}
 
 func (c *ringSignatureVerifier) RequiredGas(input []byte) uint64 {
 	//the gas should depends on the ringsize
 	return 100000
 }
 
-type ringSignatureMessageVerifier struct{}
-
-func (c *ringSignatureMessageVerifier) RequiredGas(input []byte) uint64 {
-	//the gas should depends on the ringsize
-	return 120000
-}
-
-//function ringSignatureVerifier only contain the proof
-//The proof contains pretty much stuffs
-//Ring size rs: 1 byte => proof[0]
-//num input: number of real inputs: 1 byte => proof[1]
-//List of inputs/UTXO index typed uint64 => total size = rs * numInput * 8 = proof[0]*proof[1]*8
-//List of key images: total size = numInput * 33 = proof[1] * 33
-//number of output n: 1 byte
-//List of output => n * 130 bytes
-//transaction fee: uint256 => 32 byte
-//ringCT proof size ctSize: uint16 => 2 byte
-//ringCT proof: ctSize bytes
-//bulletproofs: bp
 func (c *ringSignatureVerifier) Run(proof []byte) ([]byte, error) {
-	der, err := privacy.Deserialize(proof)
+	der, err := Deserialize(proof)
 	if err != nil {
 		return []byte{}, errors.New("Fail to deserialize proof")
 	}
 	if !Verify(der, false) {
 		return []byte{}, errors.New("Fail to verify ring signature")
 	}
-	//h := crypto.Keccak256(proof)*/
-	/*b, _ := TestRingSignature()
-	if !b {
-		return []byte{}, errors.New("Fail to verify ring signature")
-	}*/
 	return []byte{}, nil
 }
 
-func (c *ringSignatureMessageVerifier) Run(proof []byte) ([]byte, error) {
-	der, err := Deserialize(proof)
-	if err != nil {
-		return []byte{}, errors.New("Fail to deserialize proof")
+func (c *bulletproofVerifier) Run(proof []byte) ([]byte, error) {
+	mrp := new(MultiRangeProof)
+	if mrp.Deserialize(proof) != nil {
+		return []byte{}, errors.New("failed to deserialize bulletproofs")
 	}
-	if !Verify(der, true) {
-		return []byte{}, errors.New("Fail to verify ring signature")
+
+	if !MRPVerify(mrp) {
+		return []byte{}, errors.New("failed to verify bulletproof")
 	}
-	//h := crypto.Keccak256(proof)*/
-	/*b, _ := TestRingSignature()
-	if !b {
-		return []byte{}, errors.New("Fail to verify ring signature")
-	}*/
 	return []byte{}, nil
 }
