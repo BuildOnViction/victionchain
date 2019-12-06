@@ -8,8 +8,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
 	"github.com/ethereum/go-ethereum/common"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -41,22 +41,22 @@ const (
 //ringCT proof: ctSize bytes
 //bulletproofs: bp
 type PrivateSendVerifier struct {
-	proof 	[]byte
+	proof []byte
 	//ringCT 	RingCT
 }
 
 type Ring []*ecdsa.PublicKey
 
 type RingSignature struct {
-	NumRing	int
-	Size  	int              // size of ring
-	M     	[32]byte         // message
-	C     	*big.Int         // ring signature value, 1 element
-	S     	[][]*big.Int       // ring signature values: [NumRing][Size]
-	Ring  	[]Ring             // array of rings of pubkeys: [NumRing]
-	I     	[]*ecdsa.PublicKey // key images, size = the number of rings [NumRing]
-	Curve 	elliptic.Curve
-	SerializedRing []byte		//temporary memory stored the raw ring ct used in case of verifying ringCT with message verification
+	NumRing        int
+	Size           int                // size of ring
+	M              [32]byte           // message
+	C              *big.Int           // ring signature value, 1 element
+	S              [][]*big.Int       // ring signature values: [NumRing][Size]
+	Ring           []Ring             // array of rings of pubkeys: [NumRing]
+	I              []*ecdsa.PublicKey // key images, size = the number of rings [NumRing]
+	Curve          elliptic.Curve
+	SerializedRing []byte //temporary memory stored the raw ring ct used in case of verifying ringCT with message verification
 }
 
 func (p *PrivateSendVerifier) verify() bool {
@@ -87,7 +87,7 @@ func SerializeCompressed(p *ecdsa.PublicKey) []byte {
 	return append(b, PadTo32Bytes(p.X.Bytes())...)
 }
 
-func DeserializeCompressed(curve elliptic.Curve, b []byte) (*ecdsa.PublicKey) {
+func DeserializeCompressed(curve elliptic.Curve, b []byte) *ecdsa.PublicKey {
 	x := new(big.Int).SetBytes(b[1:33])
 	// Y = +-sqrt(x^3 + B)
 	x3 := new(big.Int).Mul(x, x)
@@ -101,7 +101,7 @@ func DeserializeCompressed(curve elliptic.Curve, b []byte) (*ecdsa.PublicKey) {
 	PPlus1Div4 := new(big.Int).Add(curve.Params().P, big.NewInt(1))
 	PPlus1Div4 = PPlus1Div4.Div(PPlus1Div4, big.NewInt(4))
 	y := new(big.Int).Exp(x3, PPlus1Div4, curve.Params().P)
-	ybit := b[0] % 2 == 1
+	ybit := b[0]%2 == 1
 	if ybit != isOdd(y) {
 		y.Sub(curve.Params().P, y)
 	}
@@ -143,7 +143,7 @@ func (r *RingSignature) Serialize() ([]byte, error) {
 	binary.BigEndian.PutUint64(b, uint64(r.Size))
 	sig = append(sig, b[:]...) // 8 bytes
 
-	sig = append(sig, PadTo32Bytes(r.M[:])...) // 32 bytes
+	sig = append(sig, PadTo32Bytes(r.M[:])...)      // 32 bytes
 	sig = append(sig, PadTo32Bytes(r.C.Bytes())...) // 32 bytes
 
 	for k := 0; k < r.NumRing; k++ {
@@ -166,7 +166,7 @@ func (r *RingSignature) Serialize() ([]byte, error) {
 		sig = append(sig, rb...)
 	}
 
-	if len(sig) != 8 + 8 + 32 + 32 + (32 + 33)*r.NumRing*r.Size + 33*r.NumRing {
+	if len(sig) != 8+8+32+32+(32+33)*r.NumRing*r.Size+33*r.NumRing {
 		return []byte{}, errors.New("Could not serialize ring signature")
 	}
 
@@ -184,9 +184,9 @@ func Deserialize(r []byte) (*RingSignature, error) {
 	}
 	offset := 0
 	sig := new(RingSignature)
-	numRing := r[offset: offset + 8]
+	numRing := r[offset : offset+8]
 	offset += 8
-	size := r[offset:offset + 8]
+	size := r[offset : offset+8]
 	offset += 8
 
 	size_uint := binary.BigEndian.Uint64(size)
@@ -201,14 +201,14 @@ func Deserialize(r []byte) (*RingSignature, error) {
 		return nil, errors.New("incorrect ring size")
 	}
 
-	m := r[offset:offset + 32]
+	m := r[offset : offset+32]
 	offset += 32
 
 	var m_byte [32]byte
 	copy(m_byte[:], m)
 
 	sig.M = m_byte
-	sig.C = new(big.Int).SetBytes(r[offset:offset + 32])
+	sig.C = new(big.Int).SetBytes(r[offset : offset+32])
 	offset += 32
 
 	sig.S = make([][]*big.Int, sig.NumRing)
@@ -414,7 +414,6 @@ func Sign(m [32]byte, rings []Ring, privkeys []*ecdsa.PrivateKey, s int) (*RingS
 		l = append(l, rT...)
 	}
 
-
 	// concatenate m and u*G and calculate c[s+1] = H(m, L_s, R_s)
 	C_j := crypto.Keccak256(append(m[:], l...))
 	idx := s + 1
@@ -431,7 +430,7 @@ func Sign(m [32]byte, rings []Ring, privkeys []*ecdsa.PrivateKey, s int) (*RingS
 		for j := 0; j < numRing; j++ {
 			// calculate L[j][idx] = s[j][idx]*G + c[idx]*Ring[j][idx]
 			px, py := curve.ScalarMult(rings[j][idx].X, rings[j][idx].Y, PadTo32Bytes(C[idx].Bytes())) // px, py = c_i*P_i
-			sx, sy := curve.ScalarBaseMult(PadTo32Bytes(S[j][idx].Bytes()))                          // sx, sy = s[n-1]*G
+			sx, sy := curve.ScalarBaseMult(PadTo32Bytes(S[j][idx].Bytes()))                            // sx, sy = s[n-1]*G
 			l_x, l_y := curve.Add(sx, sy, px, py)
 			L[j][idx] = &ecdsa.PublicKey{curve, l_x, l_y}
 			lT := append(PadTo32Bytes(l_x.Bytes()), PadTo32Bytes(l_y.Bytes())...)
@@ -487,32 +486,10 @@ func Verify(sig *RingSignature, verifyMes bool) bool {
 	ringsize := sig.Size
 	numRing := sig.NumRing
 	S := sig.S
-	C := make([]*big.Int, ringsize + 1)
+	C := make([]*big.Int, ringsize+1)
 	C[0] = sig.C
 	curve := sig.Curve
 	image := sig.I
-
-	if verifyMes {
-		/*ringOffset := 8 + 8 + 32 + 32 + sig.NumRing*sig.Size*32
-		ringBufferSize := sig.NumRing*sig.Size*33
-		computedMes := crypto.Keccak256(sig.SerializedRing[ringOffset:(ringOffset + ringBufferSize)])
-		if !bytes.Equal(computedMes, sig.M[:]) {
-			log.Info("Fail to verify message, input=%s")
-			return false
-		}
-
-		//verify that the sum of all 0->NumRing-2 is equal to the last ring
-		for j := 0; j < sig.Size; j++ {
-			sum := sig.Ring[0][j]
-			for i := 1; i < sig.NumRing - 1; i++ {
-				sum.X,sum.Y = curve.Add(sum.X, sum.Y, sig.Ring[i][j].X, sig.Ring[i][j].Y)
-			}
-			if sum.X != sig.Ring[sig.NumRing - 1][j].X || sum.Y != sig.Ring[sig.NumRing - 1][j].Y {
-				log.Info("Failed to verify sum of pubkeys")
-				return false
-			}
-		}*/
-	}
 
 	// calculate c[i+1] = H(m, s[i]*G + c[i]*P[i])
 	// and c[0] = H)(m, s[n-1]*G + c[n-1]*P[n-1]) where n is the ring size
@@ -522,7 +499,7 @@ func Verify(sig *RingSignature, verifyMes bool) bool {
 		for i := 0; i < numRing; i++ {
 			// calculate L[i][j] = s[i][j]*G + c[j]*Ring[i][j]
 			px, py := curve.ScalarMult(rings[i][j].X, rings[i][j].Y, C[j].Bytes()) // px, py = c_i*P_i
-			sx, sy := curve.ScalarBaseMult(S[i][j].Bytes())                   // sx, sy = s[i]*G
+			sx, sy := curve.ScalarBaseMult(S[i][j].Bytes())                        // sx, sy = s[i]*G
 			l_x, l_y := curve.Add(sx, sy, px, py)
 			lT := append(PadTo32Bytes(l_x.Bytes()), PadTo32Bytes(l_y.Bytes())...)
 			//log.Info("L[i][j]", "i", i, "j", j, "L", common.Bytes2Hex(lT))
@@ -583,7 +560,7 @@ func GenerateMultiRingParams(numRing int, ringSize int, s int) (rings []Ring, pr
 		rings = append(rings, ring)
 	}
 
-	_, err = rand.Read(m[:]);
+	_, err = rand.Read(m[:])
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
@@ -592,32 +569,32 @@ func GenerateMultiRingParams(numRing int, ringSize int, s int) (rings []Ring, pr
 
 func TestRingSignature() (bool, []byte) {
 	/*for i := 14; i < 15; i++ {
-		for j := 14; j < 15; j++ {
-			for k := 0; k <= j; k++ {*/
-				numRing := 1
-				ringSize := 10
-				s := 9
-				rings, privkeys, m, err := GenerateMultiRingParams(numRing, ringSize, s)
-				ringSignature, err := Sign(m, rings, privkeys, s)
-				if err != nil {
-					log.Error("Failed to create Ring signature")
-					return false, []byte{}
-				}
+	for j := 14; j < 15; j++ {
+		for k := 0; k <= j; k++ {*/
+	numRing := 1
+	ringSize := 10
+	s := 9
+	rings, privkeys, m, err := GenerateMultiRingParams(numRing, ringSize, s)
+	ringSignature, err := Sign(m, rings, privkeys, s)
+	if err != nil {
+		log.Error("Failed to create Ring signature")
+		return false, []byte{}
+	}
 
-				sig, err := ringSignature.Serialize()
-				if err != nil {
-					return false, []byte{}
-				}
+	sig, err := ringSignature.Serialize()
+	if err != nil {
+		return false, []byte{}
+	}
 
-				deserializedSig, err := Deserialize(sig)
-				if err != nil {
-					return false, []byte{}
-				}
-				verified := Verify(deserializedSig, false)
-				if !verified {
-					log.Error("Failed to verify Ring signature")
-					return false, []byte{}
-				}
+	deserializedSig, err := Deserialize(sig)
+	if err != nil {
+		return false, []byte{}
+	}
+	verified := Verify(deserializedSig, false)
+	if !verified {
+		log.Error("Failed to verify Ring signature")
+		return false, []byte{}
+	}
 
 	return true, []byte{}
 }
