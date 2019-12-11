@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"gopkg.in/urfave/cli.v1"
 	"io"
 	"math/big"
@@ -28,6 +29,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/naoina/toml"
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/eth"
@@ -37,7 +39,6 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tomox"
 	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
-	"github.com/naoina/toml"
 )
 
 var (
@@ -89,16 +90,17 @@ type Bootnodes struct {
 }
 
 type tomoConfig struct {
-	Eth         eth.Config
-	Shh         whisper.Config
-	Node        node.Config
-	Ethstats    ethstatsConfig
-	TomoX       tomox.Config
-	Account     account
-	StakeEnable bool
-	Bootnodes   Bootnodes
-	Verbosity   int
-	NAT         string
+	Eth          eth.Config
+	Shh          whisper.Config
+	Node         node.Config
+	Ethstats     ethstatsConfig
+	TomoX        tomox.Config
+	TomoXLending tomoxlending.Config
+	Account      account
+	StakeEnable  bool
+	Bootnodes    Bootnodes
+	Verbosity    int
+	NAT          string
 }
 
 func loadConfig(file string, cfg *tomoConfig) error {
@@ -128,13 +130,14 @@ func defaultNodeConfig() node.Config {
 func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Load defaults.
 	cfg := tomoConfig{
-		Eth:         eth.DefaultConfig,
-		Shh:         whisper.DefaultConfig,
-		TomoX:       tomox.DefaultConfig,
-		Node:        defaultNodeConfig(),
-		StakeEnable: true,
-		Verbosity:   3,
-		NAT:         "",
+		Eth:          eth.DefaultConfig,
+		Shh:          whisper.DefaultConfig,
+		TomoX:        tomox.DefaultConfig,
+		TomoXLending: tomoxlending.DefaultConfig,
+		Node:         defaultNodeConfig(),
+		StakeEnable:  true,
+		Verbosity:    3,
+		NAT:          "",
 	}
 	// Load config file.
 	if file := ctx.GlobalString(configFileFlag.Name); file != "" {
@@ -202,7 +205,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 
 	utils.SetShhConfig(ctx, stack, &cfg.Shh)
 	utils.SetTomoXConfig(ctx, &cfg.TomoX)
-
+	utils.SetTomoXLendingConfig(ctx, &cfg.TomoXLending)
 	return stack, cfg
 }
 
@@ -235,6 +238,7 @@ func makeFullNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Register TomoX's OrderBook service if requested.
 	// enable in default
 	utils.RegisterTomoXService(stack, &cfg.TomoX)
+	utils.RegisterTomoXLendingService(stack, &cfg.TomoXLending)
 
 	utils.RegisterEthService(stack, &cfg.Eth)
 

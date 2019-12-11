@@ -7,6 +7,7 @@ import (
 	"github.com/tomochain/tomochain/les"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomoxlending"
 	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
 )
 
@@ -64,6 +65,14 @@ func RegisterEthStatsService(stack *node.Node, url string) {
 func RegisterTomoXService(stack *node.Node, cfg *tomox.Config) {
 	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
 		return tomox.New(cfg), nil
+	}); err != nil {
+		Fatalf("Failed to register the TomoX service: %v", err)
+	}
+}
+
+func RegisterTomoXLendingService(stack *node.Node, cfg *tomoxlending.Config) {
+	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
+		return tomoxlending.New(cfg), nil
 	}); err != nil {
 		Fatalf("Failed to register the TomoX service: %v", err)
 	}
