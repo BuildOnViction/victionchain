@@ -6,6 +6,8 @@ import (
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/p2p"
+	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomoxDAO"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
@@ -32,29 +34,17 @@ var (
 	ErrNonceTooLow  = errors.New("nonce too low")
 )
 
-type Config struct {
-	DataDir        string `toml:",omitempty"`
-	DBEngine       string `toml:",omitempty"`
-	DBName         string `toml:",omitempty"`
-	ConnectionUrl  string `toml:",omitempty"`
-	ReplicaSetName string `toml:",omitempty"`
-}
-
-// DefaultConfig represents (shocker!) the default configuration.
-var DefaultConfig = Config{
-	DataDir: "",
-}
 
 type Lending struct {
 	// Order related
-	leveldb    OrderDao
-	mongodb    OrderDao
+	leveldb    tomoxDAO.TomoXDAO
+	mongodb    tomoxDAO.TomoXDAO
 	Triegc     *prque.Prque          // Priority queue mapping block numbers to tries to gc
 	StateCache lendingstate.Database // State database to reuse between imports (contains state cache)    *lendingstate.TomoXStateDB
 
 	orderNonce map[common.Address]*big.Int
 
-	sdkNode            bool
+	tomox *tomox.TomoX
 	settings           syncmap.Map // holds configuration settings that can be dynamically changed
 	tokenDecimalCache  *lru.Cache
 	lendingItemHistory *lru.Cache
@@ -72,23 +62,8 @@ func (l *Lending) Stop() error {
 	return nil
 }
 
-func NewLDBEngine(cfg *Config) *BatchDatabase {
-	datadir := cfg.DataDir
-	batchDB := NewBatchDatabaseWithEncode(datadir, 0)
-	return batchDB
-}
 
-func NewMongoDBEngine(cfg *Config) *MongoDatabase {
-	mongoDB, err := NewMongoDatabase(nil, cfg.DBName, cfg.ConnectionUrl, cfg.ReplicaSetName, 0)
-
-	if err != nil {
-		log.Crit("Failed to init mongodb engine for tomoxlending", "err", err)
-	}
-
-	return mongoDB
-}
-
-func New(cfg *Config) *Lending {
+func New(tomox *tomox.TomoX) *Lending {
 	tokenDecimalCache, _ := lru.New(defaultCacheLimit)
 	orderCache, _ := lru.New(lendingstate.OrderCacheLimit)
 	lending := &Lending{
@@ -98,13 +73,10 @@ func New(cfg *Config) *Lending {
 		lendingItemHistory: orderCache,
 	}
 
-	// default DBEngine: levelDB
-	lending.leveldb = NewLDBEngine(cfg)
-	lending.sdkNode = false
+	lending.leveldb = tomox.GetDB()
 
-	if cfg.DBEngine == "mongodb" { // this is an add-on DBEngine for SDK nodes
-		lending.mongodb = NewMongoDBEngine(cfg)
-		lending.sdkNode = true
+	if tomox.IsSDKNode() { // this is an add-on DBEngine for SDK nodes
+		lending.mongodb = tomox.GetMongoDB()
 	}
 
 	lending.StateCache = lendingstate.NewDatabase(lending.leveldb)
@@ -119,15 +91,11 @@ func (l *Lending) Overflow() bool {
 	return val.(bool)
 }
 
-func (l *Lending) IsSDKNode() bool {
-	return l.sdkNode
-}
-
-func (l *Lending) GetDB() OrderDao {
+func (l *Lending) GetDB() tomoxDAO.TomoXDAO {
 	return l.leveldb
 }
 
-func (l *Lending) GetMongoDB() OrderDao {
+func (l *Lending) GetMongoDB() tomoxDAO.TomoXDAO {
 	return l.mongodb
 }
 
@@ -352,7 +320,7 @@ func (l *Lending) SyncDataToSDKNode(takerOrderInTx *lendingstate.LendingItem, tx
 	if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
 		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerOrder.Hash.Hex(), err.Error())
 	}
-	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
+	makerOrders := db.GetListLendingItemByHashes(makerDirtyHashes)
 	log.Debug("Maker dirty orders", "len", len(makerOrders), "txhash", txHash.Hex())
 	for _, o := range makerOrders {
 		if txMatchTime.Before(o.UpdatedAt) {
@@ -409,7 +377,7 @@ func (l *Lending) SyncDataToSDKNode(takerOrderInTx *lendingstate.LendingItem, tx
 				}
 			}
 		}
-		dirtyRejectedOrders := db.GetListOrderByHashes(rejectedHashes)
+		dirtyRejectedOrders := db.GetListLendingItemByHashes(rejectedHashes)
 		for _, order := range dirtyRejectedOrders {
 			if txMatchTime.Before(order.UpdatedAt) {
 				log.Debug("Ignore old orders/trades reject", "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
@@ -492,7 +460,7 @@ func (l *Lending) RollbackReorgTxMatch(txhash common.Hash) {
 	db := l.GetMongoDB()
 	defer l.lendingItemHistory.Remove(txhash)
 
-	for _, order := range db.GetOrderByTxHash(txhash) {
+	for _, order := range db.GetLendingItemByTxHash(txhash) {
 		c, ok := l.lendingItemHistory.Get(txhash)
 		log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", lendingstate.ToJSON(order), "orderHistoryItem", c)
 		if !ok {

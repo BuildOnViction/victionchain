@@ -63,17 +63,18 @@ func RegisterEthStatsService(stack *node.Node, url string) {
 }
 
 func RegisterTomoXService(stack *node.Node, cfg *tomox.Config) {
+	tomoX := tomox.New(cfg)
 	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
-		return tomox.New(cfg), nil
+		return tomoX, nil
 	}); err != nil {
 		Fatalf("Failed to register the TomoX service: %v", err)
+	}
+
+	// register tomoxlending service
+	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
+		return tomoxlending.New(tomoX), nil
+	}); err != nil {
+		Fatalf("Failed to register the TomoXLending service: %v", err)
 	}
 }
 
-func RegisterTomoXLendingService(stack *node.Node, cfg *tomoxlending.Config) {
-	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
-		return tomoxlending.New(cfg), nil
-	}); err != nil {
-		Fatalf("Failed to register the TomoX service: %v", err)
-	}
-}

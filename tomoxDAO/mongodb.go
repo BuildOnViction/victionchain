@@ -1,4 +1,4 @@
-package tomox
+package tomoxDAO
 
 import (
 	"bytes"
@@ -11,31 +11,27 @@ import (
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"strings"
 	"time"
 )
 
 const (
-	ordersCollection = "orders"
-	tradesCollection = "trades"
+	ordersCollection        = "orders"
+	tradesCollection        = "trades"
+	lendingItemsCollection  = "lending_items"
+	lendingTradesCollection = "lending_trades"
 )
 
-type MongoItem struct {
-	Value interface{}
-}
-
-type MongoItemRecord struct {
-	Key   string
-	Value string
-}
-
 type MongoDatabase struct {
-	Session    *mgo.Session
-	dbName     string
-	emptyKey   []byte
-	cacheItems *lru.Cache // Cache for reading
-	orderBulk  *mgo.Bulk
-	tradeBulk  *mgo.Bulk
+	Session          *mgo.Session
+	dbName           string
+	emptyKey         []byte
+	cacheItems       *lru.Cache // Cache for reading
+	orderBulk        *mgo.Bulk
+	tradeBulk        *mgo.Bulk
+	lendingItemBulk  *mgo.Bulk
+	lendingTradeBulk *mgo.Bulk
 }
 
 // InitSession initializes a new session with mongodb
@@ -80,7 +76,7 @@ func (db *MongoDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *MongoDatabase) HasObject(hash common.Hash) (bool, error) {
+func (db *MongoDatabase) HasObject(hash common.Hash, val interface{}) (bool, error) {
 	if db.IsEmptyKey(hash.Bytes()) {
 		return false, nil
 	}
@@ -96,28 +92,53 @@ func (db *MongoDatabase) HasObject(hash common.Hash) (bool, error) {
 		err   error
 	)
 	query := bson.M{"hash": hash.Hex()}
+	switch val.(type) {
+	case *tomox_state.OrderItem:
+		// Find key in ordersCollection collection
+		count, err = sc.DB(db.dbName).C(ordersCollection).Find(query).Limit(1).Count()
 
-	// Find key in ordersCollection collection
-	count, err = sc.DB(db.dbName).C(ordersCollection).Find(query).Limit(1).Count()
+		if err != nil {
+			return false, err
+		}
 
-	if err != nil {
-		return false, err
+		if count == 1 {
+			return true, nil
+		}
+	case *tomox_state.Trade:
+		// Find key in tradesCollection collection
+		count, err = sc.DB(db.dbName).C(tradesCollection).Find(query).Limit(1).Count()
+
+		if err != nil {
+			return false, err
+		}
+
+		if count == 1 {
+			return true, nil
+		}
+	case *lendingstate.LendingItem:
+		// Find key in lendingItemsCollection collection
+		count, err = sc.DB(db.dbName).C(lendingItemsCollection).Find(query).Limit(1).Count()
+
+		if err != nil {
+			return false, err
+		}
+
+		if count == 1 {
+			return true, nil
+		}
+	case *lendingstate.LendingTrade:
+		// Find key in lendingTradesCollection collection
+		count, err = sc.DB(db.dbName).C(lendingTradesCollection).Find(query).Limit(1).Count()
+
+		if err != nil {
+			return false, err
+		}
+
+		if count == 1 {
+			return true, nil
+		}
+
 	}
-
-	if count == 1 {
-		return true, nil
-	}
-	// Find key in tradesCollection collection
-	count, err = sc.DB(db.dbName).C(tradesCollection).Find(query).Limit(1).Count()
-
-	if err != nil {
-		return false, err
-	}
-
-	if count == 1 {
-		return true, nil
-	}
-
 	return false, nil
 }
 
@@ -145,8 +166,24 @@ func (db *MongoDatabase) GetObject(hash common.Hash, val interface{}) (interface
 			}
 			db.cacheItems.Add(cacheKey, oi)
 			return oi, nil
-		case *Trade:
-			var t *Trade
+		case *tomox_state.Trade:
+			var t *tomox_state.Trade
+			err := sc.DB(db.dbName).C(tradesCollection).Find(query).One(&t)
+			if err != nil {
+				return nil, err
+			}
+			db.cacheItems.Add(cacheKey, t)
+			return t, nil
+		case *lendingstate.LendingItem:
+			var li *lendingstate.LendingItem
+			err := sc.DB(db.dbName).C(ordersCollection).Find(query).One(&li)
+			if err != nil {
+				return nil, err
+			}
+			db.cacheItems.Add(cacheKey, li)
+			return li, nil
+		case *lendingstate.LendingTrade:
+			var t *lendingstate.LendingTrade
 			err := sc.DB(db.dbName).C(tradesCollection).Find(query).One(&t)
 			if err != nil {
 				return nil, err
@@ -164,28 +201,40 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 	db.cacheItems.Add(cacheKey, val)
 
 	switch val.(type) {
-	case *Trade:
+	case *tomox_state.Trade:
 		// PutObject trade into tradesCollection collection
-		if err := db.CommitTrade(val.(*Trade)); err != nil {
-			log.Error(err.Error())
-			return err
-		}
+		db.tradeBulk.Insert(val.(*tomox_state.Trade))
 	case *tomox_state.OrderItem:
 		// PutObject order into ordersCollection collection
-		// Store the key
 		o := val.(*tomox_state.OrderItem)
-		if err := db.CommitOrder(o); err != nil {
-			log.Error(err.Error())
-			return err
+		if o.Status == tomox_state.OrderStatusOpen {
+			db.orderBulk.Insert(o)
+		} else {
+			query := bson.M{"hash": o.Hash.Hex()}
+			db.orderBulk.Upsert(query, o)
 		}
+		return nil
+	case *lendingstate.LendingTrade:
+		// PutObject trade into tradesCollection collection
+		db.lendingTradeBulk.Insert(val.(*tomox_state.Trade))
+	case *lendingstate.LendingItem:
+		// PutObject order into ordersCollection collection
+		o := val.(*lendingstate.LendingItem)
+		if o.Status == lendingstate.LendingStatusOpen {
+			db.lendingItemBulk.Insert(o)
+		} else {
+			query := bson.M{"hash": o.Hash.Hex()}
+			db.lendingItemBulk.Upsert(query, o)
+		}
+		return nil
 	default:
-		log.Error("PutObject: object is neither order nor trade", "val", val)
+		log.Error("PutObject: unknown type of object", "val", val)
 	}
 
 	return nil
 }
 
-func (db *MongoDatabase) DeleteObject(hash common.Hash) error {
+func (db *MongoDatabase) DeleteObject(hash common.Hash, val interface{}) error {
 	cacheKey := db.getCacheKey(hash.Bytes())
 	db.cacheItems.Remove(cacheKey)
 
@@ -194,22 +243,25 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash) error {
 
 	query := bson.M{"hash": hash.Hex()}
 
-	found, err := db.HasObject(hash)
+	found, err := db.HasObject(hash, val)
 	if err != nil {
 		return err
 	}
 
 	if found {
-		err := sc.DB(db.dbName).C(tradesCollection).Remove(query)
-		if err != nil && err != mgo.ErrNotFound {
-			log.Error("Error when deleting trades", "error", err)
-			return err
-		}
+		var err error
+		switch val.(type) {
+		case *tomox_state.OrderItem:
+			err = sc.DB(db.dbName).C(ordersCollection).Remove(query)
+			if err != nil && err != mgo.ErrNotFound {
+				return fmt.Errorf("failed to delete orderItem. Err: %v", err)
+			}
+		case *tomox_state.Trade:
+			err = sc.DB(db.dbName).C(tradesCollection).Remove(query)
+			if err != nil && err != mgo.ErrNotFound {
+				return fmt.Errorf("failed to delete tomox trade. Err: %v", err)
+			}
 
-		err = sc.DB(db.dbName).C(ordersCollection).Remove(query)
-		if err != nil && err != mgo.ErrNotFound {
-			log.Error("Error when deleting order", "error", err)
-			return err
 		}
 	}
 
@@ -217,7 +269,7 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash) error {
 }
 
 func (db *MongoDatabase) CommitOrder(o *tomox_state.OrderItem) error {
-	if o.Status == OrderStatusOpen {
+	if o.Status == tomox_state.OrderStatusOpen {
 		db.orderBulk.Insert(o)
 	} else {
 		query := bson.M{"hash": o.Hash.Hex()}
@@ -226,7 +278,7 @@ func (db *MongoDatabase) CommitOrder(o *tomox_state.OrderItem) error {
 	return nil
 }
 
-func (db *MongoDatabase) CommitTrade(t *Trade) error {
+func (db *MongoDatabase) CommitTrade(t *tomox_state.Trade) error {
 	// for trades: insert only, no update
 	// Hence, insert is better than upsert
 	db.tradeBulk.Insert(t)
@@ -240,11 +292,28 @@ func (db *MongoDatabase) InitBulk() *mgo.Session {
 	return sc
 }
 
+func (db *MongoDatabase) InitLendingBulk() *mgo.Session {
+	sc := db.Session.Copy()
+	db.lendingItemBulk = sc.DB(db.dbName).C(lendingItemsCollection).Bulk()
+	db.lendingTradeBulk = sc.DB(db.dbName).C(lendingTradesCollection).Bulk()
+	return sc
+}
+
 func (db *MongoDatabase) CommitBulk() error {
 	if _, err := db.orderBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
 	if _, err := db.tradeBulk.Run(); err != nil && !mgo.IsDup(err) {
+		return err
+	}
+	return nil
+}
+
+func (db *MongoDatabase) CommitLendingBulk() error {
+	if _, err := db.lendingItemBulk.Run(); err != nil && !mgo.IsDup(err) {
+		return err
+	}
+	if _, err := db.lendingTradeBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
 	return nil
@@ -309,6 +378,45 @@ func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.Or
 	return result
 }
 
+func (db *MongoDatabase) DeleteLendingTradeByTxHash(txhash common.Hash) {
+	sc := db.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"txHash": txhash.Hex()}
+
+	err := sc.DB(db.dbName).C(lendingTradesCollection).Remove(query)
+	if err != nil && err != mgo.ErrNotFound {
+		log.Error("Error when deleting DeleteLendingTradeByTxHash", "error", err)
+	}
+}
+
+func (db *MongoDatabase) GetLendingItemByTxHash(txhash common.Hash) []*lendingstate.LendingItem {
+	var result []*lendingstate.LendingItem
+	sc := db.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"txHash": txhash.Hex()}
+
+	if err := sc.DB(db.dbName).C(lendingItemsCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+		log.Error("failed to GetLendingItemByTxHash", "err", err, "Txhash", txhash)
+	}
+	return result
+}
+
+func (db *MongoDatabase) GetListLendingItemByHashes(hashes []string) []*lendingstate.LendingItem {
+	var result []*lendingstate.LendingItem
+	sc := db.Session.Copy()
+	defer sc.Close()
+
+	query := bson.M{"hash": bson.M{"$in": hashes}}
+
+	if err := sc.DB(db.dbName).C(lendingItemsCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+		log.Error("failed to GetListLendingItemByHashes", "err", err, "hashes", hashes)
+		return []*lendingstate.LendingItem{}
+	}
+	return result
+}
+
 func (db *MongoDatabase) EnsureIndexes() error {
 	orderHashIndex := mgo.Index{
 		Key:        []string{"hash"},
@@ -326,6 +434,22 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Sparse:     true,
 		Name:       "index_trade_hash",
 	}
+	lendingItemHashIndex := mgo.Index{
+		Key:        []string{"hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_item_hash",
+	}
+	lendingTradeHashIndex := mgo.Index{
+		Key:        []string{"hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_trade_hash",
+	}
 	sc := db.Session.Copy()
 	defer sc.Close()
 	if err := sc.DB(db.dbName).C(ordersCollection).EnsureIndex(orderHashIndex); err != nil {
@@ -333,6 +457,12 @@ func (db *MongoDatabase) EnsureIndexes() error {
 	}
 	if err := sc.DB(db.dbName).C(tradesCollection).EnsureIndex(tradeHashIndex); err != nil {
 		return fmt.Errorf("failed to index trades.hash . Err: %v", err)
+	}
+	if err := sc.DB(db.dbName).C(lendingItemsCollection).EnsureIndex(lendingItemHashIndex); err != nil {
+		return fmt.Errorf("failed to index lending_items.hash . Err: %v", err)
+	}
+	if err := sc.DB(db.dbName).C(lendingTradesCollection).EnsureIndex(lendingTradeHashIndex); err != nil {
+		return fmt.Errorf("failed to index lending_trades.hash . Err: %v", err)
 	}
 	return nil
 }

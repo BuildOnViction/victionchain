@@ -38,7 +38,7 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
 		return nil, nil, ErrNonceTooLow
 	}
-	if order.Status == OrderStatusCancelled {
+	if order.Status == tomox_state.OrderStatusCancelled {
 		err, reject := tomox.ProcessCancelOrder(tomoXstatedb, statedb, chain, coinbase, orderBook, order)
 		if err != nil {
 			return nil, nil, err
@@ -289,19 +289,19 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 			log.Debug("TRADE", "orderBook", orderBook, "Taker price", price, "maker price", order.Price, "Amount", tradedQuantity, "orderId", orderId, "side", side)
 
 			tradeRecord := make(map[string]string)
-			tradeRecord[TradeTakerOrderHash] = order.Hash.Hex()
-			tradeRecord[TradeMakerOrderHash] = oldestOrder.Hash.Hex()
-			tradeRecord[TradeTimestamp] = strconv.FormatInt(time.Now().Unix(), 10)
-			tradeRecord[TradeQuantity] = tradedQuantity.String()
-			tradeRecord[TradeMakerExchange] = oldestOrder.ExchangeAddress.String()
-			tradeRecord[TradeMaker] = oldestOrder.UserAddress.String()
-			tradeRecord[TradeBaseToken] = oldestOrder.BaseToken.String()
-			tradeRecord[TradeQuoteToken] = oldestOrder.QuoteToken.String()
+			tradeRecord[tomox_state.TradeTakerOrderHash] = order.Hash.Hex()
+			tradeRecord[tomox_state.TradeMakerOrderHash] = oldestOrder.Hash.Hex()
+			tradeRecord[tomox_state.TradeTimestamp] = strconv.FormatInt(time.Now().Unix(), 10)
+			tradeRecord[tomox_state.TradeQuantity] = tradedQuantity.String()
+			tradeRecord[tomox_state.TradeMakerExchange] = oldestOrder.ExchangeAddress.String()
+			tradeRecord[tomox_state.TradeMaker] = oldestOrder.UserAddress.String()
+			tradeRecord[tomox_state.TradeBaseToken] = oldestOrder.BaseToken.String()
+			tradeRecord[tomox_state.TradeQuoteToken] = oldestOrder.QuoteToken.String()
 			// maker price is actual price
 			// Taker price is offer price
 			// tradedPrice is always actual price
-			tradeRecord[TradePrice] = oldestOrder.Price.String()
-			tradeRecord[MakerOrderType] = oldestOrder.Type
+			tradeRecord[tomox_state.TradePrice] = oldestOrder.Price.String()
+			tradeRecord[tomox_state.MakerOrderType] = oldestOrder.Type
 			trades = append(trades, tradeRecord)
 		}
 		if rejectMaker {

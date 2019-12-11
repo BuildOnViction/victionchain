@@ -1,20 +1,17 @@
-package tomox
+package tomoxDAO
 
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/globalsign/mgo"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/tomox/tomox_state"
-	"github.com/globalsign/mgo"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
-	lru "github.com/hashicorp/golang-lru"
-)
-
-const (
-	defaultCacheLimit = 1024
 )
 
 type BatchItem struct {
@@ -68,7 +65,7 @@ func (db *BatchDatabase) getCacheKey(key []byte) string {
 	return hex.EncodeToString(key)
 }
 
-func (db *BatchDatabase) HasObject(hash common.Hash) (bool, error) {
+func (db *BatchDatabase) HasObject(hash common.Hash, val interface{}) (bool, error) {
 	// for mongodb only
 	return false, nil
 }
@@ -83,7 +80,7 @@ func (db *BatchDatabase) PutObject(hash common.Hash, val interface{}) error {
 	return nil
 }
 
-func (db *BatchDatabase) DeleteObject(hash common.Hash) error {
+func (db *BatchDatabase) DeleteObject(hash common.Hash, val interface{}) error {
 	// for mongodb only
 	return nil
 }
@@ -130,3 +127,23 @@ func (db *BatchDatabase) InitBulk() *mgo.Session {
 func (db *BatchDatabase) CommitBulk() error {
 	return nil
 }
+
+func (db *BatchDatabase) DeleteLendingTradeByTxHash(txhash common.Hash) {
+}
+
+func (db *BatchDatabase) GetLendingItemByTxHash(txhash common.Hash) []*lendingstate.LendingItem {
+	return nil
+}
+
+func (db *BatchDatabase) GetListLendingItemByHashes(hashes []string) []*lendingstate.LendingItem {
+	return nil
+}
+
+func (db *BatchDatabase) InitLendingBulk() *mgo.Session {
+	return nil
+}
+
+func (db *BatchDatabase) CommitLendingBulk() error {
+	return nil
+}
+

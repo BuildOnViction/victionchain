@@ -14,6 +14,15 @@ import (
 	"github.com/tomochain/tomochain/log"
 )
 
+const (
+	OrderStatusNew           = "NEW"
+	OrderStatusOpen          = "OPEN"
+	OrderStatusPartialFilled = "PARTIAL_FILLED"
+	OrderStatusFilled        = "FILLED"
+	OrderStatusCancelled     = "CANCELLED"
+	OrderStatusRejected      = "REJECTED"
+)
+
 // OrderItem : info that will be store in database
 type OrderItem struct {
 	Quantity        *big.Int       `json:"quantity,omitempty"`

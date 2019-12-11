@@ -1,7 +1,6 @@
-package tomox
+package tomox_state
 
 import (
-	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"math/big"
 	"time"
 
@@ -122,11 +121,11 @@ func (t *Trade) SetBSON(raw bson.Raw) error {
 	t.Hash = common.HexToHash(decoded.Hash)
 	t.TxHash = common.HexToHash(decoded.TxHash)
 	t.Status = decoded.Status
-	t.Amount = tomox_state.ToBigInt(decoded.Amount)
-	t.PricePoint = tomox_state.ToBigInt(decoded.PricePoint)
+	t.Amount = ToBigInt(decoded.Amount)
+	t.PricePoint = ToBigInt(decoded.PricePoint)
 
-	t.MakeFee = tomox_state.ToBigInt(decoded.MakeFee)
-	t.TakeFee = tomox_state.ToBigInt(decoded.TakeFee)
+	t.MakeFee = ToBigInt(decoded.MakeFee)
+	t.TakeFee = ToBigInt(decoded.TakeFee)
 
 	t.CreatedAt = decoded.CreatedAt
 	t.UpdatedAt = decoded.UpdatedAt

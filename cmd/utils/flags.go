@@ -20,7 +20,6 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -1047,34 +1046,6 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 }
 
 func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
-	if len(cfg.DataDir) == 0 {
-		if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
-			cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
-		} else {
-			cfg.DataDir = TomoXDataDirFlag.Value.String()
-		}
-	}
-	if ctx.GlobalIsSet(TomoXDBEngineFlag.Name) {
-		cfg.DBEngine = ctx.GlobalString(TomoXDBEngineFlag.Name)
-	} else {
-		cfg.DBEngine = TomoXDBEngineFlag.Value
-	}
-	if ctx.GlobalIsSet(TomoXDBNameFlag.Name) {
-		cfg.DBName = ctx.GlobalString(TomoXDBNameFlag.Name)
-	} else {
-		cfg.DBName = TomoXDBNameFlag.Value
-	}
-	if ctx.GlobalIsSet(TomoXDBConnectionUrlFlag.Name) {
-		cfg.ConnectionUrl = ctx.GlobalString(TomoXDBConnectionUrlFlag.Name)
-	} else {
-		cfg.ConnectionUrl = TomoXDBConnectionUrlFlag.Value
-	}
-	if ctx.GlobalIsSet(TomoXDBReplicaSetNameFlag.Name) {
-		cfg.ReplicaSetName = ctx.GlobalString(TomoXDBReplicaSetNameFlag.Name)
-	}
-}
-
-func SetTomoXLendingConfig(ctx *cli.Context, cfg *tomoxlending.Config) {
 	if len(cfg.DataDir) == 0 {
 		if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
 			cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
