@@ -240,14 +240,18 @@ func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId comm
 }
 
 func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) error {
-	priceHash := common.BigToHash(order.Price)
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(order.OrderID))
 	stateObject := self.GetOrNewStateExchangeObject(orderBook)
 	if stateObject == nil {
 		return fmt.Errorf("Order book not found : %s ", orderBook.Hex())
 	}
+	stateOrderItem := stateObject.getStateOrderObject(self.db, orderIdHash)
+	if stateOrderItem == nil || stateOrderItem.empty() {
+		return fmt.Errorf("Order item empty  order book : %s , order id  : %s ", orderBook, orderIdHash.Hex())
+	}
+	priceHash := common.BigToHash(stateOrderItem.data.Price)
 	var stateOrderList *stateOrderList
-	switch order.Side {
+	switch stateOrderItem.data.Side {
 	case Ask:
 		stateOrderList = stateObject.getStateOrderListAskObject(self.db, priceHash)
 	case Bid:
@@ -258,10 +262,7 @@ func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) e
 	if stateOrderList == nil || stateOrderList.empty() {
 		return fmt.Errorf("Order list empty  order book : %s , order id  : %s , price  : %s ", orderBook, orderIdHash.Hex(), priceHash.Hex())
 	}
-	stateOrderItem := stateObject.getStateOrderObject(self.db, orderIdHash)
-	if stateOrderItem == nil || stateOrderItem.empty() {
-		return fmt.Errorf("Order item empty  order book : %s , order id  : %s , price  : %s ", orderBook, orderIdHash.Hex(), priceHash.Hex())
-	}
+
 	if stateOrderItem.data.UserAddress != order.UserAddress {
 		return fmt.Errorf("Error Order User Address mismatch when cancel order book : %s , order id  : %s , got : %s , expect : %s ", orderBook, orderIdHash.Hex(), stateOrderItem.data.UserAddress.Hex(), order.UserAddress.Hex())
 	}
@@ -278,7 +279,7 @@ func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) e
 	stateOrderList.subVolume(currentAmount)
 	stateOrderList.removeOrderItem(self.db, orderIdHash)
 	if stateOrderList.empty() {
-		switch order.Side {
+		switch stateOrderItem.data.Side {
 		case Ask:
 			stateObject.removeStateOrderListAskObject(self.db, stateOrderList)
 		case Bid:
