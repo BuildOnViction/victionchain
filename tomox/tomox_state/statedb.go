@@ -251,7 +251,7 @@ func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) e
 	}
 	priceHash := common.BigToHash(stateOrderItem.data.Price)
 	var stateOrderList *stateOrderList
-	switch order.Side {
+	switch stateOrderItem.data.Side {
 	case Ask:
 		stateOrderList = stateObject.getStateOrderListAskObject(self.db, priceHash)
 	case Bid:
@@ -279,7 +279,7 @@ func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) e
 	stateOrderList.subVolume(currentAmount)
 	stateOrderList.removeOrderItem(self.db, orderIdHash)
 	if stateOrderList.empty() {
-		switch order.Side {
+		switch stateOrderItem.data.Side {
 		case Ask:
 			stateObject.removeStateOrderListAskObject(self.db, stateOrderList)
 		case Bid:
