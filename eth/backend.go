@@ -237,7 +237,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 				return nil
 			}
 			if block.NumberU64()%common.MergeSignRange == 0 || !eth.chainConfig.IsTIP2019(block.Number()) {
-				if err := contracts.CreateTransactionSign(chainConfig, eth.txPool, eth.accountManager, block, chainDb); err != nil {
+				if err := contracts.CreateTransactionSign(chainConfig, eth.txPool, eth.accountManager, block, chainDb, eb); err != nil {
 					return fmt.Errorf("Fail to create tx sign for importing block: %v", err)
 				}
 			}
