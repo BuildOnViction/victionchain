@@ -173,7 +173,6 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 
 		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
 		fmt.Println("wait 10s to execute init smart contract", tokenName)
-		time.Sleep(2 * time.Second)
 
 		tokenListResult = append(tokenListResult, map[string]interface{}{
 			"name":    tokenName,
@@ -181,6 +180,7 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 		})
 		nonce = nonce + 1
 	}
+	time.Sleep(5 * time.Second)
 	return tokenListResult
 }
 
@@ -193,10 +193,9 @@ func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interfac
 			log.Fatal("trc21Issuer Apply  ", token["name"].(string), err)
 		}
 		fmt.Println("wait 10s to applyIssuer ", token["name"].(string))
-		time.Sleep(5 * time.Second)
 		nonce = nonce + 1
-
 	}
+	time.Sleep(5 * time.Second)
 }
 
 func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]interface{}, nonce uint64) {
@@ -207,9 +206,9 @@ func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]
 			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
 		}
 		fmt.Println("wait 10s to applyTomoXListing ", token["name"].(string))
-		time.Sleep(5 * time.Second)
 		nonce = nonce + 1
 	}
+	time.Sleep(5 * time.Second)
 }
 
 func airdrop(auth *bind.TransactOpts, client *ethclient.Client, tokenList []map[string]interface{}, addresses []common.Address, nonce uint64) {
@@ -225,8 +224,8 @@ func airdrop(auth *bind.TransactOpts, client *ethclient.Client, tokenList []map[
 				fmt.Printf("Transfer %v to %v failed!", token["name"].(string), address.String())
 				fmt.Println()
 			}
-			time.Sleep(5 * time.Second)
 			nonce = nonce + 1
 		}
 	}
+	time.Sleep(5 * time.Second)
 }

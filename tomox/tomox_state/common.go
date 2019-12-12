@@ -3,10 +3,9 @@ package tomox_state
 import (
 	"encoding/json"
 	"errors"
-	"math/big"
-	"strconv"
-
 	"github.com/tomochain/tomochain/crypto"
+	"math/big"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
 )
@@ -41,13 +40,13 @@ var EmptyOrder = OrderItem{
 }
 
 var (
-	ErrInvalidSignature      = errors.New("verify order: invalid signature")
-	ErrInvalidPrice          = errors.New("verify order: invalid price")
-	ErrInvalidQuantity       = errors.New("verify order: invalid quantity")
-	ErrInvalidRelayer        = errors.New("verify order: invalid relayer")
-	ErrInvalidOrderType      = errors.New("verify order: unsupported order type")
-	ErrInvalidOrderSide      = errors.New("verify order: invalid order side")
-	ErrInvalidStatus         = errors.New("verify order: invalid status")
+	ErrInvalidSignature = errors.New("verify order: invalid signature")
+	ErrInvalidPrice     = errors.New("verify order: invalid price")
+	ErrInvalidQuantity  = errors.New("verify order: invalid quantity")
+	ErrInvalidRelayer   = errors.New("verify order: invalid relayer")
+	ErrInvalidOrderType = errors.New("verify order: unsupported order type")
+	ErrInvalidOrderSide = errors.New("verify order: invalid order side")
+	ErrInvalidStatus    = errors.New("verify order: invalid status")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
@@ -99,7 +98,7 @@ var (
 )
 
 type TxDataMatch struct {
-	Order         []byte // serialized data of order has been processed in this tx
+	Order []byte // serialized data of order has been processed in this tx
 }
 
 type TxMatchBatch struct {
@@ -109,7 +108,7 @@ type TxMatchBatch struct {
 }
 
 type MatchingResult struct {
-	Trades []map[string]string
+	Trades  []map[string]string
 	Rejects []*OrderItem
 }
 
@@ -129,9 +128,12 @@ func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
 	return txMatchResult, nil
 }
 
-func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderId uint64) common.Hash {
-	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), []byte(strconv.FormatUint(orderId, 10)))
+// use orderHash instead of orderId
+// because both takerOrders don't have orderId
+func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderHash common.Hash) common.Hash {
+	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), orderHash.Bytes())
 }
+
 func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
 	order := &OrderItem{}
 	if err := DecodeBytesItem(tx.Order, order); err != nil {
@@ -144,6 +146,7 @@ type OrderHistoryItem struct {
 	TxHash       common.Hash
 	FilledAmount *big.Int
 	Status       string
+	UpdatedAt    time.Time
 }
 
 // use alloc to prevent reference manipulation

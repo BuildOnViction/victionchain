@@ -1954,7 +1954,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetPrice(ctx context.Context, baseToken,
 		return nil, err
 	}
 	price := tomoxState.GetPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
-	if price == nil {
+	if price == nil || price.Sign() == 0 {
 		return common.Big0, errors.New("Order book's price not found")
 	}
 	return price, nil

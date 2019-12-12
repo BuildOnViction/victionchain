@@ -220,14 +220,14 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 		if oldestOrder.QuoteToken.String() != common.TomoNativeAddress {
 			quotePrice = tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(oldestOrder.QuoteToken, common.HexToAddress(common.TomoNativeAddress)))
 			log.Debug("TryGet quotePrice QuoteToken/TOMO", "quotePrice", quotePrice)
-			if quotePrice == nil && oldestOrder.BaseToken.String() != common.TomoNativeAddress {
+			if (quotePrice == nil || quotePrice.Sign() == 0) && oldestOrder.BaseToken.String() != common.TomoNativeAddress {
 				inversePrice := tomoXstatedb.GetPrice(tomox_state.GetOrderBookHash(common.HexToAddress(common.TomoNativeAddress), oldestOrder.QuoteToken))
 				quoteTokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, coinbase, oldestOrder.QuoteToken)
 				if err != nil || quoteTokenDecimal.Sign() == 0 {
 					return nil, nil, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", oldestOrder.QuoteToken.String(), err)
 				}
 				log.Debug("TryGet inversePrice TOMO/QuoteToken", "inversePrice", inversePrice)
-				if inversePrice != nil {
+				if inversePrice != nil && inversePrice.Sign() > 0 {
 					quotePrice = new(big.Int).Div(common.BasePrice, inversePrice)
 					quotePrice = new(big.Int).Mul(quotePrice, quoteTokenDecimal)
 					log.Debug("TryGet quotePrice after get inversePrice TOMO/QuoteToken", "quotePrice", quotePrice, "quoteTokenDecimal", quoteTokenDecimal)
@@ -288,21 +288,21 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 			log.Debug("Update quantity for orderId", "orderId", orderId.Hex())
 			log.Debug("TRADE", "orderBook", orderBook, "Taker price", price, "maker price", order.Price, "Amount", tradedQuantity, "orderId", orderId, "side", side)
 
-			transactionRecord := make(map[string]string)
-			transactionRecord[TradeTakerOrderHash] = order.Hash.Hex()
-			transactionRecord[TradeMakerOrderHash] = oldestOrder.Hash.Hex()
-			transactionRecord[TradeTimestamp] = strconv.FormatInt(time.Now().Unix(), 10)
-			transactionRecord[TradeQuantity] = tradedQuantity.String()
-			transactionRecord[TradeMakerExchange] = oldestOrder.ExchangeAddress.String()
-			transactionRecord[TradeMaker] = oldestOrder.UserAddress.String()
-			transactionRecord[TradeBaseToken] = oldestOrder.BaseToken.String()
-			transactionRecord[TradeQuoteToken] = oldestOrder.QuoteToken.String()
+			tradeRecord := make(map[string]string)
+			tradeRecord[TradeTakerOrderHash] = order.Hash.Hex()
+			tradeRecord[TradeMakerOrderHash] = oldestOrder.Hash.Hex()
+			tradeRecord[TradeTimestamp] = strconv.FormatInt(time.Now().Unix(), 10)
+			tradeRecord[TradeQuantity] = tradedQuantity.String()
+			tradeRecord[TradeMakerExchange] = oldestOrder.ExchangeAddress.String()
+			tradeRecord[TradeMaker] = oldestOrder.UserAddress.String()
+			tradeRecord[TradeBaseToken] = oldestOrder.BaseToken.String()
+			tradeRecord[TradeQuoteToken] = oldestOrder.QuoteToken.String()
 			// maker price is actual price
 			// Taker price is offer price
 			// tradedPrice is always actual price
-			transactionRecord[TradePrice] = oldestOrder.Price.String()
-
-			trades = append(trades, transactionRecord)
+			tradeRecord[TradePrice] = oldestOrder.Price.String()
+			tradeRecord[MakerOrderType] = oldestOrder.Type
+			trades = append(trades, tradeRecord)
 		}
 		if rejectMaker {
 			rejects = append(rejects, &oldestOrder)
