@@ -23,17 +23,18 @@ import (
 )
 
 const (
-	ProtocolName       = "tomoxlending"
-	ProtocolVersion    = uint64(1)
-	ProtocolVersionStr = "1.0"
-	overflowIdx        // Indicator of message queue overflow
+	ProtocolName          = "tomoxlending"
+	ProtocolVersion       = uint64(1)
+	ProtocolVersionStr    = "1.0"
+	overflowIdx           // Indicator of message queue overflow
+	defaultCacheLimit     = 1024
+	lendingItemCacheLimit = 10000
 )
 
 var (
 	ErrNonceTooHigh = errors.New("nonce too high")
 	ErrNonceTooLow  = errors.New("nonce too low")
 )
-
 
 type Lending struct {
 	// Order related
@@ -44,7 +45,7 @@ type Lending struct {
 
 	orderNonce map[common.Address]*big.Int
 
-	tomox *tomox.TomoX
+	tomox              *tomox.TomoX
 	settings           syncmap.Map // holds configuration settings that can be dynamically changed
 	tokenDecimalCache  *lru.Cache
 	lendingItemHistory *lru.Cache
@@ -62,10 +63,9 @@ func (l *Lending) Stop() error {
 	return nil
 }
 
-
 func New(tomox *tomox.TomoX) *Lending {
 	tokenDecimalCache, _ := lru.New(defaultCacheLimit)
-	orderCache, _ := lru.New(lendingstate.OrderCacheLimit)
+	orderCache, _ := lru.New(lendingItemCacheLimit)
 	lending := &Lending{
 		orderNonce:         make(map[common.Address]*big.Int),
 		Triegc:             prque.New(),
@@ -441,54 +441,54 @@ func (l *Lending) GetTomoxStateRoot(block *types.Block) (common.Hash, error) {
 }
 
 func (l *Lending) UpdateOrderCache(LendingToken, CollateralToken common.Address, orderHash common.Hash, txhash common.Hash, lastState lendingstate.LendingItemHistoryItem) {
-	var orderCacheAtTxHash map[common.Hash]lendingstate.LendingItemHistoryItem
+	var lendingCacheAtTxHash map[common.Hash]lendingstate.LendingItemHistoryItem
 	c, ok := l.lendingItemHistory.Get(txhash)
 	if !ok || c == nil {
-		orderCacheAtTxHash = make(map[common.Hash]lendingstate.LendingItemHistoryItem)
+		lendingCacheAtTxHash = make(map[common.Hash]lendingstate.LendingItemHistoryItem)
 	} else {
-		orderCacheAtTxHash = c.(map[common.Hash]lendingstate.LendingItemHistoryItem)
+		lendingCacheAtTxHash = c.(map[common.Hash]lendingstate.LendingItemHistoryItem)
 	}
 	orderKey := lendingstate.GetLendingItemHistoryKey(LendingToken, CollateralToken, orderHash)
-	_, ok = orderCacheAtTxHash[orderKey]
+	_, ok = lendingCacheAtTxHash[orderKey]
 	if !ok {
-		orderCacheAtTxHash[orderKey] = lastState
+		lendingCacheAtTxHash[orderKey] = lastState
 	}
-	l.lendingItemHistory.Add(txhash, orderCacheAtTxHash)
+	l.lendingItemHistory.Add(txhash, lendingCacheAtTxHash)
 }
 
 func (l *Lending) RollbackReorgTxMatch(txhash common.Hash) {
 	db := l.GetMongoDB()
 	defer l.lendingItemHistory.Remove(txhash)
 
-	for _, order := range db.GetLendingItemByTxHash(txhash) {
+	for _, item := range db.GetLendingItemByTxHash(txhash) {
 		c, ok := l.lendingItemHistory.Get(txhash)
-		log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", lendingstate.ToJSON(order), "orderHistoryItem", c)
+		log.Debug("Tomox reorg: rollback lendingItem", "txhash", txhash.Hex(), "item", lendingstate.ToJSON(item), "lendingItemHistory", c)
 		if !ok {
-			log.Debug("Tomox reorg: remove order due to no lendingItemHistory", "order", lendingstate.ToJSON(order))
-			if err := db.DeleteObject(order.Hash, &lendingstate.LendingItem{}); err != nil {
-				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", lendingstate.ToJSON(order))
+			log.Debug("Tomox reorg: remove item due to no lendingItemHistory", "item", lendingstate.ToJSON(item))
+			if err := db.DeleteObject(item.Hash, &lendingstate.LendingItem{}); err != nil {
+				log.Error("SDKNode: failed to remove reorg lendingItem", "err", err.Error(), "item", lendingstate.ToJSON(item))
 			}
 			continue
 		}
 		orderCacheAtTxHash := c.(map[common.Hash]lendingstate.LendingItemHistoryItem)
-		orderHistoryItem, _ := orderCacheAtTxHash[lendingstate.GetLendingItemHistoryKey(order.LendingToken, order.CollateralToken, order.Hash)]
-		if (orderHistoryItem == lendingstate.LendingItemHistoryItem{}) {
-			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", lendingstate.ToJSON(order))
-			if err := db.DeleteObject(order.Hash, &lendingstate.LendingItem{}); err != nil {
-				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", lendingstate.ToJSON(order))
+		lendingItemHistory, _ := orderCacheAtTxHash[lendingstate.GetLendingItemHistoryKey(item.LendingToken, item.CollateralToken, item.Hash)]
+		if (lendingItemHistory == lendingstate.LendingItemHistoryItem{}) {
+			log.Debug("Tomox reorg: remove item due to empty lendingItemHistory", "item", lendingstate.ToJSON(item))
+			if err := db.DeleteObject(item.Hash, &lendingstate.LendingItem{}); err != nil {
+				log.Error("SDKNode: failed to remove reorg lendingItem", "err", err.Error(), "item", lendingstate.ToJSON(item))
 			}
 			continue
 		}
-		order.TxHash = orderHistoryItem.TxHash
-		order.Status = orderHistoryItem.Status
-		order.FilledAmount = lendingstate.CloneBigInt(orderHistoryItem.FilledAmount)
-		order.UpdatedAt = orderHistoryItem.UpdatedAt
-		log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", lendingstate.ToJSON(order), "orderHistoryItem", orderHistoryItem)
-		if err := db.PutObject(order.Hash, order); err != nil {
-			log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", lendingstate.ToJSON(order))
+		item.TxHash = lendingItemHistory.TxHash
+		item.Status = lendingItemHistory.Status
+		item.FilledAmount = lendingstate.CloneBigInt(lendingItemHistory.FilledAmount)
+		item.UpdatedAt = lendingItemHistory.UpdatedAt
+		log.Debug("Tomox reorg: update item to the last lendingItemHistory", "item", lendingstate.ToJSON(item), "lendingItemHistory", lendingItemHistory)
+		if err := db.PutObject(item.Hash, item); err != nil {
+			log.Error("SDKNode: failed to update reorg item", "err", err.Error(), "item", lendingstate.ToJSON(item))
 		}
 	}
-	log.Debug("Tomox reorg: DeleteTradeByTxHash", "txhash", txhash.Hex())
-	db.DeleteTradeByTxHash(txhash)
+	log.Debug("Tomox reorg: DeleteLendingTradeByTxHash", "txhash", txhash.Hex())
+	db.DeleteLendingTradeByTxHash(txhash)
 
 }
