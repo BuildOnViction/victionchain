@@ -135,6 +135,8 @@ func (ordersign OrderTxSigner) OrderCancelHash(tx *OrderTransaction) common.Hash
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.OrderID()))).Bytes())
 	sha.Write([]byte(tx.Status()))
 	sha.Write(tx.ExchangeAddress().Bytes())
+	sha.Write(tx.BaseToken().Bytes())
+	sha.Write(tx.QuoteToken().Bytes())
 
 	return common.BytesToHash(sha.Sum(nil))
 }
