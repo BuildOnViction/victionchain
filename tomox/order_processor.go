@@ -570,30 +570,33 @@ func (tomox *TomoX) ProcessCancelOrder(tomoXstatedb *tomox_state.TomoXStateDB, s
 		log.Debug("Fail to get tokenDecimal ", "Token", order.BaseToken.String(), "err", err)
 		return err, false
 	}
+	originOrder := tomoXstatedb.GetOrder(orderBook, common.BigToHash(new(big.Int).SetUint64(order.OrderID)))
+
 	var tokenBalance *big.Int
-	switch order.Side {
+	switch originOrder.Side {
 	case tomox_state.Ask:
 		tokenBalance = tomox_state.GetTokenBalance(order.UserAddress, order.BaseToken, statedb)
 	case tomox_state.Bid:
 		tokenBalance = tomox_state.GetTokenBalance(order.UserAddress, order.QuoteToken, statedb)
 	default:
-		log.Debug("Not found order side", "Side", order.Side)
+		log.Debug("Not found order side", "Side", originOrder.Side)
 		return nil, true
 	}
-	log.Debug("ProcessCancelOrder", "baseToken", order.BaseToken, "quoteToken", order.QuoteToken, "makerPrice", order.Price, "baseTokenDecimal", baseTokenDecimal, "quantity", order.Quantity)
+	log.Debug("ProcessCancelOrder", "baseToken", order.BaseToken, "quoteToken", order.QuoteToken)
 	feeRate := tomox_state.GetExRelayerFee(order.ExchangeAddress, statedb)
 	tokenCancelFee := getCancelFee(baseTokenDecimal, feeRate, order)
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
-		log.Debug("User not enough balance when cancel order", "Side", order.Side, "Price", order.Price, "Quantity", order.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
+		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "balance", tokenBalance, "fee", tokenCancelFee)
 		return nil, true
 	}
+
 	err = tomoXstatedb.CancelOrder(orderBook, order)
 	if err != nil {
 		log.Debug("Error when cancel order", "order", order)
 		return err, false
 	}
 	tomox_state.SubRelayerFee(order.ExchangeAddress, common.RelayerCancelFee, statedb)
-	switch order.Side {
+	switch originOrder.Side {
 	case tomox_state.Ask:
 		tomox_state.SubTokenBalance(order.UserAddress, tokenCancelFee, order.BaseToken, statedb)
 	case tomox_state.Bid:

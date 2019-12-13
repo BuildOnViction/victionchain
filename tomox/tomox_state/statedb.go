@@ -272,7 +272,7 @@ func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) e
 	self.journal = append(self.journal, cancelOrder{
 		orderBook: orderBook,
 		orderId:   orderIdHash,
-		order:     self.GetOrder(orderBook, orderIdHash),
+		order:     stateOrderItem.data,
 	})
 	currentAmount := new(big.Int).SetBytes(stateOrderList.GetOrderAmount(self.db, orderIdHash).Bytes()[:])
 	stateOrderItem.setVolume(big.NewInt(0))
