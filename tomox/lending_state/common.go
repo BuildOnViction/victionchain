@@ -56,7 +56,8 @@ var (
 )
 
 type itemList struct {
-	Root common.Hash // merkle root of the storage trie
+	Volume *big.Int
+	Root common.Hash
 }
 
 type lendingObject struct {

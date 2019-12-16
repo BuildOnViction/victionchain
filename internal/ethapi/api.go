@@ -1891,7 +1891,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToke
 	if err != nil {
 		return result, err
 	}
-	result.Price = tomoxState.GetBestBidPrice(trading_state.GetOrderBookHash(baseToken, quoteToken))
+	result.Price, result.Volume = tomoxState.GetBestBidPrice(trading_state.GetOrderBookHash(baseToken, quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Bid tree not found")
 	}
@@ -1913,7 +1913,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToke
 	if err != nil {
 		return result, err
 	}
-	result.Price = tomoxState.GetBestAskPrice(trading_state.GetOrderBookHash(baseToken, quoteToken))
+	result.Price, result.Volume = tomoxState.GetBestAskPrice(trading_state.GetOrderBookHash(baseToken, quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Ask tree not found")
 	}

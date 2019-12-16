@@ -20,7 +20,6 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/tomox/database"
-	"golang.org/x/tools/go/ssa/interp/testdata/src/fmt"
 	"math/big"
 	"testing"
 )
@@ -170,7 +169,6 @@ func TestRevertStates(t *testing.T) {
 	id := new(big.Int).SetUint64(uint64(i) + 1)
 	testOrder := LendingItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: INVESTING, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}}
 	orderIdHash = common.BigToHash(new(big.Int).SetUint64(testOrder.OrderID))
-	fmt.Println(statedb.GetLendingOrder(orderBook, orderIdHash))
 	snap = statedb.Snapshot()
 	statedb.InsertLendingItem(orderBook, orderIdHash, testOrder)
 	statedb.RevertToSnapshot(snap)

@@ -26,6 +26,7 @@ import (
 )
 
 type DumpOrderList struct {
+	Volume *big.Int
 	Orders map[*big.Int]*big.Int
 }
 
@@ -44,7 +45,7 @@ func (self *TradingStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]Dum
 			return nil, fmt.Errorf("Fail when decode order iist orderBook : %v ,price :%v ", orderBook.Hex(), price)
 		}
 		orderList := newOrderListState(self, Ask, orderBook, common.BytesToHash(priceByte), data, nil)
-		dumpOrderList := DumpOrderList{Orders: map[*big.Int]*big.Int{}}
+		dumpOrderList := DumpOrderList{Volume: data.Volume, Orders: map[*big.Int]*big.Int{}}
 		orderListIt := trie.NewIterator(orderList.getTrie(self.db).NodeIterator(nil))
 		for orderListIt.Next() {
 			dumpOrderList.Orders[new(big.Int).SetBytes(self.trie.GetKey(orderListIt.Key))] = new(big.Int).SetBytes(orderListIt.Value)
@@ -69,7 +70,7 @@ func (self *TradingStateDB) DumpBidTrie(orderBook common.Hash) (map[*big.Int]Dum
 			return nil, fmt.Errorf("Fail when decode order iist orderBook : %v ,price :%v ", orderBook.Hex(), price)
 		}
 		orderList := newOrderListState(self, Bid, orderBook, common.BytesToHash(priceByte), data, nil)
-		dumpOrderList := DumpOrderList{Orders: map[*big.Int]*big.Int{}}
+		dumpOrderList := DumpOrderList{Volume: data.Volume, Orders: map[*big.Int]*big.Int{}}
 		orderListIt := trie.NewIterator(orderList.getTrie(self.db).NodeIterator(nil))
 		for orderListIt.Next() {
 			dumpOrderList.Orders[new(big.Int).SetBytes(self.trie.GetKey(orderListIt.Key))] = new(big.Int).SetBytes(orderListIt.Value)

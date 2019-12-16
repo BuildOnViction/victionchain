@@ -384,7 +384,7 @@ func (self *tradingState) MarkStateAskObjectDirty(price common.Hash) {
 // createStateOrderListObject creates a new state object. If there is an existing orderId with
 // the given address, it is overwritten and returned as the second return value.
 func (self *tradingState) createStateOrderListAskObject(db database.Database, price common.Hash) (newobj *orderListState) {
-	newobj = newOrderListState(self.db, Ask, self.orderBookHash, price, itemList{}, self.MarkStateAskObjectDirty)
+	newobj = newOrderListState(self.db, Ask, self.orderBookHash, price, itemList{Volume:big.NewInt(0)}, self.MarkStateAskObjectDirty)
 	self.askStates[price] = newobj
 	self.askStatesDirty[price] = struct{}{}
 	data, err := rlp.EncodeToBytes(newobj)
@@ -436,7 +436,7 @@ func (self *tradingState) MarkStateBidObjectDirty(price common.Hash) {
 // createStateOrderListObject creates a new state object. If there is an existing orderId with
 // the given address, it is overwritten and returned as the second return value.
 func (self *tradingState) createStateBidOrderListObject(db database.Database, price common.Hash) (newobj *orderListState) {
-	newobj = newOrderListState(self.db, Bid, self.orderBookHash, price, itemList{}, self.MarkStateBidObjectDirty)
+	newobj = newOrderListState(self.db, Bid, self.orderBookHash, price, itemList{Volume:big.NewInt(0)}, self.MarkStateBidObjectDirty)
 	self.bidStates[price] = newobj
 	self.bidStatesDirty[price] = struct{}{}
 	data, err := rlp.EncodeToBytes(newobj)

@@ -98,7 +98,7 @@ func (tomox *TomoX) processMarketTradingOrder(coinbase common.Address, chain con
 	// speedup the comparison, do not assign because it is pointer
 	zero := trading_state.Zero
 	if side == trading_state.Bid {
-		bestPrice := tradingStatedb.GetBestAskPrice(orderBook)
+		bestPrice, _ := tradingStatedb.GetBestAskPrice(orderBook)
 		log.Debug("processMarketTradingOrder ", "side", side, "bestPrice", bestPrice, "quantityToTrade", quantityToTrade)
 		for quantityToTrade.Cmp(zero) > 0 && bestPrice.Cmp(zero) > 0 {
 			quantityToTrade, newTrades, newRejects, err = tomox.processTradingOrderList(coinbase, chain, statedb, tradingStatedb, trading_state.Ask, orderBook, bestPrice, quantityToTrade, order)
@@ -107,11 +107,11 @@ func (tomox *TomoX) processMarketTradingOrder(coinbase common.Address, chain con
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
-			bestPrice = tradingStatedb.GetBestAskPrice(orderBook)
+			bestPrice, _ = tradingStatedb.GetBestAskPrice(orderBook)
 			log.Debug("processMarketTradingOrder ", "side", side, "bestPrice", bestPrice, "quantityToTrade", quantityToTrade)
 		}
 	} else {
-		bestPrice := tradingStatedb.GetBestBidPrice(orderBook)
+		bestPrice, _ := tradingStatedb.GetBestBidPrice(orderBook)
 		log.Debug("processMarketTradingOrder ", "side", side, "bestPrice", bestPrice, "quantityToTrade", quantityToTrade)
 		for quantityToTrade.Cmp(zero) > 0 && bestPrice.Cmp(zero) > 0 {
 			quantityToTrade, newTrades, newRejects, err = tomox.processTradingOrderList(coinbase, chain, statedb, tradingStatedb, trading_state.Bid, orderBook, bestPrice, quantityToTrade, order)
@@ -120,7 +120,7 @@ func (tomox *TomoX) processMarketTradingOrder(coinbase common.Address, chain con
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
-			bestPrice = tradingStatedb.GetBestBidPrice(orderBook)
+			bestPrice, _ = tradingStatedb.GetBestBidPrice(orderBook)
 			log.Debug("processMarketTradingOrder ", "side", side, "bestPrice", bestPrice, "quantityToTrade", quantityToTrade)
 		}
 	}
@@ -143,7 +143,7 @@ func (tomox *TomoX) processLimitTradingOrder(coinbase common.Address, chain cons
 	zero := trading_state.Zero
 
 	if side == trading_state.Bid {
-		minPrice := tradingStatedb.GetBestAskPrice(orderBook)
+		minPrice, _ := tradingStatedb.GetBestAskPrice(orderBook)
 		log.Debug("processLimitTradingOrder ", "side", side, "minPrice", minPrice, "orderPrice", price)
 		for quantityToTrade.Cmp(zero) > 0 && price.Cmp(minPrice) >= 0 && minPrice.Cmp(zero) > 0 {
 			log.Debug("Min price in asks tree", "price", minPrice.String())
@@ -154,11 +154,11 @@ func (tomox *TomoX) processLimitTradingOrder(coinbase common.Address, chain cons
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
 			log.Debug("New trade found", "newTrades", newTrades, "quantityToTrade", quantityToTrade)
-			minPrice = tradingStatedb.GetBestAskPrice(orderBook)
+			minPrice, _ = tradingStatedb.GetBestAskPrice(orderBook)
 			log.Debug("processLimitTradingOrder ", "side", side, "minPrice", minPrice, "orderPrice", price)
 		}
 	} else {
-		maxPrice := tradingStatedb.GetBestBidPrice(orderBook)
+		maxPrice, _ := tradingStatedb.GetBestBidPrice(orderBook)
 		log.Debug("processLimitTradingOrder ", "side", side, "maxPrice", maxPrice, "orderPrice", price)
 		for quantityToTrade.Cmp(zero) > 0 && price.Cmp(maxPrice) <= 0 && maxPrice.Cmp(zero) > 0 {
 			log.Debug("Max price in bids tree", "price", maxPrice.String())
@@ -169,7 +169,7 @@ func (tomox *TomoX) processLimitTradingOrder(coinbase common.Address, chain cons
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
 			log.Debug("New trade found", "newTrades", newTrades, "quantityToTrade", quantityToTrade)
-			maxPrice = tradingStatedb.GetBestBidPrice(orderBook)
+			maxPrice, _ = tradingStatedb.GetBestBidPrice(orderBook)
 			log.Debug("processLimitTradingOrder ", "side", side, "maxPrice", maxPrice, "orderPrice", price)
 		}
 	}

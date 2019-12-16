@@ -17,6 +17,7 @@
 package lending_state
 
 import (
+	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"math/big"
 )
@@ -56,7 +57,8 @@ type (
 )
 
 func (ch insertOrder) undo(s *LendingStateDB) {
-	s.CancelLendingOrder(ch.orderBook, ch.order)
+	err:=s.CancelLendingOrder(ch.orderBook, ch.order)
+	fmt.Println("err",err)
 }
 func (ch cancelOrder) undo(s *LendingStateDB) {
 	s.InsertLendingItem(ch.orderBook, ch.orderId, ch.order)

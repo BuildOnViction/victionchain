@@ -50,7 +50,7 @@ type stateLendingBook struct {
 }
 
 func (s *stateLendingBook) empty() bool {
-	return common.EmptyHash(s.data.Root)
+	return s.data.Volume == nil || s.data.Volume.Sign() == 0
 }
 
 func newStateLendingBook(db *TradingStateDB, orderBook common.Hash, price common.Hash, lendingBook common.Hash, data itemList, onDirty func(price common.Hash)) *stateLendingBook {

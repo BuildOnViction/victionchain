@@ -23,6 +23,7 @@ import (
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/tomox/database"
 	"io"
+	"math/big"
 )
 
 type orderListState struct {
@@ -183,4 +184,24 @@ func (self *orderListState) deepCopy(db *TradingStateDB, onDirty func(price comm
 // Returns the address of the contract/orderId
 func (c *orderListState) Price() common.Hash {
 	return c.price
+}
+
+func (c *orderListState) AddVolume(amount *big.Int) {
+	c.setVolume(new(big.Int).Add(c.data.Volume, amount))
+}
+
+func (c *orderListState) subVolume(amount *big.Int) {
+	c.setVolume(new(big.Int).Sub(c.data.Volume, amount))
+}
+
+func (self *orderListState) setVolume(volume *big.Int) {
+	self.data.Volume = volume
+	if self.onDirty != nil {
+		self.onDirty(self.price)
+		self.onDirty = nil
+	}
+}
+
+func (self *orderListState) Volume() *big.Int {
+	return self.data.Volume
 }

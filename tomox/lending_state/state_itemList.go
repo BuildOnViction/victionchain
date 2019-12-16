@@ -56,7 +56,7 @@ type itemListState struct {
 
 // empty returns whether the orderId is considered empty.
 func (s *itemListState) empty() bool {
-	return common.EmptyHash(s.data.Root)
+	return s.data.Volume == nil || s.data.Volume.Sign() == 0
 }
 
 // newObject creates a state object.

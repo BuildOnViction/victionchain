@@ -55,7 +55,8 @@ var (
 )
 
 type itemList struct {
-	Root common.Hash
+	Volume *big.Int
+	Root   common.Hash
 }
 
 type tradingObject struct {
