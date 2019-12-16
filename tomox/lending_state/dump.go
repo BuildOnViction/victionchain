@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package lending_state
 
 import (
 	"fmt"
@@ -26,26 +26,25 @@ import (
 )
 
 type DumpOrderList struct {
-	Volume *big.Int
 	Orders map[*big.Int]*big.Int
 }
 
-func (self *TomoXStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
-	exhangeObject := self.getStateExchangeObject(orderBook)
+func (self *LendingStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
+	exhangeObject := self.getLendingExchange(orderBook)
 	if exhangeObject == nil {
-		return nil, fmt.Errorf("Order book not found orderBook : %v ", orderBook.Hex())
+		return nil, fmt.Errorf("Order book not found lendingBook : %v ", orderBook.Hex())
 	}
 	result := map[*big.Int]DumpOrderList{}
-	it := trie.NewIterator(exhangeObject.getAsksTrie(self.db).NodeIterator(nil))
+	it := trie.NewIterator(exhangeObject.getInvestingTrie(self.db).NodeIterator(nil))
 	for it.Next() {
 		priceByte := self.trie.GetKey(it.Key)
 		price := new(big.Int).SetBytes(priceByte)
-		var data orderList
+		var data itemList
 		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
-			return nil, fmt.Errorf("Fail when decode order iist orderBook : %v ,price :%v ", orderBook.Hex(), price)
+			return nil, fmt.Errorf("Fail when decode order iist lendingBook : %v ,price :%v ", orderBook.Hex(), price)
 		}
-		orderList := newStateOrderList(self, Ask, orderBook, common.BytesToHash(priceByte), data, nil)
-		dumpOrderList := DumpOrderList{Volume: data.Volume, Orders: map[*big.Int]*big.Int{}}
+		orderList := newItemListState(self, INVESTING, orderBook, common.BytesToHash(priceByte), data, nil)
+		dumpOrderList := DumpOrderList{Orders: map[*big.Int]*big.Int{}}
 		orderListIt := trie.NewIterator(orderList.getTrie(self.db).NodeIterator(nil))
 		for orderListIt.Next() {
 			dumpOrderList.Orders[new(big.Int).SetBytes(self.trie.GetKey(orderListIt.Key))] = new(big.Int).SetBytes(orderListIt.Value)
@@ -55,22 +54,22 @@ func (self *TomoXStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]DumpO
 	return result, nil
 }
 
-func (self *TomoXStateDB) DumpBidTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
-	exhangeObject := self.getStateExchangeObject(orderBook)
+func (self *LendingStateDB) DumpBidTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
+	exhangeObject := self.getLendingExchange(orderBook)
 	if exhangeObject == nil {
-		return nil, fmt.Errorf("Order book not found orderBook : %v ", orderBook.Hex())
+		return nil, fmt.Errorf("Order book not found lendingBook : %v ", orderBook.Hex())
 	}
 	result := map[*big.Int]DumpOrderList{}
-	it := trie.NewIterator(exhangeObject.getBidsTrie(self.db).NodeIterator(nil))
+	it := trie.NewIterator(exhangeObject.getBorrowingTrie(self.db).NodeIterator(nil))
 	for it.Next() {
 		priceByte := self.trie.GetKey(it.Key)
 		price := new(big.Int).SetBytes(priceByte)
-		var data orderList
+		var data itemList
 		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
-			return nil, fmt.Errorf("Fail when decode order iist orderBook : %v ,price :%v ", orderBook.Hex(), price)
+			return nil, fmt.Errorf("Fail when decode order iist lendingBook : %v ,price :%v ", orderBook.Hex(), price)
 		}
-		orderList := newStateOrderList(self, Bid, orderBook, common.BytesToHash(priceByte), data, nil)
-		dumpOrderList := DumpOrderList{Volume: data.Volume, Orders: map[*big.Int]*big.Int{}}
+		orderList := newItemListState(self, BORROWING, orderBook, common.BytesToHash(priceByte), data, nil)
+		dumpOrderList := DumpOrderList{Orders: map[*big.Int]*big.Int{}}
 		orderListIt := trie.NewIterator(orderList.getTrie(self.db).NodeIterator(nil))
 		for orderListIt.Next() {
 			dumpOrderList.Orders[new(big.Int).SetBytes(self.trie.GetKey(orderListIt.Key))] = new(big.Int).SetBytes(orderListIt.Value)

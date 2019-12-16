@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package trading_state
 
 import (
 	"sync"
@@ -23,30 +23,30 @@ import (
 )
 
 type exchanges struct {
-	stateObject *stateExchanges
+	stateObject *tradingState
 	nstart      uint64
 	nonces      []bool
 }
 
 type TomoXManagedState struct {
-	*TomoXStateDB
+	*TradingStateDB
 	mu        sync.RWMutex
 	exchanges map[common.Hash]*exchanges
 }
 
 // TomoXManagedState returns a new managed state with the statedb as it's backing layer
-func ManageState(statedb *TomoXStateDB) *TomoXManagedState {
+func ManageState(statedb *TradingStateDB) *TomoXManagedState {
 	return &TomoXManagedState{
-		TomoXStateDB: statedb.Copy(),
-		exchanges:    make(map[common.Hash]*exchanges),
+		TradingStateDB: statedb.Copy(),
+		exchanges:      make(map[common.Hash]*exchanges),
 	}
 }
 
 // SetState sets the backing layer of the managed state
-func (ms *TomoXManagedState) SetState(statedb *TomoXStateDB) {
+func (ms *TomoXManagedState) SetState(statedb *TradingStateDB) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	ms.TomoXStateDB = statedb
+	ms.TradingStateDB = statedb
 }
 
 // RemoveNonce removed the nonce from the managed state and all future pending nonces
@@ -90,7 +90,7 @@ func (ms *TomoXManagedState) GetNonce(addr common.Hash) uint64 {
 		account := ms.getAccount(addr)
 		return uint64(len(account.nonces)) + account.nstart
 	} else {
-		return ms.TomoXStateDB.GetNonce(addr)
+		return ms.TradingStateDB.GetNonce(addr)
 	}
 }
 
@@ -125,7 +125,7 @@ func (ms *TomoXManagedState) getAccount(addr common.Hash) *exchanges {
 	} else {
 		// Always make sure the state orderId nonce isn't actually higher
 		// than the tracked one.
-		so := ms.TomoXStateDB.getStateExchangeObject(addr)
+		so := ms.TradingStateDB.getStateExchangeObject(addr)
 		if so != nil && uint64(len(account.nonces))+account.nstart < so.Nonce() {
 			ms.exchanges[addr] = newAccount(so)
 		}
@@ -135,6 +135,6 @@ func (ms *TomoXManagedState) getAccount(addr common.Hash) *exchanges {
 	return ms.exchanges[addr]
 }
 
-func newAccount(so *stateExchanges) *exchanges {
+func newAccount(so *tradingState) *exchanges {
 	return &exchanges{so, so.Nonce(), nil}
 }

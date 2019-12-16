@@ -6,7 +6,8 @@ import (
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/database"
+	"github.com/tomochain/tomochain/tomox/trading_state"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"strconv"
@@ -49,8 +50,8 @@ type TomoX struct {
 	// Order related
 	db         OrderDao
 	mongodb    OrderDao
-	Triegc     *prque.Prque         // Priority queue mapping block numbers to tries to gc
-	StateCache tomox_state.Database // State database to reuse between imports (contains state cache)    *tomox_state.TomoXStateDB
+	Triegc     *prque.Prque      // Priority queue mapping block numbers to tries to gc
+	StateCache database.Database // State database to reuse between imports (contains state cache)    *tomox_state.LendingStateDB
 
 	orderNonce map[common.Address]*big.Int
 
@@ -90,7 +91,7 @@ func NewMongoDBEngine(cfg *Config) *MongoDatabase {
 
 func New(cfg *Config) *TomoX {
 	tokenDecimalCache, _ := lru.New(defaultCacheLimit)
-	orderCache, _ := lru.New(tomox_state.OrderCacheLimit)
+	orderCache, _ := lru.New(trading_state.OrderCacheLimit)
 	tomoX := &TomoX{
 		orderNonce:        make(map[common.Address]*big.Int),
 		Triegc:            prque.New(),
@@ -107,7 +108,7 @@ func New(cfg *Config) *TomoX {
 		tomoX.sdkNode = true
 	}
 
-	tomoX.StateCache = tomox_state.NewDatabase(tomoX.db)
+	tomoX.StateCache = database.NewDatabase(tomoX.db)
 	tomoX.settings.Store(overflowIdx, false)
 
 	return tomoX
@@ -148,9 +149,9 @@ func (tomox *TomoX) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB) ([]tomox_state.TxDataMatch, map[common.Hash]tomox_state.MatchingResult) {
-	txMatches := []tomox_state.TxDataMatch{}
-	matchingResults := map[common.Hash]tomox_state.MatchingResult{}
+func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *trading_state.TradingStateDB) ([]trading_state.TxDataMatch, map[common.Hash]trading_state.MatchingResult) {
+	txMatches := []trading_state.TxDataMatch{}
+	matchingResults := map[common.Hash]trading_state.MatchingResult{}
 
 	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
 	for {
@@ -168,7 +169,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 			continue
 		}
 
-		order := &tomox_state.OrderItem{
+		order := &trading_state.OrderItem{
 			Nonce:           big.NewInt(int64(tx.Nonce())),
 			Quantity:        tx.Quantity(),
 			Price:           tx.Price(),
@@ -181,7 +182,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 			Type:            tx.Type(),
 			Hash:            tx.OrderHash(),
 			OrderID:         tx.OrderID(),
-			Signature: &tomox_state.Signature{
+			Signature: &trading_state.Signature{
 				V: byte(n),
 				R: common.BigToHash(R),
 				S: common.BigToHash(S),
@@ -194,15 +195,15 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 		}
 
 		log.Info("Process order pending", "orderPending", order, "BaseToken", order.BaseToken.Hex(), "QuoteToken", order.QuoteToken)
-		originalOrder := &tomox_state.OrderItem{}
+		originalOrder := &trading_state.OrderItem{}
 		*originalOrder = *order
-		originalOrder.Quantity = tomox_state.CloneBigInt(order.Quantity)
+		originalOrder.Quantity = trading_state.CloneBigInt(order.Quantity)
 
 		if cancel {
 			order.Status = OrderStatusCancelled
 		}
 
-		newTrades, newRejectedOrders, err := tomox.CommitOrder(coinbase, chain, statedb, tomoXstatedb, tomox_state.GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		newTrades, newRejectedOrders, err := tomox.CommitTradingOrder(coinbase, chain, statedb, tomoXstatedb, trading_state.GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
 
 		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)
@@ -235,16 +236,16 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 
 		// orderID has been updated
 		originalOrder.OrderID = order.OrderID
-		originalOrderValue, err := tomox_state.EncodeBytesItem(originalOrder)
+		originalOrderValue, err := trading_state.EncodeBytesItem(originalOrder)
 		if err != nil {
 			log.Error("Can't encode", "order", originalOrder, "err", err)
 			continue
 		}
-		txMatch := tomox_state.TxDataMatch{
+		txMatch := trading_state.TxDataMatch{
 			Order: originalOrderValue,
 		}
 		txMatches = append(txMatches, txMatch)
-		matchingResults[order.Hash] = tomox_state.MatchingResult{
+		matchingResults[order.Hash] = trading_state.MatchingResult{
 			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}
@@ -257,12 +258,12 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 // 2. txMatchData.Trades: includes information of matched orders.
 // 		a. PutObject them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
-func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*tomox_state.OrderItem, dirtyOrderCount *uint64) error {
+func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *trading_state.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*trading_state.OrderItem, dirtyOrderCount *uint64) error {
 	var (
 		// originTakerOrder: order get from db, nil if it doesn't exist
 		// takerOrderInTx: order decoded from txdata
 		// updatedTakerOrder: order with new status, filledAmount, CreatedAt, UpdatedAt. This will be inserted to db
-		originTakerOrder, updatedTakerOrder *tomox_state.OrderItem
+		originTakerOrder, updatedTakerOrder *trading_state.OrderItem
 		makerDirtyHashes                    []string
 		makerDirtyFilledAmount              map[string]*big.Int
 		err                                 error
@@ -271,13 +272,13 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 	sc := db.InitBulk()
 	defer sc.Close()
 	// 1. put processed takerOrderInTx to db
-	lastState := tomox_state.OrderHistoryItem{}
-	val, err := db.GetObject(takerOrderInTx.Hash, &tomox_state.OrderItem{})
+	lastState := trading_state.OrderHistoryItem{}
+	val, err := db.GetObject(takerOrderInTx.Hash, &trading_state.OrderItem{})
 	if err == nil && val != nil {
-		originTakerOrder = val.(*tomox_state.OrderItem)
-		lastState = tomox_state.OrderHistoryItem{
+		originTakerOrder = val.(*trading_state.OrderItem)
+		lastState = trading_state.OrderHistoryItem{
 			TxHash:       originTakerOrder.TxHash,
-			FilledAmount: tomox_state.CloneBigInt(originTakerOrder.FilledAmount),
+			FilledAmount: trading_state.CloneBigInt(originTakerOrder.FilledAmount),
 			Status:       originTakerOrder.Status,
 			UpdatedAt:    originTakerOrder.UpdatedAt,
 		}
@@ -312,8 +313,8 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 	for _, trade := range trades {
 		// 2.a. put to trades
 		tradeRecord := &Trade{}
-		quantity := tomox_state.ToBigInt(trade[TradeQuantity])
-		price := tomox_state.ToBigInt(trade[TradePrice])
+		quantity := trading_state.ToBigInt(trade[TradeQuantity])
+		price := trading_state.ToBigInt(trade[TradePrice])
 		if price.Cmp(big.NewInt(0)) <= 0 || quantity.Cmp(big.NewInt(0)) <= 0 {
 			return fmt.Errorf("trade misses important information. tradedPrice %v, tradedQuantity %v", price, quantity)
 		}
@@ -335,11 +336,11 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		// feeAmount: all fees are calculated in quoteToken
 		quoteTokenQuantity := big.NewInt(0).Mul(quantity, price)
 		quoteTokenQuantity = big.NewInt(0).Div(quoteTokenQuantity, common.BasePrice)
-		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, tomox_state.GetExRelayerFee(updatedTakerOrder.ExchangeAddress, statedb))
+		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, trading_state.GetExRelayerFee(updatedTakerOrder.ExchangeAddress, statedb))
 		takerFee = big.NewInt(0).Div(takerFee, common.TomoXBaseFee)
 		tradeRecord.TakeFee = takerFee
 
-		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, tomox_state.GetExRelayerFee(common.HexToAddress(trade[TradeMakerExchange]), statedb))
+		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, trading_state.GetExRelayerFee(common.HexToAddress(trade[TradeMakerExchange]), statedb))
 		makerFee = big.NewInt(0).Div(makerFee, common.TomoXBaseFee)
 		tradeRecord.MakeFee = makerFee
 
@@ -365,7 +366,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		// maker dirty order
 		makerFilledAmount := big.NewInt(0)
 		if amount, ok := makerDirtyFilledAmount[trade[TradeMakerOrderHash]]; ok {
-			makerFilledAmount = tomox_state.CloneBigInt(amount)
+			makerFilledAmount = trading_state.CloneBigInt(amount)
 		}
 		makerFilledAmount.Add(makerFilledAmount, filledAmount)
 		makerDirtyFilledAmount[trade[TradeMakerOrderHash]] = makerFilledAmount
@@ -374,7 +375,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		//updatedTakerOrder = tomox.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 		//  update filledAmount, status of takerOrder
 		updatedTakerOrder.FilledAmount.Add(updatedTakerOrder.FilledAmount, filledAmount)
-		if updatedTakerOrder.FilledAmount.Cmp(updatedTakerOrder.Quantity) < 0 && updatedTakerOrder.Type == tomox_state.Limit {
+		if updatedTakerOrder.FilledAmount.Cmp(updatedTakerOrder.Quantity) < 0 && updatedTakerOrder.Type == trading_state.Limit {
 			updatedTakerOrder.Status = OrderStatusPartialFilled
 		} else {
 			updatedTakerOrder.Status = OrderStatusFilled
@@ -382,7 +383,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 	}
 
 	// update status for Market orders
-	if updatedTakerOrder.Type == tomox_state.Market {
+	if updatedTakerOrder.Type == trading_state.Market {
 		if updatedTakerOrder.FilledAmount.Cmp(big.NewInt(0)) > 0 {
 			updatedTakerOrder.Status = OrderStatusFilled
 		} else {
@@ -403,9 +404,9 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 			log.Debug("Ignore old orders/trades maker", "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
 			continue
 		}
-		lastState = tomox_state.OrderHistoryItem{
+		lastState = trading_state.OrderHistoryItem{
 			TxHash:       o.TxHash,
-			FilledAmount: tomox_state.CloneBigInt(o.FilledAmount),
+			FilledAmount: trading_state.CloneBigInt(o.FilledAmount),
 			Status:       o.Status,
 			UpdatedAt:    o.UpdatedAt,
 		}
@@ -437,9 +438,9 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 			rejectedHashes = append(rejectedHashes, rejectedOrder.Hash.Hex())
 			if updatedTakerOrder.Hash == rejectedOrder.Hash && !txMatchTime.Before(updatedTakerOrder.UpdatedAt) {
 				// cache order history for handling reorg
-				orderHistoryRecord := tomox_state.OrderHistoryItem{
+				orderHistoryRecord := trading_state.OrderHistoryItem{
 					TxHash:       updatedTakerOrder.TxHash,
-					FilledAmount: tomox_state.CloneBigInt(updatedTakerOrder.FilledAmount),
+					FilledAmount: trading_state.CloneBigInt(updatedTakerOrder.FilledAmount),
 					Status:       updatedTakerOrder.Status,
 					UpdatedAt:    updatedTakerOrder.UpdatedAt,
 				}
@@ -460,9 +461,9 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 				continue
 			}
 			// cache order history for handling reorg
-			orderHistoryRecord := tomox_state.OrderHistoryItem{
+			orderHistoryRecord := trading_state.OrderHistoryItem{
 				TxHash:       order.TxHash,
-				FilledAmount: tomox_state.CloneBigInt(order.FilledAmount),
+				FilledAmount: trading_state.CloneBigInt(order.FilledAmount),
 				Status:       order.Status,
 				UpdatedAt:    order.UpdatedAt,
 			}
@@ -486,7 +487,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 	return nil
 }
 
-func (tomox *TomoX) GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB, error) {
+func (tomox *TomoX) GetTomoxState(block *types.Block) (*trading_state.TradingStateDB, error) {
 	root, err := tomox.GetTomoxStateRoot(block)
 	if err != nil {
 		return nil, err
@@ -494,10 +495,10 @@ func (tomox *TomoX) GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB
 	if tomox.StateCache == nil {
 		return nil, errors.New("Not initialized tomox")
 	}
-	return tomox_state.New(root, tomox.StateCache)
+	return trading_state.New(root, tomox.StateCache)
 }
 
-func (tomox *TomoX) GetStateCache() tomox_state.Database {
+func (tomox *TomoX) GetStateCache() database.Database {
 	return tomox.StateCache
 }
 
@@ -513,18 +514,18 @@ func (tomox *TomoX) GetTomoxStateRoot(block *types.Block) (common.Hash, error) {
 			}
 		}
 	}
-	return tomox_state.EmptyRoot, nil
+	return trading_state.EmptyRoot, nil
 }
 
-func (tomox *TomoX) UpdateOrderCache(baseToken, quoteToken common.Address, orderHash common.Hash, txhash common.Hash, lastState tomox_state.OrderHistoryItem) {
-	var orderCacheAtTxHash map[common.Hash]tomox_state.OrderHistoryItem
+func (tomox *TomoX) UpdateOrderCache(baseToken, quoteToken common.Address, orderHash common.Hash, txhash common.Hash, lastState trading_state.OrderHistoryItem) {
+	var orderCacheAtTxHash map[common.Hash]trading_state.OrderHistoryItem
 	c, ok := tomox.orderCache.Get(txhash)
 	if !ok || c == nil {
-		orderCacheAtTxHash = make(map[common.Hash]tomox_state.OrderHistoryItem)
+		orderCacheAtTxHash = make(map[common.Hash]trading_state.OrderHistoryItem)
 	} else {
-		orderCacheAtTxHash = c.(map[common.Hash]tomox_state.OrderHistoryItem)
+		orderCacheAtTxHash = c.(map[common.Hash]trading_state.OrderHistoryItem)
 	}
-	orderKey := tomox_state.GetOrderHistoryKey(baseToken, quoteToken, orderHash)
+	orderKey := trading_state.GetOrderHistoryKey(baseToken, quoteToken, orderHash)
 	_, ok = orderCacheAtTxHash[orderKey]
 	if !ok {
 		orderCacheAtTxHash[orderKey] = lastState
@@ -538,30 +539,30 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 
 	for _, order := range db.GetOrderByTxHash(txhash) {
 		c, ok := tomox.orderCache.Get(txhash)
-		log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", tomox_state.ToJSON(order), "orderHistoryItem", c)
+		log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", trading_state.ToJSON(order), "orderHistoryItem", c)
 		if !ok {
-			log.Debug("Tomox reorg: remove order due to no orderCache", "order", tomox_state.ToJSON(order))
+			log.Debug("Tomox reorg: remove order due to no orderCache", "order", trading_state.ToJSON(order))
 			if err := db.DeleteObject(order.Hash); err != nil {
-				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tomox_state.ToJSON(order))
+				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", trading_state.ToJSON(order))
 			}
 			continue
 		}
-		orderCacheAtTxHash := c.(map[common.Hash]tomox_state.OrderHistoryItem)
-		orderHistoryItem, _ := orderCacheAtTxHash[tomox_state.GetOrderHistoryKey(order.BaseToken, order.QuoteToken, order.Hash)]
-		if (orderHistoryItem == tomox_state.OrderHistoryItem{}) {
-			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", tomox_state.ToJSON(order))
+		orderCacheAtTxHash := c.(map[common.Hash]trading_state.OrderHistoryItem)
+		orderHistoryItem, _ := orderCacheAtTxHash[trading_state.GetOrderHistoryKey(order.BaseToken, order.QuoteToken, order.Hash)]
+		if (orderHistoryItem == trading_state.OrderHistoryItem{}) {
+			log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", trading_state.ToJSON(order))
 			if err := db.DeleteObject(order.Hash); err != nil {
-				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tomox_state.ToJSON(order))
+				log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", trading_state.ToJSON(order))
 			}
 			continue
 		}
 		order.TxHash = orderHistoryItem.TxHash
 		order.Status = orderHistoryItem.Status
-		order.FilledAmount = tomox_state.CloneBigInt(orderHistoryItem.FilledAmount)
+		order.FilledAmount = trading_state.CloneBigInt(orderHistoryItem.FilledAmount)
 		order.UpdatedAt = orderHistoryItem.UpdatedAt
-		log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", tomox_state.ToJSON(order), "orderHistoryItem", orderHistoryItem)
+		log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", trading_state.ToJSON(order), "orderHistoryItem", orderHistoryItem)
 		if err := db.PutObject(order.Hash, order); err != nil {
-			log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", tomox_state.ToJSON(order))
+			log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", trading_state.ToJSON(order))
 		}
 	}
 	log.Debug("Tomox reorg: DeleteTradeByTxHash", "txhash", txhash.Hex())

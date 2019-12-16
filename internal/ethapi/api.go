@@ -21,7 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/trading_state"
 	"math/big"
 	"sort"
 	"strings"
@@ -1891,7 +1891,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToke
 	if err != nil {
 		return result, err
 	}
-	result.Price, result.Volume = tomoxState.GetBestBidPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	result.Price = tomoxState.GetBestBidPrice(trading_state.GetOrderBookHash(baseToken, quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Bid tree not found")
 	}
@@ -1913,14 +1913,14 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToke
 	if err != nil {
 		return result, err
 	}
-	result.Price, result.Volume = tomoxState.GetBestAskPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	result.Price = tomoxState.GetBestAskPrice(trading_state.GetOrderBookHash(baseToken, quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Ask tree not found")
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]trading_state.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -1933,7 +1933,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToke
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpBidTrie(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	result, err := tomoxState.DumpBidTrie(trading_state.GetOrderBookHash(baseToken, quoteToken))
 	if err != nil {
 		return nil, err
 	}
@@ -1953,14 +1953,14 @@ func (s *PublicTomoXTransactionPoolAPI) GetPrice(ctx context.Context, baseToken,
 	if err != nil {
 		return nil, err
 	}
-	price := tomoxState.GetPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	price := tomoxState.GetPrice(trading_state.GetOrderBookHash(baseToken, quoteToken))
 	if price == nil || price.Sign() == 0 {
 		return common.Big0, errors.New("Order book's price not found")
 	}
 	return price, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]trading_state.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -1973,7 +1973,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToke
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpAskTrie(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	result, err := tomoxState.DumpAskTrie(trading_state.GetOrderBookHash(baseToken, quoteToken))
 	if err != nil {
 		return nil, err
 	}
@@ -1994,7 +1994,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseTo
 		return nil, err
 	}
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderId))
-	orderitem := tomoxState.GetOrder(tomox_state.GetOrderBookHash(baseToken, quoteToken), orderIdHash)
+	orderitem := tomoxState.GetOrder(trading_state.GetOrderBookHash(baseToken, quoteToken), orderIdHash)
 	if orderitem.Quantity == nil || orderitem.Quantity.Sign() == 0 {
 		return nil, errors.New("Order not found")
 	}

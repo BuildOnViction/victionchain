@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/tomochain/tomochain/accounts/abi/bind"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/trading_state"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
@@ -84,7 +84,7 @@ type ResultProcessBlock struct {
 	logs       []*types.Log
 	receipts   []*types.Receipt
 	state      *state.StateDB
-	tomoxState *tomox_state.TomoXStateDB
+	tomoxState *trading_state.TradingStateDB
 	proctime   time.Duration
 	usedGas    uint64
 }
@@ -182,8 +182,8 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	downloadingBlock, _ := lru.New(blockCacheLimit)
 
 	// for tomox
-	resultTrade, _ := lru.New(tomox_state.OrderCacheLimit)
-	rejectedOrders, _ := lru.New(tomox_state.OrderCacheLimit)
+	resultTrade, _ := lru.New(trading_state.OrderCacheLimit)
+	rejectedOrders, _ := lru.New(trading_state.OrderCacheLimit)
 
 	bc := &BlockChain{
 		chainConfig:      chainConfig,
@@ -292,7 +292,7 @@ func (bc *BlockChain) loadLastState() error {
 				} else {
 
 					if tomoXService.GetStateCache() != nil {
-						_, err = tomox_state.New(tomoxRoot, tomoXService.GetStateCache())
+						_, err = trading_state.New(tomoxRoot, tomoXService.GetStateCache())
 						if err != nil {
 							repair = true
 						}
@@ -474,7 +474,7 @@ func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 }
 
 // OrderStateAt returns a new mutable state based on a particular point in time.
-func (bc *BlockChain) OrderStateAt(block *types.Block) (*tomox_state.TomoXStateDB, error) {
+func (bc *BlockChain) OrderStateAt(block *types.Block) (*trading_state.TradingStateDB, error) {
 	engine, ok := bc.Engine().(*posv.Posv)
 	if ok {
 		tomoXService := engine.GetTomoXService()
@@ -541,7 +541,7 @@ func (bc *BlockChain) repair(head **types.Block) error {
 				if bc.Config().IsTIPTomoX((*head).Number()) && tomoXService != nil {
 					tomoxRoot, err := tomoXService.GetTomoxStateRoot(*head)
 					if err == nil {
-						_, err = tomox_state.New(tomoxRoot, tomoXService.GetStateCache())
+						_, err = trading_state.New(tomoxRoot, tomoXService.GetStateCache())
 						if err == nil {
 							return nil
 						}
@@ -1048,7 +1048,7 @@ func (bc *BlockChain) WriteBlockWithoutState(block *types.Block, td *big.Int) (e
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB, tomoxState *tomox_state.TomoXStateDB) (status WriteStatus, err error) {
+func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB, tomoxState *trading_state.TradingStateDB) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -1383,7 +1383,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			return i, events, coalescedLogs, err
 		}
 		// clear the previous dry-run cache
-		var tomoxState *tomox_state.TomoXStateDB
+		var tomoxState *trading_state.TradingStateDB
 		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
 			if tomoXService := engine.GetTomoXService(); tomoXService != nil {
 				txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
@@ -1614,7 +1614,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		bc.reportBlock(block, nil, err)
 		return nil, err
 	}
-	var tomoxState *tomox_state.TomoXStateDB
+	var tomoxState *trading_state.TradingStateDB
 	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
 		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
 			tomoxState, err = tomoXService.GetTomoxState(parent)
@@ -2276,9 +2276,9 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 		dirtyOrderCount := uint64(0)
 		for _, txMatch := range txMatchBatch.Data {
 			var (
-				takerOrderInTx *tomox_state.OrderItem
+				takerOrderInTx *trading_state.OrderItem
 				trades         []map[string]string
-				rejectedOrders []*tomox_state.OrderItem
+				rejectedOrders []*trading_state.OrderItem
 			)
 
 			if takerOrderInTx, err = txMatch.DecodeOrder(); err != nil {
@@ -2297,7 +2297,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			// getRejectedOrder from cache
 			rejected, ok := bc.rejectedOrders.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 			if ok && rejected != nil {
-				rejectedOrders = rejected.([]*tomox_state.OrderItem)
+				rejectedOrders = rejected.([]*trading_state.OrderItem)
 			}
 			// remove from cache
 			bc.rejectedOrders.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
@@ -2343,7 +2343,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	}
 }
 
-func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]tomox_state.MatchingResult) {
+func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]trading_state.MatchingResult) {
 	for hash, result := range matchingResults {
 		bc.resultTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
 		bc.rejectedOrders.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)

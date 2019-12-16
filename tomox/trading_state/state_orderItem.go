@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package trading_state
 
 import (
 	"io"
@@ -28,9 +28,9 @@ import (
 //
 // The usage pattern is as follows:
 // First you need to obtain a state object.
-// exchangeObject values can be accessed and modified through the object.
+// tradingObject values can be accessed and modified through the object.
 // Finally, call CommitAskTrie to write the modified storage trie into a database.
-type stateOrderItem struct {
+type orderItemState struct {
 	orderBook common.Hash
 	orderId   common.Hash
 	data      OrderItem
@@ -38,13 +38,13 @@ type stateOrderItem struct {
 }
 
 // empty returns whether the orderId is considered empty.
-func (s *stateOrderItem) empty() bool {
+func (s *orderItemState) empty() bool {
 	return s.data.Quantity == nil || s.data.Quantity.Cmp(Zero) == 0
 }
 
 // newObject creates a state object.
-func newStateOrderItem(orderBook common.Hash, orderId common.Hash, data OrderItem, onDirty func(orderId common.Hash)) *stateOrderItem {
-	return &stateOrderItem{
+func newOrderItemState(orderBook common.Hash, orderId common.Hash, data OrderItem, onDirty func(orderId common.Hash)) *orderItemState {
+	return &orderItemState{
 		orderBook: orderBook,
 		orderId:   orderId,
 		data:      data,
@@ -53,16 +53,16 @@ func newStateOrderItem(orderBook common.Hash, orderId common.Hash, data OrderIte
 }
 
 // EncodeRLP implements rlp.Encoder.
-func (c *stateOrderItem) EncodeRLP(w io.Writer) error {
+func (c *orderItemState) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, c.data)
 }
 
-func (self *stateOrderItem) deepCopy(onDirty func(orderId common.Hash)) *stateOrderItem {
-	stateOrderList := newStateOrderItem(self.orderBook, self.orderId, self.data, onDirty)
+func (self *orderItemState) deepCopy(onDirty func(orderId common.Hash)) *orderItemState {
+	stateOrderList := newOrderItemState(self.orderBook, self.orderId, self.data, onDirty)
 	return stateOrderList
 }
 
-func (self *stateOrderItem) setVolume(volume *big.Int) {
+func (self *orderItemState) setVolume(volume *big.Int) {
 	self.data.Quantity = volume
 	if self.onDirty != nil {
 		self.onDirty(self.orderId)
@@ -70,6 +70,6 @@ func (self *stateOrderItem) setVolume(volume *big.Int) {
 	}
 }
 
-func (self *stateOrderItem) Quantity() *big.Int {
+func (self *orderItemState) Quantity() *big.Int {
 	return self.data.Quantity
 }

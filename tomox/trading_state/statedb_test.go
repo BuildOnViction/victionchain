@@ -14,13 +14,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package trading_state
 
 import (
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/tomox/database"
 	"math/big"
 	"testing"
 )
@@ -39,7 +40,7 @@ func TestEchangeStates(t *testing.T) {
 	}
 	// Create an empty statedb database
 	db, _ := ethdb.NewMemDatabase()
-	stateCache := NewDatabase(db)
+	stateCache := database.NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 
 	// Update it with some exchanges
@@ -90,21 +91,13 @@ func TestEchangeStates(t *testing.T) {
 	}
 
 	minSell := uint64(math.MaxUint64)
-	for price, amount := range mapPriceSell {
-		data := statedb.GetVolume(orderBook, new(big.Int).SetUint64(price), Ask)
-		if data.Uint64() != amount {
-			t.Fatalf("Error when get volume save in database: price  %d ,got : %d , wanted : %d ", price, data.Uint64(), amount)
-		}
+	for price, _ := range mapPriceSell {
 		if price < minSell {
 			minSell = price
 		}
 	}
 	maxBuy := uint64(0)
-	for price, amount := range mapPriceBuy {
-		data := statedb.GetVolume(orderBook, new(big.Int).SetUint64(price), Bid)
-		if data.Uint64() != amount {
-			t.Fatalf("Error when get volume save in database: price  %d ,got : %d , wanted : %d ", price, data.Uint64(), amount)
-		}
+	for price, _ := range mapPriceBuy {
 		if price > maxBuy {
 			maxBuy = price
 		}
@@ -116,9 +109,9 @@ func TestEchangeStates(t *testing.T) {
 			t.Fatalf("Error when get amount save in database: orderId %d , orderType %s,got : %d , wanted : %d ", orderItems[i].OrderID, orderItems[i].Side, amount.Uint64(), orderItems[i].Quantity.Uint64())
 		}
 	}
-	maxPrice, volumeMax := statedb.GetBestBidPrice(orderBook)
-	minPrice, volumeMin := statedb.GetBestAskPrice(orderBook)
-	fmt.Println("price", minPrice, volumeMin, maxPrice, volumeMax)
+	maxPrice := statedb.GetBestBidPrice(orderBook)
+	minPrice := statedb.GetBestAskPrice(orderBook)
+	fmt.Println("price", minPrice, maxPrice)
 	db.Close()
 }
 
@@ -135,7 +128,7 @@ func TestRevertStates(t *testing.T) {
 	}
 	// Create an empty statedb database
 	db, _ := ethdb.NewMemDatabase()
-	stateCache := NewDatabase(db)
+	stateCache := database.NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 
 	// Update it with some exchanges
@@ -174,19 +167,9 @@ func TestRevertStates(t *testing.T) {
 	}
 
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[0].OrderID))
-	order := statedb.GetOrder(orderBook, orderIdHash)
-	// sub amount order
-	wanted := statedb.GetVolume(orderBook, order.Price, order.Side)
-	snap := statedb.Snapshot()
-	statedb.SubAmountOrderItem(orderBook, orderIdHash, order.Price, order.Quantity, order.Side)
-	statedb.RevertToSnapshot(snap)
-	got := statedb.GetVolume(orderBook, order.Price, order.Side)
-	if got.Cmp(wanted) != 0 {
-		t.Fatalf(" err get volume price : %d after try revert snap shot , got : %d ,want : %d", order.Price, got, wanted)
-	}
 	// set nonce
 	wantedNonce := statedb.GetNonce(relayers[1])
-	snap = statedb.Snapshot()
+	snap := statedb.Snapshot()
 	statedb.SetNonce(relayers[1], 0)
 	statedb.RevertToSnapshot(snap)
 	gotNonce := statedb.GetNonce(relayers[1])

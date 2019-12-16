@@ -1,4 +1,4 @@
-package tomox_state
+package trading_state
 
 import (
 	"fmt"

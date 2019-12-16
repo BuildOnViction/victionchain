@@ -10,7 +10,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/trading_state"
 	"strings"
 	"time"
 )
@@ -137,8 +137,8 @@ func (db *MongoDatabase) GetObject(hash common.Hash, val interface{}) (interface
 		query := bson.M{"hash": hash.Hex()}
 
 		switch val.(type) {
-		case *tomox_state.OrderItem:
-			var oi *tomox_state.OrderItem
+		case *trading_state.OrderItem:
+			var oi *trading_state.OrderItem
 			err := sc.DB(db.dbName).C(ordersCollection).Find(query).One(&oi)
 			if err != nil {
 				return nil, err
@@ -170,10 +170,10 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 			log.Error(err.Error())
 			return err
 		}
-	case *tomox_state.OrderItem:
+	case *trading_state.OrderItem:
 		// PutObject order into ordersCollection collection
 		// Store the key
-		o := val.(*tomox_state.OrderItem)
+		o := val.(*trading_state.OrderItem)
 		if err := db.CommitOrder(o); err != nil {
 			log.Error(err.Error())
 			return err
@@ -216,7 +216,7 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash) error {
 	return nil
 }
 
-func (db *MongoDatabase) CommitOrder(o *tomox_state.OrderItem) error {
+func (db *MongoDatabase) CommitOrder(o *trading_state.OrderItem) error {
 	if o.Status == OrderStatusOpen {
 		db.orderBulk.Insert(o)
 	} else {
@@ -282,8 +282,8 @@ func (db *MongoDatabase) DeleteTradeByTxHash(txhash common.Hash) {
 	}
 }
 
-func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem {
-	var result []*tomox_state.OrderItem
+func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*trading_state.OrderItem {
+	var result []*trading_state.OrderItem
 	sc := db.Session.Copy()
 	defer sc.Close()
 
@@ -295,8 +295,8 @@ func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.Ord
 	return result
 }
 
-func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem {
-	var result []*tomox_state.OrderItem
+func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*trading_state.OrderItem {
+	var result []*trading_state.OrderItem
 	sc := db.Session.Copy()
 	defer sc.Close()
 
@@ -304,7 +304,7 @@ func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.Or
 
 	if err := sc.DB(db.dbName).C(ordersCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
 		log.Error("failed to GetListOrderByHashes", "err", err, "hashes", hashes)
-		return []*tomox_state.OrderItem{}
+		return []*trading_state.OrderItem{}
 	}
 	return result
 }

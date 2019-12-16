@@ -1,4 +1,4 @@
-package tomox_state
+package lending_state
 
 import (
 	"github.com/tomochain/tomochain/rlp"

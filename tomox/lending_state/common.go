@@ -1,11 +1,10 @@
-package tomox_state
+package lending_state
 
 import (
 	"encoding/json"
 	"errors"
 	"github.com/tomochain/tomochain/crypto"
 	"math/big"
-	"time"
 
 	"github.com/tomochain/tomochain/common"
 )
@@ -16,8 +15,8 @@ const (
 
 var (
 	EmptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-	Ask       = "SELL"
-	Bid       = "BUY"
+	INVESTING = "INVESTING"
+	BORROWING = "BORROWING"
 	Market    = "MO"
 	Limit     = "LO"
 	Cancel    = "CANCELLED"
@@ -26,16 +25,17 @@ var (
 
 var EmptyHash = common.Hash{}
 var Zero = big.NewInt(0)
-var EmptyOrderList = orderList{
-	Volume: nil,
-	Root:   EmptyHash,
+var EmptyOrderList = itemList{
+	Root: EmptyHash,
 }
-var EmptyExchangeOnject = exchangeObject{
-	Nonce:   0,
-	AskRoot: EmptyHash,
-	BidRoot: EmptyHash,
+var EmptyExchangeOnject = lendingObject{
+	Nonce:               0,
+	InvestingRoot:       EmptyHash,
+	BorrowingRoot:       EmptyHash,
+	LiquidationTimeRoot: EmptyHash,
+	LendingItemRoot:     EmptyHash,
 }
-var EmptyOrder = OrderItem{
+var EmptyOrder = LendingItem{
 	Quantity: Zero,
 }
 
@@ -55,21 +55,16 @@ var (
 	}
 )
 
-// exchangeObject is the Ethereum consensus representation of exchanges.
-// These objects are stored in the main orderId trie.
-type orderList struct {
-	Volume *big.Int
-	Root   common.Hash // merkle root of the storage trie
+type itemList struct {
+	Root common.Hash // merkle root of the storage trie
 }
 
-// exchangeObject is the Ethereum consensus representation of exchanges.
-// These objects are stored in the main orderId trie.
-type exchangeObject struct {
-	Nonce     uint64
-	Price     *big.Int    // price in native coin
-	AskRoot   common.Hash // merkle root of the storage trie
-	BidRoot   common.Hash // merkle root of the storage trie
-	OrderRoot common.Hash
+type lendingObject struct {
+	Nonce               uint64
+	InvestingRoot       common.Hash
+	BorrowingRoot       common.Hash
+	LiquidationTimeRoot common.Hash
+	LendingItemRoot     common.Hash
 }
 
 var (
@@ -109,7 +104,7 @@ type TxMatchBatch struct {
 
 type MatchingResult struct {
 	Trades  []map[string]string
-	Rejects []*OrderItem
+	Rejects []*LendingItem
 }
 
 func EncodeTxMatchesBatch(txMatchBatch TxMatchBatch) ([]byte, error) {
@@ -134,8 +129,8 @@ func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderHash common.H
 	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), orderHash.Bytes())
 }
 
-func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
-	order := &OrderItem{}
+func (tx TxDataMatch) DecodeOrder() (*LendingItem, error) {
+	order := &LendingItem{}
 	if err := DecodeBytesItem(tx.Order, order); err != nil {
 		return order, err
 	}
@@ -146,7 +141,6 @@ type OrderHistoryItem struct {
 	TxHash       common.Hash
 	FilledAmount *big.Int
 	Status       string
-	UpdatedAt    time.Time
 }
 
 // use alloc to prevent reference manipulation

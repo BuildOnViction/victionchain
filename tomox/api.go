@@ -3,7 +3,7 @@ package tomox
 import (
 	"context"
 	"errors"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/trading_state"
 	"math/big"
 	"sync"
 	"time"
@@ -52,8 +52,8 @@ func (api *PublicTomoXAPI) GetOrderNonce(address common.Address) (*big.Int, erro
 }
 
 // GetPendingOrders returns pending orders of the given pair
-func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*tomox_state.OrderItem, error) {
-	result := []*tomox_state.OrderItem{}
+func (api *PublicTomoXAPI) GetPendingOrders(pairName string) ([]*trading_state.OrderItem, error) {
+	result := []*trading_state.OrderItem{}
 	//TODO: get pending orders from orderpool
 	return result, nil
 }

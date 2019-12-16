@@ -1,4 +1,4 @@
-package tomox_state
+package lending_state
 
 import (
 	"fmt"
@@ -14,8 +14,8 @@ import (
 	"github.com/tomochain/tomochain/log"
 )
 
-// OrderItem : info that will be store in database
-type OrderItem struct {
+// LendingItem : info that will be store in database
+type LendingItem struct {
 	Quantity        *big.Int       `json:"quantity,omitempty"`
 	Price           *big.Int       `json:"price,omitempty"`
 	ExchangeAddress common.Address `json:"exchangeAddress,omitempty"`
@@ -25,7 +25,7 @@ type OrderItem struct {
 	Status          string         `json:"status,omitempty"`
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
-	Hash            common.Hash    `json:"hash,omitempty"`
+	Hash            common.Hash    `json:"lendingBook,omitempty"`
 	TxHash          common.Hash    `json:"txHash,omitempty"`
 	Signature       *Signature     `json:"signature,omitempty"`
 	FilledAmount    *big.Int       `json:"filledAmount,omitempty"`
@@ -60,7 +60,7 @@ type OrderItemBSON struct {
 	Status          string           `json:"status,omitempty" bson:"status"`
 	Side            string           `json:"side,omitempty" bson:"side"`
 	Type            string           `json:"type,omitempty" bson:"type"`
-	Hash            string           `json:"hash,omitempty" bson:"hash"`
+	Hash            string           `json:"lendingBook,omitempty" bson:"lendingBook"`
 	TxHash          string           `json:"txHash,omitempty" bson:"txHash"`
 	Signature       *SignatureRecord `json:"signature,omitempty" bson:"signature"`
 	FilledAmount    string           `json:"filledAmount,omitempty" bson:"filledAmount"`
@@ -72,7 +72,7 @@ type OrderItemBSON struct {
 	ExtraData       string           `json:"extraData,omitempty" bson:"extraData"`
 }
 
-func (o *OrderItem) GetBSON() (interface{}, error) {
+func (o *LendingItem) GetBSON() (interface{}, error) {
 	or := OrderItemBSON{
 		PairName:        o.PairName,
 		ExchangeAddress: o.ExchangeAddress.Hex(),
@@ -108,7 +108,7 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 	return or, nil
 }
 
-func (o *OrderItem) SetBSON(raw bson.Raw) error {
+func (o *LendingItem) SetBSON(raw bson.Raw) error {
 	decoded := new(struct {
 		ID              bson.ObjectId    `json:"id,omitempty" bson:"_id"`
 		PairName        string           `json:"pairName" bson:"pairName"`
@@ -119,7 +119,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		Status          string           `json:"status" bson:"status"`
 		Side            string           `json:"side" bson:"side"`
 		Type            string           `json:"type" bson:"type"`
-		Hash            string           `json:"hash" bson:"hash"`
+		Hash            string           `json:"lendingBook" bson:"lendingBook"`
 		TxHash          string           `json:"txHash,omitempty" bson:"txHash"`
 		Price           string           `json:"price" bson:"price"`
 		Quantity        string           `json:"quantity" bson:"quantity"`
@@ -184,7 +184,7 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 }
 
 // VerifyOrder verify orderItem
-func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
+func (o *LendingItem) VerifyOrder(state *state.StateDB) error {
 	if err := o.VerifyBasicOrderInfo(); err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func (o *OrderItem) VerifyOrder(state *state.StateDB) error {
 }
 
 // VerifyBasicOrderInfo verify basic info
-func (o *OrderItem) VerifyBasicOrderInfo() error {
+func (o *LendingItem) VerifyBasicOrderInfo() error {
 
 	if o.Status == OrderNew {
 		if o.Type == Limit {
@@ -228,7 +228,7 @@ func (o *OrderItem) VerifyBasicOrderInfo() error {
 }
 
 // verify whether the exchange applies to become relayer
-func (o *OrderItem) verifyRelayer(state *state.StateDB) error {
+func (o *LendingItem) verifyRelayer(state *state.StateDB) error {
 	if !IsValidRelayer(state, o.ExchangeAddress) {
 		return ErrInvalidRelayer
 	}
@@ -236,7 +236,7 @@ func (o *OrderItem) verifyRelayer(state *state.StateDB) error {
 }
 
 //verify signatures
-func (o *OrderItem) verifySignature() error {
+func (o *LendingItem) verifySignature() error {
 	bigstr := o.Nonce.String()
 	n, err := strconv.ParseInt(bigstr, 10, 64)
 	if err != nil {
@@ -257,7 +257,7 @@ func (o *OrderItem) verifySignature() error {
 }
 
 // verify order type
-func (o *OrderItem) verifyOrderType() error {
+func (o *LendingItem) verifyOrderType() error {
 	if _, ok := MatchingOrderType[o.Type]; !ok {
 		log.Debug("Invalid order type", "type", o.Type)
 		return ErrInvalidOrderType
@@ -266,24 +266,24 @@ func (o *OrderItem) verifyOrderType() error {
 }
 
 //verify order side
-func (o *OrderItem) verifyOrderSide() error {
+func (o *LendingItem) verifyOrderSide() error {
 
-	if o.Side != Bid && o.Side != Ask {
+	if o.Side != BORROWING && o.Side != INVESTING {
 		log.Debug("Invalid orderSide", "side", o.Side)
 		return ErrInvalidOrderSide
 	}
 	return nil
 }
 
-func (o *OrderItem) encodedSide() *big.Int {
-	if o.Side == Bid {
+func (o *LendingItem) encodedSide() *big.Int {
+	if o.Side == BORROWING {
 		return big.NewInt(0)
 	}
 	return big.NewInt(1)
 }
 
 // verifyPrice make sure price is a positive number
-func (o *OrderItem) verifyPrice() error {
+func (o *LendingItem) verifyPrice() error {
 	if o.Price == nil || o.Price.Cmp(big.NewInt(0)) <= 0 {
 		log.Debug("Invalid price", "price", o.Price.String())
 		return ErrInvalidPrice
@@ -292,7 +292,7 @@ func (o *OrderItem) verifyPrice() error {
 }
 
 // verifyQuantity make sure quantity is a positive number
-func (o *OrderItem) verifyQuantity() error {
+func (o *LendingItem) verifyQuantity() error {
 	if o.Quantity == nil || o.Quantity.Cmp(big.NewInt(0)) <= 0 {
 		log.Debug("Invalid quantity", "quantity", o.Quantity.String())
 		return ErrInvalidQuantity
@@ -301,7 +301,7 @@ func (o *OrderItem) verifyQuantity() error {
 }
 
 // verifyStatus make sure status is NEW OR CANCELLED
-func (o *OrderItem) verifyStatus() error {
+func (o *LendingItem) verifyStatus() error {
 	if o.Status != Cancel && o.Status != OrderNew {
 		log.Debug("Invalid status", "status", o.Status)
 		return ErrInvalidStatus
@@ -350,11 +350,8 @@ func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken c
 	return fmt.Errorf("invalid exchange pair. Base: %s. Quote: %s. Exchange: %s", baseToken.Hex(), quoteToken.Hex(), exchangeAddress.Hex())
 }
 
-func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TomoXStateDB, order *types.OrderTransaction, baseDecimal, quoteDecimal *big.Int) error {
+func VerifyBalance(statedb *state.StateDB, tomoxStateDb *LendingStateDB, order *types.OrderTransaction, baseDecimal, quoteDecimal *big.Int) error {
 	var quotePrice *big.Int
-	if order.QuoteToken().String() != common.TomoNativeAddress {
-		quotePrice = tomoxStateDb.GetPrice(GetOrderBookHash(order.QuoteToken(), common.HexToAddress(common.TomoNativeAddress)))
-	}
 	feeRate := GetExRelayerFee(order.ExchangeAddress(), statedb)
 	balanceResult, err := GetSettleBalance(quotePrice, order.Side(), feeRate, order.BaseToken(), order.QuoteToken(), order.Price(), feeRate, baseDecimal, quoteDecimal, order.Quantity())
 	if err != nil {

@@ -3,7 +3,7 @@ package tomox
 import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/trading_state"
 	"github.com/globalsign/mgo"
 )
 
@@ -17,8 +17,8 @@ type OrderDao interface {
 	GetObject(hash common.Hash, val interface{}) (interface{}, error)
 	PutObject(hash common.Hash, val interface{}) error
 	DeleteObject(hash common.Hash) error // won't return error if key not found
-	GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem
-	GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem
+	GetOrderByTxHash(txhash common.Hash) []*trading_state.OrderItem
+	GetListOrderByHashes(hashes []string) []*trading_state.OrderItem
 	DeleteTradeByTxHash(txhash common.Hash)
 	InitBulk() *mgo.Session
 	CommitBulk() error
