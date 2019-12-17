@@ -59,6 +59,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}):  &bn256ScalarMul{},
 	common.BytesToAddress([]byte{8}):  &bn256Pairing{},
 	common.BytesToAddress([]byte{30}): &ringSignatureVerifier{},
+	common.BytesToAddress([]byte{31}): &ringSignatureMessageVerifier{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -368,6 +369,13 @@ func (c *ringSignatureVerifier) RequiredGas(input []byte) uint64 {
 	return 100000
 }
 
+type ringSignatureMessageVerifier struct{}
+
+func (c *ringSignatureMessageVerifier) RequiredGas(input []byte) uint64 {
+	//the gas should depends on the ringsize
+	return 120000
+}
+
 //function ringSignatureVerifier only contain the proof
 //The proof contains pretty much stuffs
 //Ring size rs: 1 byte => proof[0]
@@ -385,7 +393,23 @@ func (c *ringSignatureVerifier) Run(proof []byte) ([]byte, error) {
 	if err != nil {
 		return []byte{}, errors.New("Fail to deserialize proof")
 	}
-	if !privacy.Verify(der) {
+	if !Verify(der, false) {
+		return []byte{}, errors.New("Fail to verify ring signature")
+	}
+	//h := crypto.Keccak256(proof)*/
+	/*b, _ := TestRingSignature()
+	if !b {
+		return []byte{}, errors.New("Fail to verify ring signature")
+	}*/
+	return []byte{}, nil
+}
+
+func (c *ringSignatureMessageVerifier) Run(proof []byte) ([]byte, error) {
+	der, err := Deserialize(proof)
+	if err != nil {
+		return []byte{}, errors.New("Fail to deserialize proof")
+	}
+	if !Verify(der, true) {
 		return []byte{}, errors.New("Fail to verify ring signature")
 	}
 	//h := crypto.Keccak256(proof)*/
