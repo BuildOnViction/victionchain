@@ -346,11 +346,11 @@ func (l *Lending) processOrderList(createdBlockTime uint64,coinbase common.Addre
 }
 
 func (l *Lending) getTradeQuantity(quoteInterest *big.Int, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, takerOrder *lendingstate.LendingItem, makerOrder *lendingstate.LendingItem, quantityToTrade *big.Int) (*big.Int, bool, error) {
-	LendingTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, makerOrder.LendingToken)
+	LendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, makerOrder.LendingToken)
 	if err != nil || LendingTokenDecimal.Sign() == 0 {
 		return lendingstate.Zero, false, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.LendingToken.String(), err)
 	}
-	CollateralTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, makerOrder.CollateralToken)
+	CollateralTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, makerOrder.CollateralToken)
 	if err != nil || CollateralTokenDecimal.Sign() == 0 {
 		return lendingstate.Zero, false, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.CollateralToken.String(), err)
 	}
@@ -595,7 +595,7 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 		log.Debug("Relayer not enough fee when cancel order", "err", err)
 		return nil, true
 	}
-	lendingTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
+	lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
 	if err != nil || lendingTokenDecimal.Sign() == 0 {
 		log.Debug("Fail to get tokenDecimal ", "Token", order.LendingToken.String(), "err", err)
 		return err, false

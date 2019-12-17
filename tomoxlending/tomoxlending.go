@@ -48,7 +48,6 @@ type Lending struct {
 
 	tomox              *tomox.TomoX
 	settings           syncmap.Map // holds configuration settings that can be dynamically changed
-	tokenDecimalCache  *lru.Cache
 	lendingItemHistory *lru.Cache
 }
 
@@ -65,12 +64,10 @@ func (l *Lending) Stop() error {
 }
 
 func New(tomox *tomox.TomoX) *Lending {
-	tokenDecimalCache, _ := lru.New(defaultCacheLimit)
 	orderCache, _ := lru.New(lendingItemCacheLimit)
 	lending := &Lending{
 		orderNonce:         make(map[common.Address]*big.Int),
 		Triegc:             prque.New(),
-		tokenDecimalCache:  tokenDecimalCache,
 		lendingItemHistory: orderCache,
 	}
 
