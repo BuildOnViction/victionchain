@@ -20,16 +20,13 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rpc"
-	"golang.org/x/sync/syncmap"
 )
 
 const (
-	ProtocolName       = "tomoxlending"
-	ProtocolVersion    = uint64(1)
-	ProtocolVersionStr = "1.0"
-	overflowIdx         // Indicator of message queue overflow
+	ProtocolName          = "tomoxlending"
+	ProtocolVersion       = uint64(1)
+	ProtocolVersionStr    = "1.0"
 	defaultCacheLimit     = 1024
-	lendingItemCacheLimit = 10000
 )
 
 var (
@@ -38,7 +35,6 @@ var (
 )
 
 type Lending struct {
-	// Order related
 	leveldb    tomoxDAO.TomoXDAO
 	mongodb    tomoxDAO.TomoXDAO
 	Triegc     *prque.Prque          // Priority queue mapping block numbers to tries to gc
@@ -47,7 +43,6 @@ type Lending struct {
 	orderNonce map[common.Address]*big.Int
 
 	tomox              *tomox.TomoX
-	settings           syncmap.Map // holds configuration settings that can be dynamically changed
 	lendingItemHistory *lru.Cache
 }
 
@@ -64,11 +59,11 @@ func (l *Lending) Stop() error {
 }
 
 func New(tomox *tomox.TomoX) *Lending {
-	orderCache, _ := lru.New(lendingItemCacheLimit)
+	itemCacheLimit, _ := lru.New(defaultCacheLimit)
 	lending := &Lending{
 		orderNonce:         make(map[common.Address]*big.Int),
 		Triegc:             prque.New(),
-		lendingItemHistory: orderCache,
+		lendingItemHistory: itemCacheLimit,
 	}
 
 	lending.leveldb = tomox.GetLevelDB()
@@ -78,15 +73,7 @@ func New(tomox *tomox.TomoX) *Lending {
 	}
 
 	lending.StateCache = lendingstate.NewDatabase(lending.leveldb)
-	lending.settings.Store(overflowIdx, false)
-
 	return lending
-}
-
-// Overflow returns an indication if the message queue is full.
-func (l *Lending) Overflow() bool {
-	val, _ := l.settings.Load(overflowIdx)
-	return val.(bool)
 }
 
 func (l *Lending) GetLevelDB() tomoxDAO.TomoXDAO {
