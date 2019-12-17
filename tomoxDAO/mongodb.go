@@ -426,6 +426,14 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Sparse:     true,
 		Name:       "index_order_hash",
 	}
+	orderTxHashIndex := mgo.Index{
+		Key:        []string{"txHash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_order_tx_hash",
+	}
 	tradeHashIndex := mgo.Index{
 		Key:        []string{"hash"},
 		Unique:     true,
@@ -433,6 +441,14 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Background: true,
 		Sparse:     true,
 		Name:       "index_trade_hash",
+	}
+	tradeTxHashIndex := mgo.Index{
+		Key:        []string{"txHash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_trade_tx_hash",
 	}
 	lendingItemHashIndex := mgo.Index{
 		Key:        []string{"hash"},
@@ -455,8 +471,14 @@ func (db *MongoDatabase) EnsureIndexes() error {
 	if err := sc.DB(db.dbName).C(ordersCollection).EnsureIndex(orderHashIndex); err != nil {
 		return fmt.Errorf("failed to index orders.hash . Err: %v", err)
 	}
+	if err := sc.DB(db.dbName).C(ordersCollection).EnsureIndex(orderTxHashIndex); err != nil {
+		return fmt.Errorf("failed to index orders.txHash . Err: %v", err)
+	}
 	if err := sc.DB(db.dbName).C(tradesCollection).EnsureIndex(tradeHashIndex); err != nil {
 		return fmt.Errorf("failed to index trades.hash . Err: %v", err)
+	}
+	if err := sc.DB(db.dbName).C(tradesCollection).EnsureIndex(tradeTxHashIndex); err != nil {
+		return fmt.Errorf("failed to index trades.txHash . Err: %v", err)
 	}
 	if err := sc.DB(db.dbName).C(lendingItemsCollection).EnsureIndex(lendingItemHashIndex); err != nil {
 		return fmt.Errorf("failed to index lending_items.hash . Err: %v", err)
