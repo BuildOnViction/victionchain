@@ -1,14 +1,14 @@
-package tomox_state
+package tradingstate
 
 import (
 	"fmt"
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/log"
-	"github.com/pkg/errors"
 )
 
 func GetLocMappingAtKey(key common.Hash, slot uint64) *big.Int {
@@ -81,6 +81,55 @@ func GetQuoteTokenAtIndex(relayer common.Address, statedb *state.StateDB, index 
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), loc).Bytes())
 }
 
+func GetRelayerCount(statedb *state.StateDB) uint64 {
+	slot := RelayerMappingSlot["RelayerCount"]
+	slotHash := common.BigToHash(new(big.Int).SetUint64(slot))
+	valueHash := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), slotHash)
+	return new(big.Int).SetBytes(valueHash.Bytes()).Uint64()
+}
+
+func GetAllCoinbases(statedb *state.StateDB) []common.Address {
+	relayerCount := GetRelayerCount(statedb)
+	slot := RelayerMappingSlot["RELAYER_COINBASES"]
+	slotHash := common.BigToHash(new(big.Int).SetUint64(slot))
+	coinbases := []common.Address{}
+	for i := uint64(0); i < relayerCount; i++ {
+		retByte := crypto.Keccak256(new(big.Int).SetUint64(i).Bytes(), slotHash.Bytes())
+		valueHash := statedb.GetState(common.HexToAddress(common.RandomizeSMC), common.BytesToHash(retByte))
+		coinbases = append(coinbases, common.BytesToAddress(valueHash.Bytes()))
+	}
+	return coinbases
+}
+func GetAllTradingPairs(statedb *state.StateDB) (map[common.Hash]bool, error) {
+	coinbases := GetAllCoinbases(statedb)
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	allPairs := map[common.Hash]bool{}
+	for _, coinbase := range coinbases {
+		locBig := GetLocMappingAtKey(coinbase.Hash(), slot)
+		fromTokenSlot := new(big.Int).Add(locBig, RelayerStructMappingSlot["_fromTokens"])
+		fromTokenLength := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(fromTokenSlot)).Big().Uint64()
+		toTokenSlot := new(big.Int).Add(locBig, RelayerStructMappingSlot["_toTokens"])
+		toTokenLength := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(toTokenSlot)).Big().Uint64()
+		if toTokenLength != fromTokenLength {
+			return map[common.Hash]bool{}, fmt.Errorf("Invalid length from token & to toke : from :%d , to :%d ", fromTokenLength, toTokenLength)
+		}
+		fromTokens := []common.Address{}
+		for i := uint64(0); i < fromTokenLength; i++ {
+			slotKecBig := crypto.Keccak256Hash(fromTokenSlot.Bytes()).Big()
+			arrBig := slotKecBig.Add(slotKecBig, new(big.Int).SetUint64(i))
+			fromToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(arrBig)).Bytes())
+			fromTokens = append(fromTokens, fromToken)
+		}
+		for i := uint64(0); i < toTokenLength; i++ {
+			slotKecBig := crypto.Keccak256Hash(toTokenSlot.Bytes()).Big()
+			arrBig := slotKecBig.Add(slotKecBig, new(big.Int).SetUint64(i))
+			toToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(arrBig)).Bytes())
+			allPairs[GetTradingOrderBookHash(fromTokens[i], toToken)] = true
+		}
+	}
+	return allPairs, nil
+}
+
 func SubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB) error {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
@@ -107,7 +156,7 @@ func CheckRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateD
 	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, RelayerStructMappingSlot["_deposit"])
 	locHashDeposit := common.BigToHash(locBigDeposit)
 	balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
-	if new(big.Int).Sub(balance,fee).Cmp(new(big.Int).Mul(common.BasePrice, common.RelayerLockedFund)) < 0 {
+	if new(big.Int).Sub(balance, fee).Cmp(new(big.Int).Mul(common.BasePrice, common.RelayerLockedFund)) < 0 {
 		return errors.Errorf("relayer %s isn't enough tomo fee : balance %d , fee : %d ", relayer.Hex(), balance.Uint64(), fee.Uint64())
 	}
 	return nil

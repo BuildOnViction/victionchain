@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package lendingstate
 
 import (
 	"io"
@@ -24,27 +24,19 @@ import (
 	"github.com/tomochain/tomochain/rlp"
 )
 
-// stateObject represents an Ethereum orderId which is being modified.
-//
-// The usage pattern is as follows:
-// First you need to obtain a state object.
-// exchangeObject values can be accessed and modified through the object.
-// Finally, call CommitAskTrie to write the modified storage trie into a database.
-type stateOrderItem struct {
+type lendingItemState struct {
 	orderBook common.Hash
 	orderId   common.Hash
-	data      OrderItem
+	data      LendingItem
 	onDirty   func(orderId common.Hash) // Callback method to mark a state object newly dirty
 }
 
-// empty returns whether the orderId is considered empty.
-func (s *stateOrderItem) empty() bool {
+func (s *lendingItemState) empty() bool {
 	return s.data.Quantity == nil || s.data.Quantity.Cmp(Zero) == 0
 }
 
-// newObject creates a state object.
-func newStateOrderItem(orderBook common.Hash, orderId common.Hash, data OrderItem, onDirty func(orderId common.Hash)) *stateOrderItem {
-	return &stateOrderItem{
+func newLendinItemState(orderBook common.Hash, orderId common.Hash, data LendingItem, onDirty func(orderId common.Hash)) *lendingItemState {
+	return &lendingItemState{
 		orderBook: orderBook,
 		orderId:   orderId,
 		data:      data,
@@ -53,16 +45,16 @@ func newStateOrderItem(orderBook common.Hash, orderId common.Hash, data OrderIte
 }
 
 // EncodeRLP implements rlp.Encoder.
-func (c *stateOrderItem) EncodeRLP(w io.Writer) error {
+func (c *lendingItemState) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, c.data)
 }
 
-func (self *stateOrderItem) deepCopy(onDirty func(orderId common.Hash)) *stateOrderItem {
-	stateOrderList := newStateOrderItem(self.orderBook, self.orderId, self.data, onDirty)
+func (self *lendingItemState) deepCopy(onDirty func(orderId common.Hash)) *lendingItemState {
+	stateOrderList := newLendinItemState(self.orderBook, self.orderId, self.data, onDirty)
 	return stateOrderList
 }
 
-func (self *stateOrderItem) setVolume(volume *big.Int) {
+func (self *lendingItemState) setVolume(volume *big.Int) {
 	self.data.Quantity = volume
 	if self.onDirty != nil {
 		self.onDirty(self.orderId)
@@ -70,6 +62,6 @@ func (self *stateOrderItem) setVolume(volume *big.Int) {
 	}
 }
 
-func (self *stateOrderItem) Quantity() *big.Int {
+func (self *lendingItemState) Quantity() *big.Int {
 	return self.data.Quantity
 }

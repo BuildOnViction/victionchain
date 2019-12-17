@@ -10,26 +10,20 @@ import (
 	"github.com/tomochain/tomochain/common"
 )
 
-
 var (
 	EmptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 )
 
 var EmptyHash = common.Hash{}
 var Zero = big.NewInt(0)
-var EmptyOrderList = orderList{
-	Volume: nil,
-	Root:   EmptyHash,
-}
-var EmptyExchangeObject = exchangeObject{
-	Nonce:   0,
-	AskRoot: EmptyHash,
-	BidRoot: EmptyHash,
-}
-var EmptyOrder = LendingItem{
+var One = big.NewInt(1)
+var EmptyLendingOrder = LendingItem{
 	Quantity: Zero,
 }
 
+var EmptyLendingTrade = LendingTrade{
+	Amount: big.NewInt(0),
+}
 var (
 	ErrInvalidSignature = errors.New("verify lending item: invalid signature")
 	ErrInvalidInterest  = errors.New("verify lending item: invalid Interest")
@@ -46,21 +40,19 @@ var (
 	}
 )
 
-// exchangeObject is the Ethereum consensus representation of exchanges.
-// These objects are stored in the main orderId trie.
-type orderList struct {
+type itemList struct {
 	Volume *big.Int
-	Root   common.Hash // merkle root of the storage trie
+	Root   common.Hash
 }
 
-// exchangeObject is the Ethereum consensus representation of exchanges.
-// These objects are stored in the main orderId trie.
-type exchangeObject struct {
-	Nonce     uint64
-	Interest  *big.Int    // Interest in native coin
-	AskRoot   common.Hash // merkle root of the storage trie
-	BidRoot   common.Hash // merkle root of the storage trie
-	OrderRoot common.Hash
+type lendingObject struct {
+	Nonce               uint64
+	TradeNonce          uint64
+	InvestingRoot       common.Hash
+	BorrowingRoot       common.Hash
+	LiquidationTimeRoot common.Hash
+	LendingItemRoot     common.Hash
+	LendingTradeRoot    common.Hash
 }
 
 var (
@@ -188,6 +180,6 @@ func Max(a, b *big.Int) *big.Int {
 	}
 }
 
-func GetOrderBookHash(baseToken common.Address, quoteToken common.Address) common.Hash {
-	return common.BytesToHash(append(baseToken[:16], quoteToken[4:]...))
+func GetLendingOrderBookHash(lendingToken common.Address, term uint64) common.Hash {
+	return crypto.Keccak256Hash(append(common.Uint64ToHash(term).Bytes(), lendingToken.Bytes()...))
 }

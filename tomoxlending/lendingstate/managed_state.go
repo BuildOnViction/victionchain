@@ -23,34 +23,34 @@ import (
 )
 
 type exchanges struct {
-	stateObject *stateExchanges
+	stateObject *lendingExchangeState
 	nstart      uint64
 	nonces      []bool
 }
 
-type TomoXManagedState struct {
-	*TomoXStateDB
-	mu        sync.RWMutex
-	exchanges map[common.Hash]*exchanges
+type LendingManagedState struct {
+	*LendingStateDB
+	mu         sync.RWMutex
+	lenddinges map[common.Hash]*exchanges
 }
 
-// TomoXManagedState returns a new managed state with the statedb as it's backing layer
-func ManageState(statedb *TomoXStateDB) *TomoXManagedState {
-	return &TomoXManagedState{
-		TomoXStateDB: statedb.Copy(),
-		exchanges:    make(map[common.Hash]*exchanges),
+// LendingManagedState returns a new managed state with the statedb as it's backing layer
+func ManageState(statedb *LendingStateDB) *LendingManagedState {
+	return &LendingManagedState{
+		LendingStateDB: statedb.Copy(),
+		lenddinges:     make(map[common.Hash]*exchanges),
 	}
 }
 
 // SetState sets the backing layer of the managed state
-func (ms *TomoXManagedState) SetState(statedb *TomoXStateDB) {
+func (ms *LendingManagedState) SetState(statedb *LendingStateDB) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	ms.TomoXStateDB = statedb
+	ms.LendingStateDB = statedb
 }
 
 // RemoveNonce removed the nonce from the managed state and all future pending nonces
-func (ms *TomoXManagedState) RemoveNonce(addr common.Hash, n uint64) {
+func (ms *LendingManagedState) RemoveNonce(addr common.Hash, n uint64) {
 	if ms.hasAccount(addr) {
 		ms.mu.Lock()
 		defer ms.mu.Unlock()
@@ -65,7 +65,7 @@ func (ms *TomoXManagedState) RemoveNonce(addr common.Hash, n uint64) {
 }
 
 // NewNonce returns the new canonical nonce for the managed orderId
-func (ms *TomoXManagedState) NewNonce(addr common.Hash) uint64 {
+func (ms *LendingManagedState) NewNonce(addr common.Hash) uint64 {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
@@ -83,58 +83,58 @@ func (ms *TomoXManagedState) NewNonce(addr common.Hash) uint64 {
 // GetNonce returns the canonical nonce for the managed or unmanaged orderId.
 //
 // Because GetNonce mutates the DB, we must take a write lock.
-func (ms *TomoXManagedState) GetNonce(addr common.Hash) uint64 {
+func (ms *LendingManagedState) GetNonce(addr common.Hash) uint64 {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	if ms.hasAccount(addr) {
 		account := ms.getAccount(addr)
 		return uint64(len(account.nonces)) + account.nstart
 	} else {
-		return ms.TomoXStateDB.GetNonce(addr)
+		return ms.LendingStateDB.GetNonce(addr)
 	}
 }
 
 // SetNonce sets the new canonical nonce for the managed state
-func (ms *TomoXManagedState) SetNonce(addr common.Hash, nonce uint64) {
+func (ms *LendingManagedState) SetNonce(addr common.Hash, nonce uint64) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
-	so := ms.GetOrNewStateExchangeObject(addr)
-	so.SetNonce(nonce)
+	so := ms.GetOrNewLendingExchangeObject(addr)
+	so.setNonce(nonce)
 
-	ms.exchanges[addr] = newAccount(so)
+	ms.lenddinges[addr] = newAccount(so)
 }
 
 // HasAccount returns whether the given address is managed or not
-func (ms *TomoXManagedState) HasAccount(addr common.Hash) bool {
+func (ms *LendingManagedState) HasAccount(addr common.Hash) bool {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return ms.hasAccount(addr)
 }
 
-func (ms *TomoXManagedState) hasAccount(addr common.Hash) bool {
-	_, ok := ms.exchanges[addr]
+func (ms *LendingManagedState) hasAccount(addr common.Hash) bool {
+	_, ok := ms.lenddinges[addr]
 	return ok
 }
 
 // populate the managed state
-func (ms *TomoXManagedState) getAccount(addr common.Hash) *exchanges {
-	if account, ok := ms.exchanges[addr]; !ok {
-		so := ms.GetOrNewStateExchangeObject(addr)
-		ms.exchanges[addr] = newAccount(so)
+func (ms *LendingManagedState) getAccount(addr common.Hash) *exchanges {
+	if account, ok := ms.lenddinges[addr]; !ok {
+		so := ms.GetOrNewLendingExchangeObject(addr)
+		ms.lenddinges[addr] = newAccount(so)
 	} else {
 		// Always make sure the state orderId nonce isn't actually higher
 		// than the tracked one.
-		so := ms.TomoXStateDB.getStateExchangeObject(addr)
+		so := ms.LendingStateDB.getLendingExchange(addr)
 		if so != nil && uint64(len(account.nonces))+account.nstart < so.Nonce() {
-			ms.exchanges[addr] = newAccount(so)
+			ms.lenddinges[addr] = newAccount(so)
 		}
 
 	}
 
-	return ms.exchanges[addr]
+	return ms.lenddinges[addr]
 }
 
-func newAccount(so *stateExchanges) *exchanges {
+func newAccount(so *lendingExchangeState) *exchanges {
 	return &exchanges{so, so.Nonce(), nil}
 }

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package tradingstate
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ type DumpOrderList struct {
 	Orders map[*big.Int]*big.Int
 }
 
-func (self *TomoXStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
+func (self *TradingStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
 	exhangeObject := self.getStateExchangeObject(orderBook)
 	if exhangeObject == nil {
 		return nil, fmt.Errorf("Order book not found orderBook : %v ", orderBook.Hex())
@@ -55,7 +55,7 @@ func (self *TomoXStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]DumpO
 	return result, nil
 }
 
-func (self *TomoXStateDB) DumpBidTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
+func (self *TradingStateDB) DumpBidTrie(orderBook common.Hash) (map[*big.Int]DumpOrderList, error) {
 	exhangeObject := self.getStateExchangeObject(orderBook)
 	if exhangeObject == nil {
 		return nil, fmt.Errorf("Order book not found orderBook : %v ", orderBook.Hex())

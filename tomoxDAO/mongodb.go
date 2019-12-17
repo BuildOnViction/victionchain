@@ -10,7 +10,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"strings"
 	"time"
@@ -93,7 +93,7 @@ func (db *MongoDatabase) HasObject(hash common.Hash, val interface{}) (bool, err
 	)
 	query := bson.M{"hash": hash.Hex()}
 	switch val.(type) {
-	case *tomox_state.OrderItem:
+	case *tradingstate.OrderItem:
 		// Find key in ordersCollection collection
 		count, err = sc.DB(db.dbName).C(ordersCollection).Find(query).Limit(1).Count()
 
@@ -104,7 +104,7 @@ func (db *MongoDatabase) HasObject(hash common.Hash, val interface{}) (bool, err
 		if count == 1 {
 			return true, nil
 		}
-	case *tomox_state.Trade:
+	case *tradingstate.Trade:
 		// Find key in tradesCollection collection
 		count, err = sc.DB(db.dbName).C(tradesCollection).Find(query).Limit(1).Count()
 
@@ -158,16 +158,16 @@ func (db *MongoDatabase) GetObject(hash common.Hash, val interface{}) (interface
 		query := bson.M{"hash": hash.Hex()}
 
 		switch val.(type) {
-		case *tomox_state.OrderItem:
-			var oi *tomox_state.OrderItem
+		case *tradingstate.OrderItem:
+			var oi *tradingstate.OrderItem
 			err := sc.DB(db.dbName).C(ordersCollection).Find(query).One(&oi)
 			if err != nil {
 				return nil, err
 			}
 			db.cacheItems.Add(cacheKey, oi)
 			return oi, nil
-		case *tomox_state.Trade:
-			var t *tomox_state.Trade
+		case *tradingstate.Trade:
+			var t *tradingstate.Trade
 			err := sc.DB(db.dbName).C(tradesCollection).Find(query).One(&t)
 			if err != nil {
 				return nil, err
@@ -201,13 +201,13 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 	db.cacheItems.Add(cacheKey, val)
 
 	switch val.(type) {
-	case *tomox_state.Trade:
+	case *tradingstate.Trade:
 		// PutObject trade into tradesCollection collection
-		db.tradeBulk.Insert(val.(*tomox_state.Trade))
-	case *tomox_state.OrderItem:
+		db.tradeBulk.Insert(val.(*tradingstate.Trade))
+	case *tradingstate.OrderItem:
 		// PutObject order into ordersCollection collection
-		o := val.(*tomox_state.OrderItem)
-		if o.Status == tomox_state.OrderStatusOpen {
+		o := val.(*tradingstate.OrderItem)
+		if o.Status == tradingstate.OrderStatusOpen {
 			db.orderBulk.Insert(o)
 		} else {
 			query := bson.M{"hash": o.Hash.Hex()}
@@ -216,7 +216,7 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 		return nil
 	case *lendingstate.LendingTrade:
 		// PutObject trade into tradesCollection collection
-		db.lendingTradeBulk.Insert(val.(*tomox_state.Trade))
+		db.lendingTradeBulk.Insert(val.(*tradingstate.Trade))
 	case *lendingstate.LendingItem:
 		// PutObject order into ordersCollection collection
 		o := val.(*lendingstate.LendingItem)
@@ -251,12 +251,12 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash, val interface{}) error {
 	if found {
 		var err error
 		switch val.(type) {
-		case *tomox_state.OrderItem:
+		case *tradingstate.OrderItem:
 			err = sc.DB(db.dbName).C(ordersCollection).Remove(query)
 			if err != nil && err != mgo.ErrNotFound {
 				return fmt.Errorf("failed to delete orderItem. Err: %v", err)
 			}
-		case *tomox_state.Trade:
+		case *tradingstate.Trade:
 			err = sc.DB(db.dbName).C(tradesCollection).Remove(query)
 			if err != nil && err != mgo.ErrNotFound {
 				return fmt.Errorf("failed to delete tomox trade. Err: %v", err)
@@ -268,8 +268,8 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash, val interface{}) error {
 	return nil
 }
 
-func (db *MongoDatabase) CommitOrder(o *tomox_state.OrderItem) error {
-	if o.Status == tomox_state.OrderStatusOpen {
+func (db *MongoDatabase) CommitOrder(o *tradingstate.OrderItem) error {
+	if o.Status == tradingstate.OrderStatusOpen {
 		db.orderBulk.Insert(o)
 	} else {
 		query := bson.M{"hash": o.Hash.Hex()}
@@ -278,7 +278,7 @@ func (db *MongoDatabase) CommitOrder(o *tomox_state.OrderItem) error {
 	return nil
 }
 
-func (db *MongoDatabase) CommitTrade(t *tomox_state.Trade) error {
+func (db *MongoDatabase) CommitTrade(t *tradingstate.Trade) error {
 	// for trades: insert only, no update
 	// Hence, insert is better than upsert
 	db.tradeBulk.Insert(t)
@@ -351,8 +351,8 @@ func (db *MongoDatabase) DeleteTradeByTxHash(txhash common.Hash) {
 	}
 }
 
-func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem {
-	var result []*tomox_state.OrderItem
+func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tradingstate.OrderItem {
+	var result []*tradingstate.OrderItem
 	sc := db.Session.Copy()
 	defer sc.Close()
 
@@ -364,8 +364,8 @@ func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.Ord
 	return result
 }
 
-func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem {
-	var result []*tomox_state.OrderItem
+func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tradingstate.OrderItem {
+	var result []*tradingstate.OrderItem
 	sc := db.Session.Copy()
 	defer sc.Close()
 
@@ -373,7 +373,7 @@ func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.Or
 
 	if err := sc.DB(db.dbName).C(ordersCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
 		log.Error("failed to GetListOrderByHashes", "err", err, "hashes", hashes)
-		return []*tomox_state.OrderItem{}
+		return []*tradingstate.OrderItem{}
 	}
 	return result
 }

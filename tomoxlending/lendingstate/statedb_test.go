@@ -14,12 +14,10 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package lendingstate
 
 import (
-	"fmt"
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/ethdb"
 	"math/big"
 	"testing"
@@ -27,22 +25,21 @@ import (
 
 func TestEchangeStates(t *testing.T) {
 	orderBook := common.StringToHash("BTC/TOMO")
-	price := big.NewInt(10000)
 	numberOrder := 20
-	orderItems := []OrderItem{}
+	orderItems := []LendingItem{}
 	relayers := []common.Hash{}
 	for i := 0; i < numberOrder; i++ {
 		relayers = append(relayers, common.BigToHash(big.NewInt(int64(i))))
 		id := new(big.Int).SetUint64(uint64(i) + 1)
-		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Ask, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}})
-		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Bid, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
+		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(int64(2*i + 1)), Side: Investing, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}})
+		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(int64(2*i + 1)), Side: Borrowing, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
 	}
 	// Create an empty statedb database
 	db, _ := ethdb.NewMemDatabase()
 	stateCache := NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 
-	// Update it with some exchanges
+	// Update it with some lenddinges
 	for i := 0; i < numberOrder; i++ {
 		statedb.SetNonce(relayers[i], uint64(1))
 	}
@@ -51,21 +48,21 @@ func TestEchangeStates(t *testing.T) {
 
 	for i := 0; i < len(orderItems); i++ {
 		amount := orderItems[i].Quantity.Uint64()
-		orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[i].OrderID))
-		statedb.InsertOrderItem(orderBook, orderIdHash, orderItems[i])
+		orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[i].LendingId))
+		statedb.InsertLendingItem(orderBook, orderIdHash, orderItems[i])
 
 		switch orderItems[i].Side {
-		case Ask:
+		case Investing:
 			old := mapPriceSell[amount]
 			mapPriceSell[amount] = old + amount
-		case Bid:
+		case Borrowing:
 			old := mapPriceBuy[amount]
 			mapPriceBuy[amount] = old + amount
 		default:
 		}
 
 	}
-	statedb.SetPrice(orderBook, price)
+	statedb.InsertLiquidationTime(orderBook, big.NewInt(1), 1)
 	root := statedb.IntermediateRoot()
 	statedb.Commit()
 	//err := stateCache.TrieDB().Commit(root, false)
@@ -77,11 +74,10 @@ func TestEchangeStates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
 	}
-	gotPrice := statedb.GetPrice(orderBook)
-	if gotPrice.Cmp(price) != 0 {
-		t.Fatalf("Error when get price save in database: got : %d , wanted : %d ", gotPrice, price)
+	_, liquidationData := statedb.GetLowestLiquidationTime(orderBook, big.NewInt(2))
+	if len(liquidationData) == 0 {
+		t.Fatalf("Error when get liquidation data save in database: got : %s  ", liquidationData)
 	}
-	fmt.Println(gotPrice)
 	for i := 0; i < numberOrder; i++ {
 		nonce := statedb.GetNonce(relayers[i])
 		if nonce != uint64(1) {
@@ -89,56 +85,32 @@ func TestEchangeStates(t *testing.T) {
 		}
 	}
 
-	minSell := uint64(math.MaxUint64)
-	for price, amount := range mapPriceSell {
-		data := statedb.GetVolume(orderBook, new(big.Int).SetUint64(price), Ask)
-		if data.Uint64() != amount {
-			t.Fatalf("Error when get volume save in database: price  %d ,got : %d , wanted : %d ", price, data.Uint64(), amount)
-		}
-		if price < minSell {
-			minSell = price
-		}
-	}
-	maxBuy := uint64(0)
-	for price, amount := range mapPriceBuy {
-		data := statedb.GetVolume(orderBook, new(big.Int).SetUint64(price), Bid)
-		if data.Uint64() != amount {
-			t.Fatalf("Error when get volume save in database: price  %d ,got : %d , wanted : %d ", price, data.Uint64(), amount)
-		}
-		if price > maxBuy {
-			maxBuy = price
-		}
-	}
-
 	for i := 0; i < len(orderItems); i++ {
-		amount := statedb.GetOrder(orderBook, common.BigToHash(new(big.Int).SetUint64(orderItems[i].OrderID))).Quantity
+		amount := statedb.GetLendingOrder(orderBook, common.BigToHash(new(big.Int).SetUint64(orderItems[i].LendingId))).Quantity
 		if orderItems[i].Quantity.Cmp(amount) != 0 {
-			t.Fatalf("Error when get amount save in database: orderId %d , orderType %s,got : %d , wanted : %d ", orderItems[i].OrderID, orderItems[i].Side, amount.Uint64(), orderItems[i].Quantity.Uint64())
+			t.Fatalf("Error when get amount save in database: orderId %d , lendingType %s,got : %d , wanted : %d ", orderItems[i].LendingId, orderItems[i].Side, amount.Uint64(), orderItems[i].Quantity.Uint64())
 		}
 	}
-	maxPrice, volumeMax := statedb.GetBestBidPrice(orderBook)
-	minPrice, volumeMin := statedb.GetBestAskPrice(orderBook)
-	fmt.Println("price", minPrice, volumeMin, maxPrice, volumeMax)
 	db.Close()
 }
 
 func TestRevertStates(t *testing.T) {
 	orderBook := common.StringToHash("BTC/TOMO")
 	numberOrder := 20
-	orderItems := []OrderItem{}
+	orderItems := []LendingItem{}
 	relayers := []common.Hash{}
 	for i := 0; i < numberOrder; i++ {
 		relayers = append(relayers, common.BigToHash(big.NewInt(int64(i))))
 		id := new(big.Int).SetUint64(uint64(i) + 1)
-		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Ask, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}})
-		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Bid, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
+		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(int64(2*i + 1)), Side: Investing, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}})
+		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(int64(2*i + 1)), Side: Borrowing, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
 	}
 	// Create an empty statedb database
 	db, _ := ethdb.NewMemDatabase()
 	stateCache := NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 
-	// Update it with some exchanges
+	// Update it with some lenddinges
 	for i := 0; i < numberOrder; i++ {
 		statedb.SetNonce(relayers[i], uint64(1))
 	}
@@ -147,14 +119,14 @@ func TestRevertStates(t *testing.T) {
 
 	for i := 0; i < len(orderItems); i++ {
 		amount := orderItems[i].Quantity.Uint64()
-		orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[i].OrderID))
-		statedb.InsertOrderItem(orderBook, orderIdHash, orderItems[i])
+		orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[i].LendingId))
+		statedb.InsertLendingItem(orderBook, orderIdHash, orderItems[i])
 
 		switch orderItems[i].Side {
-		case Ask:
+		case Investing:
 			old := mapPriceSell[amount]
 			mapPriceSell[amount] = old + amount
-		case Bid:
+		case Borrowing:
 			old := mapPriceBuy[amount]
 			mapPriceBuy[amount] = old + amount
 		default:
@@ -173,20 +145,10 @@ func TestRevertStates(t *testing.T) {
 		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
 	}
 
-	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[0].OrderID))
-	order := statedb.GetOrder(orderBook, orderIdHash)
-	// sub amount order
-	wanted := statedb.GetVolume(orderBook, order.Price, order.Side)
-	snap := statedb.Snapshot()
-	statedb.SubAmountOrderItem(orderBook, orderIdHash, order.Price, order.Quantity, order.Side)
-	statedb.RevertToSnapshot(snap)
-	got := statedb.GetVolume(orderBook, order.Price, order.Side)
-	if got.Cmp(wanted) != 0 {
-		t.Fatalf(" err get volume price : %d after try revert snap shot , got : %d ,want : %d", order.Price, got, wanted)
-	}
+	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[0].LendingId))
 	// set nonce
 	wantedNonce := statedb.GetNonce(relayers[1])
-	snap = statedb.Snapshot()
+	snap := statedb.Snapshot()
 	statedb.SetNonce(relayers[1], 0)
 	statedb.RevertToSnapshot(snap)
 	gotNonce := statedb.GetNonce(relayers[1])
@@ -195,11 +157,11 @@ func TestRevertStates(t *testing.T) {
 	}
 
 	// cancel order
-	wantedOrder := statedb.GetOrder(orderBook, orderIdHash)
+	wantedOrder := statedb.GetLendingOrder(orderBook, orderIdHash)
 	snap = statedb.Snapshot()
-	statedb.CancelOrder(orderBook, &wantedOrder)
+	statedb.CancelLendingOrder(orderBook, &wantedOrder)
 	statedb.RevertToSnapshot(snap)
-	gotOrder := statedb.GetOrder(orderBook, orderIdHash)
+	gotOrder := statedb.GetLendingOrder(orderBook, orderIdHash)
 	if gotOrder.Quantity.Cmp(wantedOrder.Quantity) != 0 {
 		t.Fatalf(" err cancel order info : %v after try revert snap shot , got : %v ,want : %v", orderIdHash.Hex(), gotOrder, wantedOrder)
 	}
@@ -207,24 +169,28 @@ func TestRevertStates(t *testing.T) {
 	// insert order
 	i := 2*numberOrder + 1
 	id := new(big.Int).SetUint64(uint64(i) + 1)
-	testOrder := OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Ask, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}}
-	orderIdHash = common.BigToHash(new(big.Int).SetUint64(testOrder.OrderID))
+	testOrder := LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(int64(2*i + 1)), Side: Investing, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}}
+	orderIdHash = common.BigToHash(new(big.Int).SetUint64(testOrder.LendingId))
 	snap = statedb.Snapshot()
-	statedb.InsertOrderItem(orderBook, orderIdHash, testOrder)
+	statedb.InsertLendingItem(orderBook, orderIdHash, testOrder)
 	statedb.RevertToSnapshot(snap)
-	gotOrder = statedb.GetOrder(orderBook, orderIdHash)
-	if gotOrder.Quantity.Cmp(EmptyOrder.Quantity) != 0 {
+	gotOrder = statedb.GetLendingOrder(orderBook, orderIdHash)
+	if gotOrder.Quantity.Cmp(EmptyLendingOrder.Quantity) != 0 {
 		t.Fatalf(" err insert order info : %v after try revert snap shot , got : %v ,want Empty Order", orderIdHash.Hex(), gotOrder)
 	}
-	// change price
-	price := big.NewInt(10000)
-	statedb.SetPrice(orderBook, price)
+
+	// insert trade order
+	i = 2*numberOrder + 1
+	id = new(big.Int).SetUint64(uint64(i) + 1)
+	order := LendingTrade{TradeId: id.Uint64(), Amount: big.NewInt(int64(2*i + 1))}
+	orderIdHash = common.BigToHash(new(big.Int).SetUint64(testOrder.LendingId))
 	snap = statedb.Snapshot()
-	statedb.SetPrice(orderBook, big.NewInt(0))
+	statedb.InsertTradingItem(orderBook, order)
 	statedb.RevertToSnapshot(snap)
-	gotPrice := statedb.GetPrice(orderBook)
-	if gotPrice.Cmp(price) != 0 {
-		t.Fatalf("Error when get price save in database: got : %d , wanted : %d ", gotPrice, price)
+	gotLendingTrade := statedb.GetLendingTrade(orderBook, orderIdHash)
+	if gotLendingTrade.Amount.Cmp(EmptyLendingTrade.Amount) != 0 {
+		t.Fatalf(" err insert lending trade : %s after try revert snap shot , got : %v ,want Empty Order", orderIdHash.Hex(),gotLendingTrade.TradeId)
 	}
+	// change key
 	db.Close()
 }

@@ -15,7 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package state provides a caching layer atop the Ethereum state trie.
-package tomox_state
+package tradingstate
 
 import (
 	"fmt"
@@ -39,19 +39,19 @@ type revision struct {
 // nested states. It's the general query interface to retrieve:
 // * Contracts
 // * Accounts
-type TomoXStateDB struct {
+type TradingStateDB struct {
 	db   Database
 	trie Trie
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
-	stateExhangeObjects      map[common.Hash]*stateExchanges
+	stateExhangeObjects      map[common.Hash]*tradingExchanges
 	stateExhangeObjectsDirty map[common.Hash]struct{}
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
 	// unable to deal with database-level errors. Any error that occurs
 	// during a database read is memoized here and will eventually be returned
-	// by TomoXStateDB.Commit.
+	// by TradingStateDB.Commit.
 	dbErr error
 
 	// Journal of state modifications. This is the backbone of
@@ -64,44 +64,44 @@ type TomoXStateDB struct {
 }
 
 // Create a new state from a given trie.
-func New(root common.Hash, db Database) (*TomoXStateDB, error) {
+func New(root common.Hash, db Database) (*TradingStateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
 		return nil, err
 	}
-	return &TomoXStateDB{
+	return &TradingStateDB{
 		db:                       db,
 		trie:                     tr,
-		stateExhangeObjects:      make(map[common.Hash]*stateExchanges),
+		stateExhangeObjects:      make(map[common.Hash]*tradingExchanges),
 		stateExhangeObjectsDirty: make(map[common.Hash]struct{}),
 	}, nil
 }
 
 // setError remembers the first non-nil error it is called with.
-func (self *TomoXStateDB) setError(err error) {
+func (self *TradingStateDB) setError(err error) {
 	if self.dbErr == nil {
 		self.dbErr = err
 	}
 }
 
-func (self *TomoXStateDB) Error() error {
+func (self *TradingStateDB) Error() error {
 	return self.dbErr
 }
 
 // Exist reports whether the given orderId address exists in the state.
 // Notably this also returns true for suicided exchanges.
-func (self *TomoXStateDB) Exist(addr common.Hash) bool {
+func (self *TradingStateDB) Exist(addr common.Hash) bool {
 	return self.getStateExchangeObject(addr) != nil
 }
 
 // Empty returns whether the state object is either non-existent
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
-func (self *TomoXStateDB) Empty(addr common.Hash) bool {
+func (self *TradingStateDB) Empty(addr common.Hash) bool {
 	so := self.getStateExchangeObject(addr)
 	return so == nil || so.empty()
 }
 
-func (self *TomoXStateDB) GetNonce(addr common.Hash) uint64 {
+func (self *TradingStateDB) GetNonce(addr common.Hash) uint64 {
 	stateObject := self.getStateExchangeObject(addr)
 	if stateObject != nil {
 		return stateObject.Nonce()
@@ -109,20 +109,36 @@ func (self *TomoXStateDB) GetNonce(addr common.Hash) uint64 {
 	return 0
 }
 
-func (self *TomoXStateDB) GetPrice(addr common.Hash) *big.Int {
+func (self *TradingStateDB) GetLastPrice(addr common.Hash) *big.Int {
 	stateObject := self.getStateExchangeObject(addr)
 	if stateObject != nil {
-		return stateObject.Price()
+		return stateObject.data.LastPrice
 	}
 	return nil
 }
 
+func (self *TradingStateDB) GetMediumPriceLastEpoch(addr common.Hash) *big.Int {
+	stateObject := self.getStateExchangeObject(addr)
+	if stateObject != nil {
+		return stateObject.data.MediumPriceLastEpoch
+	}
+	return Zero
+}
+
+func (self *TradingStateDB) GetMediumPriceAndTotalAmount(addr common.Hash) (*big.Int, *big.Int) {
+	stateObject := self.getStateExchangeObject(addr)
+	if stateObject != nil {
+		return stateObject.data.MediumPrice, stateObject.data.TotalQuantity
+	}
+	return Zero, Zero
+}
+
 // Database retrieves the low level database supporting the lower level trie ops.
-func (self *TomoXStateDB) Database() Database {
+func (self *TradingStateDB) Database() Database {
 	return self.db
 }
 
-func (self *TomoXStateDB) SetNonce(addr common.Hash, nonce uint64) {
+func (self *TradingStateDB) SetNonce(addr common.Hash, nonce uint64) {
 	stateObject := self.GetOrNewStateExchangeObject(addr)
 	if stateObject != nil {
 		self.journal = append(self.journal, nonceChange{
@@ -133,18 +149,41 @@ func (self *TomoXStateDB) SetNonce(addr common.Hash, nonce uint64) {
 	}
 }
 
-func (self *TomoXStateDB) SetPrice(addr common.Hash, price *big.Int) {
+func (self *TradingStateDB) SetLastPrice(addr common.Hash, price *big.Int) {
 	stateObject := self.GetOrNewStateExchangeObject(addr)
 	if stateObject != nil {
-		self.journal = append(self.journal, priceChange{
+		self.journal = append(self.journal, lastPriceChange{
 			hash: addr,
-			prev: stateObject.Price(),
+			prev: stateObject.data.LastPrice,
 		})
-		stateObject.setPrice(price)
+		stateObject.setLastPrice(price)
 	}
 }
 
-func (self *TomoXStateDB) InsertOrderItem(orderBook common.Hash, orderId common.Hash, order OrderItem) {
+func (self *TradingStateDB) SetMediumPrice(addr common.Hash, price *big.Int, quantity *big.Int) {
+	stateObject := self.GetOrNewStateExchangeObject(addr)
+	if stateObject != nil {
+		self.journal = append(self.journal, mediumPriceChange{
+			hash:         addr,
+			prevPrice:    stateObject.data.MediumPrice,
+			prevQuantity: stateObject.data.TotalQuantity,
+		})
+		stateObject.setLastPrice(price)
+	}
+}
+
+func (self *TradingStateDB) SetMediumPriceLastEpoch(addr common.Hash, price *big.Int) {
+	stateObject := self.GetOrNewStateExchangeObject(addr)
+	if stateObject != nil {
+		self.journal = append(self.journal, mediumPriceLastEpochChange{
+			hash:      addr,
+			prevPrice: stateObject.data.MediumPriceLastEpoch,
+		})
+		stateObject.setMediumPriceLastEpoch(price)
+	}
+}
+
+func (self *TradingStateDB) InsertOrderItem(orderBook common.Hash, orderId common.Hash, order OrderItem) {
 	priceHash := common.BigToHash(order.Price)
 	stateExchange := self.getStateExchangeObject(orderBook)
 	if stateExchange == nil {
@@ -175,7 +214,7 @@ func (self *TomoXStateDB) InsertOrderItem(orderBook common.Hash, orderId common.
 	stateOrderList.AddVolume(order.Quantity)
 }
 
-func (self *TomoXStateDB) GetOrder(orderBook common.Hash, orderId common.Hash) OrderItem {
+func (self *TradingStateDB) GetOrder(orderBook common.Hash, orderId common.Hash) OrderItem {
 	stateObject := self.GetOrNewStateExchangeObject(orderBook)
 	if stateObject == nil {
 		return EmptyOrder
@@ -186,7 +225,7 @@ func (self *TomoXStateDB) GetOrder(orderBook common.Hash, orderId common.Hash) O
 	}
 	return stateOrderItem.data
 }
-func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId common.Hash, price *big.Int, amount *big.Int, side string) error {
+func (self *TradingStateDB) SubAmountOrderItem(orderBook common.Hash, orderId common.Hash, price *big.Int, amount *big.Int, side string) error {
 	priceHash := common.BigToHash(price)
 	stateObject := self.GetOrNewStateExchangeObject(orderBook)
 	if stateObject == nil {
@@ -239,7 +278,7 @@ func (self *TomoXStateDB) SubAmountOrderItem(orderBook common.Hash, orderId comm
 	return nil
 }
 
-func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) error {
+func (self *TradingStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) error {
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(order.OrderID))
 	stateObject := self.GetOrNewStateExchangeObject(orderBook)
 	if stateObject == nil {
@@ -290,7 +329,7 @@ func (self *TomoXStateDB) CancelOrder(orderBook common.Hash, order *OrderItem) e
 	return nil
 }
 
-func (self *TomoXStateDB) GetVolume(orderBook common.Hash, price *big.Int, orderType string) *big.Int {
+func (self *TradingStateDB) GetVolume(orderBook common.Hash, price *big.Int, orderType string) *big.Int {
 	stateObject := self.GetOrNewStateExchangeObject(orderBook)
 	var volume *big.Int = nil
 	if stateObject != nil {
@@ -310,7 +349,7 @@ func (self *TomoXStateDB) GetVolume(orderBook common.Hash, price *big.Int, order
 	}
 	return volume
 }
-func (self *TomoXStateDB) GetBestAskPrice(orderBook common.Hash) (*big.Int, *big.Int) {
+func (self *TradingStateDB) GetBestAskPrice(orderBook common.Hash) (*big.Int, *big.Int) {
 	stateObject := self.getStateExchangeObject(orderBook)
 	if stateObject != nil {
 		priceHash := stateObject.getBestPriceAsksTrie(self.db)
@@ -327,7 +366,7 @@ func (self *TomoXStateDB) GetBestAskPrice(orderBook common.Hash) (*big.Int, *big
 	return Zero, Zero
 }
 
-func (self *TomoXStateDB) GetBestBidPrice(orderBook common.Hash) (*big.Int, *big.Int) {
+func (self *TradingStateDB) GetBestBidPrice(orderBook common.Hash) (*big.Int, *big.Int) {
 	stateObject := self.getStateExchangeObject(orderBook)
 	if stateObject != nil {
 		priceHash := stateObject.getBestBidsTrie(self.db)
@@ -344,7 +383,7 @@ func (self *TomoXStateDB) GetBestBidPrice(orderBook common.Hash) (*big.Int, *big
 	return Zero, Zero
 }
 
-func (self *TomoXStateDB) GetBestOrderIdAndAmount(orderBook common.Hash, price *big.Int, side string) (common.Hash, *big.Int, error) {
+func (self *TradingStateDB) GetBestOrderIdAndAmount(orderBook common.Hash, price *big.Int, side string) (common.Hash, *big.Int, error) {
 	stateObject := self.GetOrNewStateExchangeObject(orderBook)
 	if stateObject != nil {
 		var stateOrderList *stateOrderList
@@ -371,7 +410,7 @@ func (self *TomoXStateDB) GetBestOrderIdAndAmount(orderBook common.Hash, price *
 }
 
 // updateStateExchangeObject writes the given object to the trie.
-func (self *TomoXStateDB) updateStateExchangeObject(stateObject *stateExchanges) {
+func (self *TradingStateDB) updateStateExchangeObject(stateObject *tradingExchanges) {
 	addr := stateObject.Hash()
 	data, err := rlp.EncodeToBytes(stateObject)
 	if err != nil {
@@ -381,7 +420,7 @@ func (self *TomoXStateDB) updateStateExchangeObject(stateObject *stateExchanges)
 }
 
 // Retrieve a state object given my the address. Returns nil if not found.
-func (self *TomoXStateDB) getStateExchangeObject(addr common.Hash) (stateObject *stateExchanges) {
+func (self *TradingStateDB) getStateExchangeObject(addr common.Hash) (stateObject *tradingExchanges) {
 	// Prefer 'live' objects.
 	if obj := self.stateExhangeObjects[addr]; obj != nil {
 		return obj
@@ -392,7 +431,7 @@ func (self *TomoXStateDB) getStateExchangeObject(addr common.Hash) (stateObject 
 		self.setError(err)
 		return nil
 	}
-	var data exchangeObject
+	var data tradingExchangeObject
 	if err := rlp.DecodeBytes(enc, &data); err != nil {
 		log.Error("Failed to decode state object", "addr", addr, "err", err)
 		return nil
@@ -403,13 +442,13 @@ func (self *TomoXStateDB) getStateExchangeObject(addr common.Hash) (stateObject 
 	return obj
 }
 
-func (self *TomoXStateDB) setStateExchangeObject(object *stateExchanges) {
+func (self *TradingStateDB) setStateExchangeObject(object *tradingExchanges) {
 	self.stateExhangeObjects[object.Hash()] = object
 	self.stateExhangeObjectsDirty[object.Hash()] = struct{}{}
 }
 
 // Retrieve a state object or create a new state object if nil.
-func (self *TomoXStateDB) GetOrNewStateExchangeObject(addr common.Hash) *stateExchanges {
+func (self *TradingStateDB) GetOrNewStateExchangeObject(addr common.Hash) *tradingExchanges {
 	stateExchangeObject := self.getStateExchangeObject(addr)
 	if stateExchangeObject == nil {
 		stateExchangeObject = self.createExchangeObject(addr)
@@ -419,14 +458,14 @@ func (self *TomoXStateDB) GetOrNewStateExchangeObject(addr common.Hash) *stateEx
 
 // MarkStateAskObjectDirty adds the specified object to the dirty map to avoid costly
 // state object cache iteration to find a handful of modified ones.
-func (self *TomoXStateDB) MarkStateExchangeObjectDirty(addr common.Hash) {
+func (self *TradingStateDB) MarkStateExchangeObjectDirty(addr common.Hash) {
 	self.stateExhangeObjectsDirty[addr] = struct{}{}
 }
 
 // createStateOrderListObject creates a new state object. If there is an existing orderId with
 // the given address, it is overwritten and returned as the second return value.
-func (self *TomoXStateDB) createExchangeObject(hash common.Hash) (newobj *stateExchanges) {
-	newobj = newStateExchanges(self, hash, exchangeObject{}, self.MarkStateExchangeObjectDirty)
+func (self *TradingStateDB) createExchangeObject(hash common.Hash) (newobj *tradingExchanges) {
+	newobj = newStateExchanges(self, hash, tradingExchangeObject{LendingCount: Zero, MediumPrice: Zero, MediumPriceLastEpoch: Zero, TotalQuantity: Zero}, self.MarkStateExchangeObjectDirty)
 	newobj.setNonce(0) // sets the object to dirty
 	self.setStateExchangeObject(newobj)
 	return newobj
@@ -434,15 +473,15 @@ func (self *TomoXStateDB) createExchangeObject(hash common.Hash) (newobj *stateE
 
 // Copy creates a deep, independent copy of the state.
 // Snapshots of the copied state cannot be applied to the copy.
-func (self *TomoXStateDB) Copy() *TomoXStateDB {
+func (self *TradingStateDB) Copy() *TradingStateDB {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 
 	// Copy all the basic fields, initialize the memory ones
-	state := &TomoXStateDB{
+	state := &TradingStateDB{
 		db:                       self.db,
 		trie:                     self.db.CopyTrie(self.trie),
-		stateExhangeObjects:      make(map[common.Hash]*stateExchanges, len(self.stateExhangeObjectsDirty)),
+		stateExhangeObjects:      make(map[common.Hash]*tradingExchanges, len(self.stateExhangeObjectsDirty)),
 		stateExhangeObjectsDirty: make(map[common.Hash]struct{}, len(self.stateExhangeObjectsDirty)),
 	}
 	// Copy the dirty states, logs, and preimages
@@ -456,13 +495,13 @@ func (self *TomoXStateDB) Copy() *TomoXStateDB {
 	return state
 }
 
-func (s *TomoXStateDB) clearJournalAndRefund() {
+func (s *TradingStateDB) clearJournalAndRefund() {
 	s.journal = nil
 	s.validRevisions = s.validRevisions[:0]
 }
 
 // Snapshot returns an identifier for the current revision of the state.
-func (self *TomoXStateDB) Snapshot() int {
+func (self *TradingStateDB) Snapshot() int {
 	id := self.nextRevisionId
 	self.nextRevisionId++
 	self.validRevisions = append(self.validRevisions, revision{id, len(self.journal)})
@@ -470,7 +509,7 @@ func (self *TomoXStateDB) Snapshot() int {
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.
-func (self *TomoXStateDB) RevertToSnapshot(revid int) {
+func (self *TradingStateDB) RevertToSnapshot(revid int) {
 	// Find the snapshot in the stack of valid snapshots.
 	idx := sort.Search(len(self.validRevisions), func(i int) bool {
 		return self.validRevisions[i].id >= revid
@@ -492,7 +531,7 @@ func (self *TomoXStateDB) RevertToSnapshot(revid int) {
 
 // Finalise finalises the state by removing the self destructed objects
 // and clears the journal as well as the refunds.
-func (s *TomoXStateDB) Finalise() {
+func (s *TradingStateDB) Finalise() {
 	// Commit objects to the trie.
 	for addr, stateObject := range s.stateExhangeObjects {
 		if _, isDirty := s.stateExhangeObjectsDirty[addr]; isDirty {
@@ -500,6 +539,7 @@ func (s *TomoXStateDB) Finalise() {
 			stateObject.updateAsksRoot(s.db)
 			stateObject.updateBidsRoot(s.db)
 			stateObject.updateOrdersRoot(s.db)
+			stateObject.updateLiquidationPriceRoot(s.db)
 			// Update the object in the main orderId trie.
 			s.updateStateExchangeObject(stateObject)
 			//delete(s.stateExhangeObjectsDirty, addr)
@@ -508,16 +548,16 @@ func (s *TomoXStateDB) Finalise() {
 	s.clearJournalAndRefund()
 }
 
-// IntermediateRoot computes the current root hash of the state trie.
-// It is called in between transactions to get the root hash that
+// IntermediateRoot computes the current root orderBookHash of the state trie.
+// It is called in between transactions to get the root orderBookHash that
 // goes into transaction receipts.
-func (s *TomoXStateDB) IntermediateRoot() common.Hash {
+func (s *TradingStateDB) IntermediateRoot() common.Hash {
 	s.Finalise()
 	return s.trie.Hash()
 }
 
 // Commit writes the state to the underlying in-memory trie database.
-func (s *TomoXStateDB) Commit() (root common.Hash, err error) {
+func (s *TradingStateDB) Commit() (root common.Hash, err error) {
 	defer s.clearJournalAndRefund()
 	// Commit objects to the trie.
 	for addr, stateObject := range s.stateExhangeObjects {
@@ -532,6 +572,9 @@ func (s *TomoXStateDB) Commit() (root common.Hash, err error) {
 			if err := stateObject.CommitOrdersTrie(s.db); err != nil {
 				return EmptyHash, err
 			}
+			if err := stateObject.CommitLiquidationPriceTrie(s.db); err != nil {
+				return EmptyHash, err
+			}
 			// Update the object in the main orderId trie.
 			s.updateStateExchangeObject(stateObject)
 			delete(s.stateExhangeObjectsDirty, addr)
@@ -539,7 +582,7 @@ func (s *TomoXStateDB) Commit() (root common.Hash, err error) {
 	}
 	// Write trie changes.
 	root, err = s.trie.Commit(func(leaf []byte, parent common.Hash) error {
-		var exchange exchangeObject
+		var exchange tradingExchangeObject
 		if err := rlp.DecodeBytes(leaf, &exchange); err != nil {
 			return nil
 		}
@@ -552,8 +595,115 @@ func (s *TomoXStateDB) Commit() (root common.Hash, err error) {
 		if exchange.OrderRoot != EmptyRoot {
 			s.db.TrieDB().Reference(exchange.OrderRoot, parent)
 		}
+		if exchange.LiquidationPriceRoot != EmptyRoot {
+			s.db.TrieDB().Reference(exchange.LiquidationPriceRoot, parent)
+		}
 		return nil
 	})
 	log.Debug("TomoX Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads(), "root", root.Hex())
 	return root, err
+}
+
+func (self *TradingStateDB) GetLowestLiquidationPriceData(orderBook common.Hash, price *big.Int) (*big.Int, map[common.Hash][]common.Hash) {
+	liquidationData := map[common.Hash][]common.Hash{}
+	orderbookState := self.getStateExchangeObject(orderBook)
+	lowestPriceHash, liquidationState := orderbookState.getLowestLiquidationPrice(self.db)
+	lowestPrice := new(big.Int).SetBytes(lowestPriceHash[:])
+	if liquidationState != nil && lowestPrice.Sign() > 0 && lowestPrice.Cmp(price) <= 0 {
+		priceLiquidationData := liquidationState.getAllLiquidationData(self.db)
+		for lendingBook, data := range priceLiquidationData {
+			if len(data) == 0 {
+				continue
+			}
+			oldData := liquidationData[lendingBook]
+			if len(oldData) == 0 {
+				oldData = data
+			} else {
+				oldData = append(oldData, data...)
+			}
+			liquidationData[lendingBook] = oldData
+		}
+	}
+	return lowestPrice, liquidationData
+}
+
+func (self *TradingStateDB) GetHighestLiquidationPriceData(orderBook common.Hash, price *big.Int) (*big.Int, map[common.Hash][]common.Hash) {
+	liquidationData := map[common.Hash][]common.Hash{}
+	orderbookState := self.getStateExchangeObject(orderBook)
+	highestPriceHash, liquidationState := orderbookState.getHighestLiquidationPrice(self.db)
+	highestPrice := new(big.Int).SetBytes(highestPriceHash[:])
+	if liquidationState != nil && highestPrice.Sign() > 0 && highestPrice.Cmp(price) >= 0 {
+		priceLiquidationData := liquidationState.getAllLiquidationData(self.db)
+		for lendingBook, data := range priceLiquidationData {
+			if len(data) == 0 {
+				continue
+			}
+			oldData := liquidationData[lendingBook]
+			if len(oldData) == 0 {
+				oldData = data
+			} else {
+				oldData = append(oldData, data...)
+			}
+			liquidationData[lendingBook] = oldData
+		}
+	}
+	return highestPrice, liquidationData
+}
+
+func (self *TradingStateDB) InsertLiquidationPrice(orderBook common.Hash, price *big.Int, lendingBook common.Hash, tradeId uint64) {
+	tradIdHash := common.Uint64ToHash(tradeId)
+	priceHash := common.BigToHash(price)
+	orderBookState := self.getStateExchangeObject(orderBook)
+	if orderBookState == nil {
+		orderBookState = self.createExchangeObject(orderBook)
+	}
+	liquidationPriceState := orderBookState.getStateLiquidationPrice(self.db, priceHash)
+	if liquidationPriceState == nil {
+		liquidationPriceState = orderBookState.createStateLiquidationPrice(self.db, priceHash)
+	}
+	lendingBookState := liquidationPriceState.getStateLendingBook(self.db, lendingBook)
+	if lendingBookState == nil {
+		lendingBookState = liquidationPriceState.createLendingBook(self.db, lendingBook)
+	}
+	lendingBookState.insertTradingId(self.db, tradIdHash)
+	lendingBookState.AddVolume(One)
+	liquidationPriceState.AddVolume(One)
+	orderBookState.addLendingCount(One)
+	self.journal = append(self.journal, insertLiquidationPrice{
+		orderBook:   orderBook,
+		price:       price,
+		lendingBook: lendingBook,
+		tradeId:     tradeId,
+	})
+}
+
+func (self *TradingStateDB) RemoveLiquidationPrice(orderBook common.Hash, price *big.Int, lendingBook common.Hash, tradeId uint64) error {
+	tradeIdHash := common.Uint64ToHash(tradeId)
+	priceHash := common.BigToHash(price)
+	orderbookState := self.getStateExchangeObject(orderBook)
+	if orderbookState == nil {
+		return fmt.Errorf("order book not found : %s ", orderBook.Hex())
+	}
+	liquidationPriceState := orderbookState.getStateLiquidationPrice(self.db, priceHash)
+	if liquidationPriceState == nil {
+		return fmt.Errorf("liquidation price not found : %s , %s ", orderBook.Hex(), priceHash.Hex())
+	}
+	lendingBookState := liquidationPriceState.getStateLendingBook(self.db, lendingBook)
+	if lendingBookState == nil {
+		return fmt.Errorf("lending book not found : %s , %s ,%s ", orderBook.Hex(), priceHash.Hex(), lendingBook.Hex())
+	}
+	if !lendingBookState.Exist(self.db, tradeIdHash) {
+		return fmt.Errorf("trade id not found : %s , %s ,%s , %d ", orderBook.Hex(), priceHash.Hex(), lendingBook.Hex(), tradeId)
+	}
+	lendingBookState.removeTradingId(self.db, tradeIdHash)
+	lendingBookState.subVolume(One)
+	liquidationPriceState.subVolume(One)
+	orderbookState.subLendingCount(One)
+	self.journal = append(self.journal, removeLiquidationPrice{
+		orderBook:   orderBook,
+		price:       price,
+		lendingBook: lendingBook,
+		tradeId:     tradeId,
+	})
+	return nil
 }

@@ -67,6 +67,7 @@ func BytesToHash(b []byte) Hash {
 }
 func StringToHash(s string) Hash { return BytesToHash([]byte(s)) }
 func BigToHash(b *big.Int) Hash  { return BytesToHash(b.Bytes()) }
+func Uint64ToHash(b uint64) Hash { return BytesToHash(new(big.Int).SetUint64(b).Bytes()) }
 func HexToHash(s string) Hash    { return BytesToHash(FromHex(s)) }
 
 // Get the string representation of the underlying hash

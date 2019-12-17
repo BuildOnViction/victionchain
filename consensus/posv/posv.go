@@ -21,7 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"io/ioutil"
 	"math/big"
@@ -62,14 +63,25 @@ type Masternode struct {
 	Stake   *big.Int
 }
 
-type TomoXService interface {
-	GetTomoxStateRoot(block *types.Block) (common.Hash, error)
-	GetTomoxState(block *types.Block) (*tomox_state.TomoXStateDB, error)
-	GetStateCache() tomox_state.Database
+type TradingService interface {
+	GetTradingStateRoot(block *types.Block) (common.Hash, error)
+	GetTradingState(block *types.Block) (*tradingstate.TradingStateDB, error)
+	GetStateCache() tradingstate.Database
 	GetTriegc() *prque.Prque
-	ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *tomox_state.TomoXStateDB, orderBook common.Hash, order *tomox_state.OrderItem) ([]map[string]string, []*tomox_state.OrderItem, error)
+	ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *tradingstate.TradingStateDB, orderBook common.Hash, order *tradingstate.OrderItem) ([]map[string]string, []*tradingstate.OrderItem, error)
 	IsSDKNode() bool
-	SyncDataToSDKNode(takerOrder *tomox_state.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*tomox_state.OrderItem, dirtyOrderCount *uint64) error
+	SyncDataToSDKNode(takerOrder *tradingstate.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*tradingstate.OrderItem, dirtyOrderCount *uint64) error
+	RollbackReorgTxMatch(txhash common.Hash)
+	GetTokenDecimal(chain consensus.ChainContext, statedb *state.StateDB, coinbase common.Address, tokenAddr common.Address) (*big.Int, error)
+}
+
+type LendingService interface {
+	GetLendingStateRoot(block *types.Block) (common.Hash, error)
+	GetLendingState(block *types.Block) (*lendingstate.LendingStateDB, error)
+	GetStateCache() lendingstate.Database
+	GetTriegc() *prque.Prque
+	ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error)
+	SyncDataToSDKNode(takerOrderInTx *lendingstate.LendingItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []*lendingstate.LendingTrade, rejectedOrders []*lendingstate.LendingItem, dirtyOrderCount *uint64) error
 	RollbackReorgTxMatch(txhash common.Hash)
 	GetTokenDecimal(chain consensus.ChainContext, statedb *state.StateDB, coinbase common.Address, tokenAddr common.Address) (*big.Int, error)
 }
@@ -242,12 +254,13 @@ type Posv struct {
 	lock   sync.RWMutex    // Protects the signer fields
 
 	BlockSigners               *lru.Cache
-	HookReward                 func(chain consensus.ChainReader, state *state.StateDB,parentState *state.StateDB, header *types.Header) (error, map[string]interface{})
+	HookReward                 func(chain consensus.ChainReader, state *state.StateDB, parentState *state.StateDB, header *types.Header) (error, map[string]interface{})
 	HookPenalty                func(chain consensus.ChainReader, blockNumberEpoc uint64) ([]common.Address, error)
 	HookPenaltyTIPSigning      func(chain consensus.ChainReader, header *types.Header, candidate []common.Address) ([]common.Address, error)
 	HookValidator              func(header *types.Header, signers []common.Address) ([]byte, error)
 	HookVerifyMNs              func(header *types.Header, signers []common.Address) error
-	GetTomoXService            func() TomoXService
+	GetTomoXService            func() TradingService
+	GetLendingService          func() LendingService
 	HookGetSignersFromContract func(blockHash common.Hash) ([]common.Address, error)
 }
 
@@ -941,7 +954,7 @@ func (c *Posv) UpdateMasternodes(chain consensus.ChainReader, header *types.Head
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
-func (c *Posv) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,parentState *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (c *Posv) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, parentState *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// set block reward
 	number := header.Number.Uint64()
 	rCheckpoint := chain.Config().Posv.RewardCheckpoint
@@ -949,7 +962,7 @@ func (c *Posv) Finalize(chain consensus.ChainReader, header *types.Header, state
 	// _ = c.CacheData(header, txs, receipts)
 
 	if c.HookReward != nil && number%rCheckpoint == 0 {
-		err, rewards := c.HookReward(chain, state,parentState, header)
+		err, rewards := c.HookReward(chain, state, parentState, header)
 		if err != nil {
 			return nil, err
 		}

@@ -7,6 +7,7 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/p2p"
 	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxDAO"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
@@ -23,10 +24,10 @@ import (
 )
 
 const (
-	ProtocolName          = "tomoxlending"
-	ProtocolVersion       = uint64(1)
-	ProtocolVersionStr    = "1.0"
-	overflowIdx           // Indicator of message queue overflow
+	ProtocolName       = "tomoxlending"
+	ProtocolVersion    = uint64(1)
+	ProtocolVersionStr = "1.0"
+	overflowIdx         // Indicator of message queue overflow
 	defaultCacheLimit     = 1024
 	lendingItemCacheLimit = 10000
 )
@@ -41,7 +42,7 @@ type Lending struct {
 	leveldb    tomoxDAO.TomoXDAO
 	mongodb    tomoxDAO.TomoXDAO
 	Triegc     *prque.Prque          // Priority queue mapping block numbers to tries to gc
-	StateCache lendingstate.Database // State database to reuse between imports (contains state cache)    *lendingstate.TomoXStateDB
+	StateCache lendingstate.Database // State database to reuse between imports (contains state cache)    *lendingstate.TradingStateDB
 
 	orderNonce map[common.Address]*big.Int
 
@@ -116,7 +117,7 @@ func (l *Lending) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (l *Lending) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *lendingstate.TomoXStateDB) ([]*lendingstate.LendingItem, map[common.Hash]lendingstate.MatchingResult) {
+func (l *Lending) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, lendingStatedb *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB) ([]*lendingstate.LendingItem, map[common.Hash]lendingstate.MatchingResult) {
 	lendingItems := []*lendingstate.LendingItem{}
 	matchingResults := map[common.Hash]lendingstate.MatchingResult{}
 
@@ -169,7 +170,7 @@ func (l *Lending) ProcessOrderPending(coinbase common.Address, chain consensus.C
 			order.Status = lendingstate.LendingStatusCancelled
 		}
 
-		_, newRejectedOrders, err := l.CommitOrder(coinbase, chain, statedb, tomoXstatedb, lendingstate.GetOrderBookHash(order.LendingToken, order.CollateralToken), order)
+		_, newRejectedOrders, err := l.CommitOrder(coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
 
 		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)
@@ -409,14 +410,13 @@ func (l *Lending) SyncDataToSDKNode(takerOrderInTx *lendingstate.LendingItem, tx
 	}
 	return nil
 }
-
-func (l *Lending) GetTomoxState(block *types.Block) (*lendingstate.TomoXStateDB, error) {
-	root, err := l.GetTomoxStateRoot(block)
+func (l *Lending) GetLendingState(block *types.Block) (*lendingstate.LendingStateDB, error) {
+	root, err := l.GetLendingStateRoot(block)
 	if err != nil {
 		return nil, err
 	}
 	if l.StateCache == nil {
-		return nil, errors.New("Not initialized l")
+		return nil, errors.New("Not initialized tomox")
 	}
 	return lendingstate.New(root, l.StateCache)
 }
@@ -429,11 +429,11 @@ func (l *Lending) GetTriegc() *prque.Prque {
 	return l.Triegc
 }
 
-func (l *Lending) GetTomoxStateRoot(block *types.Block) (common.Hash, error) {
+func (l *Lending) GetLendingStateRoot(block *types.Block) (common.Hash, error) {
 	for _, tx := range block.Transactions() {
 		if tx.To() != nil && tx.To().Hex() == common.TomoXStateAddr {
-			if len(tx.Data()) > 0 {
-				return common.BytesToHash(tx.Data()), nil
+			if len(tx.Data()) > 32 {
+				return common.BytesToHash(tx.Data()[32:]), nil
 			}
 		}
 	}
@@ -491,4 +491,45 @@ func (l *Lending) RollbackReorgTxMatch(txhash common.Hash) {
 	log.Debug("Tomox reorg: DeleteLendingTradeByTxHash", "txhash", txhash.Hex())
 	db.DeleteLendingTradeByTxHash(txhash)
 
+}
+
+func (l *Lending) ProcessLiquidationData(time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) {
+	// process liquidation price lending
+	allPairs, err := tradingstate.GetAllTradingPairs(statedb)
+	if err != nil {
+		if err != nil {
+			log.Error("Fail when get all trading pairs", "error", err)
+			return
+		}
+	}
+	for orderbook, _ := range allPairs {
+		liquidationPrice := tradingState.GetMediumPriceLastEpoch(orderbook)
+		lowestPrice, liquidationData := tradingState.GetLowestLiquidationPriceData(orderbook, liquidationPrice)
+		for lowestPrice.Sign() > 0 && lowestPrice.Cmp(liquidationPrice) < 0 {
+			for lendingBook, tradingIds := range liquidationData {
+				for _, tradingIdHash := range tradingIds {
+					tradingId := new(big.Int).SetBytes(tradingIdHash.Bytes()).Uint64()
+					// process liquidation price
+
+					// remove tradingId
+					tradingState.RemoveLiquidationPrice(orderbook, lowestPrice, lendingBook, tradingId)
+				}
+			}
+			lowestPrice, liquidationData = tradingState.GetLowestLiquidationPriceData(orderbook, liquidationPrice)
+		}
+	}
+
+	// get All
+	allLendingPairs := lendingstate.GetAllLendingPairs(statedb)
+	for lendingBook, _ := range allLendingPairs {
+		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
+		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
+			for _, tradingId := range tradingIds {
+				//process liquidation time
+
+				// remove trading Id
+				lendingState.RemoveLiquidationData(lendingBook, lowestTime.Uint64(), tradingId)
+			}
+		}
+	}
 }

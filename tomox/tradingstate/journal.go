@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package tradingstate
 
 import (
 	"github.com/tomochain/tomochain/common"
@@ -22,7 +22,7 @@ import (
 )
 
 type journalEntry interface {
-	undo(db *TomoXStateDB)
+	undo(db *TradingStateDB)
 }
 
 type journal []journalEntry
@@ -49,19 +49,46 @@ type (
 		hash common.Hash
 		prev uint64
 	}
-	priceChange struct {
+	lastPriceChange struct {
 		hash common.Hash
 		prev *big.Int
 	}
+	mediumPriceChange struct {
+		hash         common.Hash
+		prevPrice    *big.Int
+		prevQuantity *big.Int
+	}
+	mediumPriceLastEpochChange struct {
+		hash         common.Hash
+		prevPrice    *big.Int
+	}
+	insertLiquidationPrice struct {
+		orderBook   common.Hash
+		price       *big.Int
+		lendingBook common.Hash
+		tradeId     uint64
+	}
+	removeLiquidationPrice struct {
+		orderBook   common.Hash
+		price       *big.Int
+		lendingBook common.Hash
+		tradeId     uint64
+	}
 )
 
-func (ch insertOrder) undo(s *TomoXStateDB) {
+func (ch insertOrder) undo(s *TradingStateDB) {
 	s.CancelOrder(ch.orderBook, ch.order)
 }
-func (ch cancelOrder) undo(s *TomoXStateDB) {
+func (ch cancelOrder) undo(s *TradingStateDB) {
 	s.InsertOrderItem(ch.orderBook, ch.orderId, ch.order)
 }
-func (ch subAmountOrder) undo(s *TomoXStateDB) {
+func (ch insertLiquidationPrice) undo(s *TradingStateDB) {
+	s.RemoveLiquidationPrice(ch.orderBook, ch.price, ch.lendingBook, ch.tradeId)
+}
+func (ch removeLiquidationPrice) undo(s *TradingStateDB) {
+	s.InsertLiquidationPrice(ch.orderBook, ch.price, ch.lendingBook, ch.tradeId)
+}
+func (ch subAmountOrder) undo(s *TradingStateDB) {
 	priceHash := common.BigToHash(ch.order.Price)
 	stateOrderBook := s.getStateExchangeObject(ch.orderBook)
 	var stateOrderList *stateOrderList
@@ -79,9 +106,15 @@ func (ch subAmountOrder) undo(s *TomoXStateDB) {
 	stateOrderList.insertOrderItem(s.db, ch.orderId, common.BigToHash(newAmount))
 	stateOrderList.AddVolume(ch.amount)
 }
-func (ch nonceChange) undo(s *TomoXStateDB) {
+func (ch nonceChange) undo(s *TradingStateDB) {
 	s.SetNonce(ch.hash, ch.prev)
 }
-func (ch priceChange) undo(s *TomoXStateDB) {
-	s.SetPrice(ch.hash, ch.prev)
+func (ch lastPriceChange) undo(s *TradingStateDB) {
+	s.SetLastPrice(ch.hash, ch.prev)
+}
+func (ch mediumPriceChange) undo(s *TradingStateDB) {
+	s.SetMediumPrice(ch.hash, ch.prevPrice, ch.prevQuantity)
+}
+func (ch mediumPriceLastEpochChange) undo(s *TradingStateDB) {
+	s.SetMediumPriceLastEpoch(ch.hash, ch.prevPrice)
 }

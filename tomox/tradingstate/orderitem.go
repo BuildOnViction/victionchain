@@ -1,4 +1,4 @@
-package tomox_state
+package tradingstate
 
 import (
 	"fmt"
@@ -359,10 +359,10 @@ func VerifyPair(statedb *state.StateDB, exchangeAddress, baseToken, quoteToken c
 	return fmt.Errorf("invalid exchange pair. Base: %s. Quote: %s. Exchange: %s", baseToken.Hex(), quoteToken.Hex(), exchangeAddress.Hex())
 }
 
-func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TomoXStateDB, order *types.OrderTransaction, baseDecimal, quoteDecimal *big.Int) error {
+func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TradingStateDB, order *types.OrderTransaction, baseDecimal, quoteDecimal *big.Int) error {
 	var quotePrice *big.Int
 	if order.QuoteToken().String() != common.TomoNativeAddress {
-		quotePrice = tomoxStateDb.GetPrice(GetOrderBookHash(order.QuoteToken(), common.HexToAddress(common.TomoNativeAddress)))
+		quotePrice = tomoxStateDb.GetLastPrice(GetTradingOrderBookHash(order.QuoteToken(), common.HexToAddress(common.TomoNativeAddress)))
 	}
 	feeRate := GetExRelayerFee(order.ExchangeAddress(), statedb)
 	balanceResult, err := GetSettleBalance(quotePrice, order.Side(), feeRate, order.BaseToken(), order.QuoteToken(), order.Price(), feeRate, baseDecimal, quoteDecimal, order.Quantity())

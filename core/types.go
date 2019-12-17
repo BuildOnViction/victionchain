@@ -21,7 +21,7 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 )
 
@@ -37,7 +37,7 @@ type Validator interface {
 	// gas used.
 	ValidateState(block, parent *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error
 
-	ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox_state.TxMatchBatch, coinbase common.Address) error
+	ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tradingstate.TradingStateDB, txMatchBatch tradingstate.TxMatchBatch, coinbase common.Address) error
 }
 
 // Processor is an interface for processing blocks using a given initial state.

@@ -81,6 +81,9 @@ func GetQuoteTokenAtIndex(relayer common.Address, statedb *state.StateDB, index 
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), loc).Bytes())
 }
 
+func GetAllLendingPairs(statedb *state.StateDB) map[common.Hash]bool {
+	return map[common.Hash]bool{}
+}
 func SubRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateDB) error {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)

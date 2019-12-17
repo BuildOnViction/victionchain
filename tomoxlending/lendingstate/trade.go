@@ -2,7 +2,7 @@ package lendingstate
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"strconv"
 	"time"
@@ -126,9 +126,9 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	t.Interest = uint64(interest)
 	t.CollateralInterest = ToBigInt(decoded.CollateralInterest)
 	t.LiquidationInterest = ToBigInt(decoded.LiquidationInterest)
-	t.Amount = tomox_state.ToBigInt(decoded.Amount)
-	t.BorrowingFee = tomox_state.ToBigInt(decoded.BorrowingFee)
-	t.InvestingFee = tomox_state.ToBigInt(decoded.InvestingFee)
+	t.Amount = tradingstate.ToBigInt(decoded.Amount)
+	t.BorrowingFee = tradingstate.ToBigInt(decoded.BorrowingFee)
+	t.InvestingFee = tradingstate.ToBigInt(decoded.InvestingFee)
 	t.Status = decoded.Status
 	t.TakerOrderSide = decoded.TakerOrderSide
 	t.TakerOrderType = decoded.TakerOrderType

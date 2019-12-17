@@ -22,8 +22,9 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			var tomoXServ *tomox.TomoX
 			ctx.Service(&tomoXServ)
-
-			fullNode, err := eth.New(ctx, cfg, tomoXServ)
+			var lendingServ *tomoxlending.Lending
+			ctx.Service(&lendingServ)
+			fullNode, err := eth.New(ctx, cfg, tomoXServ,lendingServ)
 			if fullNode != nil && cfg.LightServ > 0 {
 				ls, _ := les.NewLesServer(fullNode, cfg)
 				fullNode.AddLesServer(ls)
@@ -77,4 +78,3 @@ func RegisterTomoXService(stack *node.Node, cfg *tomox.Config) {
 		Fatalf("Failed to register the TomoXLending service: %v", err)
 	}
 }
-
