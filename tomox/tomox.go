@@ -125,7 +125,7 @@ func (tomox *TomoX) IsSDKNode() bool {
 	return tomox.sdkNode
 }
 
-func (tomox *TomoX) GetDB() tomoxDAO.TomoXDAO {
+func (tomox *TomoX) GetLevelDB() tomoxDAO.TomoXDAO {
 	return tomox.db
 }
 

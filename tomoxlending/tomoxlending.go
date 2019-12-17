@@ -74,7 +74,7 @@ func New(tomox *tomox.TomoX) *Lending {
 		lendingItemHistory: orderCache,
 	}
 
-	lending.leveldb = tomox.GetDB()
+	lending.leveldb = tomox.GetLevelDB()
 
 	if tomox.IsSDKNode() { // this is an add-on DBEngine for SDK nodes
 		lending.mongodb = tomox.GetMongoDB()
@@ -92,7 +92,7 @@ func (l *Lending) Overflow() bool {
 	return val.(bool)
 }
 
-func (l *Lending) GetDB() tomoxDAO.TomoXDAO {
+func (l *Lending) GetLevelDB() tomoxDAO.TomoXDAO {
 	return l.leveldb
 }
 
