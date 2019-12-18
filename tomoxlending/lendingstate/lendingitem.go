@@ -107,14 +107,13 @@ func (l *LendingItem) GetBSON() (interface{}, error) {
 		Relayer:         l.Relayer.Hex(),
 		Term:            strconv.FormatUint(l.Term, 10),
 		UserAddress:     l.UserAddress.Hex(),
-
-		Hash:      l.Hash.Hex(),
-		TxHash:    l.TxHash.Hex(),
-		Nonce:     l.Nonce.String(),
-		CreatedAt: l.CreatedAt,
-		UpdatedAt: l.UpdatedAt,
-		LendingId: strconv.FormatUint(l.LendingId, 10),
-		ExtraData: l.ExtraData,
+		Hash:            l.Hash.Hex(),
+		TxHash:          l.TxHash.Hex(),
+		Nonce:           l.Nonce.String(),
+		CreatedAt:       l.CreatedAt,
+		UpdatedAt:       l.UpdatedAt,
+		LendingId:       strconv.FormatUint(l.LendingId, 10),
+		ExtraData:       l.ExtraData,
 	}
 
 	if l.FilledAmount != nil {

@@ -216,7 +216,7 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 		return nil
 	case *lendingstate.LendingTrade:
 		// PutObject trade into tradesCollection collection
-		db.lendingTradeBulk.Insert(val.(*tradingstate.Trade))
+		db.lendingTradeBulk.Insert(val.(*lendingstate.LendingTrade))
 	case *lendingstate.LendingItem:
 		// PutObject order into ordersCollection collection
 		o := val.(*lendingstate.LendingItem)
@@ -261,27 +261,20 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash, val interface{}) error {
 			if err != nil && err != mgo.ErrNotFound {
 				return fmt.Errorf("failed to delete tomox trade. Err: %v", err)
 			}
+		case *lendingstate.LendingItem:
+			err = sc.DB(db.dbName).C(lendingItemsCollection).Remove(query)
+			if err != nil && err != mgo.ErrNotFound {
+				return fmt.Errorf("failed to delete lendingItem. Err: %v", err)
+			}
+		case *lendingstate.LendingTrade:
+			err = sc.DB(db.dbName).C(lendingTradesCollection).Remove(query)
+			if err != nil && err != mgo.ErrNotFound {
+				return fmt.Errorf("failed to delete lendingTrade. Err: %v", err)
+			}
 
 		}
 	}
 
-	return nil
-}
-
-func (db *MongoDatabase) CommitOrder(o *tradingstate.OrderItem) error {
-	if o.Status == tradingstate.OrderStatusOpen {
-		db.orderBulk.Insert(o)
-	} else {
-		query := bson.M{"hash": o.Hash.Hex()}
-		db.orderBulk.Upsert(query, o)
-	}
-	return nil
-}
-
-func (db *MongoDatabase) CommitTrade(t *tradingstate.Trade) error {
-	// for trades: insert only, no update
-	// Hence, insert is better than upsert
-	db.tradeBulk.Insert(t)
 	return nil
 }
 
@@ -339,82 +332,105 @@ func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (db *MongoDatabase) DeleteTradeByTxHash(txhash common.Hash) {
+func (db *MongoDatabase) DeleteItemByTxHash(txhash common.Hash, val interface{}) {
 	sc := db.Session.Copy()
 	defer sc.Close()
 
 	query := bson.M{"txHash": txhash.Hex()}
-
-	err := sc.DB(db.dbName).C(tradesCollection).Remove(query)
-	if err != nil && err != mgo.ErrNotFound {
-		log.Error("Error when deleting order", "error", err)
+	switch val.(type) {
+	case *tradingstate.OrderItem:
+		if err := sc.DB(db.dbName).C(ordersCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
+			log.Error("DeleteItemByTxHash: failed to delete order", "txhash", txhash, "err", err)
+		}
+	case *tradingstate.Trade:
+		if err := sc.DB(db.dbName).C(tradesCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
+			log.Error("DeleteItemByTxHash: failed to delete trade", "txhash", txhash, "err", err)
+		}
+	case *lendingstate.LendingItem:
+		if err := sc.DB(db.dbName).C(lendingItemsCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
+			log.Error("DeleteItemByTxHash: failed to delete lendingItem", "txhash", txhash, "err", err)
+		}
+	case *lendingstate.LendingTrade:
+		if err := sc.DB(db.dbName).C(lendingTradesCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
+			log.Error("DeleteItemByTxHash: failed to delete lendingTrade", "txhash", txhash, "err", err)
+		}
+	default:
+		log.Error("DeleteItemByTxHash: Unknown object type", "txhash", txhash, "object", val)
 	}
+
 }
 
-func (db *MongoDatabase) GetOrderByTxHash(txhash common.Hash) []*tradingstate.OrderItem {
-	var result []*tradingstate.OrderItem
+func (db *MongoDatabase) GetListItemByTxHash(txhash common.Hash, val interface{}) interface{} {
 	sc := db.Session.Copy()
 	defer sc.Close()
 
 	query := bson.M{"txHash": txhash.Hex()}
-
-	if err := sc.DB(db.dbName).C(ordersCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
-		log.Error("failed to GetOrderByTxHash", "err", err, "Txhash", txhash)
+	switch val.(type) {
+	case *tradingstate.OrderItem:
+		result := []*tradingstate.OrderItem{}
+		if err := sc.DB(db.dbName).C(ordersCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+			log.Error("failed to GetListItemByTxHash (orders)", "err", err, "Txhash", txhash)
+		}
+		return result
+	case *tradingstate.Trade:
+		result := []*tradingstate.Trade{}
+		if err := sc.DB(db.dbName).C(tradesCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+			log.Error("failed to GetListItemByTxHash (trades)", "err", err, "Txhash", txhash)
+		}
+		return result
+	case *lendingstate.LendingItem:
+		result := []*lendingstate.LendingItem{}
+		if err := sc.DB(db.dbName).C(lendingItemsCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+			log.Error("failed to GetListItemByTxHash (lendingItems)", "err", err, "Txhash", txhash)
+		}
+		return result
+	case *lendingstate.LendingTrade:
+		result := []*lendingstate.LendingTrade{}
+		if err := sc.DB(db.dbName).C(lendingTradesCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+			log.Error("failed to GetListItemByTxHash (lendingTrades)", "err", err, "Txhash", txhash)
+		}
+		return result
+	default:
+		log.Error("GetListItemByTxHash: Unknown object type", "txhash", txhash, "object", val)
 	}
-	return result
+	return nil
 }
 
-func (db *MongoDatabase) GetListOrderByHashes(hashes []string) []*tradingstate.OrderItem {
-	var result []*tradingstate.OrderItem
+func (db *MongoDatabase) GetListItemByHashes(hashes []string, val interface{}) interface{} {
 	sc := db.Session.Copy()
 	defer sc.Close()
 
 	query := bson.M{"hash": bson.M{"$in": hashes}}
 
-	if err := sc.DB(db.dbName).C(ordersCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
-		log.Error("failed to GetListOrderByHashes", "err", err, "hashes", hashes)
-		return []*tradingstate.OrderItem{}
+	switch val.(type) {
+	case *tradingstate.OrderItem:
+		result := []*tradingstate.OrderItem{}
+		if err := sc.DB(db.dbName).C(ordersCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+			log.Error("failed to GetListItemByHashes (orders)", "err", err, "hashes", hashes)
+		}
+		return result
+	case *tradingstate.Trade:
+		result := []*tradingstate.Trade{}
+		if err := sc.DB(db.dbName).C(tradesCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+			log.Error("failed to GetListItemByHashes (trades)", "err", err, "hashes", hashes)
+		}
+		return result
+	case *lendingstate.LendingItem:
+		result := []*lendingstate.LendingItem{}
+		if err := sc.DB(db.dbName).C(lendingItemsCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+			log.Error("failed to GetListItemByHashes (lendingItems)", "err", err, "hashes", hashes)
+		}
+		return result
+	case *lendingstate.LendingTrade:
+		result := []*lendingstate.LendingTrade{}
+		if err := sc.DB(db.dbName).C(lendingTradesCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+			log.Error("failed to GetListItemByHashes (lendingTrades)", "err", err, "hashes", hashes)
+		}
+		return result
+	default:
+		log.Error("GetListItemByHashes: Unknown object type", "hashes", hashes, "object", val)
 	}
-	return result
-}
-
-func (db *MongoDatabase) DeleteLendingTradeByTxHash(txhash common.Hash) {
-	sc := db.Session.Copy()
-	defer sc.Close()
-
-	query := bson.M{"txHash": txhash.Hex()}
-
-	err := sc.DB(db.dbName).C(lendingTradesCollection).Remove(query)
-	if err != nil && err != mgo.ErrNotFound {
-		log.Error("Error when deleting DeleteLendingTradeByTxHash", "error", err)
-	}
-}
-
-func (db *MongoDatabase) GetLendingItemByTxHash(txhash common.Hash) []*lendingstate.LendingItem {
-	var result []*lendingstate.LendingItem
-	sc := db.Session.Copy()
-	defer sc.Close()
-
-	query := bson.M{"txHash": txhash.Hex()}
-
-	if err := sc.DB(db.dbName).C(lendingItemsCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
-		log.Error("failed to GetLendingItemByTxHash", "err", err, "Txhash", txhash)
-	}
-	return result
-}
-
-func (db *MongoDatabase) GetListLendingItemByHashes(hashes []string) []*lendingstate.LendingItem {
-	var result []*lendingstate.LendingItem
-	sc := db.Session.Copy()
-	defer sc.Close()
-
-	query := bson.M{"hash": bson.M{"$in": hashes}}
-
-	if err := sc.DB(db.dbName).C(lendingItemsCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
-		log.Error("failed to GetListLendingItemByHashes", "err", err, "hashes", hashes)
-		return []*lendingstate.LendingItem{}
-	}
-	return result
+	return nil
 }
 
 func (db *MongoDatabase) EnsureIndexes() error {
