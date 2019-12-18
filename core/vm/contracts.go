@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"math/big"
+	"github.com/tomochain/tomochain/core/vm/privacy"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
@@ -375,23 +376,23 @@ func (c *ringSignatureVerifier) RequiredGas(input []byte) uint64 {
 }
 
 func (c *ringSignatureVerifier) Run(proof []byte) ([]byte, error) {
-	der, err := Deserialize(proof)
+	der, err := privacy.Deserialize(proof)
 	if err != nil {
 		return []byte{}, errors.New("Fail to deserialize proof")
 	}
-	if !Verify(der, false) {
+	if !privacy.Verify(der, false) {
 		return []byte{}, errors.New("Fail to verify ring signature")
 	}
 	return []byte{}, nil
 }
 
 func (c *bulletproofVerifier) Run(proof []byte) ([]byte, error) {
-	mrp := new(MultiRangeProof)
+	mrp := new(privacy.MultiRangeProof)
 	if mrp.Deserialize(proof) != nil {
 		return []byte{}, errors.New("failed to deserialize bulletproofs")
 	}
 
-	if !MRPVerify(mrp) {
+	if !privacy.MRPVerify(mrp) {
 		return []byte{}, errors.New("failed to verify bulletproof")
 	}
 	return []byte{}, nil

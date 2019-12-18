@@ -8,15 +8,16 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"math"
 	"math/big"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/common"
 	"strconv"
 
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/tomochain/tomochain/crypto"
 )
+
 
 type Bulletproof struct {
 	proofData []byte
@@ -25,7 +26,6 @@ type Bulletproof struct {
 var EC CryptoParams
 var VecLength = 512 // support maximum 8 spending value, each 64 bit (gwei is unit)
 var curve elliptic.Curve = crypto.S256()
-
 /*
 Implementation of BulletProofs
 */
@@ -33,11 +33,11 @@ type ECPoint struct {
 	X, Y *big.Int
 }
 
-func (p *ECPoint) toECPubKey() *ecdsa.PublicKey {
+func (p* ECPoint) toECPubKey() *ecdsa.PublicKey {
 	return &ecdsa.PublicKey{curve, p.X, p.Y}
 }
 
-func toECPoint(key *ecdsa.PublicKey) *ECPoint {
+func toECPoint(key* ecdsa.PublicKey) *ECPoint {
 	return &ECPoint{key.X, key.Y}
 }
 
@@ -126,9 +126,7 @@ for each element and for each randomness.
 */
 func TwoVectorPCommit(a []*big.Int, b []*big.Int) ECPoint {
 	if len(a) != len(b) {
-		fmt.Println("TwoVectorPCommit: Uh oh! Arrays not of the same length")
-		fmt.Printf("len(a): %d\n", len(a))
-		fmt.Printf("len(b): %d\n", len(b))
+		log.Debug("TwoVectorPCommit: Arrays not of the same length", "len(a)", len(a), "len(b)", len(b))
 	}
 
 	commitment := EC.Zero()
@@ -148,11 +146,7 @@ We also pass in the Generators we want to use
 */
 func TwoVectorPCommitWithGens(G, H []ECPoint, a, b []*big.Int) ECPoint {
 	if len(G) != len(H) || len(G) != len(a) || len(a) != len(b) {
-		fmt.Println("TwoVectorPCommitWithGens: Uh oh! Arrays not of the same length")
-		fmt.Printf("len(G): %d\n", len(G))
-		fmt.Printf("len(H): %d\n", len(H))
-		fmt.Printf("len(a): %d\n", len(a))
-		fmt.Printf("len(b): %d\n", len(b))
+		log.Debug("TwoVectorPCommitWithGens: Arrays not of the same length", "len(G)", len(G), "len(H)", len(H), "len(a)", len(a), "len(b)", len(b))
 	}
 
 	commitment := EC.Zero()
@@ -170,9 +164,7 @@ func TwoVectorPCommitWithGens(G, H []ECPoint, a, b []*big.Int) ECPoint {
 // The length here always has to be a power of two
 func InnerProduct(a []*big.Int, b []*big.Int) *big.Int {
 	if len(a) != len(b) {
-		fmt.Println("InnerProduct: Uh oh! Arrays not of the same length")
-		fmt.Printf("len(a): %d\n", len(a))
-		fmt.Printf("len(b): %d\n", len(b))
+		log.Debug("InnerProduct: Arrays not of the same length", "len(a)", len(a), "len(b", len(b))
 	}
 
 	c := big.NewInt(0)
@@ -187,9 +179,7 @@ func InnerProduct(a []*big.Int, b []*big.Int) *big.Int {
 
 func VectorAdd(v []*big.Int, w []*big.Int) []*big.Int {
 	if len(v) != len(w) {
-		fmt.Println("VectorAdd: Uh oh! Arrays not of the same length")
-		fmt.Printf("len(v): %d\n", len(v))
-		fmt.Printf("len(w): %d\n", len(w))
+		log.Debug("VectorAdd: Arrays not of the same length", "len(v)", len(v), "len(w)", len(w))
 	}
 	result := make([]*big.Int, len(v))
 
@@ -202,9 +192,7 @@ func VectorAdd(v []*big.Int, w []*big.Int) []*big.Int {
 
 func VectorHadamard(v, w []*big.Int) []*big.Int {
 	if len(v) != len(w) {
-		fmt.Println("VectorHadamard: Uh oh! Arrays not of the same length")
-		fmt.Printf("len(v): %d\n", len(w))
-		fmt.Printf("len(w): %d\n", len(v))
+		log.Debug("VectorHadamard: Arrays not of the same length", "len(v)", len(v), "len(w)", len(w))
 	}
 
 	result := make([]*big.Int, len(v))
@@ -385,7 +373,7 @@ func InnerProductVerify(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdA
 	curIt := len(ipp.Challenges) - 1
 
 	if ipp.Challenges[curIt].Cmp(chal1) != 0 {
-		fmt.Println("IPVerify - Initial Challenge Failed")
+		log.Info("Initial Challenge Failed")
 		return false
 	}
 
@@ -413,7 +401,7 @@ func InnerProductVerify(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerProdA
 		chal2 := new(big.Int).SetBytes(s256[:])
 
 		if ipp.Challenges[curIt].Cmp(chal2) != 0 {
-			fmt.Println("IPVerify - Challenge verification failed at index " + strconv.Itoa(curIt))
+			log.Info("Challenge verification failed", "index", strconv.Itoa(curIt))
 			return false
 		}
 
@@ -450,7 +438,7 @@ func InnerProductVerifyFast(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerP
 
 	// check all challenges
 	if ipp.Challenges[curIt].Cmp(chal1) != 0 {
-		fmt.Println("IPVerify - Initial Challenge Failed")
+		log.Debug("Initial Challenge Failed")
 		return false
 	}
 
@@ -468,7 +456,7 @@ func InnerProductVerifyFast(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerP
 		chal2 := new(big.Int).SetBytes(s256[:])
 
 		if ipp.Challenges[j].Cmp(chal2) != 0 {
-			fmt.Println("IPVerify - Challenge verification failed at index " + strconv.Itoa(j))
+			log.Debug("Challenge verification failed", "index", strconv.Itoa(j))
 			return false
 		}
 	}
@@ -511,9 +499,7 @@ func InnerProductVerifyFast(c *big.Int, P, U ECPoint, G, H []ECPoint, ipp InnerP
 	lhs := TwoVectorPCommitWithGens(G, H, ScalarVectorMul(sScalars, ipp.A), ScalarVectorMul(invsScalars, ipp.B)).Add(ux.Mult(ccalc))
 
 	if !rhs.Equal(lhs) {
-		fmt.Println("IPVerify - Final Commitment checking failed")
-		fmt.Printf("Final rhs value: %s \n", rhs)
-		fmt.Printf("Final lhs value: %s \n", lhs)
+		log.Info("IPVerify - Final Commitment checking failed")
 		return false
 	}
 
@@ -652,11 +638,7 @@ func CalculateL(aL, sL []*big.Int, z, x *big.Int) []*big.Int {
 
 func CalculateR(aR, sR, y, po2 []*big.Int, z, x *big.Int) []*big.Int {
 	if len(aR) != len(sR) || len(aR) != len(y) || len(y) != len(po2) {
-		fmt.Println("CalculateR: Uh oh! Arrays not of the same length")
-		fmt.Printf("len(aR): %d\n", len(aR))
-		fmt.Printf("len(sR): %d\n", len(sR))
-		fmt.Printf("len(y): %d\n", len(y))
-		fmt.Printf("len(po2): %d\n", len(po2))
+		log.Info("CalculateR: Arrays not of the same length")
 	}
 
 	result := make([]*big.Int, len(aR))
@@ -686,11 +668,7 @@ func CalculateLMRP(aL, sL []*big.Int, z, x *big.Int) []*big.Int {
 
 func CalculateRMRP(aR, sR, y, zTimesTwo []*big.Int, z, x *big.Int) []*big.Int {
 	if len(aR) != len(sR) || len(aR) != len(y) || len(y) != len(zTimesTwo) {
-		fmt.Println("CalculateR: Uh oh! Arrays not of the same length")
-		fmt.Printf("len(aR): %d\n", len(aR))
-		fmt.Printf("len(sR): %d\n", len(sR))
-		fmt.Printf("len(y): %d\n", len(y))
-		fmt.Printf("len(po2): %d\n", len(zTimesTwo))
+		log.Info("CalculateRMRP: Arrays not of the same length")
 	}
 
 	result := make([]*big.Int, len(aR))
@@ -783,7 +761,7 @@ func deserializePointArray(input []byte, numPoint uint32) ([]ECPoint, error) {
 	ret := make([]ECPoint, numPoint)
 	offset := numPointSize
 	for i := 0; i < int(numPoint); i++ {
-		compressed := DeserializeCompressed(curve, input[offset:offset+33])
+		compressed := DeserializeCompressed(curve, input[offset:offset + 33])
 		if compressed == nil {
 			return ret, errors.New("invalid input data")
 		}
@@ -793,7 +771,7 @@ func deserializePointArray(input []byte, numPoint uint32) ([]ECPoint, error) {
 	return ret, nil
 }
 
-func (ipp *InnerProdArg) Serialize() []byte {
+func (ipp* InnerProdArg) Serialize() []byte {
 	proof := []byte{}
 
 	spa := serializePointArray(ipp.L, false)
@@ -819,27 +797,27 @@ func (ipp *InnerProdArg) Serialize() []byte {
 	return proof
 }
 
-func (ipp *InnerProdArg) Deserialize(proof []byte, numChallenges int) error {
+func (ipp* InnerProdArg) Deserialize(proof []byte, numChallenges int) error {
 	if len(proof) <= 12 {
 		return errors.New("proof data too short")
 	}
 	offset := 0
-	L, err := deserializePointArray(proof[:], uint32(numChallenges)-1)
+	L, err := deserializePointArray(proof[:], uint32(numChallenges) - 1)
 	if err != nil {
 		return err
 	}
 	ipp.L = append(ipp.L, L[:]...)
-	offset += len(L) * 33
+	offset += len(L)*33
 
-	R, err := deserializePointArray(proof[offset:], uint32(numChallenges)-1)
+	R, err := deserializePointArray(proof[offset:], uint32(numChallenges) - 1)
 	if err != nil {
 		return err
 	}
 
 	ipp.R = append(ipp.R, R[:]...)
-	offset += len(R) * 33
+	offset += len(R)*33
 
-	if len(proof) <= offset+64+4 {
+	if len(proof) <= offset + 64 + 4 {
 		return errors.New("proof data too short")
 	}
 
@@ -852,13 +830,13 @@ func (ipp *InnerProdArg) Deserialize(proof []byte, numChallenges int) error {
 		return errors.New("input data too short")
 	}
 	for i := 0; i < int(numChallenges); i++ {
-		ipp.Challenges = append(ipp.Challenges, new(big.Int).SetBytes(proof[offset:offset+32]))
+		ipp.Challenges = append(ipp.Challenges, new(big.Int).SetBytes(proof[offset : offset+32]))
 		offset += 32
 	}
 	return nil
 }
 
-func (mrp *MultiRangeProof) Serialize() []byte {
+func (mrp* MultiRangeProof) Serialize() []byte {
 	proof := []byte{}
 
 	serializedPA := serializePointArray(mrp.Comms, true)
@@ -906,40 +884,40 @@ func (mrp *MultiRangeProof) Serialize() []byte {
 	return proof
 }
 
-func (mrp *MultiRangeProof) Deserialize(proof []byte) error {
+func (mrp* MultiRangeProof) Deserialize(proof []byte) error {
 	Cs, err := deserializePointArray(proof[:], 0)
 	if err != nil {
 		return err
 	}
 	mrp.Comms = append(mrp.Comms, Cs[:]...)
 
-	offset := 4 + len(Cs)*33
+	offset := 4 + len(Cs) * 33
 
-	if len(proof) <= offset+4+4*33+6*32 {
+	if len(proof) <= offset + 4 + 4*33 + 6*32 {
 		return errors.New("invalid input data")
 	}
-	compressed := DeserializeCompressed(curve, proof[offset:offset+33])
+	compressed := DeserializeCompressed(curve, proof[offset:offset + 33])
 	if compressed == nil {
 		return errors.New("failed to decode A")
 	}
 	offset += 33
 	mrp.A = *toECPoint(compressed)
 
-	compressed = DeserializeCompressed(curve, proof[offset:offset+33])
+	compressed = DeserializeCompressed(curve, proof[offset:offset + 33])
 	if compressed == nil {
 		return errors.New("failed to decode S")
 	}
 	offset += 33
 	mrp.S = *toECPoint(compressed)
 
-	compressed = DeserializeCompressed(curve, proof[offset:offset+33])
+	compressed = DeserializeCompressed(curve, proof[offset:offset + 33])
 	if compressed == nil {
 		return errors.New("failed to decode T2")
 	}
 	offset += 33
 	mrp.T1 = *toECPoint(compressed)
 
-	compressed = DeserializeCompressed(curve, proof[offset:offset+33])
+	compressed = DeserializeCompressed(curve, proof[offset:offset + 33])
 	if compressed == nil {
 		return errors.New("failed to decode T2")
 	}
@@ -1208,7 +1186,7 @@ func MRPVerify(mrp *MultiRangeProof) bool {
 	cy := new(big.Int).SetBytes(chal1s256[:])
 
 	if cy.Cmp(mrp.Cy) != 0 {
-		log.Info("MRPVerify - Challenge Cy failing!", "Cy", common.Bytes2Hex(mrp.Cy.Bytes()))
+		log.Debug("MRPVerify challenge failed!", "Cy", common.Bytes2Hex(mrp.Cy.Bytes()))
 		return false
 	}
 
@@ -1219,7 +1197,7 @@ func MRPVerify(mrp *MultiRangeProof) bool {
 	// chal2s256 := sha256.Sum256([]byte(mrp.S.X.String() + mrp.S.Y.String()))
 	cz := new(big.Int).SetBytes(chal2s256[:])
 	if cz.Cmp(mrp.Cz) != 0 {
-		fmt.Println("MRPVerify - Challenge Cz failing!")
+		log.Debug("MRPVerify challenge failed!", "Cz", common.Bytes2Hex(mrp.Cz.Bytes()))
 		return false
 	}
 
@@ -1236,7 +1214,7 @@ func MRPVerify(mrp *MultiRangeProof) bool {
 	cx := new(big.Int).SetBytes(chal3s256[:])
 
 	if cx.Cmp(mrp.Cx) != 0 {
-		fmt.Println("RPVerify - Challenge Cx failing!")
+		log.Debug("MRPVerify challenge failed!", "Cx", common.Bytes2Hex(mrp.Cx.Bytes()))
 		return false
 	}
 
@@ -1262,9 +1240,7 @@ func MRPVerify(mrp *MultiRangeProof) bool {
 		mrp.T2.Mult(new(big.Int).Mul(cx, cx))).Add(CommPowers)
 
 	if !lhs.Equal(rhs) {
-		fmt.Println("MRPVerify - Uh oh! Check line (63) of verification")
-		fmt.Println(rhs)
-		fmt.Println(lhs)
+		log.Debug("Rangeproof failed")
 		return false
 	}
 
@@ -1299,7 +1275,7 @@ func MRPVerify(mrp *MultiRangeProof) bool {
 	//fmt.Println(P)
 
 	if !InnerProductVerifyFast(mrp.Th, P, EC.U, EC.BPG, HPrime, mrp.IPP) {
-		fmt.Println("MRPVerify - Uh oh! Check line (65) of verification!")
+		log.Debug("Range proof failed!")
 		return false
 	}
 
@@ -1418,3 +1394,5 @@ func init() {
 		ECPoint{big.NewInt(0), big.NewInt(0)},
 		ECPoint{big.NewInt(0), big.NewInt(0)}}
 }
+
+

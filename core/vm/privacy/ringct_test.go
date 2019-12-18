@@ -1,36 +1,9 @@
 package privacy
 
 import (
-	"crypto/ecdsa"
-	"crypto/rand"
 	"fmt"
 	"testing"
-
-	"github.com/tomochain/tomochain/crypto"
-)
-
-//function returns(mutiple rings, private keys, message, error)
-func GenerateMultiRingParams(numRing int, ringSize int, s int) (rings []Ring, privkeys []*ecdsa.PrivateKey, m [32]byte, err error) {
-	for i := 0; i < numRing; i++ {
-		privkey, err := crypto.GenerateKey()
-		if err != nil {
-			return nil, nil, [32]byte{}, err
-		}
-		privkeys = append(privkeys, privkey)
-
-		ring, err := GenNewKeyRing(ringSize, privkey, s)
-		if err != nil {
-			return nil, nil, [32]byte{}, err
-		}
-		rings = append(rings, ring)
-	}
-
-	_, err = rand.Read(m[:])
-	if err != nil {
-		return nil, nil, [32]byte{}, err
-	}
-	return rings, privkeys, m, nil
-}
+	)
 
 func TestSign(t *testing.T) {
 	/*for i := 14; i < 15; i++ {
@@ -64,7 +37,7 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to Deserialize Ring signature")
 	}
-	verified := Verify(deserializedSig)
+	verified := Verify(deserializedSig, false)
 
 	if !verified {
 		t.Error("Failed to verify Ring signature")

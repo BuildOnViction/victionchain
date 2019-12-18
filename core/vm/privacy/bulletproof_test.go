@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"gotest.tools/assert"
 	"io/ioutil"
 	"math/big"
@@ -501,17 +500,26 @@ func ECPointFromPoint(ecpoint Point) ECPoint {
 	return P
 }
 
-func TestMRPProveFromJS(t *testing.T) {
-	mRangeProof := parseTestData("./bulletproof.json")
-	serialized := mRangeProof.Serialize()
-	t.Logf("Proof: %s", common.Bytes2Hex(serialized))
-	fmt.Printf("\n\n\n%+v\n\n\n", mRangeProof)
-	mv := MRPVerify(&mRangeProof)
-	fmt.Printf("Value is between 1 and 2^%d-1: %t\n", VecLength, mv)
+func TestMRPGeneration(t *testing.T) {
+	values := make([]*big.Int, 2)
+	values[0] = big.NewInt(1000)
+	values[1] = big.NewInt(100000)
+	mrp, err := MRPProve(values)
+	if err != nil {
+		t.Error("failed to generate bulletproof")
+	}
 
-	if mv {
-		fmt.Println("MRProof synced JS correct")
-	} else {
-		t.Error("MRProof synced JS incorrect")
+	v := MRPVerify(&mrp)
+	serilizedBp := mrp.Serialize()
+
+	newMRP := new(MultiRangeProof)
+	if newMRP.Deserialize(serilizedBp) != nil {
+		t.Error("failed to deserialized bulletproof")
+	}
+
+	v = v && MRPVerify(newMRP)
+
+	if !v {
+		t.Error("failed to verify bulletproof")
 	}
 }

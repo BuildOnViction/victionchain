@@ -8,11 +8,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/tomochain/tomochain/common"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
 )
 
 // These constants define the lengths of serialized public keys.
