@@ -260,7 +260,9 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 			tradeRecord.CreatedAt = txMatchTime
 		}
 		tradeRecord.UpdatedAt = txMatchTime
-
+		tradeRecord.TxHash = txHash
+		tradeRecord.Status = lendingstate.TradeStatusSuccess
+		tradeRecord.Hash = tradeRecord.ComputeHash()
 		log.Debug("LendingTrade history ", "Term", tradeRecord.Term, "amount", tradeRecord.Amount, "Interest", tradeRecord.Interest,
 			"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "TakerOrderHash", tradeRecord.TakerOrderHash.Hex(), "MakerOrderHash", tradeRecord.MakerOrderHash.Hex(),
 			"borrowing", tradeRecord.BorrowingFee.String(), "investingFee", tradeRecord.InvestingFee.String())

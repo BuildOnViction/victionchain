@@ -2,6 +2,7 @@ package lendingstate
 
 import (
 	"fmt"
+	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"strconv"
@@ -11,7 +12,10 @@ import (
 	"github.com/tomochain/tomochain/common"
 )
 
-const LendingRateBase = 10000
+const (
+	LendingRateBase    = 10000
+	TradeStatusSuccess = "SUCCESS"
+)
 
 type LendingTrade struct {
 	Borrower               common.Address `bson:"borrower" json:"borrower"`
@@ -158,4 +162,11 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	t.UpdatedAt = decoded.UpdatedAt
 
 	return nil
+}
+
+func (t *LendingTrade) ComputeHash() common.Hash {
+	sha := sha3.NewKeccak256()
+	sha.Write(t.MakerOrderHash.Bytes())
+	sha.Write(t.TakerOrderHash.Bytes())
+	return common.BytesToHash(sha.Sum(nil))
 }
