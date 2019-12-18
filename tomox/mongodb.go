@@ -320,7 +320,6 @@ func (db *MongoDatabase) EnsureIndexes() error {
 	}
 	orderTxHashIndex := mgo.Index{
 		Key:        []string{"txHash"},
-		Unique:     true,
 		DropDups:   true,
 		Background: true,
 		Sparse:     true,
@@ -336,7 +335,6 @@ func (db *MongoDatabase) EnsureIndexes() error {
 	}
 	tradeTxHashIndex := mgo.Index{
 		Key:        []string{"txHash"},
-		Unique:     true,
 		DropDups:   true,
 		Background: true,
 		Sparse:     true,
