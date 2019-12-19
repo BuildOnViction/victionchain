@@ -171,9 +171,9 @@ echo "dump: $IDENTITY $account $BOOTNODES"
 
 set -x
 
-echo "[
-  enode://5b65023779f99a6e7accd7931f9ecd460b7007a13fcf9ad89181d5cc49a16fc4df73752f7166d33d33bf9a3059a7286818b49fe40b8329150860502d88607b1e@159.89.199.223:30303
-]" > $DATA_DIR/tomo/static-nodes.json
+echo '[
+  "enode://5b65023779f99a6e7accd7931f9ecd460b7007a13fcf9ad89181d5cc49a16fc4df73752f7166d33d33bf9a3059a7286818b49fe40b8329150860502d88607b1e@159.89.199.223:30303"
+]' > $DATA_DIR/tomo/static-nodes.json
 
 exec tomo $params \
   --verbosity $VERBOSITY \
