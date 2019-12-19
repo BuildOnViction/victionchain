@@ -446,18 +446,10 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 		return c.verifySeal(chain, header, parents, fullVerify)
 	}
 
-	// try again the progress with signers querying from smart contract
-	// for example the checkpoint is 886500 -> the start gap block is 886495
-	startGapBlockHeader := header
-	for step := uint64(1); step <= chain.Config().Posv.Gap; step++ {
-		startGapBlockHeader = chain.GetHeader(startGapBlockHeader.ParentHash, number-step)
-	}
-	signers, err = c.HookGetSignersFromContract(startGapBlockHeader.Hash())
+	signers, err = c.GetSignersFromContract(chain, header)
 	if err != nil {
-		log.Debug("Can't get signers from Smart Contract ", err)
 		return err
 	}
-
 	err = c.checkSignersOnCheckpoint(chain, header, signers)
 	if err == nil {
 		return c.verifySeal(chain, header, parents, fullVerify)
@@ -496,9 +488,25 @@ func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *typ
 	extraSuffix := len(header.Extra) - extraSeal
 	masternodesFromCheckpointHeader := common.ExtractAddressFromBytes(header.Extra[extraVanity:extraSuffix])
 	validSigners := compareSignersLists(masternodesFromCheckpointHeader, signers)
+
+	// compare list masternodes in checkpointHeader.Extra, if they are same, it's good to go ahead
+	// otherwise:
+	//		getSignersFromContract (exclude penalties)
+	//		then compare getSignersFromContract and masternodes in checkpointHeader.Extra
+	//			if they are same, go ahead
+	//			otherwise, return errInvalidCheckpointSigners
 	if !validSigners {
 		log.Error("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "masternodes_in_snapshot", signers, "penList", penPenalties)
-		return errInvalidCheckpointSigners
+		log.Debug("Getting signers list from contract")
+		signersFromContract, err := c.GetSignersFromContract(chain, header)
+		if err != nil {
+			return err
+		}
+		signersFromContract = common.RemoveItemFromArray(signersFromContract, penPenalties)
+		if !compareSignersLists(masternodesFromCheckpointHeader, signersFromContract) {
+			log.Error("Masternodes lists are different in checkpoint header and signersFromContract", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "signersFromContract", signersFromContract, "penList", penPenalties)
+			return errInvalidCheckpointSigners
+		}
 	}
 	if c.HookVerifyMNs != nil {
 		err := c.HookVerifyMNs(header, signers)
@@ -1308,4 +1316,17 @@ func (c *Posv) CheckMNTurn(chain consensus.ChainReader, parent *types.Header, si
 		return true
 	}
 	return false
+}
+
+func (c *Posv) GetSignersFromContract(chain consensus.ChainReader, checkpointHeader *types.Header) ([]common.Address, error) {
+	startGapBlockHeader := checkpointHeader
+	number := checkpointHeader.Number.Uint64()
+	for step := uint64(1); step <= chain.Config().Posv.Gap; step++ {
+		startGapBlockHeader = chain.GetHeader(startGapBlockHeader.ParentHash, number-step)
+	}
+	signers, err := c.HookGetSignersFromContract(startGapBlockHeader.Hash())
+	if err != nil {
+		return []common.Address{}, fmt.Errorf("Can't get signers from Smart Contract . Err: %v", err)
+	}
+	return signers, nil
 }
