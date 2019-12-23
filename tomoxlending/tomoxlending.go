@@ -40,8 +40,9 @@ type Lending struct {
 
 	orderNonce map[common.Address]*big.Int
 
-	tomox              *tomox.TomoX
-	lendingItemHistory *lru.Cache
+	tomox               *tomox.TomoX
+	lendingItemHistory  *lru.Cache
+	lendingTradeHistory *lru.Cache
 }
 
 func (l *Lending) Protocols() []p2p.Protocol {
@@ -57,11 +58,13 @@ func (l *Lending) Stop() error {
 }
 
 func New(tomox *tomox.TomoX) *Lending {
-	itemCacheLimit, _ := lru.New(defaultCacheLimit)
+	itemCache, _ := lru.New(defaultCacheLimit)
+	lendingTradeCache, _ := lru.New(defaultCacheLimit)
 	lending := &Lending{
-		orderNonce:         make(map[common.Address]*big.Int),
-		Triegc:             prque.New(),
-		lendingItemHistory: itemCacheLimit,
+		orderNonce:          make(map[common.Address]*big.Int),
+		Triegc:              prque.New(),
+		lendingItemHistory:  itemCache,
+		lendingTradeHistory: lendingTradeCache,
 	}
 	lending.StateCache = lendingstate.NewDatabase(tomox.GetLevelDB())
 	return lending
@@ -439,9 +442,29 @@ func (l *Lending) UpdateLendingItemCache(LendingToken, CollateralToken common.Ad
 	l.lendingItemHistory.Add(txhash, lendingCacheAtTxHash)
 }
 
-func (l *Lending) RollbackLendingItems(txhash common.Hash) {
+func (l *Lending) UpdateLendingTradeCache(hash common.Hash, txhash common.Hash, lastState lendingstate.LendingTradeHistoryItem) {
+	var lendingCacheAtTxHash map[common.Hash]lendingstate.LendingTradeHistoryItem
+	c, ok := l.lendingTradeHistory.Get(txhash)
+	if !ok || c == nil {
+		lendingCacheAtTxHash = make(map[common.Hash]lendingstate.LendingTradeHistoryItem)
+	} else {
+		lendingCacheAtTxHash = c.(map[common.Hash]lendingstate.LendingTradeHistoryItem)
+	}
+	_, ok = lendingCacheAtTxHash[hash]
+	if !ok {
+		lendingCacheAtTxHash[hash] = lastState
+	}
+	l.lendingItemHistory.Add(txhash, lendingCacheAtTxHash)
+}
+
+func (l *Lending) RollbackLendingData(txhash common.Hash) {
 	db := l.GetMongoDB()
-	defer l.lendingItemHistory.Remove(txhash)
+	defer func() {
+		l.lendingItemHistory.Remove(txhash)
+		l.lendingTradeHistory.Remove(txhash)
+	}()
+
+	// rollback lendingItem
 	items := db.GetListItemByTxHash(txhash, &lendingstate.LendingItem{})
 	if items != nil {
 		for _, item := range items.([]*lendingstate.LendingItem) {
@@ -473,9 +496,40 @@ func (l *Lending) RollbackLendingItems(txhash common.Hash) {
 			}
 		}
 	}
-	log.Debug("tomoxlending reorg: DeleteLendingTradeByTxHash", "txhash", txhash.Hex())
-	db.DeleteItemByTxHash(txhash, &lendingstate.LendingTrade{})
 
+	// rollback lendingTrade
+	items = db.GetListItemByTxHash(txhash, &lendingstate.LendingTrade{})
+	if items != nil {
+		for _, trade := range items.([]*lendingstate.LendingTrade) {
+			c, ok := l.lendingItemHistory.Get(txhash)
+			log.Debug("tomoxlending reorg: rollback LendingTrade", "txhash", txhash.Hex(), "trade", lendingstate.ToJSON(trade), "LendingTradeHistory", c)
+			if !ok {
+				log.Debug("tomoxlending reorg: remove trade due to no LendingTradeHistory", "trade", lendingstate.ToJSON(trade))
+				if err := db.DeleteObject(trade.Hash, &lendingstate.LendingTrade{}); err != nil {
+					log.Error("SDKNode: failed to remove reorg LendingTrade", "err", err.Error(), "trade", lendingstate.ToJSON(trade))
+				}
+				continue
+			}
+			cacheAtTxHash := c.(map[common.Hash]lendingstate.LendingTradeHistoryItem)
+			lendingTradeHistoryItem, _ := cacheAtTxHash[trade.Hash]
+			if (lendingTradeHistoryItem == lendingstate.LendingTradeHistoryItem{}) {
+				log.Debug("tomoxlending reorg: remove trade due to empty LendingTradeHistory", "trade", lendingstate.ToJSON(trade))
+				if err := db.DeleteObject(trade.Hash, &lendingstate.LendingTrade{}); err != nil {
+					log.Error("SDKNode: failed to remove reorg LendingTrade", "err", err.Error(), "trade", lendingstate.ToJSON(trade))
+				}
+				continue
+			}
+			trade.TxHash = lendingTradeHistoryItem.TxHash
+			trade.Status = lendingTradeHistoryItem.Status
+			trade.CollateralLockedAmount = lendingstate.CloneBigInt(lendingTradeHistoryItem.CollateralLockedAmount)
+			trade.LiquidationPrice = lendingstate.CloneBigInt(lendingTradeHistoryItem.LiquidationPrice)
+			trade.UpdatedAt = lendingTradeHistoryItem.UpdatedAt
+			log.Debug("tomoxlending reorg: update trade to the last lendingTradeHistoryItem", "trade", lendingstate.ToJSON(trade), "lendingTradeHistoryItem", lendingTradeHistoryItem)
+			if err := db.PutObject(trade.Hash, trade); err != nil {
+				log.Error("SDKNode: failed to update reorg LendingTrade", "err", err.Error(), "trade", lendingstate.ToJSON(trade))
+			}
+		}
+	}
 }
 
 func (l *Lending) ProcessLiquidationData(time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) {

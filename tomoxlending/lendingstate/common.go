@@ -104,6 +104,13 @@ type LendingItemHistoryItem struct {
 	UpdatedAt    time.Time
 }
 
+type LendingTradeHistoryItem struct {
+	TxHash                 common.Hash
+	CollateralLockedAmount *big.Int
+	LiquidationPrice       *big.Int
+	Status                 string
+	UpdatedAt              time.Time
+}
 
 // ToJSON : log json string
 func ToJSON(object interface{}, args ...string) string {

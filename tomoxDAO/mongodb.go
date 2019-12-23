@@ -215,16 +215,22 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 		}
 		return nil
 	case *lendingstate.LendingTrade:
-		// PutObject trade into tradesCollection collection
-		db.lendingTradeBulk.Insert(val.(*lendingstate.LendingTrade))
+		lt := val.(*lendingstate.LendingTrade)
+		// PutObject LendingTrade into tradesCollection collection
+		if existed, err := db.HasObject(hash, val); err == nil && existed {
+			query := bson.M{"hash": lt.Hash.Hex()}
+			db.lendingTradeBulk.Upsert(query, lt)
+		} else {
+			db.lendingTradeBulk.Insert(lt)
+		}
 	case *lendingstate.LendingItem:
 		// PutObject order into ordersCollection collection
-		o := val.(*lendingstate.LendingItem)
-		if o.Status == lendingstate.LendingStatusOpen {
-			db.lendingItemBulk.Insert(o)
+		li := val.(*lendingstate.LendingItem)
+		if li.Status == lendingstate.LendingStatusOpen {
+			db.lendingItemBulk.Insert(li)
 		} else {
-			query := bson.M{"hash": o.Hash.Hex()}
-			db.lendingItemBulk.Upsert(query, o)
+			query := bson.M{"hash": li.Hash.Hex()}
+			db.lendingItemBulk.Upsert(query, li)
 		}
 		return nil
 	default:
