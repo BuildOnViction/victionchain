@@ -432,6 +432,10 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 
 func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *types.Header, signers []common.Address) error {
 	number := header.Number.Uint64()
+	// ignore signerCheck at checkpoint block 14458500 due to wrong snapshot at gap 14458495
+	if number == common.IgnoreSignerCheckBlock {
+		return nil
+	}
 	penPenalties := []common.Address{}
 	if c.HookPenalty != nil || c.HookPenaltyTIPSigning != nil {
 		var err error
@@ -461,24 +465,9 @@ func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *typ
 	masternodesFromCheckpointHeader := common.ExtractAddressFromBytes(header.Extra[extraVanity:extraSuffix])
 	validSigners := compareSignersLists(masternodesFromCheckpointHeader, signers)
 
-	// compare list masternodes in checkpointHeader.Extra, if they are same, it's good to go ahead
-	// otherwise:
-	//		getSignersFromContract (exclude penalties)
-	//		then compare getSignersFromContract and masternodes in checkpointHeader.Extra
-	//			if they are same, go ahead
-	//			otherwise, return errInvalidCheckpointSigners
 	if !validSigners {
 		log.Error("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "masternodes_in_snapshot", signers, "penList", penPenalties)
-		log.Debug("Getting signers list from contract")
-		signersFromContract, err := c.GetSignersFromContract(chain, header)
-		if err != nil {
-			return err
-		}
-		signersFromContract = common.RemoveItemFromArray(signersFromContract, penPenalties)
-		if !compareSignersLists(masternodesFromCheckpointHeader, signersFromContract) {
-			log.Error("Masternodes lists are different in checkpoint header and signersFromContract", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "signersFromContract", signersFromContract, "penList", penPenalties)
-			return errInvalidCheckpointSigners
-		}
+		return errInvalidCheckpointSigners
 	}
 	if c.HookVerifyMNs != nil {
 		err := c.HookVerifyMNs(header, signers)
