@@ -102,7 +102,7 @@ contract RelayerRegistration {
         require(coinbase != CONTRACT_OWNER, "Coinbase must not be same as CONTRACT_OWNER");
         require(msg.value >= MinimumDeposit, "Minimum deposit not satisfied.");
         /// @dev valid relayer configuration
-        require(tradeFee >= 1 && tradeFee < 10000, "Invalid Maker Fee");
+        require(tradeFee >= 1 && tradeFee < 1000, "Invalid Maker Fee");
         require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
         require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
 
