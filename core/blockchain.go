@@ -1944,7 +1944,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		}()
 	}
 	if bc.chainConfig.IsTIPTomoX(commonBlock.Number()) {
-		bc.reorgTxMatches(deletedTxs, newChain)
+		bc.reorgTxMatches(oldChain, newChain)
 	}
 	return nil
 }
@@ -2315,7 +2315,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 	}
 }
 
-func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain types.Blocks) {
+func (bc *BlockChain) reorgTxMatches(oldChain types.Blocks, newChain types.Blocks) {
 	engine, ok := bc.Engine().(*posv.Posv)
 	if !ok || engine == nil {
 		return
@@ -2330,12 +2330,15 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 		// That's why we should put this log statement in an anonymous function
 		log.Debug("reorgTxMatches takes", "time", common.PrettyDuration(time.Since(start)))
 	}()
-	for _, deletedTx := range deletedTxs {
-		if deletedTx.IsMatchingTransaction() {
-			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
-			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
+	for _, oldBlock := range oldChain {
+		for _, oldTx := range oldBlock.Transactions() {
+			if oldTx.IsMatchingTransaction() {
+				log.Debug("Rollback reorg txMatch", "txhash", oldTx.Hash())
+				tomoXService.RollbackReorgTxMatch(oldTx.Hash())
+			}
 		}
 	}
+
 
 	// apply new chain
 	for i := len(newChain) - 1; i >= 0; i-- {
