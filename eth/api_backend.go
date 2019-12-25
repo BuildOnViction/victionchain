@@ -21,10 +21,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+
+	"github.com/tomochain/tomochain/tomox"
 
 	"github.com/tomochain/tomochain/consensus/posv"
 
@@ -168,6 +169,11 @@ func (b *EthApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 // SendOrderTx send order via backend
 func (b *EthApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
 	return b.eth.orderPool.AddLocal(signedTx)
+}
+
+// SendLendingTx send order via backend
+func (b *EthApiBackend) SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error {
+	return b.eth.lendingPool.AddLocal(signedTx)
 }
 
 func (b *EthApiBackend) GetPoolTransactions() (types.Transactions, error) {
