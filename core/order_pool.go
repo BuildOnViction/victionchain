@@ -26,7 +26,7 @@ import (
 
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/posv"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
@@ -82,7 +82,7 @@ type OrderPoolConfig struct {
 type blockChainTomox interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
-	OrderStateAt(block *types.Block) (*tomox_state.TomoXStateDB, error)
+	OrderStateAt(block *types.Block) (*tradingstate.TradingStateDB, error)
 	StateAt(root common.Hash) (*state.StateDB, error)
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 	Engine() consensus.Engine
@@ -139,8 +139,8 @@ type OrderPool struct {
 	mu           sync.RWMutex
 
 	currentRootState  *state.StateDB
-	currentOrderState *tomox_state.TomoXStateDB      // Current order state in the blockchain head
-	pendingState      *tomox_state.TomoXManagedState // Pending state tracking virtual nonces
+	currentOrderState *tradingstate.TradingStateDB    // Current order state in the blockchain head
+	pendingState      *tradingstate.TomoXManagedState // Pending state tracking virtual nonces
 
 	locals  *orderAccountSet // Set of local transaction to exempt from eviction rules
 	journal *ordertxJournal  // Journal of local transaction to back up to disk
@@ -297,7 +297,7 @@ func (pool *OrderPool) reset(oldHead, newblock *types.Block) {
 		return
 	}
 	pool.currentOrderState = orderstate
-	pool.pendingState = tomox_state.ManageState(orderstate)
+	pool.pendingState = tradingstate.ManageState(orderstate)
 
 	state, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
@@ -348,7 +348,7 @@ func (pool *OrderPool) SubscribeTxPreEvent(ch chan<- OrderTxPreEvent) event.Subs
 }
 
 // State returns the virtual managed state of the transaction pool.
-func (pool *OrderPool) State() *tomox_state.TomoXManagedState {
+func (pool *OrderPool) State() *tradingstate.TomoXManagedState {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -443,7 +443,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		if orderType != OrderTypeLimit && orderType != OrderTypeMarket {
 			return ErrInvalidOrderType
 		}
-		if err := tomox_state.VerifyPair(cloneStateDb, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
+		if err := tradingstate.VerifyPair(cloneStateDb, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
 			return err
 		}
 
@@ -464,7 +464,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 			if err != nil {
 				return fmt.Errorf("validateOrder: failed to get quoteDecimal. err: %v", err)
 			}
-			if err := tomox_state.VerifyBalance(cloneStateDb, cloneTomoXStateDb, tx, baseDecimal, quoteDecimal); err != nil {
+			if err := tradingstate.VerifyBalance(cloneStateDb, cloneTomoXStateDb, tx, baseDecimal, quoteDecimal); err != nil {
 				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. PairName: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.PairName(), err)
 			}
 		}
@@ -496,7 +496,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		return ErrInvalidOrderUserAddress
 	}
 
-	if !tomox_state.IsValidRelayer(cloneStateDb, tx.ExchangeAddress()) {
+	if !tradingstate.IsValidRelayer(cloneStateDb, tx.ExchangeAddress()) {
 		return fmt.Errorf("invalid relayer. ExchangeAddress: %s", tx.ExchangeAddress().Hex())
 	}
 

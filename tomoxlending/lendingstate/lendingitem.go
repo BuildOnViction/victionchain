@@ -18,8 +18,6 @@ const (
 	LendingStatusFilled        = "FILLED"
 	LendingStatusPartialFilled = "PARTIAL_FILLED"
 	LendingStatusCancelled     = "CANCELLED"
-	Ask                        = "SELL"
-	Bid                        = "BUY"
 	Market                     = "MO"
 	Limit                      = "LO"
 )

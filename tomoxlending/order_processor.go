@@ -6,29 +6,31 @@ import (
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"math/big"
+	"time"
 )
 
-func (l *Lending) CommitOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *lendingstate.TomoXStateDB, orderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
-	tomoxSnap := tomoXstatedb.Snapshot()
+func (l *Lending) CommitOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+	tomoxSnap := lendingStateDB.Snapshot()
 	dbSnap := statedb.Snapshot()
-	trades, rejects, err := l.ApplyOrder(coinbase, chain, statedb, tomoXstatedb, orderBook, order)
+	trades, rejects, err := l.ApplyOrder(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 	if err != nil {
-		tomoXstatedb.RevertToSnapshot(tomoxSnap)
+		lendingStateDB.RevertToSnapshot(tomoxSnap)
 		statedb.RevertToSnapshot(dbSnap)
 		return nil, nil, err
 	}
 	return trades, rejects, err
 }
 
-func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *lendingstate.TomoXStateDB, orderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
 	var (
 		rejects []*lendingstate.LendingItem
 		trades  []map[string]string
 		err     error
 	)
-	nonce := tomoXstatedb.GetNonce(order.UserAddress.Hash())
+	nonce := lendingStateDB.GetNonce(order.UserAddress.Hash())
 	log.Debug("ApplyOrder", "addr", order.UserAddress, "statenonce", nonce, "ordernonce", order.Nonce)
 	if big.NewInt(int64(nonce)).Cmp(order.Nonce) == -1 {
 		return nil, nil, ErrNonceTooHigh
@@ -36,7 +38,7 @@ func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainConte
 		return nil, nil, ErrNonceTooLow
 	}
 	if order.Status == lendingstate.LendingStatusCancelled {
-		err, reject := l.ProcessCancelOrder(tomoXstatedb, statedb, chain, coinbase, orderBook, order)
+		err, reject := l.ProcessCancelOrder(lendingStateDB, statedb, chain, coinbase, lendingOrderBook, order)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -44,46 +46,46 @@ func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainConte
 			rejects = append(rejects, order)
 		}
 		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
 	if order.Type != lendingstate.Market {
 		if order.Interest.Sign() == 0 || common.BigToHash(order.Interest).Big().Cmp(order.Interest) != 0 {
 			log.Debug("Reject order Interest invalid", "Interest", order.Interest)
 			rejects = append(rejects, order)
-			tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+			lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 			return trades, rejects, nil
 		}
 	}
 	if order.Quantity.Sign() == 0 || common.BigToHash(order.Quantity).Big().Cmp(order.Quantity) != 0 {
 		log.Debug("Reject order quantity invalid", "quantity", order.Quantity)
 		rejects = append(rejects, order)
-		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
 	orderType := order.Type
 	// if we do not use auto-increment orderid, we must set Interest slot to avoid conflict
 	if orderType == lendingstate.Market {
 		log.Debug("Process maket order", "side", order.Side, "quantity", order.Quantity, "Interest", order.Interest)
-		trades, rejects, err = l.processMarketOrder(coinbase, chain, statedb, tomoXstatedb, orderBook, order)
+		trades, rejects, err = l.processMarketOrder(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 		if err != nil {
 			return nil, nil, err
 		}
 	} else {
 		log.Debug("Process limit order", "side", order.Side, "quantity", order.Quantity, "Interest", order.Interest)
-		trades, rejects, err = l.processLimitOrder(coinbase, chain, statedb, tomoXstatedb, orderBook, order)
+		trades, rejects, err = l.processLimitOrder(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
 	log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-	tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
+	lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 	return trades, rejects, nil
 }
 
 // processMarketOrder : process the market order
-func (l *Lending) processMarketOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *lendingstate.TomoXStateDB, orderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processMarketOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
 	var (
 		trades     []map[string]string
 		newTrades  []map[string]string
@@ -95,30 +97,30 @@ func (l *Lending) processMarketOrder(coinbase common.Address, chain consensus.Ch
 	side := order.Side
 	// speedup the comparison, do not assign because it is pointer
 	zero := lendingstate.Zero
-	if side == lendingstate.Bid {
-		bestInterest, volume := tomoXstatedb.GetBestAskInterest(orderBook)
+	if side == lendingstate.Borrowing {
+		bestInterest, volume := lendingStateDB.GetBestBorrowRate(lendingOrderBook)
 		log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && bestInterest.Cmp(zero) > 0 {
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, tomoXstatedb, lendingstate.Ask, orderBook, bestInterest, quantityToTrade, order)
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, bestInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
-			bestInterest, volume = tomoXstatedb.GetBestAskInterest(orderBook)
+			bestInterest, volume = lendingStateDB.GetBestBorrowRate(lendingOrderBook)
 			log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		}
 	} else {
-		bestInterest, volume := tomoXstatedb.GetBestBidInterest(orderBook)
+		bestInterest, volume := lendingStateDB.GetBestInvestingRate(lendingOrderBook)
 		log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && bestInterest.Cmp(zero) > 0 {
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, tomoXstatedb, lendingstate.Bid, orderBook, bestInterest, quantityToTrade, order)
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, bestInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
-			bestInterest, volume = tomoXstatedb.GetBestBidInterest(orderBook)
+			bestInterest, volume = lendingStateDB.GetBestInvestingRate(lendingOrderBook)
 			log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		}
 	}
@@ -127,7 +129,7 @@ func (l *Lending) processMarketOrder(coinbase common.Address, chain consensus.Ch
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (l *Lending) processLimitOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *lendingstate.TomoXStateDB, orderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processLimitOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, LendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
 	var (
 		trades     []map[string]string
 		newTrades  []map[string]string
@@ -142,51 +144,51 @@ func (l *Lending) processLimitOrder(coinbase common.Address, chain consensus.Cha
 	// speedup the comparison, do not assign because it is pointer
 	zero := lendingstate.Zero
 
-	if side == lendingstate.Bid {
-		minInterest, volume := tomoXstatedb.GetBestAskInterest(orderBook)
+	if side == lendingstate.Borrowing {
+		minInterest, volume := LendingStateDB.GetBestBorrowRate(lendingOrderBook)
 		log.Debug("processLimitOrder ", "side", side, "minInterest", minInterest, "orderInterest", Interest, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && Interest.Cmp(minInterest) >= 0 && minInterest.Cmp(zero) > 0 {
-			log.Debug("Min Interest in asks tree", "Interest", minInterest.String())
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, tomoXstatedb, lendingstate.Ask, orderBook, minInterest, quantityToTrade, order)
+			log.Debug("Min Interest in Investings tree", "Interest", minInterest.String())
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, LendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, minInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
 			log.Debug("New trade found", "newTrades", newTrades, "quantityToTrade", quantityToTrade)
-			minInterest, volume = tomoXstatedb.GetBestAskInterest(orderBook)
+			minInterest, volume = LendingStateDB.GetBestBorrowRate(lendingOrderBook)
 			log.Debug("processLimitOrder ", "side", side, "minInterest", minInterest, "orderInterest", Interest, "volume", volume)
 		}
 	} else {
-		maxInterest, volume := tomoXstatedb.GetBestBidInterest(orderBook)
+		maxInterest, volume := LendingStateDB.GetBestInvestingRate(lendingOrderBook)
 		log.Debug("processLimitOrder ", "side", side, "maxInterest", maxInterest, "orderInterest", Interest, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && Interest.Cmp(maxInterest) <= 0 && maxInterest.Cmp(zero) > 0 {
-			log.Debug("Max Interest in bids tree", "Interest", maxInterest.String())
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, tomoXstatedb, lendingstate.Bid, orderBook, maxInterest, quantityToTrade, order)
+			log.Debug("Max Interest in Borrowings tree", "Interest", maxInterest.String())
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, LendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, maxInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
 			log.Debug("New trade found", "newTrades", newTrades, "quantityToTrade", quantityToTrade)
-			maxInterest, volume = tomoXstatedb.GetBestBidInterest(orderBook)
+			maxInterest, volume = LendingStateDB.GetBestInvestingRate(lendingOrderBook)
 			log.Debug("processLimitOrder ", "side", side, "maxInterest", maxInterest, "orderInterest", Interest, "volume", volume)
 		}
 	}
 	if quantityToTrade.Cmp(zero) > 0 {
-		orderId := tomoXstatedb.GetNonce(orderBook)
+		orderId := LendingStateDB.GetNonce(lendingOrderBook)
 		order.LendingId = orderId + 1
 		order.Quantity = quantityToTrade
-		tomoXstatedb.SetNonce(orderBook, orderId+1)
+		LendingStateDB.SetNonce(lendingOrderBook, orderId+1)
 		orderIdHash := common.BigToHash(new(big.Int).SetUint64(order.LendingId))
-		tomoXstatedb.InsertLendingItem(orderBook, orderIdHash, *order)
+		LendingStateDB.InsertLendingItem(lendingOrderBook, orderIdHash, *order)
 		log.Debug("After matching, order (unmatched part) is now added to tree", "side", order.Side, "order", order)
 	}
 	return trades, rejects, nil
 }
 
 // processOrderList : process the order list
-func (l *Lending) processOrderList(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *lendingstate.TomoXStateDB, side string, orderBook common.Hash, Interest *big.Int, quantityStillToTrade *big.Int, order *lendingstate.LendingItem) (*big.Int, []map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processOrderList(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, side string, lendingOrderBook common.Hash, Interest *big.Int, quantityStillToTrade *big.Int, order *lendingstate.LendingItem) (*big.Int, []map[string]string, []*lendingstate.LendingItem, error) {
 	quantityToTrade := lendingstate.CloneBigInt(quantityStillToTrade)
 	log.Debug("Process matching between order and orderlist", "quantityToTrade", quantityToTrade)
 	var (
@@ -195,10 +197,10 @@ func (l *Lending) processOrderList(coinbase common.Address, chain consensus.Chai
 		rejects []*lendingstate.LendingItem
 	)
 	for quantityToTrade.Sign() > 0 {
-		orderId, amount, _ := tomoXstatedb.GetBestOrderIdAndAmount(orderBook, Interest, side)
+		orderId, amount, _ := lendingStateDB.GetBestLendingIdAndAmount(lendingOrderBook, Interest, side)
 		var oldestOrder lendingstate.LendingItem
 		if amount.Sign() > 0 {
-			oldestOrder = tomoXstatedb.GetOrder(orderBook, orderId)
+			oldestOrder = lendingStateDB.GetLendingOrder(lendingOrderBook, orderId)
 		}
 		log.Debug("found order ", "orderId ", orderId, "side", oldestOrder.Side, "amount", amount)
 		if oldestOrder.Quantity == nil || oldestOrder.Quantity.Sign() == 0 && amount.Sign() == 0 {
@@ -214,23 +216,23 @@ func (l *Lending) processOrderList(coinbase common.Address, chain consensus.Chai
 			maxTradedQuantity = lendingstate.CloneBigInt(amount)
 		}
 		var quoteInterest *big.Int
-		if oldestOrder.CollateralToken.String() != common.TomoNativeAddress {
-			quoteInterest = tomoXstatedb.GetInterest(lendingstate.GetOrderBookHash(oldestOrder.CollateralToken, common.HexToAddress(common.TomoNativeAddress)))
-			log.Debug("TryGet quoteInterest CollateralToken/TOMO", "quoteInterest", quoteInterest)
-			if (quoteInterest == nil || quoteInterest.Sign() == 0) && oldestOrder.LendingToken.String() != common.TomoNativeAddress {
-				inverseInterest := tomoXstatedb.GetInterest(lendingstate.GetOrderBookHash(common.HexToAddress(common.TomoNativeAddress), oldestOrder.CollateralToken))
-				CollateralTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, oldestOrder.CollateralToken)
-				if err != nil || CollateralTokenDecimal.Sign() == 0 {
-					return nil, nil, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", oldestOrder.CollateralToken.String(), err)
-				}
-				log.Debug("TryGet inverseInterest TOMO/CollateralToken", "inverseInterest", inverseInterest)
-				if inverseInterest != nil && inverseInterest.Sign() > 0 {
-					quoteInterest = new(big.Int).Div(lendingstate.BaseInterest, inverseInterest)
-					quoteInterest = new(big.Int).Mul(quoteInterest, CollateralTokenDecimal)
-					log.Debug("TryGet quoteInterest after get inverseInterest TOMO/CollateralToken", "quoteInterest", quoteInterest, "CollateralTokenDecimal", CollateralTokenDecimal)
-				}
-			}
-		}
+		//if oldestOrder.CollateralToken.String() != common.TomoNativeAddress {
+		//	quoteInterest = lendingStateDB.GetInterest(lendingstate.GetTradingOrderBookHash(oldestOrder.CollateralToken, common.HexToAddress(common.TomoNativeAddress)))
+		//	log.Debug("TryGet quoteInterest CollateralToken/TOMO", "quoteInterest", quoteInterest)
+		//	if (quoteInterest == nil || quoteInterest.Sign() == 0) && oldestOrder.LendingToken.String() != common.TomoNativeAddress {
+		//		inverseInterest := lendingStateDB.GetInterest(lendingstate.GetTradingOrderBookHash(common.HexToAddress(common.TomoNativeAddress), oldestOrder.CollateralToken))
+		//		CollateralTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, oldestOrder.CollateralToken)
+		//		if err != nil || CollateralTokenDecimal.Sign() == 0 {
+		//			return nil, nil, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", oldestOrder.CollateralToken.String(), err)
+		//		}
+		//		log.Debug("TryGet inverseInterest TOMO/CollateralToken", "inverseInterest", inverseInterest)
+		//		if inverseInterest != nil && inverseInterest.Sign() > 0 {
+		//			quoteInterest = new(big.Int).Div(lendingstate.BaseInterest, inverseInterest)
+		//			quoteInterest = new(big.Int).Mul(quoteInterest, CollateralTokenDecimal)
+		//			log.Debug("TryGet quoteInterest after get inverseInterest TOMO/CollateralToken", "quoteInterest", quoteInterest, "CollateralTokenDecimal", CollateralTokenDecimal)
+		//		}
+		//	}
+		//}
 		tradedQuantity, rejectMaker, err := l.getTradeQuantity(quoteInterest, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
 		if err != nil && err == lendingstate.ErrQuantityTradeTooSmall {
 			if tradedQuantity.Cmp(maxTradedQuantity) == 0 {
@@ -238,7 +240,7 @@ func (l *Lending) processOrderList(coinbase common.Address, chain consensus.Chai
 					rejects = append(rejects, order)
 					quantityToTrade = lendingstate.Zero
 					rejects = append(rejects, &oldestOrder)
-					err = tomoXstatedb.CancelOrder(orderBook, &oldestOrder)
+					err = lendingStateDB.CancelLendingOrder(lendingOrderBook, &oldestOrder)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -249,7 +251,7 @@ func (l *Lending) processOrderList(coinbase common.Address, chain consensus.Chai
 					break
 				} else { // reject maker
 					rejects = append(rejects, &oldestOrder)
-					err = tomoXstatedb.CancelOrder(orderBook, &oldestOrder)
+					err = lendingStateDB.CancelLendingOrder(lendingOrderBook, &oldestOrder)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -258,7 +260,7 @@ func (l *Lending) processOrderList(coinbase common.Address, chain consensus.Chai
 			} else {
 				if rejectMaker { // reject maker
 					rejects = append(rejects, &oldestOrder)
-					err = tomoXstatedb.CancelOrder(orderBook, &oldestOrder)
+					err = lendingStateDB.CancelLendingOrder(lendingOrderBook, &oldestOrder)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -280,11 +282,18 @@ func (l *Lending) processOrderList(coinbase common.Address, chain consensus.Chai
 		}
 		if tradedQuantity.Sign() > 0 {
 			quantityToTrade = lendingstate.Sub(quantityToTrade, tradedQuantity)
-			tomoXstatedb.SubAmountLendingItem(orderBook, orderId, Interest, tradedQuantity, side)
-			tomoXstatedb.SetInterest(orderBook, Interest)
+			lendingStateDB.SubAmountLendingItem(lendingOrderBook, orderId, Interest, tradedQuantity, side)
 			log.Debug("Update quantity for orderId", "orderId", orderId.Hex())
-			log.Debug("TRADE", "orderBook", orderBook, "Taker Interest", Interest, "maker Interest", order.Interest, "Amount", tradedQuantity, "orderId", orderId, "side", side)
+			log.Debug("TRADE", "lendingOrderBook", lendingOrderBook, "Taker Interest", Interest, "maker Interest", order.Interest, "Amount", tradedQuantity, "orderId", orderId, "side", side)
+			tradingId := lendingStateDB.GetTradeNonce(lendingOrderBook) + 1
+			liquidationTime := uint64(time.Now().Unix()) + order.Term
+			lendingTrade := lendingstate.LendingTrade{TradeId: tradingId, Amount: quantityToTrade}
 
+			lendingStateDB.InsertTradingItem(lendingOrderBook, lendingTrade)
+			lendingStateDB.InsertLiquidationTime(lendingOrderBook, new(big.Int).SetUint64(liquidationTime), tradingId)
+			lendingStateDB.SetTradeNonce(lendingOrderBook, tradingId+1)
+			liquidationPrice := big.NewInt(0)
+			tradingStateDb.InsertLiquidationPrice(tradingstate.GetTradingOrderBookHash(order.LendingToken, order.CollateralToken), liquidationPrice, lendingOrderBook, tradingId)
 			tradeRecord := make(map[string]string)
 			//tradeRecord[lendingstate2.TradeTakerOrderHash] = order.Hash.Hex()
 			//tradeRecord[lendingstate2.TradeMakerOrderHash] = oldestOrder.Hash.Hex()
@@ -300,10 +309,11 @@ func (l *Lending) processOrderList(coinbase common.Address, chain consensus.Chai
 			//tradeRecord[lendingstate2.TradeInterest] = oldestOrder.Interest.String()
 			//tradeRecord[lendingstate2.MakerOrderType] = oldestOrder.Type
 			trades = append(trades, tradeRecord)
+
 		}
 		if rejectMaker {
 			rejects = append(rejects, &oldestOrder)
-			err := tomoXstatedb.CancelOrder(orderBook, &oldestOrder)
+			err := lendingStateDB.CancelLendingOrder(lendingOrderBook, &oldestOrder)
 			if err != nil {
 				return nil, nil, nil, err
 			}
@@ -343,10 +353,10 @@ func (l *Lending) getTradeQuantity(quoteInterest *big.Int, coinbase common.Addre
 	makerFeeRate := lendingstate.GetExRelayerFee(makerOrder.Relayer, statedb)
 	var takerBalance, makerBalance *big.Int
 	switch takerOrder.Side {
-	case lendingstate.Bid:
+	case lendingstate.Borrowing:
 		takerBalance = lendingstate.GetTokenBalance(takerOrder.UserAddress, makerOrder.CollateralToken, statedb)
 		makerBalance = lendingstate.GetTokenBalance(makerOrder.UserAddress, makerOrder.LendingToken, statedb)
-	case lendingstate.Ask:
+	case lendingstate.Investing:
 		takerBalance = lendingstate.GetTokenBalance(takerOrder.UserAddress, makerOrder.LendingToken, statedb)
 		makerBalance = lendingstate.GetTokenBalance(makerOrder.UserAddress, makerOrder.CollateralToken, statedb)
 	default:
@@ -368,7 +378,7 @@ func (l *Lending) getTradeQuantity(quoteInterest *big.Int, coinbase common.Addre
 }
 
 func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big.Int, makerInterest *big.Int, makerFeeRate *big.Int, makerBalance *big.Int, LendingTokenDecimal *big.Int, quantityToTrade *big.Int) (*big.Int, bool) {
-	if takerSide == lendingstate.Bid {
+	if takerSide == lendingstate.Borrowing {
 		// maker InQuantity CollateralTokenQuantity=(quantityToTrade*maker.Interest/LendingTokenDecimal)
 		CollateralTokenQuantity := new(big.Int).Mul(quantityToTrade, makerInterest)
 		CollateralTokenQuantity = CollateralTokenQuantity.Div(CollateralTokenQuantity, LendingTokenDecimal)
@@ -557,43 +567,43 @@ func DoSettleBalance(coinbase common.Address, takerOrder, makerOrder *lendingsta
 	return nil
 }
 
-func (l *Lending) ProcessCancelOrder(tomoXstatedb *lendingstate.TomoXStateDB, statedb *state.StateDB, chain consensus.ChainContext, coinbase common.Address, orderBook common.Hash, order *lendingstate.LendingItem) (error, bool) {
+func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, chain consensus.ChainContext, coinbase common.Address, lendingOrderBook common.Hash, order *lendingstate.LendingItem) (error, bool) {
 	if err := lendingstate.CheckRelayerFee(order.Relayer, common.RelayerCancelFee, statedb); err != nil {
 		log.Debug("Relayer not enough fee when cancel order", "err", err)
 		return nil, true
 	}
-	LendingTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
-	if err != nil || LendingTokenDecimal.Sign() == 0 {
+	lendingTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
+	if err != nil || lendingTokenDecimal.Sign() == 0 {
 		log.Debug("Fail to get tokenDecimal ", "Token", order.LendingToken.String(), "err", err)
 		return err, false
 	}
 	var tokenBalance *big.Int
 	switch order.Side {
-	case lendingstate.Ask:
+	case lendingstate.Investing:
 		tokenBalance = lendingstate.GetTokenBalance(order.UserAddress, order.LendingToken, statedb)
-	case lendingstate.Bid:
+	case lendingstate.Borrowing:
 		tokenBalance = lendingstate.GetTokenBalance(order.UserAddress, order.CollateralToken, statedb)
 	default:
 		log.Debug("Not found order side", "Side", order.Side)
 		return nil, true
 	}
-	log.Debug("ProcessCancelOrder", "LendingToken", order.LendingToken, "CollateralToken", order.CollateralToken, "makerInterest", order.Interest, "LendingTokenDecimal", LendingTokenDecimal, "quantity", order.Quantity)
+	log.Debug("ProcessCancelOrder", "LendingToken", order.LendingToken, "CollateralToken", order.CollateralToken, "makerInterest", order.Interest, "lendingTokenDecimal", lendingTokenDecimal, "quantity", order.Quantity)
 	feeRate := lendingstate.GetExRelayerFee(order.Relayer, statedb)
-	tokenCancelFee := getCancelFee(LendingTokenDecimal, feeRate, order)
+	tokenCancelFee := getCancelFee(lendingTokenDecimal, feeRate, order)
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
 		log.Debug("User not enough balance when cancel order", "Side", order.Side, "Interest", order.Interest, "Quantity", order.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
 		return nil, true
 	}
-	err = tomoXstatedb.CancelOrder(orderBook, order)
+	err = lendingStateDB.CancelLendingOrder(lendingOrderBook, order)
 	if err != nil {
 		log.Debug("Error when cancel order", "order", order)
 		return err, false
 	}
 	lendingstate.SubRelayerFee(order.Relayer, common.RelayerCancelFee, statedb)
 	switch order.Side {
-	case lendingstate.Ask:
+	case lendingstate.Investing:
 		lendingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.LendingToken, statedb)
-	case lendingstate.Bid:
+	case lendingstate.Borrowing:
 		lendingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.CollateralToken, statedb)
 	default:
 	}
@@ -604,7 +614,7 @@ func (l *Lending) ProcessCancelOrder(tomoXstatedb *lendingstate.TomoXStateDB, st
 
 func getCancelFee(LendingTokenDecimal *big.Int, feeRate *big.Int, order *lendingstate.LendingItem) *big.Int {
 	cancelFee := big.NewInt(0)
-	if order.Side == lendingstate.Ask {
+	if order.Side == lendingstate.Investing {
 		// SELL 1 BTC => TOMO ,,
 		// order.Quantity =1 && fee rate =2
 		// ==> cancel fee = 2/10000

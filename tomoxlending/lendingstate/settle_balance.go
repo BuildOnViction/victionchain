@@ -33,7 +33,7 @@ func GetSettleBalance(quoteInterest *big.Int, takerSide string, takerFeeRate *bi
 	log.Debug("GetSettleBalance", "takerSide", takerSide, "takerFeeRate", takerFeeRate, "baseToken", baseToken, "quoteToken", quoteToken, "makerInterest", makerInterest, "makerFeeRate", makerFeeRate, "baseTokenDecimal", baseTokenDecimal, "quantityToTrade", quantityToTrade)
 	var result *SettleBalance
 	//result = map[common.Address]map[string]interface{}{}
-	if takerSide == Bid {
+	if takerSide == Borrowing {
 		// maker InQuantity quoteTokenQuantity=(quantityToTrade*maker.Interest/baseTokenDecimal)
 		quoteTokenQuantity := new(big.Int).Mul(quantityToTrade, makerInterest)
 		quoteTokenQuantity = quoteTokenQuantity.Div(quoteTokenQuantity, baseTokenDecimal)

@@ -17,12 +17,13 @@
 package lendingstate
 
 import (
+	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"math/big"
 )
 
 type journalEntry interface {
-	undo(db *TomoXStateDB)
+	undo(db *LendingStateDB)
 }
 
 type journal []journalEntry
@@ -34,10 +35,18 @@ type (
 		orderId   common.Hash
 		order     *LendingItem
 	}
+	insertTrading struct {
+		orderBook common.Hash
+		order     *LendingTrade
+	}
 	cancelOrder struct {
 		orderBook common.Hash
 		orderId   common.Hash
 		order     LendingItem
+	}
+	cancelTrading struct {
+		orderBook common.Hash
+		order     LendingTrade
 	}
 	subAmountOrder struct {
 		orderBook common.Hash
@@ -49,39 +58,51 @@ type (
 		hash common.Hash
 		prev uint64
 	}
-	InterestChange struct {
+	tradeNonceChange struct {
+		hash common.Hash
+		prev uint64
+	}
+	priceChange struct {
 		hash common.Hash
 		prev *big.Int
 	}
 )
 
-func (ch insertOrder) undo(s *TomoXStateDB) {
-	s.CancelOrder(ch.orderBook, ch.order)
+func (ch insertOrder) undo(s *LendingStateDB) {
+	err := s.CancelLendingOrder(ch.orderBook, ch.order)
+	fmt.Println("err", err)
 }
-func (ch cancelOrder) undo(s *TomoXStateDB) {
+func (ch cancelOrder) undo(s *LendingStateDB) {
 	s.InsertLendingItem(ch.orderBook, ch.orderId, ch.order)
 }
-func (ch subAmountOrder) undo(s *TomoXStateDB) {
-	InterestHash := common.BigToHash(ch.order.Interest)
-	stateOrderBook := s.getStateExchangeObject(ch.orderBook)
-	var stateOrderList *stateOrderList
+func (ch subAmountOrder) undo(s *LendingStateDB) {
+	interestHash := common.BigToHash(ch.order.Interest)
+	stateOrderBook := s.getLendingExchange(ch.orderBook)
+	var stateOrderList *itemListState
 	switch ch.order.Side {
-	case Ask:
-		stateOrderList = stateOrderBook.getStateOrderListAskObject(s.db, InterestHash)
-	case Bid:
-		stateOrderList = stateOrderBook.getStateBidOrderListObject(s.db, InterestHash)
+	case Investing:
+		stateOrderList = stateOrderBook.getInvestingOrderList(s.db, interestHash)
+	case Borrowing:
+		stateOrderList = stateOrderBook.getBorrowingOrderList(s.db, interestHash)
 	default:
 		return
 	}
-	stateLendingItem := stateOrderBook.getStateOrderObject(s.db, ch.orderId)
-	newAmount := new(big.Int).Add(stateLendingItem.Quantity(), ch.amount)
-	stateLendingItem.setVolume(newAmount)
+	stateOrderItem := stateOrderBook.getLendingItem(s.db, ch.orderId)
+	newAmount := new(big.Int).Add(stateOrderItem.Quantity(), ch.amount)
+	stateOrderItem.setVolume(newAmount)
 	stateOrderList.insertLendingItem(s.db, ch.orderId, common.BigToHash(newAmount))
 	stateOrderList.AddVolume(ch.amount)
 }
-func (ch nonceChange) undo(s *TomoXStateDB) {
+func (ch nonceChange) undo(s *LendingStateDB) {
 	s.SetNonce(ch.hash, ch.prev)
 }
-func (ch InterestChange) undo(s *TomoXStateDB) {
-	s.SetInterest(ch.hash, ch.prev)
+
+func (ch tradeNonceChange) undo(s *LendingStateDB) {
+	s.SetTradeNonce(ch.hash, ch.prev)
+}
+func (ch cancelTrading) undo(s *LendingStateDB) {
+	s.InsertTradingItem(ch.orderBook, ch.order)
+}
+func (ch insertTrading) undo(s *LendingStateDB) {
+	s.CancelLendingTrade(ch.orderBook, ch.order)
 }

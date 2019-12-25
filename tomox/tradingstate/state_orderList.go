@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tomox_state
+package tradingstate
 
 import (
 	"bytes"
@@ -30,20 +30,20 @@ import (
 //
 // The usage pattern is as follows:
 // First you need to obtain a state object.
-// exchangeObject values can be accessed and modified through the object.
+// tradingExchangeObject values can be accessed and modified through the object.
 // Finally, call CommitAskTrie to write the modified storage trie into a database.
 type stateOrderList struct {
 	price     common.Hash
 	orderBook common.Hash
 	orderType string
 	data      orderList
-	db        *TomoXStateDB
+	db        *TradingStateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
 	// unable to deal with database-level errors. Any error that occurs
 	// during a database read is memoized here and will eventually be returned
-	// by TomoXStateDB.Commit.
+	// by TradingStateDB.Commit.
 	dbErr error
 
 	// Write caches.
@@ -61,7 +61,7 @@ func (s *stateOrderList) empty() bool {
 }
 
 // newObject creates a state object.
-func newStateOrderList(db *TomoXStateDB, orderType string, orderBook common.Hash, price common.Hash, data orderList, onDirty func(price common.Hash)) *stateOrderList {
+func newStateOrderList(db *TradingStateDB, orderType string, orderBook common.Hash, price common.Hash, data orderList, onDirty func(price common.Hash)) *stateOrderList {
 	return &stateOrderList{
 		db:            db,
 		orderType:     orderType,
@@ -173,7 +173,7 @@ func (self *stateOrderList) updateRoot(db Database) error {
 	return err
 }
 
-func (self *stateOrderList) deepCopy(db *TomoXStateDB, onDirty func(price common.Hash)) *stateOrderList {
+func (self *stateOrderList) deepCopy(db *TradingStateDB, onDirty func(price common.Hash)) *stateOrderList {
 	stateOrderList := newStateOrderList(db, self.orderType, self.orderBook, self.price, self.data, onDirty)
 	if self.trie != nil {
 		stateOrderList.trie = db.db.CopyTrie(self.trie)

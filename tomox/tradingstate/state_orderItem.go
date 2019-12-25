@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package lendingstate
+package tradingstate
 
 import (
 	"io"
@@ -28,23 +28,23 @@ import (
 //
 // The usage pattern is as follows:
 // First you need to obtain a state object.
-// exchangeObject values can be accessed and modified through the object.
+// tradingExchangeObject values can be accessed and modified through the object.
 // Finally, call CommitAskTrie to write the modified storage trie into a database.
-type stateLendingItem struct {
+type stateOrderItem struct {
 	orderBook common.Hash
 	orderId   common.Hash
-	data      LendingItem
+	data      OrderItem
 	onDirty   func(orderId common.Hash) // Callback method to mark a state object newly dirty
 }
 
 // empty returns whether the orderId is considered empty.
-func (s *stateLendingItem) empty() bool {
+func (s *stateOrderItem) empty() bool {
 	return s.data.Quantity == nil || s.data.Quantity.Cmp(Zero) == 0
 }
 
 // newObject creates a state object.
-func newStateLendingItem(orderBook common.Hash, orderId common.Hash, data LendingItem, onDirty func(orderId common.Hash)) *stateLendingItem {
-	return &stateLendingItem{
+func newStateOrderItem(orderBook common.Hash, orderId common.Hash, data OrderItem, onDirty func(orderId common.Hash)) *stateOrderItem {
+	return &stateOrderItem{
 		orderBook: orderBook,
 		orderId:   orderId,
 		data:      data,
@@ -53,16 +53,16 @@ func newStateLendingItem(orderBook common.Hash, orderId common.Hash, data Lendin
 }
 
 // EncodeRLP implements rlp.Encoder.
-func (c *stateLendingItem) EncodeRLP(w io.Writer) error {
+func (c *stateOrderItem) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, c.data)
 }
 
-func (self *stateLendingItem) deepCopy(onDirty func(orderId common.Hash)) *stateLendingItem {
-	stateOrderList := newStateLendingItem(self.orderBook, self.orderId, self.data, onDirty)
+func (self *stateOrderItem) deepCopy(onDirty func(orderId common.Hash)) *stateOrderItem {
+	stateOrderList := newStateOrderItem(self.orderBook, self.orderId, self.data, onDirty)
 	return stateOrderList
 }
 
-func (self *stateLendingItem) setVolume(volume *big.Int) {
+func (self *stateOrderItem) setVolume(volume *big.Int) {
 	self.data.Quantity = volume
 	if self.onDirty != nil {
 		self.onDirty(self.orderId)
@@ -70,6 +70,6 @@ func (self *stateLendingItem) setVolume(volume *big.Int) {
 	}
 }
 
-func (self *stateLendingItem) Quantity() *big.Int {
+func (self *stateOrderItem) Quantity() *big.Int {
 	return self.data.Quantity
 }

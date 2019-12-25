@@ -1,4 +1,4 @@
-package tomox_state
+package tradingstate
 
 import (
 	"math/big"
@@ -33,7 +33,7 @@ type Trade struct {
 	TakerOrderHash common.Hash    `json:"takerOrderHash" bson:"takerOrderHash"`
 	MakerExchange  common.Address `json:"makerExchange" bson:"makerExchange"`
 	TakerExchange  common.Address `json:"takerExchange" bson:"takerExchange"`
-	Hash           common.Hash    `json:"hash" bson:"hash"`
+	Hash           common.Hash    `json:"orderBookHash" bson:"orderBookHash"`
 	TxHash         common.Hash    `json:"txHash" bson:"txHash"`
 	PairName       string         `json:"pairName" bson:"pairName"`
 	PricePoint     *big.Int       `json:"pricepoint" bson:"pricepoint"`
@@ -57,7 +57,7 @@ type TradeBSON struct {
 	TakerOrderHash string    `json:"takerOrderHash" bson:"takerOrderHash"`
 	MakerExchange  string    `json:"makerExchange" bson:"makerExchange"`
 	TakerExchange  string    `json:"takerExchange" bson:"takerExchange"`
-	Hash           string    `json:"hash" bson:"hash"`
+	Hash           string    `json:"orderBookHash" bson:"orderBookHash"`
 	TxHash         string    `json:"txHash" bson:"txHash"`
 	PairName       string    `json:"pairName" bson:"pairName"`
 	Amount         string    `json:"amount" bson:"amount"`
@@ -137,7 +137,7 @@ func (t *Trade) SetBSON(raw bson.Raw) error {
 
 // ComputeHash returns hashes the trade
 // The OrderHash, Amount, Taker and TradeNonce attributes must be
-// set before attempting to compute the trade hash
+// set before attempting to compute the trade orderBookHash
 func (t *Trade) ComputeHash() common.Hash {
 	sha := sha3.NewKeccak256()
 	sha.Write(t.MakerOrderHash.Bytes())

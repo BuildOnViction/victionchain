@@ -1,4 +1,4 @@
-package tomox_state
+package tradingstate
 
 import (
 	"encoding/json"

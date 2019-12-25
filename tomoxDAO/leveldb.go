@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"github.com/globalsign/mgo"
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"sync"
 
@@ -49,7 +49,7 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit int) *BatchDatabase {
 	batchDB := &BatchDatabase{
 		db:         db,
 		cacheItems: cacheItems,
-		emptyKey:   tomox_state.EmptyKey(), // pre alloc for comparison
+		emptyKey:   tradingstate.EmptyKey(), // pre alloc for comparison
 		cacheLimit: itemCacheLimit,
 	}
 
@@ -112,12 +112,12 @@ func (db *BatchDatabase) NewBatch() ethdb.Batch {
 func (db *BatchDatabase) DeleteTradeByTxHash(txhash common.Hash) {
 }
 
-func (db *BatchDatabase) GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem {
-	return []*tomox_state.OrderItem{}
+func (db *BatchDatabase) GetOrderByTxHash(txhash common.Hash) []*tradingstate.OrderItem {
+	return []*tradingstate.OrderItem{}
 }
 
-func (db *BatchDatabase) GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem {
-	return []*tomox_state.OrderItem{}
+func (db *BatchDatabase) GetListOrderByHashes(hashes []string) []*tradingstate.OrderItem {
+	return []*tradingstate.OrderItem{}
 }
 
 func (db *BatchDatabase) InitBulk() *mgo.Session {

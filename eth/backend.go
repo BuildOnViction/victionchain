@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"math/big"
 	"runtime"
 	"sort"
@@ -104,8 +105,9 @@ type Ethereum struct {
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	lock  sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
-	TomoX *tomox.TomoX
+	lock    sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	TomoX   *tomox.TomoX
+	Lending *tomoxlending.Lending
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -115,7 +117,7 @@ func (s *Ethereum) AddLesServer(ls LesServer) {
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Ethereum, error) {
+func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendingServ *tomoxlending.Lending) (*Ethereum, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
 	}
@@ -153,6 +155,9 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 	if tomoXServ != nil {
 		eth.TomoX = tomoXServ
 	}
+	if lendingServ != nil {
+		eth.Lending = lendingServ
+	}
 	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
@@ -168,8 +173,11 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 	)
 	if eth.chainConfig.Posv != nil {
 		c := eth.engine.(*posv.Posv)
-		c.GetTomoXService = func() posv.TomoXService {
+		c.GetTomoXService = func() posv.TradingService {
 			return eth.TomoX
+		}
+		c.GetLendingService = func() posv.LendingService {
+			return eth.Lending
 		}
 	}
 	eth.blockchain, err = core.NewBlockChainEx(chainDb, tomoXServ.GetDB(), cacheConfig, eth.chainConfig, eth.engine, vmConfig)
@@ -940,4 +948,8 @@ func (s *Ethereum) GetTomoX() *tomox.TomoX {
 
 func (s *Ethereum) OrderPool() *core.OrderPool {
 	return s.orderPool
+}
+
+func (s *Ethereum) GetTomoXLending() *tomoxlending.Lending {
+	return s.Lending
 }

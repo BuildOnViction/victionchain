@@ -19,7 +19,7 @@ package core
 import (
 	"fmt"
 	"github.com/tomochain/tomochain/consensus/posv"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -105,7 +105,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox_state.TxMatchBatch, coinbase common.Address) error {
+func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tradingstate.TradingStateDB, txMatchBatch tradingstate.TxMatchBatch, coinbase common.Address) error {
 	posvEngine, ok := v.bc.Engine().(*posv.Posv)
 	if posvEngine == nil || !ok {
 		return ErrNotPoSV
@@ -115,7 +115,7 @@ func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStat
 		return fmt.Errorf("tomox not found")
 	}
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
-	matchingResult := map[common.Hash]tomox_state.MatchingResult{}
+	matchingResult := map[common.Hash]tradingstate.MatchingResult{}
 	for _, txMatch := range txMatchBatch.Data {
 		// verify orderItem
 		order, err := txMatch.DecodeOrder()
@@ -128,11 +128,11 @@ func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStat
 			return fmt.Errorf("invalid order . Error: %v", err)
 		}
 		// process Matching Engine
-		newTrades, newRejectedOrders, err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tomox_state.GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		newTrades, newRejectedOrders, err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tradingstate.GetTradingOrderBookHash(order.BaseToken, order.QuoteToken), order)
 		if err != nil {
 			return err
 		}
-		matchingResult[order.Hash] = tomox_state.MatchingResult{
+		matchingResult[order.Hash] = tradingstate.MatchingResult{
 			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}
@@ -174,13 +174,13 @@ func CalcGasLimit(parent *types.Block) uint64 {
 	return limit
 }
 
-func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox_state.TxMatchBatch, error) {
-	txMatchBatchData := []tomox_state.TxMatchBatch{}
+func ExtractMatchingTransactions(transactions types.Transactions) ([]tradingstate.TxMatchBatch, error) {
+	txMatchBatchData := []tradingstate.TxMatchBatch{}
 	for _, tx := range transactions {
 		if tx.IsMatchingTransaction() {
-			txMatchBatch, err := tomox_state.DecodeTxMatchesBatch(tx.Data())
+			txMatchBatch, err := tradingstate.DecodeTxMatchesBatch(tx.Data())
 			if err != nil {
-				return []tomox_state.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
+				return []tradingstate.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
 			}
 			txMatchBatch.TxHash = tx.Hash()
 			txMatchBatchData = append(txMatchBatchData, txMatchBatch)

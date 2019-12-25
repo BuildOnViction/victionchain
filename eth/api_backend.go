@@ -413,7 +413,7 @@ func (b *EthApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bo
 func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 	tomoxService := b.eth.GetTomoX()
 	if tomoxService != nil {
-		tomoxState, err := tomoxService.GetTomoxState(b.CurrentBlock())
+		tomoxState, err := tomoxService.GetTradingState(b.CurrentBlock())
 		if err != nil {
 			return 0, err
 		}

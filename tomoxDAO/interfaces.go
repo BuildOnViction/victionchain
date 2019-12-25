@@ -8,7 +8,7 @@ import (
 	"github.com/globalsign/mgo"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 )
 
@@ -28,8 +28,8 @@ type TomoXDAO interface {
 		// basic tomox
 		InitBulk() *mgo.Session
 		CommitBulk() error
-		GetOrderByTxHash(txhash common.Hash) []*tomox_state.OrderItem
-		GetListOrderByHashes(hashes []string) []*tomox_state.OrderItem
+		GetOrderByTxHash(txhash common.Hash) []*tradingstate.OrderItem
+		GetListOrderByHashes(hashes []string) []*tradingstate.OrderItem
 		DeleteTradeByTxHash(txhash common.Hash)
 
 		// tomox lending
