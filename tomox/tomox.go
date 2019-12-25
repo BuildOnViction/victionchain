@@ -547,20 +547,20 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 	if items != nil {
 		for _, order := range items.([]*tradingstate.OrderItem) {
 			c, ok := tomox.orderCache.Get(txhash)
-			log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", tomox_state.ToJSON(order), "orderHistoryItem", c)
+			log.Debug("Tomox reorg: rollback order", "txhash", txhash.Hex(), "order", tradingstate.ToJSON(order), "orderHistoryItem", c)
 			if !ok {
-				log.Debug("Tomox reorg: remove order due to no orderCache", "order", tomox_state.ToJSON(order))
+				log.Debug("Tomox reorg: remove order due to no orderCache", "order", tradingstate.ToJSON(order))
 				if err := db.DeleteObject(order.Hash, &tradingstate.OrderItem{}); err != nil {
-					log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tomox_state.ToJSON(order))
+					log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
 				}
 				continue
 			}
 			orderCacheAtTxHash := c.(map[common.Hash]tradingstate.OrderHistoryItem)
 			orderHistoryItem, _ := orderCacheAtTxHash[tradingstate.GetOrderHistoryKey(order.BaseToken, order.QuoteToken, order.Hash)]
 			if (orderHistoryItem == tradingstate.OrderHistoryItem{}) {
-				log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", tomox_state.ToJSON(order))
+				log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", tradingstate.ToJSON(order))
 				if err := db.DeleteObject(order.Hash, &tradingstate.OrderItem{}); err != nil {
-					log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tomox_state.ToJSON(order))
+					log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
 				}
 				continue
 			}
@@ -568,9 +568,9 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 			order.Status = orderHistoryItem.Status
 			order.FilledAmount = tradingstate.CloneBigInt(orderHistoryItem.FilledAmount)
 			order.UpdatedAt = orderHistoryItem.UpdatedAt
-			log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", tomox_state.ToJSON(order), "orderHistoryItem", orderHistoryItem)
+			log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", tradingstate.ToJSON(order), "orderHistoryItem", orderHistoryItem)
 			if err := db.PutObject(order.Hash, order); err != nil {
-				log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", tomox_state.ToJSON(order))
+				log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
 			}
 		}
 	}
