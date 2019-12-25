@@ -9,13 +9,12 @@ import (
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"math/big"
-	"time"
 )
 
-func (l *Lending) CommitOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) CommitOrder(createdBlockTime uint64,coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
 	tomoxSnap := lendingStateDB.Snapshot()
 	dbSnap := statedb.Snapshot()
-	trades, rejects, err := l.ApplyOrder(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
+	trades, rejects, err := l.ApplyOrder(createdBlockTime,coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 	if err != nil {
 		lendingStateDB.RevertToSnapshot(tomoxSnap)
 		statedb.RevertToSnapshot(dbSnap)
@@ -24,7 +23,7 @@ func (l *Lending) CommitOrder(coinbase common.Address, chain consensus.ChainCont
 	return trades, rejects, err
 }
 
-func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) ApplyOrder(createdBlockTime uint64,coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
 	var (
 		rejects []*lendingstate.LendingItem
 		trades  []map[string]string
@@ -91,13 +90,13 @@ func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainConte
 	// if we do not use auto-increment orderid, we must set Interest slot to avoid conflict
 	if orderType == lendingstate.Market {
 		log.Debug("Process maket order", "side", order.Side, "quantity", order.Quantity, "Interest", order.Interest)
-		trades, rejects, err = l.processMarketOrder(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
+		trades, rejects, err = l.processMarketOrder(createdBlockTime,coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 		if err != nil {
 			return nil, nil, err
 		}
 	} else {
 		log.Debug("Process limit order", "side", order.Side, "quantity", order.Quantity, "Interest", order.Interest)
-		trades, rejects, err = l.processLimitOrder(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
+		trades, rejects, err = l.processLimitOrder(createdBlockTime,coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -109,7 +108,7 @@ func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainConte
 }
 
 // processMarketOrder : process the market order
-func (l *Lending) processMarketOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processMarketOrder(createdBlockTime uint64,coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
 	var (
 		trades     []map[string]string
 		newTrades  []map[string]string
@@ -125,7 +124,7 @@ func (l *Lending) processMarketOrder(coinbase common.Address, chain consensus.Ch
 		bestInterest, volume := lendingStateDB.GetBestBorrowRate(lendingOrderBook)
 		log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && bestInterest.Cmp(zero) > 0 {
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, bestInterest, quantityToTrade, order)
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime,coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, bestInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -138,7 +137,7 @@ func (l *Lending) processMarketOrder(coinbase common.Address, chain consensus.Ch
 		bestInterest, volume := lendingStateDB.GetBestInvestingRate(lendingOrderBook)
 		log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && bestInterest.Cmp(zero) > 0 {
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, bestInterest, quantityToTrade, order)
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime,coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, bestInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -153,7 +152,7 @@ func (l *Lending) processMarketOrder(coinbase common.Address, chain consensus.Ch
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (l *Lending) processLimitOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, LendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processLimitOrder(createdBlockTime uint64,coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, LendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
 	var (
 		trades     []map[string]string
 		newTrades  []map[string]string
@@ -173,7 +172,7 @@ func (l *Lending) processLimitOrder(coinbase common.Address, chain consensus.Cha
 		log.Debug("processLimitOrder ", "side", side, "minInterest", minInterest, "orderInterest", Interest, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && Interest.Cmp(minInterest) >= 0 && minInterest.Cmp(zero) > 0 {
 			log.Debug("Min Interest in Investings tree", "Interest", minInterest.String())
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, LendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, minInterest, quantityToTrade, order)
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime,coinbase, chain, statedb, LendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, minInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -188,7 +187,7 @@ func (l *Lending) processLimitOrder(coinbase common.Address, chain consensus.Cha
 		log.Debug("processLimitOrder ", "side", side, "maxInterest", maxInterest, "orderInterest", Interest, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && Interest.Cmp(maxInterest) <= 0 && maxInterest.Cmp(zero) > 0 {
 			log.Debug("Max Interest in Borrowings tree", "Interest", maxInterest.String())
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(coinbase, chain, statedb, LendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, maxInterest, quantityToTrade, order)
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime,coinbase, chain, statedb, LendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, maxInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -212,7 +211,7 @@ func (l *Lending) processLimitOrder(coinbase common.Address, chain consensus.Cha
 }
 
 // processOrderList : process the order list
-func (l *Lending) processOrderList(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, side string, lendingOrderBook common.Hash, Interest *big.Int, quantityStillToTrade *big.Int, order *lendingstate.LendingItem) (*big.Int, []map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processOrderList(createdBlockTime uint64,coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, side string, lendingOrderBook common.Hash, Interest *big.Int, quantityStillToTrade *big.Int, order *lendingstate.LendingItem) (*big.Int, []map[string]string, []*lendingstate.LendingItem, error) {
 	quantityToTrade := lendingstate.CloneBigInt(quantityStillToTrade)
 	log.Debug("Process matching between order and orderlist", "quantityToTrade", quantityToTrade)
 	var (
@@ -310,8 +309,8 @@ func (l *Lending) processOrderList(coinbase common.Address, chain consensus.Chai
 			log.Debug("Update quantity for orderId", "orderId", orderId.Hex())
 			log.Debug("TRADE", "lendingOrderBook", lendingOrderBook, "Taker Interest", Interest, "maker Interest", order.Interest, "Amount", tradedQuantity, "orderId", orderId, "side", side)
 			tradingId := lendingStateDB.GetTradeNonce(lendingOrderBook) + 1
-			liquidationTime := uint64(time.Now().Unix()) + order.Term
-			lendingTrade := lendingstate.LendingTrade{TradeId: tradingId, Amount: quantityToTrade}
+			liquidationTime := createdBlockTime + order.Term
+			lendingTrade := lendingstate.LendingTrade{TradeId: tradingId, Amount: quantityToTrade,LiquidationTime:liquidationTime}
 
 			lendingStateDB.InsertTradingItem(lendingOrderBook, lendingTrade)
 			lendingStateDB.InsertLiquidationTime(lendingOrderBook, new(big.Int).SetUint64(liquidationTime), tradingId)
