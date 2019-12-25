@@ -218,7 +218,36 @@ func main() {
 	if err != nil {
 		log.Fatal("Lending add collateral", err)
 	}
-	fmt.Println("wait 2s to add collateral TOMO")
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddBaseToken(tokenList[9]["address"].(common.Address))
+	if err != nil {
+		log.Fatal("Lending add base token", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(7 * 86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(30 * 86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	fmt.Println("wait 2s to setup lending contract")
 	time.Sleep(2 * time.Second)
 }
 
