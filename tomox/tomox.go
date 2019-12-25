@@ -25,7 +25,7 @@ const (
 	ProtocolName       = "tomox"
 	ProtocolVersion    = uint64(1)
 	ProtocolVersionStr = "1.0"
-	overflowIdx        // Indicator of message queue overflow
+	overflowIdx         // Indicator of message queue overflow
 	defaultCacheLimit = 1024
 )
 
@@ -510,8 +510,8 @@ func (tomox *TomoX) GetTriegc() *prque.Prque {
 func (tomox *TomoX) GetTradingStateRoot(block *types.Block) (common.Hash, error) {
 	for _, tx := range block.Transactions() {
 		if tx.To() != nil && tx.To().Hex() == common.TomoXStateAddr {
-			if len(tx.Data()) > 0 {
-				return common.BytesToHash(tx.Data()), nil
+			if len(tx.Data()) >= 32 {
+				return common.BytesToHash(tx.Data()[:32]), nil
 			}
 		}
 	}
