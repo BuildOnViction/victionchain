@@ -37,7 +37,8 @@ func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainConte
 	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
 		return nil, nil, ErrNonceTooLow
 	}
-	if order.Status == lendingstate.LendingStatusCancelled {
+	switch order.Status {
+	case lendingstate.LendingStatusCancelled:
 		err, reject := l.ProcessCancelOrder(lendingStateDB, statedb, chain, coinbase, lendingOrderBook, order)
 		if err != nil {
 			return nil, nil, err
@@ -48,6 +49,29 @@ func (l *Lending) ApplyOrder(coinbase common.Address, chain consensus.ChainConte
 		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
+	case lendingstate.Deposit:
+		err, reject := l.ProcessDeposit(lendingStateDB, statedb, chain, coinbase, lendingOrderBook, order)
+		if err != nil {
+			return nil, nil, err
+		}
+		if reject {
+			rejects = append(rejects, order)
+		}
+		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
+		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
+		return trades, rejects, nil
+	case lendingstate.Payment:
+		err, reject := l.ProcessPayment(lendingStateDB, statedb, chain, coinbase, lendingOrderBook, order)
+		if err != nil {
+			return nil, nil, err
+		}
+		if reject {
+			rejects = append(rejects, order)
+		}
+		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
+		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
+		return trades, rejects, nil
+	default:
 	}
 	if order.Type != lendingstate.Market {
 		if order.Interest.Sign() == 0 || common.BigToHash(order.Interest).Big().Cmp(order.Interest) != 0 {
@@ -568,6 +592,96 @@ func DoSettleBalance(coinbase common.Address, takerOrder, makerOrder *lendingsta
 }
 
 func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, chain consensus.ChainContext, coinbase common.Address, lendingOrderBook common.Hash, order *lendingstate.LendingItem) (error, bool) {
+	if err := lendingstate.CheckRelayerFee(order.Relayer, common.RelayerCancelFee, statedb); err != nil {
+		log.Debug("Relayer not enough fee when cancel order", "err", err)
+		return nil, true
+	}
+	lendingTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
+	if err != nil || lendingTokenDecimal.Sign() == 0 {
+		log.Debug("Fail to get tokenDecimal ", "Token", order.LendingToken.String(), "err", err)
+		return err, false
+	}
+	var tokenBalance *big.Int
+	switch order.Side {
+	case lendingstate.Investing:
+		tokenBalance = lendingstate.GetTokenBalance(order.UserAddress, order.LendingToken, statedb)
+	case lendingstate.Borrowing:
+		tokenBalance = lendingstate.GetTokenBalance(order.UserAddress, order.CollateralToken, statedb)
+	default:
+		log.Debug("Not found order side", "Side", order.Side)
+		return nil, true
+	}
+	log.Debug("ProcessCancelOrder", "LendingToken", order.LendingToken, "CollateralToken", order.CollateralToken, "makerInterest", order.Interest, "lendingTokenDecimal", lendingTokenDecimal, "quantity", order.Quantity)
+	feeRate := lendingstate.GetExRelayerFee(order.Relayer, statedb)
+	tokenCancelFee := getCancelFee(lendingTokenDecimal, feeRate, order)
+	if tokenBalance.Cmp(tokenCancelFee) < 0 {
+		log.Debug("User not enough balance when cancel order", "Side", order.Side, "Interest", order.Interest, "Quantity", order.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
+		return nil, true
+	}
+	err = lendingStateDB.CancelLendingOrder(lendingOrderBook, order)
+	if err != nil {
+		log.Debug("Error when cancel order", "order", order)
+		return err, false
+	}
+	lendingstate.SubRelayerFee(order.Relayer, common.RelayerCancelFee, statedb)
+	switch order.Side {
+	case lendingstate.Investing:
+		lendingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.LendingToken, statedb)
+	case lendingstate.Borrowing:
+		lendingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.CollateralToken, statedb)
+	default:
+	}
+	masternodeOwner := statedb.GetOwner(coinbase)
+	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
+	return nil, false
+}
+
+func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, chain consensus.ChainContext, coinbase common.Address, lendingOrderBook common.Hash, order *lendingstate.LendingItem) (error, bool) {
+	if err := lendingstate.CheckRelayerFee(order.Relayer, common.RelayerCancelFee, statedb); err != nil {
+		log.Debug("Relayer not enough fee when cancel order", "err", err)
+		return nil, true
+	}
+	lendingTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
+	if err != nil || lendingTokenDecimal.Sign() == 0 {
+		log.Debug("Fail to get tokenDecimal ", "Token", order.LendingToken.String(), "err", err)
+		return err, false
+	}
+	var tokenBalance *big.Int
+	switch order.Side {
+	case lendingstate.Investing:
+		tokenBalance = lendingstate.GetTokenBalance(order.UserAddress, order.LendingToken, statedb)
+	case lendingstate.Borrowing:
+		tokenBalance = lendingstate.GetTokenBalance(order.UserAddress, order.CollateralToken, statedb)
+	default:
+		log.Debug("Not found order side", "Side", order.Side)
+		return nil, true
+	}
+	log.Debug("ProcessCancelOrder", "LendingToken", order.LendingToken, "CollateralToken", order.CollateralToken, "makerInterest", order.Interest, "lendingTokenDecimal", lendingTokenDecimal, "quantity", order.Quantity)
+	feeRate := lendingstate.GetExRelayerFee(order.Relayer, statedb)
+	tokenCancelFee := getCancelFee(lendingTokenDecimal, feeRate, order)
+	if tokenBalance.Cmp(tokenCancelFee) < 0 {
+		log.Debug("User not enough balance when cancel order", "Side", order.Side, "Interest", order.Interest, "Quantity", order.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
+		return nil, true
+	}
+	err = lendingStateDB.CancelLendingOrder(lendingOrderBook, order)
+	if err != nil {
+		log.Debug("Error when cancel order", "order", order)
+		return err, false
+	}
+	lendingstate.SubRelayerFee(order.Relayer, common.RelayerCancelFee, statedb)
+	switch order.Side {
+	case lendingstate.Investing:
+		lendingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.LendingToken, statedb)
+	case lendingstate.Borrowing:
+		lendingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.CollateralToken, statedb)
+	default:
+	}
+	masternodeOwner := statedb.GetOwner(coinbase)
+	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
+	return nil, false
+}
+
+func (l *Lending) ProcessPayment(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, chain consensus.ChainContext, coinbase common.Address, lendingOrderBook common.Hash, order *lendingstate.LendingItem) (error, bool) {
 	if err := lendingstate.CheckRelayerFee(order.Relayer, common.RelayerCancelFee, statedb); err != nil {
 		log.Debug("Relayer not enough fee when cancel order", "err", err)
 		return nil, true

@@ -12,6 +12,8 @@ import (
 const (
 	Investing                  = "INVESTING"
 	Borrowing                  = "BORROWING"
+	Deposit                    = "DEPOSIT"
+	Payment                    = "PAYMENT"
 	LendingStatusNew           = "NEW"
 	LendingStatusOpen          = "OPEN"
 	LendingStatusReject        = "REJECTED"
