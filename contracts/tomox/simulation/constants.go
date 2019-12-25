@@ -20,11 +20,12 @@ var (
 	TRC21TokenFee = big.NewInt(100)
 
 	// TOMOX
-	MaxRelayers     = big.NewInt(200)
-	MaxTokenList    = big.NewInt(200)
-	MinDeposit      = big.NewInt(0).Mul(big.NewInt(25000), BaseTOMO) // 25000 TOMO
-	TradeFee        = uint16(10)                                     // trade fee decimals 10
-	LendingTradeFee = uint16(100)                                    // lending trade fee decimals 10
+	MaxRelayers           = big.NewInt(200)
+	MaxTokenList          = big.NewInt(200)
+	MinDeposit            = big.NewInt(0).Mul(big.NewInt(25000), BaseTOMO) // 25000 TOMO
+	CollateralDepositRate = big.NewInt(150)
+	TradeFee              = uint16(10)  // trade fee decimals 10
+	LendingTradeFee       = uint16(100) // lending trade fee decimals 10
 
 	RelayerCoinbaseKey, _ = crypto.HexToECDSA(os.Getenv("RELAYER_COINBASE_KEY")) //
 	RelayerCoinbaseAddr   = crypto.PubkeyToAddress(RelayerCoinbaseKey.PublicKey) // 0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e
