@@ -146,7 +146,7 @@ func (self *itemListState) updateTrie(db Database) Trie {
 	return tr
 }
 
-// UpdateRoot sets the trie root to the current root orderId of
+// UpdateRoot sets the trie root to the current root tradeId of
 func (self *itemListState) updateRoot(db Database) error {
 	self.updateTrie(db)
 	if self.dbErr != nil {

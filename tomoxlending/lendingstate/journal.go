@@ -17,7 +17,6 @@
 package lendingstate
 
 import (
-	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"math/big"
 )
@@ -37,7 +36,8 @@ type (
 	}
 	insertTrading struct {
 		orderBook common.Hash
-		order     *LendingTrade
+		tradeId   uint64
+		prvTrade  *LendingTrade
 	}
 	cancelOrder struct {
 		orderBook common.Hash
@@ -46,6 +46,7 @@ type (
 	}
 	cancelTrading struct {
 		orderBook common.Hash
+		tradeId   uint64
 		order     LendingTrade
 	}
 	subAmountOrder struct {
@@ -62,15 +63,20 @@ type (
 		hash common.Hash
 		prev uint64
 	}
-	priceChange struct {
-		hash common.Hash
-		prev *big.Int
+	liquidationPriceChange struct {
+		orderBook common.Hash
+		tradeId   common.Hash
+		prev      *big.Int
+	}
+	collateralLockedAmount struct {
+		orderBook common.Hash
+		tradeId   common.Hash
+		prev      *big.Int
 	}
 )
 
 func (ch insertOrder) undo(s *LendingStateDB) {
-	err := s.CancelLendingOrder(ch.orderBook, ch.order)
-	fmt.Println("err", err)
+	s.CancelLendingOrder(ch.orderBook, ch.order)
 }
 func (ch cancelOrder) undo(s *LendingStateDB) {
 	s.InsertLendingItem(ch.orderBook, ch.orderId, ch.order)
@@ -101,8 +107,32 @@ func (ch tradeNonceChange) undo(s *LendingStateDB) {
 	s.SetTradeNonce(ch.hash, ch.prev)
 }
 func (ch cancelTrading) undo(s *LendingStateDB) {
-	s.InsertTradingItem(ch.orderBook, ch.order)
+	s.InsertTradingItem(ch.orderBook, ch.tradeId, ch.order)
 }
 func (ch insertTrading) undo(s *LendingStateDB) {
-	s.CancelLendingTrade(ch.orderBook, ch.order)
+	s.InsertTradingItem(ch.orderBook, ch.tradeId, *ch.prvTrade)
+}
+
+func (ch liquidationPriceChange) undo(s *LendingStateDB) {
+	stateOrderBook := s.getLendingExchange(ch.orderBook)
+	if stateOrderBook == nil {
+		return
+	}
+	stateLendingTrade := stateOrderBook.getLendingTrade(s.db, ch.tradeId)
+	if stateLendingTrade == nil {
+		return
+	}
+	stateLendingTrade.SetLiquidationPrice(ch.prev)
+}
+
+func (ch collateralLockedAmount) undo(s *LendingStateDB) {
+	stateOrderBook := s.getLendingExchange(ch.orderBook)
+	if stateOrderBook == nil {
+		return
+	}
+	stateLendingTrade := stateOrderBook.getLendingTrade(s.db, ch.tradeId)
+	if stateLendingTrade == nil {
+		return
+	}
+	stateLendingTrade.SetCollateralLockedAmount(ch.prev)
 }

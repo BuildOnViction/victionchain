@@ -91,8 +91,8 @@ type MatchingResult struct {
 	Rejects []*LendingItem
 }
 
-// use orderHash instead of orderId
-// because both takerOrders don't have orderId
+// use orderHash instead of tradeId
+// because both takerOrders don't have tradeId
 func GetLendingItemHistoryKey(lendingToken, collateralToken common.Address, lendingItemHash common.Hash) common.Hash {
 	return crypto.Keccak256Hash(lendingToken.Bytes(), collateralToken.Bytes(), lendingItemHash.Bytes())
 }
@@ -110,6 +110,11 @@ type LendingTradeHistoryItem struct {
 	LiquidationPrice       *big.Int
 	Status                 string
 	UpdatedAt              time.Time
+}
+
+type LendingPair struct {
+	LendingToken    common.Address
+	CollateralToken common.Address
 }
 
 // ToJSON : log json string

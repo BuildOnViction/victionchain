@@ -1,8 +1,10 @@
 package lendingstate
 
 import (
+	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/crypto"
 	"math/big"
 )
 
@@ -151,13 +153,13 @@ func GetCollaterals(statedb *state.StateDB, coinbase common.Address, baseToken c
 // @param statedb : current state
 // @param token: address of collateral token
 // @return: depositRate, liquidationRate, price of collateral
-func GetCollateralDetail(statedb *state.StateDB, token common.Address) (depositRate uint64, liquidationRate uint64, price *big.Int) {
+func GetCollateralDetail(statedb *state.StateDB, token common.Address) (depositRate *big.Int, liquidationRate *big.Int, price *big.Int) {
 	collateralState := GetLocMappingAtKey(token.Hash(), CollateralMapSlot)
 	locDepositRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["depositRate"])
 	locLiquidationRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["liquidationRate"])
 	locCollateralPrice := state.GetLocOfStructElement(collateralState, CollateralStructSlots["price"])
-	depositRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDepositRate).Big().Uint64()
-	liquidationRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locLiquidationRate).Big().Uint64()
+	depositRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDepositRate).Big()
+	liquidationRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locLiquidationRate).Big()
 	price = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locCollateralPrice).Big()
 	return depositRate, liquidationRate, price
 }
@@ -194,4 +196,83 @@ func GetSupportedBaseToken(statedb *state.StateDB) []common.Address {
 		}
 	}
 	return baseTokens
+}
+
+func GetRelayerCount(statedb *state.StateDB) uint64 {
+	slot := RelayerMappingSlot["RelayerCount"]
+	slotHash := common.BigToHash(new(big.Int).SetUint64(slot))
+	valueHash := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), slotHash)
+	return new(big.Int).SetBytes(valueHash.Bytes()).Uint64()
+}
+
+func GetAllCoinbases(statedb *state.StateDB) []common.Address {
+	relayerCount := GetRelayerCount(statedb)
+	slot := RelayerMappingSlot["RELAYER_COINBASES"]
+	slotHash := common.BigToHash(new(big.Int).SetUint64(slot))
+	coinbases := []common.Address{}
+	for i := uint64(0); i < relayerCount; i++ {
+		retByte := crypto.Keccak256(new(big.Int).SetUint64(i).Bytes(), slotHash.Bytes())
+		valueHash := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), common.BytesToHash(retByte))
+		coinbases = append(coinbases, common.BytesToAddress(valueHash.Bytes()))
+	}
+	return coinbases
+}
+func GetAllLendingPairs(statedb *state.StateDB) ([]LendingPair, error) {
+	coinbases := GetAllCoinbases(statedb)
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	allPairs := []LendingPair{}
+	for _, coinbase := range coinbases {
+		locBig := GetLocMappingAtKey(coinbase.Hash(), slot)
+		fromTokenSlot := new(big.Int).Add(locBig, RelayerStructMappingSlot["_fromTokens"])
+		fromTokenLength := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(fromTokenSlot)).Big().Uint64()
+		toTokenSlot := new(big.Int).Add(locBig, RelayerStructMappingSlot["_toTokens"])
+		toTokenLength := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(toTokenSlot)).Big().Uint64()
+		if toTokenLength != fromTokenLength {
+			return []LendingPair{}, fmt.Errorf("Invalid length from token & to toke : from :%d , to :%d ", fromTokenLength, toTokenLength)
+		}
+		fromTokens := []common.Address{}
+		for i := uint64(0); i < fromTokenLength; i++ {
+			slotKecBig := crypto.Keccak256Hash(fromTokenSlot.Bytes()).Big()
+			arrBig := slotKecBig.Add(slotKecBig, new(big.Int).SetUint64(i))
+			fromToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(arrBig)).Bytes())
+			fromTokens = append(fromTokens, fromToken)
+		}
+		for i := uint64(0); i < toTokenLength; i++ {
+			slotKecBig := crypto.Keccak256Hash(toTokenSlot.Bytes()).Big()
+			arrBig := slotKecBig.Add(slotKecBig, new(big.Int).SetUint64(i))
+			toToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(arrBig)).Bytes())
+			allPairs = append(allPairs, LendingPair{LendingToken: fromTokens[i], CollateralToken: toToken})
+		}
+	}
+	return allPairs, nil
+}
+
+func GetAllLendingBooks(statedb *state.StateDB) (map[common.Hash]bool, error) {
+	coinbases := GetAllCoinbases(statedb)
+	slot := RelayerMappingSlot["RELAYER_LIST"]
+	allPairs := map[common.Hash]bool{}
+	for _, coinbase := range coinbases {
+		locBig := GetLocMappingAtKey(coinbase.Hash(), slot)
+		fromTokenSlot := new(big.Int).Add(locBig, RelayerStructMappingSlot["_fromTokens"])
+		fromTokenLength := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(fromTokenSlot)).Big().Uint64()
+		toTokenSlot := new(big.Int).Add(locBig, RelayerStructMappingSlot["_toTokens"])
+		toTokenLength := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(toTokenSlot)).Big().Uint64()
+		if toTokenLength != fromTokenLength {
+			return map[common.Hash]bool{}, fmt.Errorf("Invalid length from token & to toke : from :%d , to :%d ", fromTokenLength, toTokenLength)
+		}
+		fromTokens := []common.Address{}
+		for i := uint64(0); i < fromTokenLength; i++ {
+			slotKecBig := crypto.Keccak256Hash(fromTokenSlot.Bytes()).Big()
+			arrBig := slotKecBig.Add(slotKecBig, new(big.Int).SetUint64(i))
+			fromToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(arrBig)).Bytes())
+			fromTokens = append(fromTokens, fromToken)
+		}
+		for i := uint64(0); i < toTokenLength; i++ {
+			slotKecBig := crypto.Keccak256Hash(toTokenSlot.Bytes()).Big()
+			arrBig := slotKecBig.Add(slotKecBig, new(big.Int).SetUint64(i))
+			toToken := common.BytesToHash(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(arrBig)).Bytes())
+			allPairs[GetLendingOrderBookHash(fromTokens[i], toToken.Big().Uint64())] = true
+		}
+	}
+	return allPairs, nil
 }

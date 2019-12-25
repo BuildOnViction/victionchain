@@ -69,7 +69,7 @@ type LendingItem struct {
 	Nonce           *big.Int       `bson:"nonce" json:"nonce"`
 	CreatedAt       time.Time      `bson:"createdAt" json:"createdAt"`
 	UpdatedAt       time.Time      `bson:"updatedAt" json:"updatedAt"`
-	LendingId       uint64         `bson:"lendingId" json:"lendingId"`
+	LendingId       uint64         `bson:"tradeId" json:"tradeId"`
 	ExtraData       string         `bson:"extraData" json:"extraData"`
 }
 
@@ -91,7 +91,7 @@ type LendingItemBSON struct {
 	Nonce           string           `bson:"nonce" json:"nonce"`
 	CreatedAt       time.Time        `bson:"createdAt" json:"createdAt"`
 	UpdatedAt       time.Time        `bson:"updatedAt" json:"updatedAt"`
-	LendingId       string           `bson:"lendingId" json:"lendingId"`
+	LendingId       string           `bson:"tradeId" json:"tradeId"`
 	ExtraData       string           `bson:"extraData" json:"extraData"`
 }
 

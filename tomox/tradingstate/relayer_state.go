@@ -95,7 +95,7 @@ func GetAllCoinbases(statedb *state.StateDB) []common.Address {
 	coinbases := []common.Address{}
 	for i := uint64(0); i < relayerCount; i++ {
 		retByte := crypto.Keccak256(new(big.Int).SetUint64(i).Bytes(), slotHash.Bytes())
-		valueHash := statedb.GetState(common.HexToAddress(common.RandomizeSMC), common.BytesToHash(retByte))
+		valueHash := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BytesToHash(retByte))
 		coinbases = append(coinbases, common.BytesToAddress(valueHash.Bytes()))
 	}
 	return coinbases
