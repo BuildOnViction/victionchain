@@ -27,6 +27,9 @@ type TxPreEvent struct{ Tx *types.Transaction }
 // OrderTxPreEvent is posted when a order transaction enters the order transaction pool.
 type OrderTxPreEvent struct{ Tx *types.OrderTransaction }
 
+// LendingTxPreEvent is posted when a order transaction enters the order transaction pool.
+type LendingTxPreEvent struct{ Tx *types.LendingTransaction }
+
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
 type PendingLogsEvent struct {
 	Logs []*types.Log

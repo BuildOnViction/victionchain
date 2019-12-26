@@ -21,11 +21,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -1773,6 +1774,15 @@ func submitOrderTransaction(ctx context.Context, b Backend, tx *types.OrderTrans
 	return tx.Hash(), nil
 }
 
+// submitLendingTransaction is a helper function that submits tx to txPool and logs a message.
+func submitLendingTransaction(ctx context.Context, b Backend, tx *types.LendingTransaction) (common.Hash, error) {
+
+	if err := b.SendLendingTx(ctx, tx); err != nil {
+		return common.Hash{}, err
+	}
+	return tx.Hash(), nil
+}
+
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
@@ -1852,6 +1862,30 @@ type OrderMsg struct {
 	// This is only used when marshaling to JSON.
 	Hash common.Hash `json:"hash" rlp:"-"`
 }
+
+// LendingMsg api message for lending
+type LendingMsg struct {
+	AccountNonce    uint64         `json:"nonce"    gencodec:"required"`
+	Quantity        *big.Int       `json:"quantity,omitempty"`
+	RelayerAddress  common.Address `json:"relayerAddress,omitempty"`
+	UserAddress     common.Address `json:"userAddress,omitempty"`
+	CollateralToken common.Address `json:"collateralToken,omitempty"`
+	LendingToken    common.Address `json:"lendingToken,omitempty"`
+	Term            uint64         `json:"term,omitempty"`
+	Interest        uint64         `json:"interest,omitempty"`
+	Status          string         `json:"status,omitempty"`
+	Side            string         `json:"side,omitempty"`
+	Type            string         `json:"type,omitempty"`
+	LendingID       uint64         `json:"lendingId,omitempty"`
+	// Signature values
+	V *big.Int `json:"v" gencodec:"required"`
+	R *big.Int `json:"r" gencodec:"required"`
+	S *big.Int `json:"s" gencodec:"required"`
+
+	// This is only used when marshaling to JSON.
+	Hash common.Hash `json:"hash" rlp:"-"`
+}
+
 type PriceVolume struct {
 	Price  *big.Int `json:"price,omitempty"`
 	Volume *big.Int `json:"volume,omitempty"`
@@ -1863,6 +1897,14 @@ func (s *PublicTomoXTransactionPoolAPI) SendOrder(ctx context.Context, msg Order
 	tx := types.NewOrderTransaction(msg.AccountNonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, msg.Hash, msg.OrderID)
 	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
 	return submitOrderTransaction(ctx, s.b, tx)
+}
+
+// SendLending will add the signed transaction to the transaction pool.
+// The sender is responsible for signing the transaction and using the correct nonce.
+func (s *PublicTomoXTransactionPoolAPI) SendLending(ctx context.Context, msg LendingMsg) (common.Hash, error) {
+	tx := types.NewLendingTransaction(msg.AccountNonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, msg.Hash, msg.LendingID)
+	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
+	return submitLendingTransaction(ctx, s.b, tx)
 }
 
 // GetOrderCount returns the number of transactions the given address has sent for the given block number

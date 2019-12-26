@@ -20,7 +20,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"io"
 	"math/big"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
@@ -301,7 +302,7 @@ func (bc *BlockChain) loadLastState() error {
 					}
 				}
 
-				if ! repair {
+				if !repair {
 					lendingRoot, err := lendingService.GetLendingStateRoot(currentBlock)
 					if err != nil {
 						repair = true
@@ -502,6 +503,24 @@ func (bc *BlockChain) OrderStateAt(block *types.Block) (*tradingstate.TradingSta
 			} else {
 				return nil, err
 			}
+		}
+	}
+	return nil, errors.New("Get tomox state fail")
+
+}
+
+// LendingStateAt returns a new mutable state based on a particular point in time.
+func (bc *BlockChain) LendingStateAt(block *types.Block) (*lendingstate.LendingStateDB, error) {
+	engine, ok := bc.Engine().(*posv.Posv)
+	if ok {
+		lendingService := engine.GetLendingService()
+		if bc.Config().IsTIPTomoX(block.Number()) && lendingService != nil {
+			log.Debug("LendingStateAt", "blocknumber", block.Header().Number)
+			lendingState, err := lendingService.GetLendingState(block)
+			if err == nil {
+				return lendingState, nil
+			}
+			return nil, err
 		}
 	}
 	return nil, errors.New("Get tomox state fail")

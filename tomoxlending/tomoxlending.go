@@ -117,7 +117,7 @@ func (l *Lending) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (l *Lending) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, lendingStatedb *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB) ([]*lendingstate.LendingItem, map[common.Hash]lendingstate.MatchingResult) {
+func (l *Lending) ProcessOrderPending(createdBlockTime uint64,coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, lendingStatedb *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB) ([]*lendingstate.LendingItem, map[common.Hash]lendingstate.MatchingResult) {
 	lendingItems := []*lendingstate.LendingItem{}
 	matchingResults := map[common.Hash]lendingstate.MatchingResult{}
 
@@ -170,7 +170,7 @@ func (l *Lending) ProcessOrderPending(coinbase common.Address, chain consensus.C
 			order.Status = lendingstate.LendingStatusCancelled
 		}
 
-		_, newRejectedOrders, err := l.CommitOrder(coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
+		_, newRejectedOrders, err := l.CommitOrder(createdBlockTime,coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
 
 		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)

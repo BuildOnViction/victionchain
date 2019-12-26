@@ -19,8 +19,9 @@ package ethapi
 
 import (
 	"context"
-	"github.com/tomochain/tomochain/tomox"
 	"math/big"
+
+	"github.com/tomochain/tomochain/tomox"
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
@@ -65,6 +66,7 @@ type Backend interface {
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
 	SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error
+	SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error
 	GetPoolTransactions() (types.Transactions, error)
 	GetPoolTransaction(txHash common.Hash) *types.Transaction
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)

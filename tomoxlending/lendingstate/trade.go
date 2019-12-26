@@ -12,31 +12,32 @@ import (
 )
 
 type LendingTrade struct {
-	Borrower            common.Address `bson:"borrower" json:"borrower"`
-	Investor            common.Address `bson:"investor" json:"investor"`
-	LendingToken        common.Address `bson:"lendingToken" json:"lendingToken"`
-	CollateralToken     common.Address `bson:"collateralToken" json:"collateralToken"`
-	TakerOrderHash      common.Hash    `bson:"takerOrderHash" json:"takerOrderHash"`
-	MakerOrderHash      common.Hash    `bson:"makerOrderHash" json:"makerOrderHash"`
-	BorrowingRelayer    common.Address `bson:"borrowingRelayer" json:"borrowingRelayer"`
-	InvestingRelayer    common.Address `bson:"investingRelayer" json:"investingRelayer"`
-	Term                uint64         `bson:"term" json:"term"`
-	Interest            uint64         `bson:"interest" json:"interest"`
-	CollateralInterest  *big.Int       `bson:"collateralInterest" json:"collateralInterest"`
-	LiquidationInterest *big.Int       `bson:"liquidationInterest" json:"liquidationInterest"`
-	Amount              *big.Int       `bson:"amount" json:"amount"`
-	BorrowingFee        *big.Int       `bson:"borrowingFee" json:"borrowingFee"`
-	InvestingFee        *big.Int       `bson:"investingFee" json:"investingFee"`
-	Status              string         `bson:"status" json:"status"`
-	TakerOrderSide      string         `bson:"takerOrderSide" json:"takerOrderSide"`
-	TakerOrderType      string         `bson:"takerOrderType" json:"takerOrderType"`
-	MakerOrderType      string         `bson:"makerOrderType" json:"makerOrderType"`
-	TradeId             uint64         `bson:"tradeId" json:"tradeId"`
-	Hash                common.Hash    `bson:"hash" json:"hash"`
-	TxHash              common.Hash    `bson:"txHash" json:"txHash"`
-	ExtraData           string         `bson:"extraData" json:"extraData"`
-	CreatedAt           time.Time      `bson:"createdAt" json:"createdAt"`
-	UpdatedAt           time.Time      `bson:"updatedAt" json:"updatedAt"`
+	Borrower         common.Address `bson:"borrower" json:"borrower"`
+	Investor         common.Address `bson:"investor" json:"investor"`
+	LendingToken     common.Address `bson:"lendingToken" json:"lendingToken"`
+	CollateralToken  common.Address `bson:"collateralToken" json:"collateralToken"`
+	TakerOrderHash   common.Hash    `bson:"takerOrderHash" json:"takerOrderHash"`
+	MakerOrderHash   common.Hash    `bson:"makerOrderHash" json:"makerOrderHash"`
+	BorrowingRelayer common.Address `bson:"borrowingRelayer" json:"borrowingRelayer"`
+	InvestingRelayer common.Address `bson:"investingRelayer" json:"investingRelayer"`
+	Term             uint64         `bson:"term" json:"term"`
+	Interest         uint64         `bson:"interest" json:"interest"`
+	CollateralPrice  *big.Int       `bson:"collateralPrice" json:"collateralPrice"`
+	LiquidationPrice *big.Int       `bson:"liquidationPrice" json:"liquidationPrice"`
+	LiquidationTime  uint64         `bson:"liquidationTime" json:"liquidationTime"`
+	Amount           *big.Int       `bson:"amount" json:"amount"`
+	BorrowingFee     *big.Int       `bson:"borrowingFee" json:"borrowingFee"`
+	InvestingFee     *big.Int       `bson:"investingFee" json:"investingFee"`
+	Status           string         `bson:"status" json:"status"`
+	TakerOrderSide   string         `bson:"takerOrderSide" json:"takerOrderSide"`
+	TakerOrderType   string         `bson:"takerOrderType" json:"takerOrderType"`
+	MakerOrderType   string         `bson:"makerOrderType" json:"makerOrderType"`
+	TradeId          uint64         `bson:"tradeId" json:"tradeId"`
+	Hash             common.Hash    `bson:"hash" json:"hash"`
+	TxHash           common.Hash    `bson:"txHash" json:"txHash"`
+	ExtraData        string         `bson:"extraData" json:"extraData"`
+	CreatedAt        time.Time      `bson:"createdAt" json:"createdAt"`
+	UpdatedAt        time.Time      `bson:"updatedAt" json:"updatedAt"`
 }
 
 type LendingTradeBSON struct {
@@ -79,8 +80,8 @@ func (t *LendingTrade) GetBSON() (interface{}, error) {
 		InvestingRelayer:    t.InvestingRelayer.Hex(),
 		Term:                strconv.FormatUint(t.Term, 10),
 		Interest:            strconv.FormatUint(t.Interest, 10),
-		CollateralInterest:  t.CollateralInterest.String(),
-		LiquidationInterest: t.LiquidationInterest.String(),
+		CollateralInterest:  t.CollateralPrice.String(),
+		LiquidationInterest: t.LiquidationPrice.String(),
 		Amount:              t.Amount.String(),
 		BorrowingFee:        t.BorrowingFee.String(),
 		InvestingFee:        t.InvestingFee.String(),
@@ -124,8 +125,8 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 		return fmt.Errorf("failed to parse lendingItem.interest. Err: %v", err)
 	}
 	t.Interest = uint64(interest)
-	t.CollateralInterest = ToBigInt(decoded.CollateralInterest)
-	t.LiquidationInterest = ToBigInt(decoded.LiquidationInterest)
+	t.CollateralPrice = ToBigInt(decoded.CollateralInterest)
+	t.LiquidationPrice = ToBigInt(decoded.LiquidationInterest)
 	t.Amount = tradingstate.ToBigInt(decoded.Amount)
 	t.BorrowingFee = tradingstate.ToBigInt(decoded.BorrowingFee)
 	t.InvestingFee = tradingstate.ToBigInt(decoded.InvestingFee)

@@ -20,10 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/tomochain/tomochain/tomox"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+
+	"github.com/tomochain/tomochain/tomox"
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
@@ -112,6 +113,9 @@ func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	return b.eth.txPool.Add(ctx, signedTx)
 }
 func (b *LesApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
+	return nil
+}
+func (b *LesApiBackend) SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error {
 	return nil
 }
 
