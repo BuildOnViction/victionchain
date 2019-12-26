@@ -180,22 +180,26 @@ func main() {
 
 	baseTokens := []common.Address{}
 	terms := []*big.Int{}
+	collaterals := []common.Address{}
 
 	// USD 1 days
 	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
 	terms = append(terms, big.NewInt(86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
 
 	// USD 7 days
 	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
 	terms = append(terms, big.NewInt(7*86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
 
 	// USD 30 days
 	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
 	terms = append(terms, big.NewInt(30*86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
 
-	_, err = lendingRelayerRegistration.Register(simulation.RelayerCoinbaseAddr, simulation.LendingTradeFee, baseTokens, terms)
+	_, err = lendingRelayerRegistration.Update(simulation.RelayerCoinbaseAddr, simulation.LendingTradeFee, baseTokens, terms, collaterals)
 	if err != nil {
-		log.Fatal("lendingRelayerRegistration Register ", err)
+		log.Fatal("lendingRelayerRegistration Update", err)
 	}
 
 	nonce = nonce + 1

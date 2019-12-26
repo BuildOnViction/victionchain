@@ -7,10 +7,12 @@ contract AbstractRegistration {
 
 contract Lending {
     
+    // @dev collateral = 0x0 => get collaterals from COLLATERALS
     struct LendingRelayer {
         uint16 _tradeFee;
         address[] _baseTokens;
         uint256[] _terms; // seconds
+        address[] _collaterals;
     }
     
     mapping(address => LendingRelayer) public LENDINGRELAYER_LIST;
@@ -41,7 +43,7 @@ contract Lending {
         TERMS.push(term);
     }
     
-    function register(address coinbase, uint16 tradeFee, address[] memory baseTokens, uint256[] memory terms) public {
+    function update(address coinbase, uint16 tradeFee, address[] memory baseTokens, uint256[] memory terms, address[] memory collaterals) public {
         (, address owner,,,,) = relayer.getRelayerByCoinbase(coinbase);
         require(owner == msg.sender, "owner required");
         require(relayer.RESIGN_REQUESTS(coinbase) == 0, "relayer required to close");
@@ -49,13 +51,15 @@ contract Lending {
         LENDINGRELAYER_LIST[coinbase] = LendingRelayer({
             _tradeFee: tradeFee,
             _baseTokens: baseTokens,
-            _terms: terms
+            _terms: terms,
+            _collaterals: collaterals
         });
     }
     
-    function getLendingRelayerByCoinbase(address coinbase) public view returns (uint16, address[] memory, uint256[] memory) {
+    function getLendingRelayerByCoinbase(address coinbase) public view returns (uint16, address[] memory, uint256[] memory, address[] memory) {
         return (LENDINGRELAYER_LIST[coinbase]._tradeFee,
                 LENDINGRELAYER_LIST[coinbase]._baseTokens,
-                LENDINGRELAYER_LIST[coinbase]._terms);
+                LENDINGRELAYER_LIST[coinbase]._terms,
+                LENDINGRELAYER_LIST[coinbase]._collaterals);
     }
 }
