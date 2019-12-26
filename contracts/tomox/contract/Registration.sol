@@ -1,5 +1,7 @@
 pragma solidity ^0.4.24;
 
+import "./SafeMath.sol";
+
 contract RelayerRegistration {
     using SafeMath for uint;
 
@@ -20,11 +22,11 @@ contract RelayerRegistration {
     }
 
     /// @DEV coinbase -> relayer
-    mapping(address => Relayer) private RELAYER_LIST;
+    mapping(address => Relayer) public RELAYER_LIST;
     /// @dev index -> coinbase
     mapping(uint => address) public RELAYER_COINBASES;
     /// @dev coinbase -> time
-    mapping(address => uint) private RESIGN_REQUESTS;
+    mapping(address => uint) public RESIGN_REQUESTS;
     /// @dev coinbase -> price
     mapping(address => uint256) public RELAYER_ON_SALE_LIST;
 
