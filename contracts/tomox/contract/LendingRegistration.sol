@@ -45,8 +45,11 @@ contract Lending {
     
     function update(address coinbase, uint16 tradeFee, address[] memory baseTokens, uint256[] memory terms, address[] memory collaterals) public {
         (, address owner,,,,) = relayer.getRelayerByCoinbase(coinbase);
-        require(owner == msg.sender, "owner required");
+        require(owner == msg.sender, "relayer owner required");
         require(relayer.RESIGN_REQUESTS(coinbase) == 0, "relayer required to close");
+        require(tradeFee >= 1 && tradeFee < 1000, "Invalid Maker Fee"); // 0.01% -> 10%
+        require(baseTokens.length == terms.length, "Not valid number of terms");
+        require(baseTokens.length == collaterals.length, "Not valid number of collaterals");
         
         LENDINGRELAYER_LIST[coinbase] = LendingRelayer({
             _tradeFee: tradeFee,
