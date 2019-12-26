@@ -640,7 +640,7 @@ func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, st
 		log.Debug("Relayer not enough fee when cancel order", "err", err)
 		return nil, true
 	}
-	lendingTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
+	lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
 	if err != nil || lendingTokenDecimal.Sign() == 0 {
 		log.Debug("Fail to get tokenDecimal ", "Token", order.LendingToken.String(), "err", err)
 		return err, false
@@ -685,7 +685,7 @@ func (l *Lending) ProcessPayment(lendingStateDB *lendingstate.LendingStateDB, st
 		log.Debug("Relayer not enough fee when cancel order", "err", err)
 		return nil, true
 	}
-	lendingTokenDecimal, err := l.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
+	lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
 	if err != nil || lendingTokenDecimal.Sign() == 0 {
 		log.Debug("Fail to get tokenDecimal ", "Token", order.LendingToken.String(), "err", err)
 		return err, false
