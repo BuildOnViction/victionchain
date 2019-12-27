@@ -91,22 +91,6 @@ type MatchingResult struct {
 	Rejects []*LendingItem
 }
 
-func EncodeTxLendingBatch(txLendingBatch TxLendingBatch) ([]byte, error) {
-	data, err := json.Marshal(txLendingBatch)
-	if err != nil || data == nil {
-		return []byte{}, err
-	}
-	return data, nil
-}
-
-func DecodeTxLendingBatch(data []byte) (TxLendingBatch, error) {
-	txLendingResult := TxLendingBatch{}
-	if err := json.Unmarshal(data, &txLendingResult); err != nil {
-		return TxLendingBatch{}, err
-	}
-	return txLendingResult, nil
-}
-
 // use orderHash instead of orderId
 // because both takerOrders don't have orderId
 func GetLendingItemHistoryKey(lendingToken, collateralToken common.Address, lendingItemHash common.Hash) common.Hash {
@@ -120,10 +104,12 @@ type LendingItemHistoryItem struct {
 	UpdatedAt    time.Time
 }
 
-// use alloc to prevent reference manipulation
-func EmptyKey() []byte {
-	key := make([]byte, common.HashLength)
-	return key
+type LendingTradeHistoryItem struct {
+	TxHash                 common.Hash
+	CollateralLockedAmount *big.Int
+	LiquidationPrice       *big.Int
+	Status                 string
+	UpdatedAt              time.Time
 }
 
 // ToJSON : log json string

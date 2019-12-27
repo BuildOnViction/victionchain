@@ -81,9 +81,8 @@ type LendingService interface {
 	GetStateCache() lendingstate.Database
 	GetTriegc() *prque.Prque
 	ApplyOrder(createdBlockTime uint64,coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error)
-	SyncDataToSDKNode(takerOrderInTx *lendingstate.LendingItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []*lendingstate.LendingTrade, rejectedOrders []*lendingstate.LendingItem, dirtyOrderCount *uint64) error
-	RollbackReorgTxMatch(txhash common.Hash)
-	GetTokenDecimal(chain consensus.ChainContext, statedb *state.StateDB, coinbase common.Address, tokenAddr common.Address) (*big.Int, error)
+	SyncDataToSDKNode(takerOrderInTx *lendingstate.LendingItem, txHash common.Hash, txMatchTime time.Time, trades []*lendingstate.LendingTrade, rejectedOrders []*lendingstate.LendingItem, dirtyOrderCount *uint64) error
+	RollbackLendingData(txhash common.Hash)
 }
 
 // Posv proof-of-stake-voting protocol constants.
@@ -446,18 +445,10 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 		return c.verifySeal(chain, header, parents, fullVerify)
 	}
 
-	// try again the progress with signers querying from smart contract
-	// for example the checkpoint is 886500 -> the start gap block is 886495
-	startGapBlockHeader := header
-	for step := uint64(1); step <= chain.Config().Posv.Gap; step++ {
-		startGapBlockHeader = chain.GetHeader(startGapBlockHeader.ParentHash, number-step)
-	}
-	signers, err = c.HookGetSignersFromContract(startGapBlockHeader.Hash())
+	signers, err = c.GetSignersFromContract(chain, header)
 	if err != nil {
-		log.Debug("Can't get signers from Smart Contract ", err)
 		return err
 	}
-
 	err = c.checkSignersOnCheckpoint(chain, header, signers)
 	if err == nil {
 		return c.verifySeal(chain, header, parents, fullVerify)
@@ -468,6 +459,10 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 
 func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *types.Header, signers []common.Address) error {
 	number := header.Number.Uint64()
+	// ignore signerCheck at checkpoint block 14458500 due to wrong snapshot at gap 14458495
+	if number == common.IgnoreSignerCheckBlock {
+		return nil
+	}
 	penPenalties := []common.Address{}
 	if c.HookPenalty != nil || c.HookPenaltyTIPSigning != nil {
 		var err error
@@ -496,6 +491,7 @@ func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *typ
 	extraSuffix := len(header.Extra) - extraSeal
 	masternodesFromCheckpointHeader := common.ExtractAddressFromBytes(header.Extra[extraVanity:extraSuffix])
 	validSigners := compareSignersLists(masternodesFromCheckpointHeader, signers)
+
 	if !validSigners {
 		log.Error("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "masternodes_in_snapshot", signers, "penList", penPenalties)
 		return errInvalidCheckpointSigners
@@ -1308,4 +1304,17 @@ func (c *Posv) CheckMNTurn(chain consensus.ChainReader, parent *types.Header, si
 		return true
 	}
 	return false
+}
+
+func (c *Posv) GetSignersFromContract(chain consensus.ChainReader, checkpointHeader *types.Header) ([]common.Address, error) {
+	startGapBlockHeader := checkpointHeader
+	number := checkpointHeader.Number.Uint64()
+	for step := uint64(1); step <= chain.Config().Posv.Gap; step++ {
+		startGapBlockHeader = chain.GetHeader(startGapBlockHeader.ParentHash, number-step)
+	}
+	signers, err := c.HookGetSignersFromContract(startGapBlockHeader.Hash())
+	if err != nil {
+		return []common.Address{}, fmt.Errorf("Can't get signers from Smart Contract . Err: %v", err)
+	}
+	return signers, nil
 }

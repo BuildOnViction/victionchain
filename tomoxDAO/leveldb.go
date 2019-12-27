@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"github.com/globalsign/mgo"
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -49,7 +47,7 @@ func NewBatchDatabaseWithEncode(datadir string, cacheLimit int) *BatchDatabase {
 	batchDB := &BatchDatabase{
 		db:         db,
 		cacheItems: cacheItems,
-		emptyKey:   tradingstate.EmptyKey(), // pre alloc for comparison
+		emptyKey:   EmptyKey(), // pre alloc for comparison
 		cacheLimit: itemCacheLimit,
 	}
 
@@ -109,15 +107,15 @@ func (db *BatchDatabase) NewBatch() ethdb.Batch {
 	return db.db.NewBatch()
 }
 
-func (db *BatchDatabase) DeleteTradeByTxHash(txhash common.Hash) {
+func (db *BatchDatabase) DeleteItemByTxHash(txhash common.Hash, val interface{}) {
 }
 
-func (db *BatchDatabase) GetOrderByTxHash(txhash common.Hash) []*tradingstate.OrderItem {
-	return []*tradingstate.OrderItem{}
+func (db *BatchDatabase) GetListItemByTxHash(txhash common.Hash, val interface{}) interface{} {
+	return []interface{}{}
 }
 
-func (db *BatchDatabase) GetListOrderByHashes(hashes []string) []*tradingstate.OrderItem {
-	return []*tradingstate.OrderItem{}
+func (db *BatchDatabase) GetListItemByHashes(hashes []string, val interface{}) interface{} {
+	return []interface{}{}
 }
 
 func (db *BatchDatabase) InitBulk() *mgo.Session {
@@ -128,17 +126,6 @@ func (db *BatchDatabase) CommitBulk() error {
 	return nil
 }
 
-func (db *BatchDatabase) DeleteLendingTradeByTxHash(txhash common.Hash) {
-}
-
-func (db *BatchDatabase) GetLendingItemByTxHash(txhash common.Hash) []*lendingstate.LendingItem {
-	return nil
-}
-
-func (db *BatchDatabase) GetListLendingItemByHashes(hashes []string) []*lendingstate.LendingItem {
-	return nil
-}
-
 func (db *BatchDatabase) InitLendingBulk() *mgo.Session {
 	return nil
 }
@@ -146,4 +133,3 @@ func (db *BatchDatabase) InitLendingBulk() *mgo.Session {
 func (db *BatchDatabase) CommitLendingBulk() error {
 	return nil
 }
-

@@ -18,20 +18,21 @@
 package web3ext
 
 var Modules = map[string]string{
-	"admin":      Admin_JS,
-	"chequebook": Chequebook_JS,
-	"clique":     Clique_JS,
-	"posv":       Posv_JS,
-	"debug":      Debug_JS,
-	"eth":        Eth_JS,
-	"miner":      Miner_JS,
-	"net":        Net_JS,
-	"personal":   Personal_JS,
-	"rpc":        RPC_JS,
-	"shh":        Shh_JS,
-	"tomox":      TomoX_JS,
-	"swarmfs":    SWARMFS_JS,
-	"txpool":     TxPool_JS,
+	"admin":        Admin_JS,
+	"chequebook":   Chequebook_JS,
+	"clique":       Clique_JS,
+	"posv":         Posv_JS,
+	"debug":        Debug_JS,
+	"eth":          Eth_JS,
+	"miner":        Miner_JS,
+	"net":          Net_JS,
+	"personal":     Personal_JS,
+	"rpc":          RPC_JS,
+	"shh":          Shh_JS,
+	"tomox":        TomoX_JS,
+	"tomoxlending": TomoXLending_JS,
+	"swarmfs":      SWARMFS_JS,
+	"txpool":       TxPool_JS,
 }
 
 const Chequebook_JS = `
@@ -751,6 +752,109 @@ web3._extend({
 		new web3._extend.Method({
             name: 'getPrice',
             call: 'tomox_getPrice',
+            params: 2
+		}),
+	]
+});
+`
+
+const TomoXLending_JS = `
+web3._extend({
+	property: 'tomoxlending',
+	methods: [
+		new web3._extend.Method({
+			name: 'version',
+			call: 'tomoxlending_version',
+			params: 0,
+			outputFormatter: web3._extend.utils.toDecimal
+		}),
+		new web3._extend.Method({
+			name: 'info',
+			call: 'tomoxlending_info',
+			params: 0
+		}),
+		new web3._extend.Method({
+            name: 'createOrder',
+            call: 'tomoxlending_createOrder',
+            params: 1,
+            inputFormatter: [null]
+        }),
+        new web3._extend.Method({
+            name: 'cancelOrder',
+            call: 'tomoxlending_cancelOrder',
+            params: 1,
+            inputFormatter: [null]
+        }),
+        new web3._extend.Method({
+            name: 'getOrders',
+            call: 'tomoxlending_getOrders',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getOrderNonce',
+            call: 'tomoxlending_getOrderNonce',
+            params: 1,
+            inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
+		new web3._extend.Method({
+            name: 'GetFeeByEpoch',
+            call: 'tomoxlending_GetFeeByEpoch',
+            params: 1,
+            inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]
+        }),
+		new web3._extend.Method({
+            name: 'getPendingOrders',
+            call: 'tomoxlending_getPendingOrders',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getAllPendingHashes',
+            call: 'tomoxlending_getAllPendingHashes',
+            params: 0
+        }),
+		new web3._extend.Method({
+            name: 'sendOrderRawTransaction',
+            call: 'tomoxlending_sendOrderRawTransaction',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'sendOrderTransaction',
+            call: 'tomoxlending_sendOrder',
+            params: 1
+		}),
+		new web3._extend.Method({
+            name: 'getOrderCount',
+            call: 'tomoxlending_getOrderCount',
+            params: 1
+        }),
+		new web3._extend.Method({
+            name: 'getBestBid',
+            call: 'tomoxlending_getBestBid',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBestAsk',
+            call: 'tomoxlending_getBestAsk',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBidTree',
+            call: 'tomoxlending_getBidTree',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getAskTree',
+            call: 'tomoxlending_getAskTree',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getOrderById',
+            call: 'tomoxlending_getOrderById',
+            params: 3
+		}),
+		new web3._extend.Method({
+            name: 'getPrice',
+            call: 'tomoxlending_getPrice',
             params: 2
 		}),
 	]

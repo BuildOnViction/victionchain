@@ -52,12 +52,10 @@ type SignatureRecord struct {
 }
 
 type LendingItem struct {
-	Quantity *big.Int `bson:"quantity" json:"quantity"`
-	Interest *big.Int `bson:"interest" json:"interest"`
-	// INVESTING/BORROWING
-	Side string `bson:"side" json:"side"`
-	// LIMIT/MARKET
-	Type            string         `bson:"type" json:"type"`
+	Quantity        *big.Int       `bson:"quantity" json:"quantity"`
+	Interest        *big.Int       `bson:"interest" json:"interest"`
+	Side            string         `bson:"side" json:"side"` // INVESTING/BORROWING
+	Type            string         `bson:"type" json:"type"` // LIMIT/MARKET
 	LendingToken    common.Address `bson:"lendingToken" json:"lendingToken"`
 	CollateralToken common.Address `bson:"collateralToken" json:"collateralToken"`
 	FilledAmount    *big.Int       `bson:"filledAmount" json:"filledAmount"`
@@ -76,12 +74,10 @@ type LendingItem struct {
 }
 
 type LendingItemBSON struct {
-	Quantity string `bson:"quantity" json:"quantity"`
-	Interest string `bson:"interest" json:"interest"`
-	// INVESTING/BORROWING
-	Side string `bson:"side" json:"side"`
-	// LIMIT/MARKET
-	Type            string           `bson:"type" json:"type"`
+	Quantity        string           `bson:"quantity" json:"quantity"`
+	Interest        string           `bson:"interest" json:"interest"`
+	Side            string           `bson:"side" json:"side"` // INVESTING/BORROWING
+	Type            string           `bson:"type" json:"type"` // LIMIT/MARKET
 	LendingToken    string           `bson:"lendingToken" json:"lendingToken"`
 	CollateralToken string           `bson:"collateralToken" json:"collateralToken"`
 	FilledAmount    string           `bson:"filledAmount" json:"filledAmount"`
@@ -111,14 +107,13 @@ func (l *LendingItem) GetBSON() (interface{}, error) {
 		Relayer:         l.Relayer.Hex(),
 		Term:            strconv.FormatUint(l.Term, 10),
 		UserAddress:     l.UserAddress.Hex(),
-
-		Hash:      l.Hash.Hex(),
-		TxHash:    l.TxHash.Hex(),
-		Nonce:     l.Nonce.String(),
-		CreatedAt: l.CreatedAt,
-		UpdatedAt: l.UpdatedAt,
-		LendingId: strconv.FormatUint(l.LendingId, 10),
-		ExtraData: l.ExtraData,
+		Hash:            l.Hash.Hex(),
+		TxHash:          l.TxHash.Hex(),
+		Nonce:           l.Nonce.String(),
+		CreatedAt:       l.CreatedAt,
+		UpdatedAt:       l.UpdatedAt,
+		LendingId:       strconv.FormatUint(l.LendingId, 10),
+		ExtraData:       l.ExtraData,
 	}
 
 	if l.FilledAmount != nil {
