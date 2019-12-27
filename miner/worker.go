@@ -357,7 +357,7 @@ func (self *worker) wait() {
 				log.BlockHash = block.Hash()
 			}
 			self.currentMu.Lock()
-			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state, work.tradingState,work.lendingState)
+			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state, work.tradingState, work.lendingState)
 			self.currentMu.Unlock()
 			if err != nil {
 				log.Error("Failed writing block to chain", "err", err)
@@ -699,7 +699,6 @@ func (self *worker) commitNewWork() {
 			return
 		}
 		specialTxs = append(specialTxs, txStateRoot)
-
 	}
 	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
 	// compute uncles for the new block.
