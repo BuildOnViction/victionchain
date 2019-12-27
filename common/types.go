@@ -50,6 +50,7 @@ var (
 	addressT                      = reflect.TypeOf(Address{})
 	RelayerRegistrationSMC        = "0x0342d186212b04E69eA682b3bed8e232b6b3361a"
 	RelayerRegistrationSMCTestnet = "0xe7c16037992bEcAFaeeE779Dacaf8991637953F3"
+	LendingRegistrationSMC        = "0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"
 )
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
