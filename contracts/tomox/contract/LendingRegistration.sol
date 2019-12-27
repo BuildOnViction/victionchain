@@ -14,10 +14,15 @@ contract Lending {
         uint256[] _terms; // seconds
         address[] _collaterals;
     }
+
+    struct Collateral {
+        uint256 _depositRate;
+        uint256 _price;
+    }
     
     mapping(address => LendingRelayer) public LENDINGRELAYER_LIST;
 
-    mapping(address => uint256) public COLLATERAL_LIST;
+    mapping(address => Collateral) public COLLATERAL_LIST;
     address[] public COLLATERALS;
     
     address[] public BASES;
@@ -31,7 +36,10 @@ contract Lending {
     }
     
     function addCollateral(address token, uint256 depositRate) public {
-        COLLATERAL_LIST[token] = depositRate;
+        COLLATERAL_LIST[token] = Collateral({
+            _depositRate: depositRate,
+            _price: 0
+        });
         COLLATERALS.push(token);
     }
     
