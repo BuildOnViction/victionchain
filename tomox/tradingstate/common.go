@@ -156,11 +156,6 @@ type OrderHistoryItem struct {
 	UpdatedAt    time.Time
 }
 
-// use alloc to prevent reference manipulation
-func EmptyKey() []byte {
-	key := make([]byte, common.HashLength)
-	return key
-}
 
 // ToJSON : log json string
 func ToJSON(object interface{}, args ...string) string {

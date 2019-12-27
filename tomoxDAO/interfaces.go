@@ -8,8 +8,6 @@ import (
 	"github.com/globalsign/mgo"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 )
 
 const defaultCacheLimit = 1024
@@ -24,20 +22,17 @@ type TomoXDAO interface {
 	GetObject(hash common.Hash, val interface{}) (interface{}, error)
 	PutObject(hash common.Hash, val interface{}) error
 	DeleteObject(hash common.Hash, val interface{}) error // won't return error if key not found
+	GetListItemByTxHash(txhash common.Hash, val interface{}) interface{}
+	GetListItemByHashes(hashes []string, val interface{}) interface{}
+	DeleteItemByTxHash(txhash common.Hash, val interface{})
 
 		// basic tomox
 		InitBulk() *mgo.Session
 		CommitBulk() error
-		GetOrderByTxHash(txhash common.Hash) []*tradingstate.OrderItem
-		GetListOrderByHashes(hashes []string) []*tradingstate.OrderItem
-		DeleteTradeByTxHash(txhash common.Hash)
 
 		// tomox lending
 		InitLendingBulk() *mgo.Session
 		CommitLendingBulk() error
-		GetLendingItemByTxHash(txhash common.Hash) []*lendingstate.LendingItem
-		GetListLendingItemByHashes(hashes []string) []*lendingstate.LendingItem
-		DeleteLendingTradeByTxHash(txhash common.Hash)
 
 	// leveldb methods
 	Put(key []byte, value []byte) error
@@ -45,4 +40,10 @@ type TomoXDAO interface {
 	Has(key []byte) (bool, error)
 	Delete(key []byte) error
 	NewBatch() ethdb.Batch
+}
+
+// use alloc to prevent reference manipulation
+func EmptyKey() []byte {
+	key := make([]byte, common.HashLength)
+	return key
 }

@@ -7,13 +7,9 @@ import (
 	"time"
 )
 
-const (
-	LimitThresholdOrderNonceInQueue = 100
-)
 
 // List of errors
 var (
-	ErrNoTopics          = errors.New("missing topic(s)")
 	ErrOrderNonceTooLow  = errors.New("OrderNonce too low")
 	ErrOrderNonceTooHigh = errors.New("OrderNonce too high")
 )
