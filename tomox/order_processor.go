@@ -580,7 +580,7 @@ func (tomox *TomoX) ProcessCancelOrder(tomoXstatedb *tomox_state.TomoXStateDB, s
 		tokenBalance = tomox_state.GetTokenBalance(order.UserAddress, order.QuoteToken, statedb)
 	default:
 		log.Debug("Not found order side", "Side", originOrder.Side)
-		return nil, true
+		return nil, false
 	}
 	log.Debug("ProcessCancelOrder", "baseToken", order.BaseToken, "quoteToken", order.QuoteToken)
 	feeRate := tomox_state.GetExRelayerFee(order.ExchangeAddress, statedb)
