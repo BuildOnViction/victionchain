@@ -1467,7 +1467,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			bc.gcproc += proctime
 			bc.UpdateBlocksHashCache(block)
 			if bc.chainConfig.IsTIPTomoX(block.Number()) {
-				bc.logExchangeData(block)
+				bc.logExchangeData(block, false)
 			}
 		case SideStatTy:
 			log.Debug("Inserted forked block from downloader", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
@@ -1751,7 +1751,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		bc.gcproc += result.proctime
 		bc.UpdateBlocksHashCache(block)
 		if bc.chainConfig.IsTIPTomoX(block.Number()) {
-			bc.logExchangeData(block)
+			bc.logExchangeData(block, false)
 		}
 	case SideStatTy:
 		log.Debug("Inserted forked block from fetcher", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
@@ -2243,7 +2243,7 @@ func (bc *BlockChain) UpdateM1() error {
 	return nil
 }
 
-func (bc *BlockChain) logExchangeData(block *types.Block) {
+func (bc *BlockChain) logExchangeData(block *types.Block, reorg bool) {
 	engine, ok := bc.Engine().(*posv.Posv)
 	if !ok || engine == nil {
 		return
@@ -2307,7 +2307,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
 			milliSecond := txMatchBatch.Timestamp / 1e6
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
-			if err := tomoXService.SyncDataToSDKNode(takerOrderInTx, txMatchBatch.TxHash, txMatchTime, currentState, trades, rejectedOrders, &dirtyOrderCount); err != nil {
+			if err := tomoXService.SyncDataToSDKNode(takerOrderInTx, txMatchBatch.TxHash, txMatchTime, currentState, trades, rejectedOrders, &dirtyOrderCount, reorg); err != nil {
 				log.Error("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
 			}
@@ -2339,7 +2339,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 
 	// apply new chain
 	for i := len(newChain) - 1; i >= 0; i-- {
-		bc.logExchangeData(newChain[i])
+		bc.logExchangeData(newChain[i], true)
 	}
 }
 

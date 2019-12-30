@@ -257,7 +257,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 // 2. txMatchData.Trades: includes information of matched orders.
 // 		a. PutObject them to `trades` collection
 // 		b. Update status of regrading orders to sdktypes.OrderStatusFilled
-func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*tomox_state.OrderItem, dirtyOrderCount *uint64) error {
+func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*tomox_state.OrderItem, dirtyOrderCount *uint64, reorg bool) error {
 	var (
 		// originTakerOrder: order get from db, nil if it doesn't exist
 		// takerOrderInTx: order decoded from txdata
@@ -288,23 +288,27 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		updatedTakerOrder = takerOrderInTx
 	}
 
+	// in case of reorg: txMatchTime <= updatedAt
+	if !reorg {
+		if txMatchTime.Before(updatedTakerOrder.UpdatedAt) || (txMatchTime.Equal(updatedTakerOrder.UpdatedAt) && *dirtyOrderCount == 0) {
+			log.Debug("Ignore old orders/trades taker", "hash", updatedTakerOrder.Hash.Hex(), "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
+			return nil
+		}
+	}
+	*dirtyOrderCount++
+
+	tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.Hash, txHash, lastState)
 	if takerOrderInTx.Status != OrderStatusCancelled {
 		updatedTakerOrder.Status = OrderStatusOpen
 	} else {
 		updatedTakerOrder.Status = OrderStatusCancelled
 	}
-	updatedTakerOrder.TxHash = txHash
 	if updatedTakerOrder.CreatedAt.IsZero() {
 		updatedTakerOrder.CreatedAt = txMatchTime
 	}
-	if txMatchTime.Before(updatedTakerOrder.UpdatedAt) || (txMatchTime.Equal(updatedTakerOrder.UpdatedAt) && *dirtyOrderCount == 0) {
-		log.Debug("Ignore old orders/trades taker", "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
-		return nil
-	}
-	*dirtyOrderCount++
-
-	tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.Hash, txHash, lastState)
 	updatedTakerOrder.UpdatedAt = txMatchTime
+	updatedTakerOrder.TxHash = txHash
+
 
 	// 2. put trades to db and update status to FILLED
 	log.Debug("Got trades", "number", len(trades), "txhash", txHash.Hex())
@@ -399,8 +403,8 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 	makerOrders := db.GetListOrderByHashes(makerDirtyHashes)
 	log.Debug("Maker dirty orders", "len", len(makerOrders), "txhash", txHash.Hex())
 	for _, o := range makerOrders {
-		if txMatchTime.Before(o.UpdatedAt) {
-			log.Debug("Ignore old orders/trades maker", "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
+		if !reorg && txMatchTime.Before(o.UpdatedAt) {
+			log.Debug("Ignore old orders/trades maker", "hash", o.Hash.Hex(), "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
 			continue
 		}
 		lastState = tomox_state.OrderHistoryItem{
@@ -435,7 +439,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		// updateRejectedOrders
 		for _, rejectedOrder := range rejectedOrders {
 			rejectedHashes = append(rejectedHashes, rejectedOrder.Hash.Hex())
-			if updatedTakerOrder.Hash == rejectedOrder.Hash && !txMatchTime.Before(updatedTakerOrder.UpdatedAt) {
+			if updatedTakerOrder.Hash == rejectedOrder.Hash && (!txMatchTime.Before(updatedTakerOrder.UpdatedAt) || reorg) {
 				// cache order history for handling reorg
 				orderHistoryRecord := tomox_state.OrderHistoryItem{
 					TxHash:       updatedTakerOrder.TxHash,
@@ -455,8 +459,8 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tomox_state.OrderItem, txH
 		}
 		dirtyRejectedOrders := db.GetListOrderByHashes(rejectedHashes)
 		for _, order := range dirtyRejectedOrders {
-			if txMatchTime.Before(order.UpdatedAt) {
-				log.Debug("Ignore old orders/trades reject", "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
+			if !reorg && txMatchTime.Before(order.UpdatedAt) {
+				log.Debug("Ignore old orders/trades reject", "hash", order.Hash.Hex(), "txHash", txHash.Hex(), "txTime", txMatchTime.UnixNano(), "updatedAt", updatedTakerOrder.UpdatedAt.UnixNano())
 				continue
 			}
 			// cache order history for handling reorg
