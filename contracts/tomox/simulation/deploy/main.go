@@ -201,6 +201,7 @@ func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interfac
 func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]interface{}, nonce uint64) {
 	for _, token := range tokenList {
 		tomoxListing.TransactOpts.Nonce = big.NewInt(int64(nonce))
+		tomoxListing.TransactOpts.Value = big.NewInt(0)
 		_, err := tomoxListing.Apply(token["address"].(common.Address))
 		if err != nil {
 			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
