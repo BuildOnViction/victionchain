@@ -17,6 +17,7 @@ contract Lending {
 
     struct Collateral {
         uint256 _depositRate;
+        uint256 _liquidationRate;
         uint256 _price;
     }
     
@@ -35,9 +36,10 @@ contract Lending {
         relayer = AbstractRegistration(r);
     }
     
-    function addCollateral(address token, uint256 depositRate) public {
+    function addCollateral(address token, uint256 depositRate, uint256 liquidationRate) public {
         COLLATERAL_LIST[token] = Collateral({
             _depositRate: depositRate,
+            _liquidationRate: liquidationRate,
             _price: 0
         });
         COLLATERALS.push(token);
