@@ -19,8 +19,9 @@ var (
 		"collaterals": big.NewInt(3),
 	}
 	CollateralStructSlots = map[string]*big.Int{
-		"depositRate": big.NewInt(0),
-		"price":       big.NewInt(1),
+		"depositRate":     big.NewInt(0),
+		"liquidationRate": big.NewInt(1),
+		"price":           big.NewInt(2),
 	}
 )
 
@@ -149,14 +150,16 @@ func GetCollaterals(statedb *state.StateDB, coinbase common.Address, baseToken c
 // @function GetCollateralDetail
 // @param statedb : current state
 // @param token: address of collateral token
-// @return: depositRate, price of collateral
-func GetCollateralDetail(statedb *state.StateDB, token common.Address) (depositRate uint64, price *big.Int) {
+// @return: depositRate, liquidationRate, price of collateral
+func GetCollateralDetail(statedb *state.StateDB, token common.Address) (depositRate uint64, liquidationRate uint64, price *big.Int) {
 	collateralState := GetLocMappingAtKey(token.Hash(), CollateralMapSlot)
 	locDepositRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["depositRate"])
+	locLiquidationRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["liquidationRate"])
 	locCollateralPrice := state.GetLocOfStructElement(collateralState, CollateralStructSlots["price"])
 	depositRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDepositRate).Big().Uint64()
+	liquidationRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locLiquidationRate).Big().Uint64()
 	price = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locCollateralPrice).Big()
-	return depositRate, price
+	return depositRate, liquidationRate, price
 }
 
 // @function GetSupportedTerms
