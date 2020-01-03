@@ -2291,16 +2291,12 @@ func (bc *BlockChain) logExchangeData(block *types.Block, reorg bool) {
 			if ok && resultTrades != nil {
 				trades = resultTrades.([]map[string]string)
 			}
-			// remove from cache
-			bc.resultTrade.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 
 			// getRejectedOrder from cache
 			rejected, ok := bc.rejectedOrders.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 			if ok && rejected != nil {
 				rejectedOrders = rejected.([]*tomox_state.OrderItem)
 			}
-			// remove from cache
-			bc.rejectedOrders.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 
 			// the smallest time unit in mongodb is millisecond
 			// hence, we should update time in millisecond
