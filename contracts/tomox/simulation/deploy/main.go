@@ -57,7 +57,7 @@ func main() {
 
 	// init Relayer Registration
 	auth.Nonce = big.NewInt(int64(nonce + 2))
-	relayerRegistrationAddr, relayerRegistration, err := tomox.DeployRelayerRegistration(auth, client, simulation.MaxRelayers, simulation.MaxTokenList, simulation.MinDeposit)
+	relayerRegistrationAddr, relayerRegistration, err := tomox.DeployRelayerRegistration(auth, client, tomoxListtingAddr, simulation.MaxRelayers, simulation.MaxTokenList, simulation.MinDeposit)
 	if err != nil {
 		log.Fatal("DeployRelayerRegistration", err)
 	}
@@ -201,7 +201,7 @@ func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interfac
 func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]interface{}, nonce uint64) {
 	for _, token := range tokenList {
 		tomoxListing.TransactOpts.Nonce = big.NewInt(int64(nonce))
-		tomoxListing.TransactOpts.Value = big.NewInt(0)
+		tomoxListing.TransactOpts.Value = simulation.TomoXListingFee
 		_, err := tomoxListing.Apply(token["address"].(common.Address))
 		if err != nil {
 			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
