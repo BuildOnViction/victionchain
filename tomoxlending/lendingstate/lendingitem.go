@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"github.com/globalsign/mgo/bson"
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"strconv"
 	"time"
@@ -22,20 +26,6 @@ const (
 	LendingStatusCancelled     = "CANCELLED"
 	Market                     = "MO"
 	Limit                      = "LO"
-)
-
-var (
-	BaseInterest  = big.NewInt(10000)
-	SupportedTerm = map[uint64]bool{
-		1:   true,
-		7:   true,
-		30:  true,
-		60:  true,
-		90:  true,
-		120: true,
-		180: true,
-		365: true,
-	}
 )
 
 // Signature struct
@@ -176,5 +166,141 @@ func (l *LendingItem) SetBSON(raw bson.Raw) error {
 	}
 	l.LendingId = uint64(lendingId)
 	l.ExtraData = decoded.ExtraData
+	return nil
+}
+
+func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
+	if err := l.VerifyLendingStatus(); err != nil {
+		return err
+	}
+	if l.Status == LendingStatusNew {
+		if err := l.VerifyLendingType(); err != nil {
+			return err
+		}
+		if err := l.VerifyLendingQuantity(); err != nil {
+			return err
+		}
+		if err := l.VerifyLendingSide(); err != nil {
+			return err
+		}
+		if l.Type == Limit {
+			if err := l.VerifyLendingInterest(); err != nil {
+				return err
+			}
+		}
+
+	}
+	if !IsValidRelayer(state, l.Relayer) {
+		return fmt.Errorf("VerifyLendingItem: invalid relayer. address: %s", l.Relayer.Hex())
+	}
+	if err := l.VerifyLendingSignature(); err != nil {
+		return err
+	}
+	//TODO:
+	//if err := VerifyBalance()
+
+	return nil
+}
+
+func (l *LendingItem) VerifyLendingSide() error {
+	if l.Side != Borrowing && l.Side != Investing {
+		return fmt.Errorf("VerifyLendingSide: invalid side . Side: %s", l.Side)
+	}
+	return nil
+}
+
+func (l *LendingItem) VerifyLendingInterest() error {
+	if l.Interest == nil || l.Interest.Sign() <= 0 {
+		return fmt.Errorf("VerifyLendingInterest: invalid interest. Interest: %v", l.Interest)
+	}
+	return nil
+}
+
+func (l *LendingItem) VerifyLendingQuantity() error {
+	if l.Quantity == nil || l.Quantity.Sign() <= 0 {
+		return fmt.Errorf("VerifyLendingQuantity: invalid quantity. Quantity: %v", l.Quantity)
+	}
+	return nil
+}
+
+func (l *LendingItem) VerifyLendingType() error {
+	if l.Type != Market && l.Type != Limit {
+		return fmt.Errorf("VerifyLendingType: invalid lending type. Type: %s", l.Type)
+	}
+	return nil
+}
+
+func (l *LendingItem) VerifyLendingStatus() error {
+	if l.Status != LendingStatusNew && l.Type != LendingStatusCancelled {
+		return fmt.Errorf("VerifyLendingStatus: invalid lending status. Status: %s", l.Status)
+	}
+	return nil
+}
+
+func (l *LendingItem) ComputeHash() common.Hash {
+	sha := sha3.NewKeccak256()
+	if l.Status == LendingStatusNew {
+		sha.Write(l.Relayer.Bytes())
+		sha.Write(l.UserAddress.Bytes())
+		sha.Write(l.LendingToken.Bytes())
+		sha.Write(l.CollateralToken.Bytes())
+		sha.Write([]byte(strconv.FormatInt(int64(l.Term), 10)))
+		sha.Write(common.BigToHash(l.Quantity).Bytes())
+		if l.Type == Limit {
+			if l.Interest != nil {
+				sha.Write(common.BigToHash(l.Interest).Bytes())
+			}
+		}
+		sha.Write(common.BigToHash(l.EncodedSide()).Bytes())
+		sha.Write([]byte(l.Status))
+		sha.Write([]byte(l.Type))
+		sha.Write(common.BigToHash(l.Nonce).Bytes())
+	} else if l.Status == LendingStatusCancelled {
+		sha.Write(l.Hash.Bytes())
+		sha.Write(common.BigToHash(l.Nonce).Bytes())
+		sha.Write(l.UserAddress.Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingId))).Bytes())
+		sha.Write([]byte(l.Status))
+		sha.Write(l.Relayer.Bytes())
+		sha.Write(l.LendingToken.Bytes())
+		sha.Write(l.CollateralToken.Bytes())
+	} else {
+		return common.Hash{}
+	}
+
+	return common.BytesToHash(sha.Sum(nil))
+}
+
+func (l *LendingItem) EncodedSide() *big.Int {
+	if l.Side == Borrowing {
+		return big.NewInt(0)
+	}
+	return big.NewInt(1)
+}
+
+//verify signatures
+func (l *LendingItem) VerifyLendingSignature() error {
+	bigstr := l.Nonce.String()
+	n, err := strconv.ParseInt(bigstr, 10, 64)
+	if err != nil {
+		return ErrInvalidSignature
+	}
+	V := big.NewInt(int64(l.Signature.V))
+	R := l.Signature.R.Big()
+	S := l.Signature.S.Big()
+
+	//(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id uint64
+	tx := types.NewLendingTransaction(uint64(n), l.Quantity, l.Interest.Uint64(), l.Term, l.Relayer, l.UserAddress,
+		l.LendingToken, l.CollateralToken, l.Status, l.Side, l.Type, l.Hash, l.LendingId)
+	tx.ImportSignature(V, R, S)
+	from, _ := types.LendingSender(types.LendingTxSigner{}, tx)
+	if from != tx.UserAddress() {
+		return ErrInvalidSignature
+	}
+	return nil
+}
+
+func VerifyBalance(statedb *state.StateDB, tomoxStateDb *tradingstate.TradingStateDB, l *types.LendingTransaction, baseDecimal, quoteDecimal *big.Int) error {
+	//TODO: waiting for https://github.com/tomochain/tomochain/pull/92/files
 	return nil
 }
