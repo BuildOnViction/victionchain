@@ -163,7 +163,7 @@ func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingSta
 			return fmt.Errorf("invalid lendingItem . Error: %v", err)
 		}
 		// process Matching Engine
-		_, _, err := lendingService.ApplyOrder(uint64(batch.Timestamp), coinbase, v.bc, statedb, lendingStateDb, *tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
+		_, _, err := lendingService.ApplyOrder(uint64(batch.Timestamp), coinbase, v.bc, statedb, lendingStateDb, tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
 		if err != nil {
 			return err
 		}

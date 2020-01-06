@@ -7,6 +7,7 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"strconv"
 	"time"
@@ -202,9 +203,6 @@ func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
 	if err := l.VerifyLendingSignature(); err != nil {
 		return err
 	}
-	//TODO:
-	//if err := VerifyBalance()
-
 	return nil
 }
 
@@ -306,7 +304,33 @@ func (l *LendingItem) VerifyLendingSignature() error {
 	return nil
 }
 
-func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB, l *types.LendingTransaction, baseDecimal, quoteDecimal *big.Int) error {
-	//TODO: waiting for https://github.com/tomochain/tomochain/pull/92/files
-	return nil
+func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, l *types.LendingTransaction, lendingTokenDecimal, collateralTokenDecimal *big.Int) error {
+	switch l.Side() {
+	case Investing:
+		if balance := tradingstate.GetTokenBalance(l.UserAddress(), l.LendingToken(), statedb); balance.Cmp(l.Quantity()) < 0 {
+			return fmt.Errorf("VerifyBalance: investor doesn't have enough lendingToken. User: %s. Token: %s. Expected: %v. Have: %v", l.UserAddress().Hex(), l.LendingToken().Hex(), l.Quantity(), balance)
+		}
+		return nil
+	case Borrowing:
+		//balance >= depositRate * lendingAMount + fee
+		//make sure fee > 0.01 TOMO
+		switch l.Status() {
+		case LendingStatusNew:
+			//TODO:@nguyennguyen
+			return nil
+		case LendingStatusCancelled:
+			//TODO:@nguyennguyen
+			return nil
+		case Deposit:
+			//TODO:@nguyennguyen
+			return nil
+		case Payment:
+			//TODO:@nguyennguyen
+			return nil
+		default:
+			return nil
+		}
+	default:
+		return fmt.Errorf("VerifyBalance: unknown lending side")
+	}
 }

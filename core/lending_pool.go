@@ -467,7 +467,12 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 			if err != nil {
 				return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
 			}
-			if err := lendingstate.VerifyBalance(cloneStateDb, cloneLendingStateDb, tx, lendingTokenDecimal, collateralTokenDecimal); err != nil {
+			tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock())
+			if err != nil {
+				return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
+			}
+			cloneTradingStateDb := tradingStateDb.Copy()
+			if err := lendingstate.VerifyBalance(cloneStateDb, cloneLendingStateDb, cloneTradingStateDb, tx, lendingTokenDecimal, collateralTokenDecimal); err != nil {
 				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToke: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
 			}
 		}
