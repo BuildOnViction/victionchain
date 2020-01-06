@@ -7,7 +7,6 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto/sha3"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"strconv"
 	"time"
@@ -300,7 +299,7 @@ func (l *LendingItem) VerifyLendingSignature() error {
 	return nil
 }
 
-func VerifyBalance(statedb *state.StateDB, tomoxStateDb *tradingstate.TradingStateDB, l *types.LendingTransaction, baseDecimal, quoteDecimal *big.Int) error {
+func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB, l *types.LendingTransaction, baseDecimal, quoteDecimal *big.Int) error {
 	//TODO: waiting for https://github.com/tomochain/tomochain/pull/92/files
 	return nil
 }
