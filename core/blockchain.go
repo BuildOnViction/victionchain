@@ -1531,7 +1531,19 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					return i, events, coalescedLogs, err
 				}
 				//
-
+				batches, err := ExtractLendingTransactions(block.Transactions())
+				if err != nil {
+					bc.reportBlock(block, nil, err)
+					return i, events, coalescedLogs, err
+				}
+				for _, batch := range batches {
+					log.Debug("Verify matching transaction", "txHash", batch.TxHash.Hex())
+					err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author)
+					if err != nil {
+						bc.reportBlock(block, nil, err)
+						return i, events, coalescedLogs, err
+					}
+				}
 				//check
 				if true {
 					gotRoot := lendingState.IntermediateRoot()
@@ -1776,6 +1788,39 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			parentTomoXRoot, _ := tomoXService.GetTradingStateRoot(parent)
 			nextTomoxRoot, _ := tomoXService.GetTradingStateRoot(block)
 			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+		}
+
+		if lendingService := engine.GetLendingService(); lendingService != nil {
+			lendingState, err := lendingService.GetLendingState(parent)
+			if err != nil {
+				bc.reportBlock(block, nil, err)
+				return nil, err
+			}
+			batches, err := ExtractLendingTransactions(block.Transactions())
+			if err != nil {
+				bc.reportBlock(block, nil, err)
+				return nil, err
+			}
+			for _, batch := range batches {
+				log.Debug("Verify matching transaction", "txHash", batch.TxHash.Hex())
+				err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tomoxState, batch, author)
+				if err != nil {
+					bc.reportBlock(block, nil, err)
+					return nil, err
+				}
+			}
+			if len(batches) > 0 {
+				gotRoot := lendingState.IntermediateRoot()
+				expectRoot, _ := lendingService.GetLendingStateRoot(block)
+				if gotRoot != expectRoot {
+					err = fmt.Errorf("invalid lending merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+					bc.reportBlock(block, nil, err)
+					return nil, err
+				}
+			}
+			parentLendingRoot, _ := lendingService.GetLendingStateRoot(parent)
+			nextLendingRoot, _ := lendingService.GetLendingStateRoot(block)
+			log.Debug("Lending State Root", "number", block.NumberU64(), "parent", parentLendingRoot.Hex(), "nextLendingRoot", nextLendingRoot.Hex())
 		}
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)

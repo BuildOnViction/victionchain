@@ -158,3 +158,19 @@ func Max(a, b *big.Int) *big.Int {
 func GetLendingOrderBookHash(lendingToken common.Address, term uint64) common.Hash {
 	return crypto.Keccak256Hash(append(common.Uint64ToHash(term).Bytes(), lendingToken.Bytes()...))
 }
+
+func EncodeTxLendingBatch(batch TxLendingBatch) ([]byte, error) {
+	data, err := json.Marshal(batch)
+	if err != nil || data == nil {
+		return []byte{}, err
+	}
+	return data, nil
+}
+
+func DecodeTxLendingBatch(data []byte) (TxLendingBatch, error) {
+	txMatchResult := TxLendingBatch{}
+	if err := json.Unmarshal(data, &txMatchResult); err != nil {
+		return TxLendingBatch{}, err
+	}
+	return txMatchResult, nil
+}

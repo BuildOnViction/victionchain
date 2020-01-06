@@ -313,6 +313,19 @@ func (tx *Transaction) IsTradingTransaction() bool {
 	return true
 }
 
+
+func (tx *Transaction) IsLendingTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+
+	if tx.To().String() != common.TomoXLendingAddress {
+		return false
+	}
+	return true
+}
+
+
 func (tx *Transaction) IsSkipNonceTransaction() bool {
 	if tx.To() == nil {
 		return false

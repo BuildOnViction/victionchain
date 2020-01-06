@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/tomochain/tomochain/consensus/posv"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -115,7 +116,7 @@ func (v *BlockValidator) ValidateTradingOrder(statedb *state.StateDB, tomoxState
 		return fmt.Errorf("tomox not found")
 	}
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
-	matchingResult := map[common.Hash]tradingstate.MatchingResult{}
+	tradingResult := map[common.Hash]tradingstate.MatchingResult{}
 	for _, txMatch := range txMatchBatch.Data {
 		// verify orderItem
 		order, err := txMatch.DecodeOrder()
@@ -132,14 +133,50 @@ func (v *BlockValidator) ValidateTradingOrder(statedb *state.StateDB, tomoxState
 		if err != nil {
 			return err
 		}
-		matchingResult[order.Hash] = tradingstate.MatchingResult{
+		tradingResult[order.Hash] = tradingstate.MatchingResult{
 			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}
 	}
 	if tomoXService.IsSDKNode() {
-		v.bc.AddMatchingResult(txMatchBatch.TxHash, matchingResult)
+		v.bc.AddMatchingResult(txMatchBatch.TxHash, tradingResult)
 	}
+	return nil
+}
+
+func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingStateDb *lendingstate.LendingStateDB, tomoxStatedb *tradingstate.TradingStateDB, batch lendingstate.TxLendingBatch, coinbase common.Address) error {
+	posvEngine, ok := v.bc.Engine().(*posv.Posv)
+	if posvEngine == nil || !ok {
+		return ErrNotPoSV
+	}
+	lendingService := posvEngine.GetLendingService()
+	if lendingService == nil {
+		return fmt.Errorf("lendingService not found")
+	}
+	log.Debug("verify lendingItem ", "numItems", len(batch.Data))
+	//lendingResult := map[common.Hash]lendingstate.MatchingResult{}
+	for _, l := range batch.Data {
+		// verify lendingItem
+
+		log.Debug("process lending tx", "lendingItem", lendingstate.ToJSON(l))
+		if err := l.VerifyLendingItem(statedb); err != nil {
+			return fmt.Errorf("invalid lendingItem . Error: %v", err)
+		}
+		// process Matching Engine
+		_, _, err := lendingService.ApplyOrder(uint64(batch.Timestamp), coinbase, v.bc, statedb, lendingStateDb, *tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
+		if err != nil {
+			return err
+		}
+		//TODO:@nguyennguyen
+		// SDKnode need to store lendingResult
+		//lendingResult[order.Hash] = tradingstate.MatchingResult{
+		//	Trades:  newTrades,
+		//	Rejects: newRejectedOrders,
+		//}
+	}
+	//if lendingService.IsSDKNode() {
+	//	v.bc.AddMatchingResult(batch.TxHash, lendingResult)
+	//}
 	return nil
 }
 
@@ -187,4 +224,19 @@ func ExtractTradingTransactions(transactions types.Transactions) ([]tradingstate
 		}
 	}
 	return txMatchBatchData, nil
+}
+
+func ExtractLendingTransactions(transactions types.Transactions) ([]lendingstate.TxLendingBatch, error) {
+	batchData := []lendingstate.TxLendingBatch{}
+	for _, tx := range transactions {
+		if tx.IsLendingTransaction() {
+			txMatchBatch, err := lendingstate.DecodeTxLendingBatch(tx.Data())
+			if err != nil {
+				return []lendingstate.TxLendingBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
+			}
+			txMatchBatch.TxHash = tx.Hash()
+			batchData = append(batchData, txMatchBatch)
+		}
+	}
+	return batchData, nil
 }
