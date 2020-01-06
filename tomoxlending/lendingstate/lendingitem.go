@@ -27,6 +27,13 @@ const (
 	Limit                      = "LO"
 )
 
+var ValidInputLendingStatus = map[string]bool{
+	Deposit:                true,
+	Payment:                true,
+	LendingStatusNew:       true,
+	LendingStatusCancelled: true,
+}
+
 // Signature struct
 type Signature struct {
 	V byte        `bson:"v" json:"v"`
@@ -230,7 +237,7 @@ func (l *LendingItem) VerifyLendingType() error {
 }
 
 func (l *LendingItem) VerifyLendingStatus() error {
-	if l.Status != LendingStatusNew && l.Type != LendingStatusCancelled {
+	if valid, ok := ValidInputLendingStatus[l.Status]; ok && valid {
 		return fmt.Errorf("VerifyLendingStatus: invalid lending status. Status: %s", l.Status)
 	}
 	return nil

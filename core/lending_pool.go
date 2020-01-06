@@ -427,7 +427,7 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 	cloneStateDb := pool.currentRootState.Copy()
 	cloneLendingStateDb := pool.currentLendingState.Copy()
 
-	if lendingStatus != LendingStatusNew && lendingStatus != LendingStatusCancel {
+	if valid, ok := lendingstate.ValidInputLendingStatus[lendingStatus]; ok && valid {
 		return ErrInvalidLendingStatus
 	}
 	if !tx.IsCancelledLending() {
@@ -447,7 +447,7 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 			return ErrInvalidLendingType
 		}
 		if valid, _ := lendingstate.IsValidPair(cloneStateDb, tx.RelayerAddress(), tx.LendingToken(), tx.Term()); valid == false {
-			return fmt.Errorf("invalid pair. LendingToken: %s, Term: %d", tx.LendingToken().Hex(), tx.Term())
+			return fmt.Errorf("invalid pair. Relayer: %s. LendingToken: %s. Term: %d", tx.RelayerAddress().Hex(), tx.LendingToken().Hex(), tx.Term())
 		}
 
 		if lendingType == LendingTypeLimit {
