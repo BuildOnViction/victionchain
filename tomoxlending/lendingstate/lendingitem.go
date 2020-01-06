@@ -283,7 +283,7 @@ func (l *LendingItem) VerifyLendingSignature() error {
 	bigstr := l.Nonce.String()
 	n, err := strconv.ParseInt(bigstr, 10, 64)
 	if err != nil {
-		return ErrInvalidSignature
+		return fmt.Errorf("verify lending item: invalid signature")
 	}
 	V := big.NewInt(int64(l.Signature.V))
 	R := l.Signature.R.Big()
@@ -295,7 +295,7 @@ func (l *LendingItem) VerifyLendingSignature() error {
 	tx.ImportSignature(V, R, S)
 	from, _ := types.LendingSender(types.LendingTxSigner{}, tx)
 	if from != tx.UserAddress() {
-		return ErrInvalidSignature
+		return fmt.Errorf("verify lending item: invalid signature")
 	}
 	return nil
 }

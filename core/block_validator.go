@@ -105,7 +105,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tradingstate.TradingStateDB, txMatchBatch tradingstate.TxMatchBatch, coinbase common.Address) error {
+func (v *BlockValidator) ValidateTradingOrder(statedb *state.StateDB, tomoxStatedb *tradingstate.TradingStateDB, txMatchBatch tradingstate.TxMatchBatch, coinbase common.Address) error {
 	posvEngine, ok := v.bc.Engine().(*posv.Posv)
 	if posvEngine == nil || !ok {
 		return ErrNotPoSV
@@ -174,10 +174,10 @@ func CalcGasLimit(parent *types.Block) uint64 {
 	return limit
 }
 
-func ExtractMatchingTransactions(transactions types.Transactions) ([]tradingstate.TxMatchBatch, error) {
+func ExtractTradingTransactions(transactions types.Transactions) ([]tradingstate.TxMatchBatch, error) {
 	txMatchBatchData := []tradingstate.TxMatchBatch{}
 	for _, tx := range transactions {
-		if tx.IsMatchingTransaction() {
+		if tx.IsTradingTransaction() {
 			txMatchBatch, err := tradingstate.DecodeTxMatchesBatch(tx.Data())
 			if err != nil {
 				return []tradingstate.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)

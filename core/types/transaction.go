@@ -301,7 +301,7 @@ func (tx *Transaction) IsSpecialTransaction() bool {
 	return tx.To().String() == common.RandomizeSMC || tx.To().String() == common.BlockSigners
 }
 
-func (tx *Transaction) IsMatchingTransaction() bool {
+func (tx *Transaction) IsTradingTransaction() bool {
 	if tx.To() == nil {
 		return false
 	}

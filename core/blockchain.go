@@ -1491,7 +1491,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
 			// p2p trading
 			if tradingService := engine.GetTomoXService(); tradingService != nil {
-				txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+				txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return i, events, coalescedLogs, err
@@ -1503,7 +1503,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 				for _, txMatchBatch := range txMatchBatchData {
 					log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-					err := bc.Validator().ValidateMatchingOrder(statedb, tradingState, txMatchBatch, author)
+					err := bc.Validator().ValidateTradingOrder(statedb, tradingState, txMatchBatch, author)
 					if err != nil {
 						bc.reportBlock(block, nil, err)
 						return i, events, coalescedLogs, err
@@ -1751,14 +1751,14 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				bc.reportBlock(block, nil, err)
 				return nil, err
 			}
-			txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+			txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
 			if err != nil {
 				bc.reportBlock(block, nil, err)
 				return nil, err
 			}
 			for _, txMatchBatch := range txMatchBatchData {
 				log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-				err := bc.Validator().ValidateMatchingOrder(statedb, tomoxState, txMatchBatch, author)
+				err := bc.Validator().ValidateTradingOrder(statedb, tomoxState, txMatchBatch, author)
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return nil, err
@@ -2381,7 +2381,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 	if tomoXService == nil || !tomoXService.IsSDKNode() {
 		return
 	}
-	txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
+	txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
 	if err != nil {
 		log.Error("failed to extract matching transaction", "err", err)
 		return
@@ -2460,7 +2460,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 		log.Debug("reorgTxMatches takes", "time", common.PrettyDuration(time.Since(start)))
 	}()
 	for _, deletedTx := range deletedTxs {
-		if deletedTx.IsMatchingTransaction() {
+		if deletedTx.IsTradingTransaction() {
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
 			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
 		}

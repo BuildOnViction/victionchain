@@ -2,7 +2,6 @@ package lendingstate
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/tomochain/tomochain/crypto"
 	"math/big"
 	"time"
@@ -24,21 +23,6 @@ var EmptyLendingOrder = LendingItem{
 var EmptyLendingTrade = LendingTrade{
 	Amount: big.NewInt(0),
 }
-var (
-	ErrInvalidSignature = errors.New("verify lending item: invalid signature")
-	ErrInvalidInterest  = errors.New("verify lending item: invalid Interest")
-	ErrInvalidQuantity  = errors.New("verify lending item: invalid quantity")
-	ErrInvalidRelayer   = errors.New("verify lending item: invalid relayer")
-	ErrInvalidOrderType = errors.New("verify lending item: unsupported order type")
-	ErrInvalidOrderSide = errors.New("verify lending item: invalid order side")
-	ErrInvalidStatus    = errors.New("verify lending item: invalid status")
-
-	// supported order types
-	MatchingOrderType = map[string]bool{
-		Market: true,
-		Limit:  true,
-	}
-)
 
 type itemList struct {
 	Volume *big.Int
