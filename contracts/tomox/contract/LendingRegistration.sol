@@ -30,6 +30,8 @@ contract Lending {
     
     uint256[] TERMS;
 
+    address[] public ALL_COLLATERALS;
+
     AbstractRegistration public relayer;
     
     constructor (address r) public {
@@ -43,6 +45,7 @@ contract Lending {
             _price: 0
         });
         COLLATERALS.push(token);
+        ALL_COLLATERALS.push(token);
     }
     
     function addBaseToken(address token) public {
