@@ -13,10 +13,8 @@ var ErrQuantityTradeTooSmall = errors.New("quantity trade too small")
 type TradeResult struct {
 	Fee         *big.Int
 	InToken     common.Address
-	InQuantity  *big.Int
 	InTotal     *big.Int
 	OutToken    common.Address
-	OutQuantity *big.Int
 	OutTotal    *big.Int
 }
 type SettleBalance struct {
@@ -91,19 +89,15 @@ func GetSettleBalance(quotePrice *big.Int, takerSide string, takerFeeRate *big.I
 			Taker: TradeResult{
 				Fee:         takerFee,
 				InToken:     baseToken,
-				InQuantity:  quantityToTrade,
 				InTotal:     quantityToTrade,
 				OutToken:    quoteToken,
-				OutQuantity: quoteTokenQuantity,
 				OutTotal:    takerOutTotal,
 			},
 			Maker: TradeResult{
 				Fee:         makerFee,
 				InToken:     quoteToken,
-				InQuantity:  quoteTokenQuantity,
 				InTotal:     inTotal,
 				OutToken:    baseToken,
-				OutQuantity: quantityToTrade,
 				OutTotal:    quantityToTrade,
 			},
 		}
@@ -169,19 +163,15 @@ func GetSettleBalance(quotePrice *big.Int, takerSide string, takerFeeRate *big.I
 			Taker: TradeResult{
 				Fee:         takerFee,
 				InToken:     quoteToken,
-				InQuantity:  quoteTokenQuantity,
 				InTotal:     inTotal,
 				OutToken:    baseToken,
-				OutQuantity: quantityToTrade,
 				OutTotal:    quantityToTrade,
 			},
 			Maker: TradeResult{
 				Fee:         makerFee,
 				InToken:     baseToken,
-				InQuantity:  quantityToTrade,
 				InTotal:     quantityToTrade,
 				OutToken:    quoteToken,
-				OutQuantity: quoteTokenQuantity,
 				OutTotal:    makerOutTotal,
 			},
 		}

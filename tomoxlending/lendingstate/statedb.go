@@ -83,7 +83,7 @@ func (self *LendingStateDB) Error() error {
 	return self.dbErr
 }
 
-// Exist reports whether the given orderId address exists in the state.
+// Exist reports whether the given tradeId address exists in the state.
 // Notably this also returns true for suicided lenddinges.
 func (self *LendingStateDB) Exist(addr common.Hash) bool {
 	return self.getLendingExchange(addr) != nil
@@ -170,17 +170,48 @@ func (self *LendingStateDB) InsertLendingItem(orderBook common.Hash, orderId com
 	stateOrderList.AddVolume(order.Quantity)
 }
 
-func (self *LendingStateDB) InsertTradingItem(orderBook common.Hash, order LendingTrade) {
-	tradeIdHash := common.BigToHash(new(big.Int).SetUint64(order.TradeId))
+func (self *LendingStateDB) InsertTradingItem(orderBook common.Hash, tradeId uint64, order LendingTrade) {
+	tradeIdHash := common.Uint64ToHash(tradeId)
 	stateExchange := self.getLendingExchange(orderBook)
 	if stateExchange == nil {
 		stateExchange = self.createLendingExchangeObject(orderBook)
 	}
+	prvTrade := self.GetLendingTrade(orderBook, tradeIdHash)
 	self.journal = append(self.journal, insertTrading{
 		orderBook: orderBook,
-		order:     &order,
+		tradeId:   tradeId,
+		prvTrade:  &prvTrade,
 	})
-	stateExchange.createLendingTrade(self.db, tradeIdHash, order)
+	stateExchange.insertLendingTrade(self.db, tradeIdHash, order)
+}
+
+func (self *LendingStateDB) UpdateLiquidationPrice(orderBook common.Hash, tradeId uint64, price *big.Int) {
+	tradeIdHash := common.Uint64ToHash(tradeId)
+	stateExchange := self.getLendingExchange(orderBook)
+	if stateExchange == nil {
+		stateExchange = self.createLendingExchangeObject(orderBook)
+	}
+	stateLendingTrade := stateExchange.getLendingTrade(self.db, tradeIdHash)
+	self.journal = append(self.journal, liquidationPriceChange{
+		orderBook: orderBook,
+		tradeId:   tradeIdHash,
+		prev:      stateLendingTrade.data.LiquidationPrice,
+	})
+	stateLendingTrade.SetLiquidationPrice(price)
+}
+func (self *LendingStateDB) UpdateCollateralLockedAmount(orderBook common.Hash, tradeId uint64, amount *big.Int) {
+	tradeIdHash := common.Uint64ToHash(tradeId)
+	stateExchange := self.getLendingExchange(orderBook)
+	if stateExchange == nil {
+		stateExchange = self.createLendingExchangeObject(orderBook)
+	}
+	stateLendingTrade := stateExchange.getLendingTrade(self.db, tradeIdHash)
+	self.journal = append(self.journal, collateralLockedAmount{
+		orderBook: orderBook,
+		tradeId:   tradeIdHash,
+		prev:      stateLendingTrade.data.CollateralLockedAmount,
+	})
+	stateLendingTrade.SetCollateralLockedAmount(amount)
 }
 func (self *LendingStateDB) GetLendingOrder(orderBook common.Hash, orderId common.Hash) LendingItem {
 	stateObject := self.GetOrNewLendingExchangeObject(orderBook)
@@ -240,7 +271,7 @@ func (self *LendingStateDB) SubAmountLendingItem(orderBook common.Hash, orderId 
 	})
 	newAmount := new(big.Int).Sub(currentAmount, amount)
 	lendingItem.setVolume(newAmount)
-	log.Debug("SubAmountOrderItem", "orderId", orderId.Hex(), "side", side, "key", price.Uint64(), "amount", amount.Uint64(), "new amount", newAmount.Uint64())
+	log.Debug("SubAmountOrderItem", "tradeId", orderId.Hex(), "side", side, "key", price.Uint64(), "amount", amount.Uint64(), "new amount", newAmount.Uint64())
 	orderList.subVolume(amount)
 	if newAmount.Sign() == 0 {
 		orderList.removeOrderItem(self.db, orderId)
@@ -306,24 +337,6 @@ func (self *LendingStateDB) CancelLendingOrder(orderBook common.Hash, order *Len
 	return nil
 }
 
-func (self *LendingStateDB) CancelLendingTrade(orderBook common.Hash, order *LendingTrade) error {
-	tradeIdHash := common.BigToHash(new(big.Int).SetUint64(order.TradeId))
-	stateObject := self.GetOrNewLendingExchangeObject(orderBook)
-	if stateObject == nil {
-		return fmt.Errorf("Order book not found : %s ", orderBook.Hex())
-	}
-	lendingTrade := stateObject.getLendingTrade(self.db, tradeIdHash)
-	if lendingTrade == nil || lendingTrade.empty() {
-		return fmt.Errorf("lending trade empty  order book : %s , trade id  : %s , trade id hash  : %s ", orderBook, tradeIdHash.Hex(), tradeIdHash.Hex())
-	}
-	self.journal = append(self.journal, cancelTrading{
-		orderBook: orderBook,
-		order:     lendingTrade.data,
-	})
-	lendingTrade.data.Amount = Zero
-	return nil
-}
-
 func (self *LendingStateDB) GetBestInvestingRate(orderBook common.Hash) (*big.Int, *big.Int) {
 	stateObject := self.getLendingExchange(orderBook)
 	if stateObject != nil {
@@ -379,9 +392,9 @@ func (self *LendingStateDB) GetBestLendingIdAndAmount(orderBook common.Hash, pri
 			amount := stateOrderList.GetOrderAmount(self.db, orderId)
 			return orderId, new(big.Int).SetBytes(amount.Bytes()), nil
 		}
-		return EmptyHash, Zero, fmt.Errorf("not found order list with lendingBook : %s , key : %d , side :%s ", orderBook.Hex(), price, side)
+		return EmptyHash, Zero, fmt.Errorf("not found order list with orderBook : %s , key : %d , side :%s ", orderBook.Hex(), price, side)
 	}
-	return EmptyHash, Zero, fmt.Errorf("not found lendingBook : %s ", orderBook.Hex())
+	return EmptyHash, Zero, fmt.Errorf("not found orderBook : %s ", orderBook.Hex())
 }
 
 // updateLendingExchange writes the given object to the trie.
@@ -437,7 +450,7 @@ func (self *LendingStateDB) MarkLendingExchangeObjectDirty(addr common.Hash) {
 	self.lendingExchangeStatesDirty[addr] = struct{}{}
 }
 
-// createStateOrderListObject creates a new state object. If there is an existing orderId with
+// createStateOrderListObject creates a new state object. If there is an existing tradeId with
 // the given address, it is overwritten and returned as the second return value.
 func (self *LendingStateDB) createLendingExchangeObject(hash common.Hash) (newobj *lendingExchangeState) {
 	newobj = newStateExchanges(self, hash, lendingObject{}, self.MarkLendingExchangeObjectDirty)
@@ -516,7 +529,7 @@ func (s *LendingStateDB) Finalise() {
 			stateObject.updateOrderRoot(s.db)
 			stateObject.updateLendingTradeRoot(s.db)
 			stateObject.updateLiquidationTimeRoot(s.db)
-			// Update the object in the main orderId trie.
+			// Update the object in the main tradeId trie.
 			s.updateLendingExchange(stateObject)
 			//delete(s.investingStatesDirty, addr)
 		}
@@ -524,8 +537,8 @@ func (s *LendingStateDB) Finalise() {
 	s.clearJournalAndRefund()
 }
 
-// IntermediateRoot computes the current root lendingBook of the state trie.
-// It is called in between transactions to get the root lendingBook that
+// IntermediateRoot computes the current root orderBook of the state trie.
+// It is called in between transactions to get the root orderBook that
 // goes into transaction receipts.
 func (s *LendingStateDB) IntermediateRoot() common.Hash {
 	s.Finalise()
@@ -554,7 +567,7 @@ func (s *LendingStateDB) Commit() (root common.Hash, err error) {
 			if err := stateObject.CommitLiquidationTimeTrie(s.db); err != nil {
 				return EmptyHash, err
 			}
-			// Update the object in the main orderId trie.
+			// Update the object in the main tradeId trie.
 			s.updateLendingExchange(stateObject)
 			delete(s.lendingExchangeStatesDirty, addr)
 		}
@@ -631,4 +644,22 @@ func (self *LendingStateDB) GetLowestLiquidationTime(lendingBook common.Hash, ti
 		liquidationData = liquidationState.getAllTradeIds(self.db)
 	}
 	return lowestTime, liquidationData
+}
+
+func (self *LendingStateDB) CancelLendingTrade(orderBook common.Hash, tradeId uint64) error {
+	tradeIdHash := common.Uint64ToHash(tradeId)
+	stateObject := self.GetOrNewLendingExchangeObject(orderBook)
+	if stateObject == nil {
+		return fmt.Errorf("Order book not found : %s ", orderBook.Hex())
+	}
+	lendingTrade := stateObject.getLendingTrade(self.db, tradeIdHash)
+	if lendingTrade == nil || lendingTrade.empty() {
+		return fmt.Errorf("lending trade empty  order book : %s , trade id  : %s , trade id hash  : %s ", orderBook, tradeIdHash.Hex(), tradeIdHash.Hex())
+	}
+	self.journal = append(self.journal, cancelTrading{
+		orderBook: orderBook,
+		order:     self.GetLendingTrade(orderBook, tradeIdHash),
+	})
+	lendingTrade.data.Amount = Zero
+	return nil
 }

@@ -317,7 +317,7 @@ func (tx *Transaction) IsSkipNonceTransaction() bool {
 	if tx.To() == nil {
 		return false
 	}
-	if tx.To().String() == common.TomoXAddr || tx.To().String() == common.TomoXStateAddr {
+	if tx.To().String() == common.TomoXAddr || tx.To().String() == common.TradingStateAddr {
 		return true
 	}
 	return false

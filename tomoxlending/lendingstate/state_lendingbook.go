@@ -61,7 +61,7 @@ type lendingExchangeState struct {
 	onDirty func(hash common.Hash) // Callback method to mark a state object newly dirty
 }
 
-// empty returns whether the orderId is considered empty.
+// empty returns whether the tradeId is considered empty.
 func (s *lendingExchangeState) empty() bool {
 	return s.data.Nonce == 0 && common.EmptyHash(s.data.InvestingRoot) && common.EmptyHash(s.data.BorrowingRoot)
 }
@@ -246,7 +246,7 @@ func (self *lendingExchangeState) getLendingItem(db Database, lendingId common.H
 	}
 	var data LendingItem
 	if err := rlp.DecodeBytes(enc, &data); err != nil {
-		log.Error("Failed to decode state lending item", "lendingId", lendingId, "err", err)
+		log.Error("Failed to decode state lending item", "tradeId", lendingId, "err", err)
 		return nil
 	}
 	// Insert into the live set.
@@ -546,7 +546,7 @@ func (self *lendingExchangeState) getLowestLiquidationTime(db Database) (common.
 	trie := self.getLiquidationTimeTrie(db)
 	encKey, encValue, err := trie.TryGetBestLeftKeyAndValue()
 	if err != nil {
-		log.Error("Failed find best liquidation time trie ", "lendingBook", self.lendingBook.Hex())
+		log.Error("Failed find best liquidation time trie ", "orderBook", self.lendingBook.Hex())
 		return EmptyHash, nil
 	}
 	if len(encKey) == 0 || len(encValue) == 0 {
@@ -608,7 +608,7 @@ func (self *lendingExchangeState) deepCopy(db *LendingStateDB, onDirty func(hash
 	return stateExchanges
 }
 
-// Returns the address of the contract/orderId
+// Returns the address of the contract/tradeId
 func (self *lendingExchangeState) Hash() common.Hash {
 	return self.lendingBook
 }
@@ -684,8 +684,8 @@ func (self *lendingExchangeState) MarkLendingItemDirty(lending common.Hash) {
 	}
 }
 
-func (self *lendingExchangeState) MarkLendingTradeDirty(lending common.Hash) {
-	self.lendingTradeStatesDirty[lending] = struct{}{}
+func (self *lendingExchangeState) MarkLendingTradeDirty(tradeId common.Hash) {
+	self.lendingTradeStatesDirty[tradeId] = struct{}{}
 	if self.onDirty != nil {
 		self.onDirty(self.Hash())
 		self.onDirty = nil
@@ -735,11 +735,10 @@ func (self *lendingExchangeState) createLiquidationTime(db Database, time common
 	return newobj
 }
 
-func (self *lendingExchangeState) createLendingTrade(db Database, tradeId common.Hash, order LendingTrade) (newobj *lendingTradeState) {
+func (self *lendingExchangeState) insertLendingTrade(db Database, tradeId common.Hash, order LendingTrade) (newobj *lendingTradeState) {
 	newobj = newLendingTradeState(self.lendingBook, tradeId, order, self.MarkLendingTradeDirty)
-	tradeIdHash := common.BigToHash(new(big.Int).SetUint64(order.TradeId))
-	self.lendingTradeStates[tradeIdHash] = newobj
-	self.lendingTradeStatesDirty[tradeIdHash] = struct{}{}
+	self.lendingTradeStates[tradeId] = newobj
+	self.lendingTradeStatesDirty[tradeId] = struct{}{}
 	if self.onDirty != nil {
 		self.onDirty(self.lendingBook)
 		self.onDirty = nil

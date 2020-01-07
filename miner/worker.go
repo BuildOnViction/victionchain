@@ -622,11 +622,13 @@ func (self *worker) commitNewWork() {
 	}
 	// won't grasp txs at checkpoint
 	var (
-		txs                 *types.TransactionsByPriceAndNonce
-		specialTxs          types.Transactions
-		matchingTransaction *types.Transaction
-		txMatches           []tradingstate.TxDataMatch
-		matchingResults     map[common.Hash]tradingstate.MatchingResult
+		txs                        *types.TransactionsByPriceAndNonce
+		specialTxs                 types.Transactions
+		tradingMatchingTransaction *types.Transaction
+		tradingTxMatches           []tradingstate.TxDataMatch
+		tradingMatchingResults     map[common.Hash]tradingstate.MatchingResult
+		lendingTxMatches           []*lendingstate.LendingItem
+		lendingMatchingResults     map[common.Hash]lendingstate.MatchingResult
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -655,17 +657,22 @@ func (self *worker) commitNewWork() {
 					}
 				}
 				log.Debug("Start processing order pending")
-				orderPending, _ := self.eth.OrderPool().Pending()
-				log.Debug("Start processing order pending", "len", len(orderPending))
-				txMatches, matchingResults = tomoX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.tradingState)
-				log.Debug("transaction matches found", "txMatches", len(txMatches))
+				tradingOrderPending, _ := self.eth.OrderPool().Pending()
+				log.Debug("Start processing order pending", "len", len(tradingOrderPending))
+				tradingTxMatches, tradingMatchingResults = tomoX.ProcessOrderPending(self.coinbase, self.chain, tradingOrderPending, work.state, work.tradingState)
+				log.Debug("trading transaction matches found", "tradingTxMatches", len(tradingTxMatches))
 
-				//tomoXLending.ProcessOrderPending()
-
-				tomoXLending.ProcessLiquidationData(header.Time, work.state, work.tradingState, work.lendingState)
+				lendingOrderPending, _ := self.eth.LendingPool().Pending()
+				lendingTxMatches, lendingMatchingResults = tomoXLending.ProcessOrderPending(header.Time.Uint64(), self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
+				log.Debug("lending transaction matches found", "lendingTxMatches", len(lendingTxMatches), "lendingTxMatches", len(lendingMatchingResults))
+				err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
+				if err != nil {
+					log.Error("Fail when process lending liquidation data ", "error", err)
+					return
+				}
 			}
 			txMatchBatch := &tradingstate.TxMatchBatch{
-				Data:      txMatches,
+				Data:      tradingTxMatches,
 				Timestamp: time.Now().UnixNano(),
 				TxHash:    common.Hash{},
 			}
@@ -681,18 +688,18 @@ func (self *worker) commitNewWork() {
 				log.Error("Fail to create tx matches", "error", err)
 				return
 			} else {
-				matchingTransaction = txM
+				tradingMatchingTransaction = txM
 				if tomoX != nil && tomoX.IsSDKNode() {
-					self.chain.AddMatchingResult(matchingTransaction.Hash(), matchingResults)
+					self.chain.AddMatchingResult(tradingMatchingTransaction.Hash(), tradingMatchingResults)
 				}
 			}
 			// force adding matching transaction to this block
-			specialTxs = append(specialTxs, matchingTransaction)
+			specialTxs = append(specialTxs, tradingMatchingTransaction)
 		}
 		TomoxStateRoot := work.tradingState.IntermediateRoot()
 		LendingStateRoot := work.lendingState.IntermediateRoot()
 		txData := append(TomoxStateRoot.Bytes(), LendingStateRoot.Bytes()...)
-		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TomoXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txData)
+		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TradingStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txData)
 		txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
 		if err != nil {
 			log.Error("Fail to create tx state root", "error", err)

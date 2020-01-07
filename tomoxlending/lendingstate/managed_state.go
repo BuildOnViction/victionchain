@@ -64,7 +64,7 @@ func (ms *LendingManagedState) RemoveNonce(addr common.Hash, n uint64) {
 	}
 }
 
-// NewNonce returns the new canonical nonce for the managed orderId
+// NewNonce returns the new canonical nonce for the managed tradeId
 func (ms *LendingManagedState) NewNonce(addr common.Hash) uint64 {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -80,7 +80,7 @@ func (ms *LendingManagedState) NewNonce(addr common.Hash) uint64 {
 	return uint64(len(account.nonces)-1) + account.nstart
 }
 
-// GetNonce returns the canonical nonce for the managed or unmanaged orderId.
+// GetNonce returns the canonical nonce for the managed or unmanaged tradeId.
 //
 // Because GetNonce mutates the DB, we must take a write lock.
 func (ms *LendingManagedState) GetNonce(addr common.Hash) uint64 {
@@ -123,7 +123,7 @@ func (ms *LendingManagedState) getAccount(addr common.Hash) *exchanges {
 		so := ms.GetOrNewLendingExchangeObject(addr)
 		ms.lenddinges[addr] = newAccount(so)
 	} else {
-		// Always make sure the state orderId nonce isn't actually higher
+		// Always make sure the state tradeId nonce isn't actually higher
 		// than the tracked one.
 		so := ms.LendingStateDB.getLendingExchange(addr)
 		if so != nil && uint64(len(account.nonces))+account.nstart < so.Nonce() {

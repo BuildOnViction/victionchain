@@ -44,6 +44,7 @@ type Backend interface {
 	ChainDb() ethdb.Database
 	GetTomoX() *tomox.TomoX
 	OrderPool() *core.OrderPool
+	LendingPool() *core.LendingPool
 	GetTomoXLending() *tomoxlending.Lending
 }
 

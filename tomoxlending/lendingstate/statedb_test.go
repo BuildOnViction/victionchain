@@ -88,7 +88,7 @@ func TestEchangeStates(t *testing.T) {
 	for i := 0; i < len(orderItems); i++ {
 		amount := statedb.GetLendingOrder(orderBook, common.BigToHash(new(big.Int).SetUint64(orderItems[i].LendingId))).Quantity
 		if orderItems[i].Quantity.Cmp(amount) != 0 {
-			t.Fatalf("Error when get amount save in database: orderId %d , lendingType %s,got : %d , wanted : %d ", orderItems[i].LendingId, orderItems[i].Side, amount.Uint64(), orderItems[i].Quantity.Uint64())
+			t.Fatalf("Error when get amount save in database: tradeId %d , lendingType %s,got : %d , wanted : %d ", orderItems[i].LendingId, orderItems[i].Side, amount.Uint64(), orderItems[i].Quantity.Uint64())
 		}
 	}
 	db.Close()
@@ -183,13 +183,13 @@ func TestRevertStates(t *testing.T) {
 	i = 2*numberOrder + 1
 	id = new(big.Int).SetUint64(uint64(i) + 1)
 	order := LendingTrade{TradeId: id.Uint64(), Amount: big.NewInt(int64(2*i + 1))}
-	orderIdHash = common.BigToHash(new(big.Int).SetUint64(testOrder.LendingId))
+	orderIdHash = common.BigToHash(new(big.Int).SetUint64(order.TradeId))
 	snap = statedb.Snapshot()
-	statedb.InsertTradingItem(orderBook, order)
+	statedb.InsertTradingItem(orderBook, order.TradeId, order)
 	statedb.RevertToSnapshot(snap)
 	gotLendingTrade := statedb.GetLendingTrade(orderBook, orderIdHash)
 	if gotLendingTrade.Amount.Cmp(EmptyLendingTrade.Amount) != 0 {
-		t.Fatalf(" err insert lending trade : %s after try revert snap shot , got : %v ,want Empty Order", orderIdHash.Hex(),gotLendingTrade.TradeId)
+		t.Fatalf(" err insert lending trade : %s after try revert snap shot , got : %v ,want Empty Order", orderIdHash.Hex(), gotLendingTrade.Amount)
 	}
 	// change key
 	db.Close()

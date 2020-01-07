@@ -20,11 +20,12 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
 	"io"
+	"math/big"
 )
 
 type lendingTradeState struct {
 	orderBook common.Hash
-	orderId   common.Hash
+	tradeId   common.Hash
 	data      LendingTrade
 	onDirty   func(orderId common.Hash) // Callback method to mark a state object newly dirty
 }
@@ -33,10 +34,10 @@ func (s *lendingTradeState) empty() bool {
 	return s.data.Amount.Sign() == 0
 }
 
-func newLendingTradeState(orderBook common.Hash, orderId common.Hash, data LendingTrade, onDirty func(orderId common.Hash)) *lendingTradeState {
+func newLendingTradeState(orderBook common.Hash, tradeId common.Hash, data LendingTrade, onDirty func(orderId common.Hash)) *lendingTradeState {
 	return &lendingTradeState{
 		orderBook: orderBook,
-		orderId:   orderId,
+		tradeId:   tradeId,
 		data:      data,
 		onDirty:   onDirty,
 	}
@@ -48,6 +49,22 @@ func (c *lendingTradeState) EncodeRLP(w io.Writer) error {
 }
 
 func (self *lendingTradeState) deepCopy(onDirty func(orderId common.Hash)) *lendingTradeState {
-	stateOrderList := newLendingTradeState(self.orderBook, self.orderId, self.data, onDirty)
+	stateOrderList := newLendingTradeState(self.orderBook, self.tradeId, self.data, onDirty)
 	return stateOrderList
+}
+
+func (self *lendingTradeState) SetCollateralLockedAmount(amount *big.Int) {
+	self.data.CollateralLockedAmount = amount
+	if self.onDirty != nil {
+		self.onDirty(self.tradeId)
+		self.onDirty = nil
+	}
+}
+
+func (self *lendingTradeState) SetLiquidationPrice(price *big.Int) {
+	self.data.LiquidationPrice = price
+	if self.onDirty != nil {
+		self.onDirty(self.tradeId)
+		self.onDirty = nil
+	}
 }

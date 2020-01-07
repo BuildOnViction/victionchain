@@ -95,11 +95,11 @@ func (l *Lending) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, lendingStatedb *lendingstate.LendingStateDB, tradingStateDb tradingstate.TradingStateDB) ([]*lendingstate.LendingItem, map[common.Hash]lendingstate.MatchingResult) {
+func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.LendingTransactions, statedb *state.StateDB, lendingStatedb *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB) ([]*lendingstate.LendingItem, map[common.Hash]lendingstate.MatchingResult) {
 	lendingItems := []*lendingstate.LendingItem{}
 	matchingResults := map[common.Hash]lendingstate.MatchingResult{}
 
-	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
+	txs := types.NewLendingTransactionByNonce(types.LendingTxSigner{}, pending)
 	for {
 		tx := txs.Peek()
 		if tx == nil {
@@ -118,16 +118,16 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 		order := &lendingstate.LendingItem{
 			Nonce:           big.NewInt(int64(tx.Nonce())),
 			Quantity:        tx.Quantity(),
-			Interest:        tx.Price(),
-			Relayer:         tx.ExchangeAddress(),
+			Interest:        new(big.Int).SetUint64(tx.Interest()),
+			Relayer:         tx.RelayerAddress(),
 			UserAddress:     tx.UserAddress(),
-			LendingToken:    tx.BaseToken(),
-			CollateralToken: tx.QuoteToken(),
+			LendingToken:    tx.LendingToken(),
+			CollateralToken: tx.CollateralToken(),
 			Status:          tx.Status(),
 			Side:            tx.Side(),
 			Type:            tx.Type(),
-			Hash:            tx.OrderHash(),
-			LendingId:       tx.OrderID(),
+			Hash:            tx.Hash(),
+			LendingId:       tx.LendingID(),
 			Signature: &lendingstate.Signature{
 				V: byte(n),
 				R: common.BigToHash(R),
@@ -417,7 +417,7 @@ func (l *Lending) GetTriegc() *prque.Prque {
 
 func (l *Lending) GetLendingStateRoot(block *types.Block) (common.Hash, error) {
 	for _, tx := range block.Transactions() {
-		if tx.To() != nil && tx.To().Hex() == common.TomoXStateAddr {
+		if tx.To() != nil && tx.To().Hex() == common.TradingStateAddr {
 			if len(tx.Data()) >= 64 {
 				return common.BytesToHash(tx.Data()[32:]), nil
 			}
@@ -532,43 +532,51 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 	}
 }
 
-func (l *Lending) ProcessLiquidationData(time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) {
-	// process liquidation price lending
-	allPairs, err := tradingstate.GetAllTradingPairs(statedb)
+func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) error {
+	allPairs, err := lendingstate.GetAllLendingPairs(statedb)
 	if err != nil {
+		log.Error("Fail when get all trading pairs", "error", err)
+		return err
+	}
+	allLendingBooks, err := lendingstate.GetAllLendingBooks(statedb)
+	if err != nil {
+		log.Error("Fail when get all lending books", "error", err)
+		return err
+	}
+
+	for _, lendingPair := range allPairs {
+		orderbook := tradingstate.GetTradingOrderBookHash(lendingPair.CollateralToken, lendingPair.LendingToken)
+		_, liquidationPrice, err := l.GetCollateralPrices(chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
 		if err != nil {
 			log.Error("Fail when get all trading pairs", "error", err)
-			return
+			return err
 		}
-	}
-	for orderbook, _ := range allPairs {
-		liquidationPrice := tradingState.GetMediumPriceLastEpoch(orderbook)
 		lowestPrice, liquidationData := tradingState.GetLowestLiquidationPriceData(orderbook, liquidationPrice)
 		for lowestPrice.Sign() > 0 && lowestPrice.Cmp(liquidationPrice) < 0 {
 			for lendingBook, tradingIds := range liquidationData {
 				for _, tradingIdHash := range tradingIds {
-					tradingId := new(big.Int).SetBytes(tradingIdHash.Bytes()).Uint64()
-					// process liquidation price
-
-					// remove tradingId
-					tradingState.RemoveLiquidationPrice(orderbook, lowestPrice, lendingBook, tradingId)
+					err = l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
+					if err != nil {
+						log.Error("Fail when remove liquidation trade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
+						return err
+					}
 				}
 			}
 			lowestPrice, liquidationData = tradingState.GetLowestLiquidationPriceData(orderbook, liquidationPrice)
 		}
 	}
 
-	// get All
-	allLendingPairs := lendingstate.GetAllLendingPairs(statedb)
-	for lendingBook, _ := range allLendingPairs {
+	for lendingBook, _ := range allLendingBooks {
 		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
 			for _, tradingId := range tradingIds {
-				//process liquidation time
-
-				// remove trading Id
-				lendingState.RemoveLiquidationData(lendingBook, lowestTime.Uint64(), tradingId)
+				err = l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
+				if err != nil {
+					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
+					return err
+				}
 			}
 		}
 	}
+	return nil
 }
