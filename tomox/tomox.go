@@ -3,15 +3,16 @@ package tomox
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/p2p"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxDAO"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"math/big"
-	"strconv"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
@@ -27,6 +28,7 @@ const (
 	ProtocolVersionStr = "1.0"
 	overflowIdx        // Indicator of message queue overflow
 	defaultCacheLimit  = 1024
+	MaximumTxMatchSize = 1000
 )
 
 var (
@@ -155,11 +157,16 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 	matchingResults := map[common.Hash]tradingstate.MatchingResult{}
 
 	txs := types.NewOrderTransactionByNonce(types.OrderTxSigner{}, pending)
+	numberTx := 0
 	for {
 		tx := txs.Peek()
 		if tx == nil {
 			break
 		}
+		if numberTx > MaximumTxMatchSize {
+			break
+		}
+		numberTx++
 		log.Debug("ProcessOrderPending start", "len", len(pending))
 		log.Debug("Get pending orders to process", "address", tx.UserAddress(), "nonce", tx.Nonce())
 		V, R, S := tx.Signature()

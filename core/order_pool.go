@@ -62,6 +62,7 @@ var (
 
 var (
 	ErrPendingNonceTooLow = errors.New("pending nonce too low")
+	ErrPoolOverflow       = errors.New("Exceed pool size")
 )
 
 // OrderPoolConfig are the configuration parameters of the order transaction pool.
@@ -562,6 +563,8 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
+		log.Debug("Add order transaction to pool full", "hash", hash, "nonce", tx.Nonce())
+		return false, ErrPoolOverflow
 	}
 	// If the transaction is replacing an already pending one, do directly
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
