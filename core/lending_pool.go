@@ -456,6 +456,7 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 				return ErrNotPoSV
 			}
 			tomoXServ := posvEngine.GetTomoXService()
+			lendingServ := posvEngine.GetLendingService()
 			if tomoXServ == nil {
 				return fmt.Errorf("tomox not found in order validation")
 			}
@@ -472,7 +473,8 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 				return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
 			}
 			cloneTradingStateDb := tradingStateDb.Copy()
-			if err := lendingstate.VerifyBalance(cloneStateDb, cloneLendingStateDb, cloneTradingStateDb, tx, lendingTokenDecimal, collateralTokenDecimal); err != nil {
+			lendTokenTOMOPrice, collateralPrice, err := lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
+			if err := lendingstate.VerifyBalance(cloneStateDb, cloneLendingStateDb, tx, lendingTokenDecimal, collateralTokenDecimal, lendTokenTOMOPrice, collateralPrice); err != nil {
 				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToke: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
 			}
 		}
