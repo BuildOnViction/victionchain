@@ -44,7 +44,8 @@ func GetSettleBalance(takerSide string,
 	if takerSide == Borrowing {
 		// taker = Borrower : takerOutTotal = CollateralLockedAmount = quantityToLend * collateral Token Decimal/ CollateralPrice  * deposit rate
 		takerOutTotal := new(big.Int).Mul(quantityToLend, collateralTokenDecimal)
-		takerOutTotal = takerOutTotal.Mul(takerOutTotal, depositRate)
+		takerOutTotal = takerOutTotal.Mul(takerOutTotal, depositRate) // eg: depositRate = 150%
+		takerOutTotal = takerOutTotal.Div(takerOutTotal, big.NewInt(100))
 		takerOutTotal = takerOutTotal.Div(takerOutTotal, collateralPrice)
 		// Fee
 		// takerFee = quantityToLend*borrowFee/baseFee
@@ -92,7 +93,8 @@ func GetSettleBalance(takerSide string,
 	} else {
 		// maker =  Borrower : makerOutTotal = CollateralLockedAmount = quantityToLend * collateral Token Decimal / CollateralPrice  * deposit rate
 		makerOutTotal := new(big.Int).Mul(quantityToLend, collateralTokenDecimal)
-		makerOutTotal = makerOutTotal.Mul(makerOutTotal, depositRate)
+		makerOutTotal = makerOutTotal.Mul(makerOutTotal, depositRate) // eg: depositRate = 150%
+		makerOutTotal = makerOutTotal.Div(makerOutTotal, big.NewInt(100))
 		makerOutTotal = makerOutTotal.Div(makerOutTotal, collateralPrice)
 		// Fee
 		makerFee := new(big.Int).Mul(quantityToLend, borrowFee)

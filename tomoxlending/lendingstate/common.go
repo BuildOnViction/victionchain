@@ -174,3 +174,11 @@ func DecodeTxLendingBatch(data []byte) (TxLendingBatch, error) {
 	}
 	return txMatchResult, nil
 }
+
+func EtherToWei(amount *big.Int) *big.Int {
+	return new(big.Int).Mul(amount, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+}
+
+func WeiToEther(amount *big.Int) *big.Int {
+	return new(big.Int).Div(amount, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+}

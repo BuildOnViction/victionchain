@@ -473,8 +473,29 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 				return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
 			}
 			cloneTradingStateDb := tradingStateDb.Copy()
+			// collateralPrice: price of collateral by LendingToken
+			// Eg: LendingToken: USD, CollateralToken: BTC
+			// collateralPrice = BTC/USD (eg: 8000 USD)
+			// lendTokenTOMOPrice: price of lendingToken in TOMO quote
+
 			lendTokenTOMOPrice, collateralPrice, err := lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
-			if err := lendingstate.VerifyBalance(cloneStateDb, cloneLendingStateDb, tx, lendingTokenDecimal, collateralTokenDecimal, lendTokenTOMOPrice, collateralPrice); err != nil {
+			if err := lendingstate.VerifyBalance(cloneStateDb,
+				cloneLendingStateDb,
+				tx.Side(),
+				tx.Status(),
+				tx.UserAddress(),
+				tx.RelayerAddress(),
+				tx.LendingToken(),
+				tx.CollateralToken(),
+				tx.Quantity(),
+				lendingTokenDecimal,
+				collateralTokenDecimal,
+				lendTokenTOMOPrice,
+				collateralPrice,
+				tx.Term(),
+				tx.LendingID(),
+				common.Hash{}, // common.HexToHash(l.ExtraData()) //TODO: get lendingTradeId from l.ExtraData()
+			); err != nil {
 				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToke: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
 			}
 		}
