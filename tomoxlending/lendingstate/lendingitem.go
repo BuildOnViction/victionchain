@@ -233,7 +233,7 @@ func (l *LendingItem) VerifyLendingType() error {
 }
 
 func (l *LendingItem) VerifyLendingStatus() error {
-	if valid, ok := ValidInputLendingStatus[l.Status]; ok && valid {
+	if valid, ok := ValidInputLendingStatus[l.Status]; !ok && !valid {
 		return fmt.Errorf("VerifyLendingStatus: invalid lending status. Status: %s", l.Status)
 	}
 	return nil

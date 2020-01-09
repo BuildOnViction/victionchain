@@ -427,7 +427,7 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 	cloneStateDb := pool.currentRootState.Copy()
 	cloneLendingStateDb := pool.currentLendingState.Copy()
 
-	if valid, ok := lendingstate.ValidInputLendingStatus[lendingStatus]; ok && valid {
+	if valid, ok := lendingstate.ValidInputLendingStatus[lendingStatus]; !ok && !valid {
 		return ErrInvalidLendingStatus
 	}
 	if !tx.IsCancelledLending() {
