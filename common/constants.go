@@ -43,6 +43,7 @@ var TomoXBaseCancelFee = big.NewInt(10000)            // 1/10000
 var RelayerLendingFee = big.NewInt(10000000000000000) // 0.01
 var LendingCancelFee = big.NewInt(1000000)            // 1/1000000
 var BaseLendingInterest = big.NewInt(10000)
+
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
 var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")

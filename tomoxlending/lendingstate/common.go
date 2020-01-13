@@ -2,7 +2,6 @@ package lendingstate
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/tomochain/tomochain/crypto"
 	"math/big"
 	"time"
@@ -24,21 +23,6 @@ var EmptyLendingOrder = LendingItem{
 var EmptyLendingTrade = LendingTrade{
 	Amount: big.NewInt(0),
 }
-var (
-	ErrInvalidSignature = errors.New("verify lending item: invalid signature")
-	ErrInvalidInterest  = errors.New("verify lending item: invalid Interest")
-	ErrInvalidQuantity  = errors.New("verify lending item: invalid quantity")
-	ErrInvalidRelayer   = errors.New("verify lending item: invalid relayer")
-	ErrInvalidOrderType = errors.New("verify lending item: unsupported order type")
-	ErrInvalidOrderSide = errors.New("verify lending item: invalid order side")
-	ErrInvalidStatus    = errors.New("verify lending item: invalid status")
-
-	// supported order types
-	MatchingOrderType = map[string]bool{
-		Market: true,
-		Limit:  true,
-	}
-)
 
 type itemList struct {
 	Volume *big.Int
@@ -173,4 +157,28 @@ func Max(a, b *big.Int) *big.Int {
 
 func GetLendingOrderBookHash(lendingToken common.Address, term uint64) common.Hash {
 	return crypto.Keccak256Hash(append(common.Uint64ToHash(term).Bytes(), lendingToken.Bytes()...))
+}
+
+func EncodeTxLendingBatch(batch TxLendingBatch) ([]byte, error) {
+	data, err := json.Marshal(batch)
+	if err != nil || data == nil {
+		return []byte{}, err
+	}
+	return data, nil
+}
+
+func DecodeTxLendingBatch(data []byte) (TxLendingBatch, error) {
+	txMatchResult := TxLendingBatch{}
+	if err := json.Unmarshal(data, &txMatchResult); err != nil {
+		return TxLendingBatch{}, err
+	}
+	return txMatchResult, nil
+}
+
+func EtherToWei(amount *big.Int) *big.Int {
+	return new(big.Int).Mul(amount, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+}
+
+func WeiToEther(amount *big.Int) *big.Int {
+	return new(big.Int).Div(amount, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
 }

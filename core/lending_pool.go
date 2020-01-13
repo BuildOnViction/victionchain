@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/tomochain/tomochain/consensus/posv"
 	"sort"
 	"sync"
 	"time"
@@ -53,7 +54,7 @@ var (
 	LendingTypeLimit    = "LO"
 	LendingTypeMarket   = "MO"
 	LendingStatusNew    = "NEW"
-	LendingStatusCancle = "CANCELLED"
+	LendingStatusCancel = "CANCELLED"
 	LendingSideBid      = "BUY"
 	LendingSideAsk      = "SELL"
 )
@@ -412,9 +413,97 @@ func (pool *LendingPool) GetSender(tx *types.LendingTransaction) (common.Address
 }
 
 func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
+	lendingSide := tx.Side()
+	lendingType := tx.Type()
+	lendingStatus := tx.Status()
+	interest := tx.Interest()
+	quantity := tx.Quantity()
+
 	from, _ := types.LendingSender(pool.signer, tx)
 	if from != tx.UserAddress() {
 		return ErrInvalidLendingUserAddress
+	}
+
+	cloneStateDb := pool.currentRootState.Copy()
+	cloneLendingStateDb := pool.currentLendingState.Copy()
+
+	if valid, ok := lendingstate.ValidInputLendingStatus[lendingStatus]; !ok && !valid {
+		return ErrInvalidLendingStatus
+	}
+	if !tx.IsCancelledLending() {
+		if quantity == nil || quantity.Sign() <= 0 {
+			return ErrInvalidLendingQuantity
+		}
+		if lendingType != LendingTypeMarket {
+			if interest <= 0 {
+				return ErrInvalidLendingInterest
+			}
+		}
+
+		if lendingSide != LendingSideAsk && lendingSide != LendingSideBid {
+			return ErrInvalidLendingSide
+		}
+		if lendingType != LendingTypeLimit && lendingType != LendingTypeMarket {
+			return ErrInvalidLendingType
+		}
+		if valid, _ := lendingstate.IsValidPair(cloneStateDb, tx.RelayerAddress(), tx.LendingToken(), tx.Term()); valid == false {
+			return fmt.Errorf("invalid pair. Relayer: %s. LendingToken: %s. Term: %d", tx.RelayerAddress().Hex(), tx.LendingToken().Hex(), tx.Term())
+		}
+
+		if lendingType == LendingTypeLimit {
+			posvEngine, ok := pool.chain.Engine().(*posv.Posv)
+			if !ok {
+				return ErrNotPoSV
+			}
+			tomoXServ := posvEngine.GetTomoXService()
+			lendingServ := posvEngine.GetLendingService()
+			if tomoXServ == nil {
+				return fmt.Errorf("tomox not found in order validation")
+			}
+			lendingTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.LendingToken())
+			if err != nil {
+				return fmt.Errorf("validateOrder: failed to get lendingTokenDecimal. err: %v", err)
+			}
+			collateralTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.CollateralToken())
+			if err != nil {
+				return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
+			}
+			tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock())
+			if err != nil {
+				return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
+			}
+			cloneTradingStateDb := tradingStateDb.Copy()
+			// collateralPrice: price of collateral by LendingToken
+			// Eg: LendingToken: USD, CollateralToken: BTC
+			// collateralPrice = BTC/USD (eg: 8000 USD)
+			// lendTokenTOMOPrice: price of lendingToken in TOMO quote
+
+			lendTokenTOMOPrice, collateralPrice, err := lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
+			if err := lendingstate.VerifyBalance(cloneStateDb,
+				cloneLendingStateDb,
+				tx.Side(),
+				tx.Status(),
+				tx.UserAddress(),
+				tx.RelayerAddress(),
+				tx.LendingToken(),
+				tx.CollateralToken(),
+				tx.Quantity(),
+				lendingTokenDecimal,
+				collateralTokenDecimal,
+				lendTokenTOMOPrice,
+				collateralPrice,
+				tx.Term(),
+				tx.LendingID(),
+				common.Hash{}, // common.HexToHash(l.ExtraData()) //TODO: get lendingTradeId from l.ExtraData()
+			); err != nil {
+				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToke: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
+			}
+		}
+
+	}
+
+	if !lendingstate.IsValidRelayer(cloneStateDb, tx.RelayerAddress()) {
+		return fmt.Errorf("invalid lending relayer. ExchangeAddress: %s", tx.RelayerAddress().Hex())
 	}
 
 	return nil
