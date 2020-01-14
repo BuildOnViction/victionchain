@@ -214,7 +214,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 	quantityToTrade := lendingstate.CloneBigInt(quantityStillToTrade)
 	log.Debug("Process matching between order and orderlist", "quantityToTrade", quantityToTrade)
 	var (
-		trades []*lendingstate.LendingTrade
+		trades  []*lendingstate.LendingTrade
 		rejects []*lendingstate.LendingItem
 	)
 	for quantityToTrade.Sign() > 0 {
@@ -244,11 +244,11 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 		}
 		collateralPrice := common.BasePrice
 		depositRate, liquidationRate, _ := lendingstate.GetCollateralDetail(statedb, collateralToken)
-		lendTokenTOMOPrice, collateralPrice, err := l.GetCollateralPrices(chain, statedb, tradingStateDb, order.CollateralToken, order.LendingToken, )
+		lendTokenTOMOPrice, collateralPrice, err := l.GetCollateralPrices(chain, statedb, tradingStateDb, order.CollateralToken, order.LendingToken)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		tradedQuantity, collateralLockedAmount, rejectMaker, err := l.getLendQuantity(lendTokenTOMOPrice, collateralPrice, depositRate, borrowFee, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
+		tradedQuantity, collateralLockedAmount, rejectMaker, settleBalanceResult, err := l.getLendQuantity(lendTokenTOMOPrice, collateralPrice, depositRate, borrowFee, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
 		if err != nil && err == lendingstate.ErrQuantityTradeTooSmall {
 			if tradedQuantity.Cmp(maxTradedQuantity) == 0 {
 				if quantityToTrade.Cmp(amount) == 0 { // reject Taker & maker
@@ -341,22 +341,34 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 			tradeRecord.MakerOrderType = oldestOrder.Type
 
 			if order.Side == lendingstate.Borrowing {
+				// taker is a borrower
 				tradeRecord.BorrowingOrderHash = order.Hash
 				tradeRecord.InvestingOrderHash = oldestOrder.Hash
 				tradeRecord.BorrowingRelayer = order.Relayer
 				tradeRecord.InvestingRelayer = oldestOrder.Relayer
 				tradeRecord.Borrower = order.UserAddress
 				tradeRecord.Investor = oldestOrder.UserAddress
+
+				// fee
+				if settleBalanceResult != nil {
+					tradeRecord.BorrowingFee = settleBalanceResult.Taker.Fee
+					tradeRecord.InvestingFee = lendingstate.Zero // current design: no investing fee
+				}
 			} else if order.Side == lendingstate.Investing {
+				// taker is an investor
 				tradeRecord.BorrowingOrderHash = oldestOrder.Hash
 				tradeRecord.InvestingOrderHash = order.Hash
 				tradeRecord.BorrowingRelayer = oldestOrder.Relayer
 				tradeRecord.InvestingRelayer = order.Relayer
 				tradeRecord.Borrower = oldestOrder.UserAddress
 				tradeRecord.Investor = order.UserAddress
+				// fee
+				if settleBalanceResult != nil {
+					tradeRecord.BorrowingFee = settleBalanceResult.Maker.Fee
+					tradeRecord.InvestingFee = lendingstate.Zero // current design: no investing fee
+				}
 			}
 
-			//TODO:@nguyennguyen fee calculation
 			trades = append(trades, &tradeRecord)
 
 		}
@@ -376,37 +388,37 @@ func (l *Lending) getLendQuantity(
 	collateralPrice,
 	depositRate,
 	borrowFee *big.Int,
-	coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, takerOrder *lendingstate.LendingItem, makerOrder *lendingstate.LendingItem, quantityToTrade *big.Int) (*big.Int, *big.Int, bool, error) {
+	coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, takerOrder *lendingstate.LendingItem, makerOrder *lendingstate.LendingItem, quantityToTrade *big.Int) (*big.Int, *big.Int, bool, *lendingstate.LendingSettleBalance, error) {
 	if collateralPrice == nil || collateralPrice.Sign() == 0 {
 		if takerOrder.Side == lendingstate.Borrowing {
 			log.Debug("Reject lending order taker , can not found  collateral price ")
-			return lendingstate.Zero, lendingstate.Zero, false, nil
+			return lendingstate.Zero, lendingstate.Zero, false, nil, nil
 		} else {
 			log.Debug("Reject lending order maker , can not found  collateral price ")
-			return lendingstate.Zero, lendingstate.Zero, true, nil
+			return lendingstate.Zero, lendingstate.Zero, true, nil, nil
 		}
 	}
 	LendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, makerOrder.LendingToken)
 	if err != nil || LendingTokenDecimal.Sign() == 0 {
-		return lendingstate.Zero, lendingstate.Zero, false, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.LendingToken.String(), err)
+		return lendingstate.Zero, lendingstate.Zero, false, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.LendingToken.String(), err)
 	}
 	collateralTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, makerOrder.CollateralToken)
 	if err != nil || collateralTokenDecimal.Sign() == 0 {
-		return lendingstate.Zero, lendingstate.Zero, false, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.CollateralToken.String(), err)
+		return lendingstate.Zero, lendingstate.Zero, false, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.CollateralToken.String(), err)
 	}
 	if takerOrder.Relayer.String() == makerOrder.Relayer.String() {
 		if err := lendingstate.CheckRelayerFee(takerOrder.Relayer, new(big.Int).Mul(common.RelayerLendingFee, big.NewInt(2)), statedb); err != nil {
 			log.Debug("Reject order Taker Exchnage = Maker Exchange , relayer not enough fee ", "err", err)
-			return lendingstate.Zero, lendingstate.Zero, false, nil
+			return lendingstate.Zero, lendingstate.Zero, false, nil, nil
 		}
 	} else {
 		if err := lendingstate.CheckRelayerFee(takerOrder.Relayer, common.RelayerLendingFee, statedb); err != nil {
 			log.Debug("Reject order Taker , relayer not enough fee ", "err", err)
-			return lendingstate.Zero, lendingstate.Zero, false, nil
+			return lendingstate.Zero, lendingstate.Zero, false, nil, nil
 		}
 		if err := lendingstate.CheckRelayerFee(makerOrder.Relayer, common.RelayerLendingFee, statedb); err != nil {
 			log.Debug("Reject order maker , relayer not enough fee ", "err", err)
-			return lendingstate.Zero, lendingstate.Zero, true, nil
+			return lendingstate.Zero, lendingstate.Zero, true, nil, nil
 		}
 	}
 	var takerBalance, makerBalance *big.Int
@@ -435,9 +447,9 @@ func (l *Lending) getLendQuantity(
 		if err == nil {
 			err = DoSettleBalance(coinbase, takerOrder, makerOrder, settleBalanceResult, statedb)
 		}
-		return quantity, settleBalanceResult.CollateralLockedAmount, rejectMaker, err
+		return quantity, settleBalanceResult.CollateralLockedAmount, rejectMaker, settleBalanceResult, err
 	}
-	return quantity, lendingstate.Zero, rejectMaker, nil
+	return quantity, lendingstate.Zero, rejectMaker, nil, nil
 }
 
 func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositRate *big.Int, collateralPrice *big.Int, takerBalance *big.Int, makerBalance *big.Int, quantityToLend *big.Int) (*big.Int, bool) {
@@ -780,7 +792,7 @@ func (l *Lending) getMediumTradePriceLastEpoch(chain consensus.ChainContext, sta
 	return nil, nil
 }
 
-func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, collateralToken common.Address, lendingToken common.Address, ) (*big.Int, *big.Int, error) {
+func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, collateralToken common.Address, lendingToken common.Address) (*big.Int, *big.Int, error) {
 	_, _, collateralTOMOBasePrice := lendingstate.GetCollateralDetail(statedb, collateralToken)
 	_, _, lendingTOMOBasePrice := lendingstate.GetCollateralDetail(statedb, lendingToken)
 	collateralPrice := big.NewInt(0)
