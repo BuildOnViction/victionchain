@@ -716,11 +716,9 @@ func (self *worker) commitNewWork() {
 					return
 				} else {
 					lendingTransaction = signedLendingTx
-					//TODO:@nguyennguyen
-					// SDKnode need to store lendingResult
-					//if tomoX != nil && tomoX.IsSDKNode() {
-					//	self.chain.AddMatchingResult(tradingTransaction.Hash(), matchingResults)
-					//}
+					if tomoX != nil && tomoX.IsSDKNode() {
+						self.chain.AddLendingResult(lendingTransaction.Hash(), lendingMatchingResults)
+					}
 				}
 			}
 		}

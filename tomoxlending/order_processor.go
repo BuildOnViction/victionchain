@@ -11,7 +11,7 @@ import (
 	"math/big"
 )
 
-func (l *Lending) CommitOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) CommitOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]*lendingstate.LendingTrade, []*lendingstate.LendingItem, error) {
 	tomoxSnap := lendingStateDB.Snapshot()
 	dbSnap := statedb.Snapshot()
 	trades, rejects, err := l.ApplyOrder(createdBlockTime, coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
@@ -23,10 +23,10 @@ func (l *Lending) CommitOrder(createdBlockTime uint64, coinbase common.Address, 
 	return trades, rejects, err
 }
 
-func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]*lendingstate.LendingTrade, []*lendingstate.LendingItem, error) {
 	var (
 		rejects []*lendingstate.LendingItem
-		trades  []map[string]string
+		trades  []*lendingstate.LendingTrade
 		err     error
 	)
 	nonce := lendingStateDB.GetNonce(order.UserAddress.Hash())
@@ -107,10 +107,10 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 }
 
 // processMarketOrder : process the market order
-func (l *Lending) processMarketOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processMarketOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]*lendingstate.LendingTrade, []*lendingstate.LendingItem, error) {
 	var (
-		trades     []map[string]string
-		newTrades  []map[string]string
+		trades     []*lendingstate.LendingTrade
+		newTrades  []*lendingstate.LendingTrade
 		rejects    []*lendingstate.LendingItem
 		newRejects []*lendingstate.LendingItem
 		err        error
@@ -151,10 +151,10 @@ func (l *Lending) processMarketOrder(createdBlockTime uint64, coinbase common.Ad
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (l *Lending) processLimitOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processLimitOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]*lendingstate.LendingTrade, []*lendingstate.LendingItem, error) {
 	var (
-		trades     []map[string]string
-		newTrades  []map[string]string
+		trades     []*lendingstate.LendingTrade
+		newTrades  []*lendingstate.LendingTrade
 		rejects    []*lendingstate.LendingItem
 		newRejects []*lendingstate.LendingItem
 		err        error
@@ -210,12 +210,11 @@ func (l *Lending) processLimitOrder(createdBlockTime uint64, coinbase common.Add
 }
 
 // processOrderList : process the order list
-func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, side string, lendingOrderBook common.Hash, Interest *big.Int, quantityStillToTrade *big.Int, order *lendingstate.LendingItem) (*big.Int, []map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, side string, lendingOrderBook common.Hash, Interest *big.Int, quantityStillToTrade *big.Int, order *lendingstate.LendingItem) (*big.Int, []*lendingstate.LendingTrade, []*lendingstate.LendingItem, error) {
 	quantityToTrade := lendingstate.CloneBigInt(quantityStillToTrade)
 	log.Debug("Process matching between order and orderlist", "quantityToTrade", quantityToTrade)
 	var (
-		trades []map[string]string
-
+		trades []*lendingstate.LendingTrade
 		rejects []*lendingstate.LendingItem
 	)
 	for quantityToTrade.Sign() > 0 {
@@ -314,7 +313,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				LiquidationTime:        liquidationTime,
 				LiquidationPrice:       liquidationPrice,
 				Interest:               oldestOrder.Interest.Uint64(),
-				LendingRate:            depositRate,
+				DepositRate:            depositRate,
 				CollateralLockedAmount: collateralLockedAmount,
 			}
 			if order.Side == lendingstate.Investing {
@@ -332,21 +331,33 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 			lendingStateDB.InsertLiquidationTime(lendingOrderBook, new(big.Int).SetUint64(liquidationTime), tradingId)
 			lendingStateDB.SetTradeNonce(lendingOrderBook, tradingId+1)
 			tradingStateDb.InsertLiquidationPrice(tradingstate.GetTradingOrderBookHash(order.CollateralToken, order.LendingToken), liquidationPrice, lendingOrderBook, tradingId)
-			tradeRecord := make(map[string]string)
-			//tradeRecord[lendingstate2.TradeTakerOrderHash] = order.Hash.Hex()
-			//tradeRecord[lendingstate2.TradeMakerOrderHash] = oldestOrder.Hash.Hex()
-			//tradeRecord[lendingstate2.TradeTimestamp] = strconv.FormatInt(time.Now().Unix(), 10)
-			//tradeRecord[lendingstate2.TradeQuantity] = tradedQuantity.String()
-			//tradeRecord[lendingstate2.TradeMakerExchange] = oldestOrder.Relayer.String()
-			//tradeRecord[lendingstate2.TradeMaker] = oldestOrder.UserAddress.String()
-			//tradeRecord[lendingstate2.TradeLendingToken] = oldestOrder.LendingToken.String()
-			//tradeRecord[lendingstate2.TradeCollateralToken] = oldestOrder.CollateralToken.String()
-			//// maker Interest is actual Interest
-			//// Taker Interest is offer Interest
-			//// tradedInterest is always actual Interest
-			//tradeRecord[lendingstate2.TradeInterest] = oldestOrder.Interest.String()
-			//tradeRecord[lendingstate2.MakerOrderType] = oldestOrder.Type
-			trades = append(trades, tradeRecord)
+
+			// attach more trade information for sdk
+			tradeRecord := lendingTrade
+			tradeRecord.CollateralToken = oldestOrder.CollateralToken
+			tradeRecord.Status = lendingstate.TradeStatusOpen
+			tradeRecord.TakerOrderSide = order.Side
+			tradeRecord.TakerOrderType = order.Type
+			tradeRecord.MakerOrderType = oldestOrder.Type
+
+			if order.Side == lendingstate.Borrowing {
+				tradeRecord.BorrowingOrderHash = order.Hash
+				tradeRecord.InvestingOrderHash = oldestOrder.Hash
+				tradeRecord.BorrowingRelayer = order.Relayer
+				tradeRecord.InvestingRelayer = oldestOrder.Relayer
+				tradeRecord.Borrower = order.UserAddress
+				tradeRecord.Investor = oldestOrder.UserAddress
+			} else if order.Side == lendingstate.Investing {
+				tradeRecord.BorrowingOrderHash = oldestOrder.Hash
+				tradeRecord.InvestingOrderHash = order.Hash
+				tradeRecord.BorrowingRelayer = oldestOrder.Relayer
+				tradeRecord.InvestingRelayer = order.Relayer
+				tradeRecord.Borrower = oldestOrder.UserAddress
+				tradeRecord.Investor = order.UserAddress
+			}
+
+			//TODO:@nguyennguyen fee calculation
+			trades = append(trades, &tradeRecord)
 
 		}
 		if rejectMaker {

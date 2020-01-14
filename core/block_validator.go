@@ -149,12 +149,16 @@ func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingSta
 	if posvEngine == nil || !ok {
 		return ErrNotPoSV
 	}
+	tomoXService := posvEngine.GetTomoXService()
+	if tomoXService == nil {
+		return fmt.Errorf("tomox not found")
+	}
 	lendingService := posvEngine.GetLendingService()
 	if lendingService == nil {
 		return fmt.Errorf("lendingService not found")
 	}
 	log.Debug("verify lendingItem ", "numItems", len(batch.Data))
-	//lendingResult := map[common.Hash]lendingstate.MatchingResult{}
+	lendingResult := map[common.Hash]lendingstate.MatchingResult{}
 	for _, l := range batch.Data {
 		// verify lendingItem
 
@@ -163,20 +167,18 @@ func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingSta
 			return fmt.Errorf("invalid lendingItem . Error: %v", err)
 		}
 		// process Matching Engine
-		_, _, err := lendingService.ApplyOrder(uint64(batch.Timestamp), coinbase, v.bc, statedb, lendingStateDb, tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
+		newTrades, newRejectedOrders, err := lendingService.ApplyOrder(uint64(batch.Timestamp), coinbase, v.bc, statedb, lendingStateDb, tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
 		if err != nil {
 			return err
 		}
-		//TODO:@nguyennguyen
-		// SDKnode need to store lendingResult
-		//lendingResult[order.Hash] = tradingstate.MatchingResult{
-		//	Trades:  newTrades,
-		//	Rejects: newRejectedOrders,
-		//}
+		lendingResult[l.Hash] = lendingstate.MatchingResult{
+			Trades:  newTrades,
+			Rejects: newRejectedOrders,
+		}
 	}
-	//if lendingService.IsSDKNode() {
-	//	v.bc.AddMatchingResult(batch.TxHash, lendingResult)
-	//}
+	if tomoXService.IsSDKNode() {
+		v.bc.AddLendingResult(batch.TxHash, lendingResult)
+	}
 	return nil
 }
 

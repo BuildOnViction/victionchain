@@ -150,7 +150,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 			order.Status = lendingstate.LendingStatusCancelled
 		}
 
-		_, newRejectedOrders, err := l.CommitOrder(createdBlockTime, coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
+		newTrades, newRejectedOrders, err := l.CommitOrder(createdBlockTime, coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
 
 		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)
@@ -185,7 +185,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 		originalOrder.LendingId = order.LendingId
 		lendingItems = append(lendingItems, originalOrder)
 		matchingResults[order.Hash] = lendingstate.MatchingResult{
-			//Trades:  newTrades,
+			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}
 	}
@@ -257,10 +257,9 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		}
 		tradeRecord.UpdatedAt = txMatchTime
 		tradeRecord.TxHash = txHash
-		tradeRecord.Status = lendingstate.TradeStatusSuccess
 		tradeRecord.Hash = tradeRecord.ComputeHash()
 		log.Debug("LendingTrade history ", "Term", tradeRecord.Term, "amount", tradeRecord.Amount, "Interest", tradeRecord.Interest,
-			"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "TakerOrderHash", tradeRecord.TakerOrderHash.Hex(), "MakerOrderHash", tradeRecord.MakerOrderHash.Hex(),
+			"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "BorrowingOrderHash", tradeRecord.BorrowingOrderHash.Hex(), "InvestingOrderHash", tradeRecord.InvestingOrderHash.Hex(),
 			"borrowing", tradeRecord.BorrowingFee.String(), "investingFee", tradeRecord.InvestingFee.String())
 		if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {
 			return fmt.Errorf("SDKNode: failed to store lendingTrade %s", err.Error())
@@ -270,12 +269,12 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		filledAmount := tradeRecord.Amount
 		// maker dirty order
 		makerFilledAmount := big.NewInt(0)
-		if amount, ok := makerDirtyFilledAmount[tradeRecord.MakerOrderHash.Hex()]; ok {
+		if amount, ok := makerDirtyFilledAmount[tradeRecord.InvestingOrderHash.Hex()]; ok {
 			makerFilledAmount = lendingstate.CloneBigInt(amount)
 		}
 		makerFilledAmount.Add(makerFilledAmount, filledAmount)
-		makerDirtyFilledAmount[tradeRecord.MakerOrderHash.Hex()] = makerFilledAmount
-		makerDirtyHashes = append(makerDirtyHashes, tradeRecord.MakerOrderHash.Hex())
+		makerDirtyFilledAmount[tradeRecord.InvestingOrderHash.Hex()] = makerFilledAmount
+		makerDirtyHashes = append(makerDirtyHashes, tradeRecord.InvestingOrderHash.Hex())
 
 		//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 		//  update filledAmount, status of takerOrder

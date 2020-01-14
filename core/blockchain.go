@@ -160,8 +160,10 @@ type BlockChain struct {
 	// cache field for tracking finality purpose, can't use for tracking block vs block relationship
 	blocksHashCache *lru.Cache
 
-	resultTrade    *lru.Cache // trades result: key - takerOrderHash, value: trades corresponding to takerOrder
-	rejectedOrders *lru.Cache // rejected orders: key - takerOrderHash, value: rejected orders corresponding to takerOrder
+	resultTrade         *lru.Cache // trades result: key - takerOrderHash, value: trades corresponding to takerOrder
+	rejectedOrders      *lru.Cache // rejected orders: key - takerOrderHash, value: rejected orders corresponding to takerOrder
+	resultLendingTrade  *lru.Cache
+	rejectedLendingItem *lru.Cache
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -1609,6 +1611,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			bc.UpdateBlocksHashCache(block)
 			if bc.chainConfig.IsTIPTomoX(block.Number()) {
 				bc.logExchangeData(block)
+				bc.logLendingData(block)
 			}
 		case SideStatTy:
 			log.Debug("Inserted forked block from downloader", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
@@ -1927,6 +1930,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		bc.UpdateBlocksHashCache(block)
 		if bc.chainConfig.IsTIPTomoX(block.Number()) {
 			bc.logExchangeData(block)
+			bc.logLendingData(block)
 		}
 	case SideStatTy:
 		log.Debug("Inserted forked block from fetcher", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
@@ -2466,16 +2470,12 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			if ok && resultTrades != nil {
 				trades = resultTrades.([]map[string]string)
 			}
-			// remove from cache
-			bc.resultTrade.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 
 			// getRejectedOrder from cache
 			rejected, ok := bc.rejectedOrders.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 			if ok && rejected != nil {
 				rejectedOrders = rejected.([]*tradingstate.OrderItem)
 			}
-			// remove from cache
-			bc.rejectedOrders.Remove(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
 
 			// the smallest time unit in mongodb is millisecond
 			// hence, we should update time in millisecond
@@ -2496,6 +2496,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 		return
 	}
 	tomoXService := engine.GetTomoXService()
+	lendingService := engine.GetLendingService()
 	if tomoXService == nil || !tomoXService.IsSDKNode() {
 		return
 	}
@@ -2510,11 +2511,16 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
 			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
 		}
+		if deletedTx.IsLendingTransaction() && lendingService != nil {
+			log.Debug("Rollback reorg lendingItem", "txhash", deletedTx.Hash())
+			lendingService.RollbackLendingData(deletedTx.Hash())
+		}
 	}
 
 	// apply new chain
 	for i := len(newChain) - 1; i >= 0; i-- {
 		bc.logExchangeData(newChain[i])
+		bc.logLendingData(newChain[i])
 	}
 }
 
@@ -2522,5 +2528,72 @@ func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[
 	for hash, result := range matchingResults {
 		bc.resultTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
 		bc.rejectedOrders.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
+	}
+}
+
+func (bc *BlockChain) AddLendingResult(txHash common.Hash, lendingResults map[common.Hash]lendingstate.MatchingResult) {
+	for hash, result := range lendingResults {
+		bc.resultLendingTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
+		bc.rejectedLendingItem.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
+	}
+}
+
+func (bc *BlockChain) logLendingData(block *types.Block) {
+	engine, ok := bc.Engine().(*posv.Posv)
+	if !ok || engine == nil {
+		return
+	}
+	tomoXService := engine.GetTomoXService()
+	if tomoXService == nil || !tomoXService.IsSDKNode() {
+		return
+	}
+	lendingService := engine.GetLendingService()
+	if lendingService == nil {
+		return
+	}
+	batches, err := ExtractLendingTransactions(block.Transactions())
+	if err != nil {
+		log.Error("failed to extract lending transaction", "err", err)
+		return
+	}
+	if len(batches) == 0 {
+		return
+	}
+	start := time.Now()
+	defer func() {
+		//The deferred call's arguments are evaluated immediately, but the function call is not executed until the surrounding function returns
+		// That's why we should put this log statement in an anonymous function
+		log.Debug("logLendingData takes", "time", common.PrettyDuration(time.Since(start)), "blockNumber", block.NumberU64())
+	}()
+
+	for _, batch := range batches {
+		dirtyOrderCount := uint64(0)
+		for _, item := range batch.Data {
+			var (
+				trades         []*lendingstate.LendingTrade
+				rejectedOrders []*lendingstate.LendingItem
+			)
+			// getTrades from cache
+			resultLendingTrades, ok := bc.resultLendingTrade.Get(crypto.Keccak256Hash(batch.TxHash.Bytes(), item.Hash.Bytes()))
+			if ok && resultLendingTrades != nil {
+				trades = resultLendingTrades.([]*lendingstate.LendingTrade)
+			}
+
+			// getRejectedOrder from cache
+			rejected, ok := bc.rejectedLendingItem.Get(crypto.Keccak256Hash(batch.TxHash.Bytes(), item.Hash.Bytes()))
+			if ok && rejected != nil {
+				rejectedOrders = rejected.([]*lendingstate.LendingItem)
+			}
+
+			// the smallest time unit in mongodb is millisecond
+			// hence, we should update time in millisecond
+			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
+			milliSecond := batch.Timestamp / 1e6
+			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
+			if err := lendingService.SyncDataToSDKNode(item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
+				log.Error("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
+				return
+			}
+		}
 	}
 }

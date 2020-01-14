@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	LendingRateBase    = 10000
-	TradeStatusSuccess = "SUCCESS"
+	TradeStatusOpen       = "OPEN"
+	TradeStatusClosed     = "CLOSED"
+	TradeStatusLiquidated = "LIQUIDATED"
 )
 
 type LendingTrade struct {
@@ -22,8 +23,8 @@ type LendingTrade struct {
 	Investor               common.Address `bson:"investor" json:"investor"`
 	LendingToken           common.Address `bson:"lendingToken" json:"lendingToken"`
 	CollateralToken        common.Address `bson:"collateralToken" json:"collateralToken"`
-	TakerOrderHash         common.Hash    `bson:"takerOrderHash" json:"takerOrderHash"`
-	MakerOrderHash         common.Hash    `bson:"makerOrderHash" json:"makerOrderHash"`
+	BorrowingOrderHash     common.Hash    `bson:"borrowingOrderHash" json:"borrowingOrderHash"`
+	InvestingOrderHash     common.Hash    `bson:"investingOrderHash" json:"investingOrderHash"`
 	BorrowingRelayer       common.Address `bson:"borrowingRelayer" json:"borrowingRelayer"`
 	InvestingRelayer       common.Address `bson:"investingRelayer" json:"investingRelayer"`
 	Term                   uint64         `bson:"term" json:"term"`
@@ -32,7 +33,7 @@ type LendingTrade struct {
 	LiquidationPrice       *big.Int       `bson:"liquidationPrice" json:"liquidationPrice"`
 	CollateralLockedAmount *big.Int       `bson:"collateralLockedAmount" json:"collateralLockedAmount"`
 	LiquidationTime        uint64         `bson:"liquidationTime" json:"liquidationTime"`
-	LendingRate            *big.Int       `bson:"lendingRate" json:"lendingRate"`
+	DepositRate            *big.Int       `bson:"depositRate" json:"depositRate"`
 	Amount                 *big.Int       `bson:"amount" json:"amount"`
 	BorrowingFee           *big.Int       `bson:"borrowingFee" json:"borrowingFee"`
 	InvestingFee           *big.Int       `bson:"investingFee" json:"investingFee"`
@@ -53,8 +54,8 @@ type LendingTradeBSON struct {
 	Investor               string    `bson:"investor" json:"investor"`
 	LendingToken           string    `bson:"lendingToken" json:"lendingToken"`
 	CollateralToken        string    `bson:"collateralToken" json:"collateralToken"`
-	TakerOrderHash         string    `bson:"takerOrderHash" json:"takerOrderHash"`
-	MakerOrderHash         string    `bson:"makerOrderHash" json:"makerOrderHash"`
+	BorrowingOrderHash     string    `bson:"borrowingOrderHash" json:"borrowingOrderHash"`
+	InvestingOrderHash     string    `bson:"investingOrderHash" json:"investingOrderHash"`
 	BorrowingRelayer       string    `bson:"borrowingRelayer" json:"borrowingRelayer"`
 	InvestingRelayer       string    `bson:"investingRelayer" json:"investingRelayer"`
 	Term                   string    `bson:"term" json:"term"`
@@ -63,7 +64,7 @@ type LendingTradeBSON struct {
 	LiquidationPrice       string    `bson:"liquidationPrice" json:"liquidationPrice"`
 	LiquidationTime        string    `bson:"liquidationTime" json:"liquidationTime"`
 	CollateralLockedAmount string    `bson:"collateralLockedAmount" json:"collateralLockedAmount"`
-	LendingRate            string    `bson:"lendingRate" json:"lendingRate"`
+	DepositRate            string    `bson:"depositRate" json:"depositRate"`
 	Amount                 string    `bson:"amount" json:"amount"`
 	BorrowingFee           string    `bson:"borrowingFee" json:"borrowingFee"`
 	InvestingFee           string    `bson:"investingFee" json:"investingFee"`
@@ -85,8 +86,8 @@ func (t *LendingTrade) GetBSON() (interface{}, error) {
 		Investor:               t.Investor.Hex(),
 		LendingToken:           t.LendingToken.Hex(),
 		CollateralToken:        t.CollateralToken.Hex(),
-		TakerOrderHash:         t.TakerOrderHash.Hex(),
-		MakerOrderHash:         t.MakerOrderHash.Hex(),
+		BorrowingOrderHash:     t.BorrowingOrderHash.Hex(),
+		InvestingOrderHash:     t.InvestingOrderHash.Hex(),
 		BorrowingRelayer:       t.BorrowingRelayer.Hex(),
 		InvestingRelayer:       t.InvestingRelayer.Hex(),
 		Term:                   strconv.FormatUint(t.Term, 10),
@@ -95,7 +96,7 @@ func (t *LendingTrade) GetBSON() (interface{}, error) {
 		LiquidationPrice:       t.LiquidationPrice.String(),
 		LiquidationTime:        strconv.FormatUint(t.LiquidationTime, 10),
 		CollateralLockedAmount: t.CollateralLockedAmount.String(),
-		LendingRate:            t.LendingRate.String(),
+		DepositRate:            t.DepositRate.String(),
 		Amount:                 t.Amount.String(),
 		BorrowingFee:           t.BorrowingFee.String(),
 		InvestingFee:           t.InvestingFee.String(),
@@ -125,8 +126,8 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	t.Investor = common.HexToAddress(decoded.Investor)
 	t.LendingToken = common.HexToAddress(decoded.LendingToken)
 	t.CollateralToken = common.HexToAddress(decoded.CollateralToken)
-	t.TakerOrderHash = common.HexToHash(decoded.TakerOrderHash)
-	t.MakerOrderHash = common.HexToHash(decoded.MakerOrderHash)
+	t.BorrowingOrderHash = common.HexToHash(decoded.BorrowingOrderHash)
+	t.InvestingOrderHash = common.HexToHash(decoded.InvestingOrderHash)
 	t.BorrowingRelayer = common.HexToAddress(decoded.BorrowingRelayer)
 	t.InvestingRelayer = common.HexToAddress(decoded.InvestingRelayer)
 	term, err := strconv.ParseInt(decoded.Term, 10, 64)
@@ -147,7 +148,7 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	}
 	t.LiquidationTime = uint64(liquidationTime)
 	t.CollateralLockedAmount = ToBigInt(decoded.CollateralLockedAmount)
-	t.LendingRate = ToBigInt(decoded.LendingRate)
+	t.DepositRate = ToBigInt(decoded.DepositRate)
 	t.Amount = tradingstate.ToBigInt(decoded.Amount)
 	t.BorrowingFee = tradingstate.ToBigInt(decoded.BorrowingFee)
 	t.InvestingFee = tradingstate.ToBigInt(decoded.InvestingFee)
@@ -166,7 +167,7 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 
 func (t *LendingTrade) ComputeHash() common.Hash {
 	sha := sha3.NewKeccak256()
-	sha.Write(t.MakerOrderHash.Bytes())
-	sha.Write(t.TakerOrderHash.Bytes())
+	sha.Write(t.InvestingOrderHash.Bytes())
+	sha.Write(t.BorrowingOrderHash.Bytes())
 	return common.BytesToHash(sha.Sum(nil))
 }
