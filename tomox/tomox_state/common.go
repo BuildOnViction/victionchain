@@ -5,9 +5,13 @@ import (
 	"errors"
 	"github.com/tomochain/tomochain/crypto"
 	"math/big"
-	"strconv"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
+)
+
+const (
+	OrderCacheLimit = 10000
 )
 
 var (
@@ -17,6 +21,7 @@ var (
 	Market    = "MO"
 	Limit     = "LO"
 	Cancel    = "CANCELLED"
+	OrderNew  = "NEW"
 )
 
 var EmptyHash = common.Hash{}
@@ -35,13 +40,13 @@ var EmptyOrder = OrderItem{
 }
 
 var (
-	ErrWrongHash             = errors.New("verify order: wrong hash")
-	ErrInvalidSignature      = errors.New("verify order: invalid signature")
-	ErrInvalidPrice          = errors.New("verify order: invalid price")
-	ErrInvalidQuantity       = errors.New("verify order: invalid quantity")
-	ErrInvalidRelayer        = errors.New("verify order: invalid relayer")
-	ErrInvalidOrderType      = errors.New("verify order: unsupported order type")
-	ErrInvalidOrderSide      = errors.New("verify order: invalid order side")
+	ErrInvalidSignature = errors.New("verify order: invalid signature")
+	ErrInvalidPrice     = errors.New("verify order: invalid price")
+	ErrInvalidQuantity  = errors.New("verify order: invalid quantity")
+	ErrInvalidRelayer   = errors.New("verify order: invalid relayer")
+	ErrInvalidOrderType = errors.New("verify order: unsupported order type")
+	ErrInvalidOrderSide = errors.New("verify order: invalid order side")
+	ErrInvalidStatus    = errors.New("verify order: invalid status")
 
 	// supported order types
 	MatchingOrderType = map[string]bool{
@@ -93,15 +98,18 @@ var (
 )
 
 type TxDataMatch struct {
-	Order         []byte // serialized data of order has been processed in this tx
-	Trades        []map[string]string
-	RejectedOders []*OrderItem
+	Order []byte // serialized data of order has been processed in this tx
 }
 
 type TxMatchBatch struct {
 	Data      []TxDataMatch
 	Timestamp int64
 	TxHash    common.Hash
+}
+
+type MatchingResult struct {
+	Trades  []map[string]string
+	Rejects []*OrderItem
 }
 
 func EncodeTxMatchesBatch(txMatchBatch TxMatchBatch) ([]byte, error) {
@@ -120,9 +128,12 @@ func DecodeTxMatchesBatch(data []byte) (TxMatchBatch, error) {
 	return txMatchResult, nil
 }
 
-func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderId uint64)  common.Hash {
-	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), []byte(strconv.FormatUint(orderId, 10)))
+// use orderHash instead of orderId
+// because both takerOrders don't have orderId
+func GetOrderHistoryKey(baseToken, quoteToken common.Address, orderHash common.Hash) common.Hash {
+	return crypto.Keccak256Hash(baseToken.Bytes(), quoteToken.Bytes(), orderHash.Bytes())
 }
+
 func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
 	order := &OrderItem{}
 	if err := DecodeBytesItem(tx.Order, order); err != nil {
@@ -131,19 +142,11 @@ func (tx TxDataMatch) DecodeOrder() (*OrderItem, error) {
 	return order, nil
 }
 
-func (tx TxDataMatch) GetTrades() []map[string]string {
-	return tx.Trades
-}
-
-func (tx TxDataMatch) GetRejectedOrders() []*OrderItem {
-	return tx.RejectedOders
-}
-
-
 type OrderHistoryItem struct {
 	TxHash       common.Hash
 	FilledAmount *big.Int
 	Status       string
+	UpdatedAt    time.Time
 }
 
 // use alloc to prevent reference manipulation
@@ -151,7 +154,6 @@ func EmptyKey() []byte {
 	key := make([]byte, common.HashLength)
 	return key
 }
-
 
 // ToJSON : log json string
 func ToJSON(object interface{}, args ...string) string {

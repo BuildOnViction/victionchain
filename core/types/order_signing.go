@@ -114,8 +114,10 @@ func (ordersign OrderTxSigner) OrderCreateHash(tx *OrderTransaction) common.Hash
 	sha.Write(tx.BaseToken().Bytes())
 	sha.Write(tx.QuoteToken().Bytes())
 	sha.Write(common.BigToHash(tx.Quantity()).Bytes())
-	if tx.Price() != nil {
-		sha.Write(common.BigToHash(tx.Price()).Bytes())
+	if tx.IsLoTypeOrder() {
+		if tx.Price() != nil {
+			sha.Write(common.BigToHash(tx.Price()).Bytes())
+		}
 	}
 	sha.Write(common.BigToHash(tx.EncodedSide()).Bytes())
 	sha.Write([]byte(tx.Status()))
@@ -129,6 +131,13 @@ func (ordersign OrderTxSigner) OrderCancelHash(tx *OrderTransaction) common.Hash
 	sha := sha3.NewKeccak256()
 	sha.Write(tx.OrderHash().Bytes())
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
+	sha.Write(tx.UserAddress().Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.OrderID()))).Bytes())
+	sha.Write([]byte(tx.Status()))
+	sha.Write(tx.ExchangeAddress().Bytes())
+	sha.Write(tx.BaseToken().Bytes())
+	sha.Write(tx.QuoteToken().Bytes())
+
 	return common.BytesToHash(sha.Sum(nil))
 }
 
@@ -163,11 +172,13 @@ func MarshalSignature(R, S, V *big.Int) ([]byte, error) {
 
 // Sender get signer from
 func (ordersign OrderTxSigner) Sender(tx *OrderTransaction) (common.Address, error) {
+
 	message := crypto.Keccak256(
 		[]byte("\x19Ethereum Signed Message:\n32"),
 		ordersign.Hash(tx).Bytes(),
 	)
 	V, R, S := tx.Signature()
+
 	sigBytes, err := MarshalSignature(R, S, V)
 	if err != nil {
 		return common.Address{}, err

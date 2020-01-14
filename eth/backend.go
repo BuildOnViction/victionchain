@@ -237,7 +237,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 				return nil
 			}
 			if block.NumberU64()%common.MergeSignRange == 0 || !eth.chainConfig.IsTIP2019(block.Number()) {
-				if err := contracts.CreateTransactionSign(chainConfig, eth.txPool, eth.accountManager, block, chainDb); err != nil {
+				if err := contracts.CreateTransactionSign(chainConfig, eth.txPool, eth.accountManager, block, chainDb, eb); err != nil {
 					return fmt.Errorf("Fail to create tx sign for importing block: %v", err)
 				}
 			}
@@ -486,7 +486,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 				return candidates[i].Stake.Cmp(candidates[j].Stake) >= 0
 			})
 			if len(candidates) > 150 {
-				candidates = candidates[:150]	
+				candidates = candidates[:150]
 			}
 			result := []common.Address{}
 			for _, candidate := range candidates {
@@ -496,18 +496,13 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 		}
 
 		// Hook calculates reward for masternodes
-		c.HookReward = func(chain consensus.ChainReader, stateBlock *state.StateDB, header *types.Header) (error, map[string]interface{}) {
-			parentHeader := eth.blockchain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-			canonicalState, err := eth.blockchain.StateAt(parentHeader.Root)
-			if canonicalState == nil || err != nil {
-				log.Crit("Can't get state at head of canonical chain", "head number", header.Number.Uint64(), "err", err)
-			}
+		c.HookReward = func(chain consensus.ChainReader, stateBlock *state.StateDB, parentState *state.StateDB, header *types.Header) (error, map[string]interface{}) {
 			number := header.Number.Uint64()
 			rCheckpoint := chain.Config().Posv.RewardCheckpoint
 			foundationWalletAddr := chain.Config().Posv.FoudationWalletAddr
 			if foundationWalletAddr == (common.Address{}) {
 				log.Error("Foundation Wallet Address is empty", "error", foundationWalletAddr)
-				return err, nil
+				return errors.New("Foundation Wallet Address is empty"), nil
 			}
 			rewards := make(map[string]interface{})
 			if number > 0 && number-rCheckpoint > 0 && foundationWalletAddr != (common.Address{}) {
@@ -533,7 +528,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 				voterResults := make(map[common.Address]interface{})
 				if len(signers) > 0 {
 					for signer, calcReward := range rewardSigners {
-						err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, canonicalState, signer, calcReward, number)
+						err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, parentState, signer, calcReward, number)
 						if err != nil {
 							log.Crit("Fail to calculate reward for holders.", "error", err)
 						}

@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	TradeStatusPending = "PENDING"
 	TradeStatusSuccess = "SUCCESS"
-	TradeStatusError   = "ERROR"
 
 	TradeTakerOrderHash = "takerOrderHash"
 	TradeMakerOrderHash = "makerOrderHash"
@@ -24,6 +22,7 @@ const (
 	TradeBaseToken      = "bToken"
 	TradeQuoteToken     = "qToken"
 	TradePrice          = "tradedPrice"
+	MakerOrderType      = "makerOrderType"
 )
 
 type Trade struct {
@@ -46,6 +45,8 @@ type Trade struct {
 	CreatedAt      time.Time      `json:"createdAt" bson:"createdAt"`
 	UpdatedAt      time.Time      `json:"updatedAt" bson:"updatedAt"`
 	TakerOrderSide string         `json:"takerOrderSide" bson:"takerOrderSide"`
+	TakerOrderType string         `json:"takerOrderType" bson:"takerOrderType"`
+	MakerOrderType string         `json:"makerOrderType" bson:"makerOrderType"`
 }
 
 type TradeBSON struct {
@@ -68,6 +69,8 @@ type TradeBSON struct {
 	CreatedAt      time.Time `json:"createdAt" bson:"createdAt"`
 	UpdatedAt      time.Time `json:"updatedAt" bson:"updatedAt"`
 	TakerOrderSide string    `json:"takerOrderSide" bson:"takerOrderSide"`
+	TakerOrderType string    `json:"takerOrderType" bson:"takerOrderType"`
+	MakerOrderType string    `json:"makerOrderType" bson:"makerOrderType"`
 }
 
 func (t *Trade) GetBSON() (interface{}, error) {
@@ -92,6 +95,8 @@ func (t *Trade) GetBSON() (interface{}, error) {
 		MakeFee:        t.MakeFee.String(),
 		TakeFee:        t.TakeFee.String(),
 		TakerOrderSide: t.TakerOrderSide,
+		TakerOrderType: t.TakerOrderType,
+		MakerOrderType: t.MakerOrderType,
 	}
 
 	return tr, nil
@@ -126,6 +131,8 @@ func (t *Trade) SetBSON(raw bson.Raw) error {
 	t.CreatedAt = decoded.CreatedAt
 	t.UpdatedAt = decoded.UpdatedAt
 	t.TakerOrderSide = decoded.TakerOrderSide
+	t.TakerOrderType = decoded.TakerOrderType
+	t.MakerOrderType = decoded.MakerOrderType
 	return nil
 }
 

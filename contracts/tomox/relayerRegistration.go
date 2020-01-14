@@ -28,8 +28,8 @@ func NewRelayerRegistration(transactOpts *bind.TransactOpts, contractAddr common
 	}, nil
 }
 
-func DeployRelayerRegistration(transactOpts *bind.TransactOpts, contractBackend bind.ContractBackend, maxRelayers *big.Int, maxTokenList *big.Int, minDeposit *big.Int) (common.Address, *RelayerRegistration, error) {
-	contractAddr, _, _, err := contract.DeployRelayerRegistration(transactOpts, contractBackend, maxRelayers, maxTokenList, minDeposit)
+func DeployRelayerRegistration(transactOpts *bind.TransactOpts, contractBackend bind.ContractBackend, tomoxListing common.Address, maxRelayers *big.Int, maxTokenList *big.Int, minDeposit *big.Int) (common.Address, *RelayerRegistration, error) {
+	contractAddr, _, _, err := contract.DeployRelayerRegistration(transactOpts, contractBackend, tomoxListing, maxRelayers, maxTokenList, minDeposit)
 	if err != nil {
 		return contractAddr, nil, err
 	}

@@ -2,18 +2,17 @@ package core
 
 import (
 	"context"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/ethclient"
+	"github.com/tomochain/tomochain/rpc"
 	"log"
 	"math/big"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/ethclient"
-	"github.com/tomochain/tomochain/rpc"
 )
 
 type OrderMsg struct {
@@ -94,6 +93,78 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 	}
 }
 
+func testSendOrderTOMOUSD(t *testing.T, amount, price *big.Int, side string, status string, orderID uint64) {
+
+	client, err := ethclient.Dial("http://127.0.0.1:8501")
+	if err != nil {
+		log.Print(err)
+	}
+
+	privateKey, err := crypto.HexToECDSA("65ec4d4dfbcac594a14c36baa462d6f73cd86134840f6cf7b80a1e1cd33473e2")
+	if err != nil {
+		log.Print(err)
+	}
+	msg := &OrderMsg{
+		Quantity:        amount,
+		Price:           price,
+		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
+		UserAddress:     crypto.PubkeyToAddress(privateKey.PublicKey),
+		BaseToken:       common.HexToAddress("0x0000000000000000000000000000000000000001"),
+		QuoteToken:      common.HexToAddress("0xd9bb01454c85247B2ef35BB5BE57384cC275a8cf"),
+		Status:          status,
+		Side:            side,
+		Type:            "LO",
+		PairName:        "TOMO/USD",
+	}
+	nonce, _ := getNonce(t, msg.UserAddress)
+	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
+	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
+	if err != nil {
+		log.Print(err)
+	}
+
+	err = client.SendOrderTransaction(context.Background(), signedTx)
+	if err != nil {
+		log.Print(err)
+	}
+}
+
+func testSendOrderBTCUSD(t *testing.T, amount, price *big.Int, side string, status string, orderID uint64) {
+
+	client, err := ethclient.Dial("http://127.0.0.1:8501")
+	if err != nil {
+		log.Print(err)
+	}
+
+	privateKey, err := crypto.HexToECDSA("65ec4d4dfbcac594a14c36baa462d6f73cd86134840f6cf7b80a1e1cd33473e2")
+	if err != nil {
+		log.Print(err)
+	}
+	msg := &OrderMsg{
+		Quantity:        amount,
+		Price:           price,
+		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
+		UserAddress:     crypto.PubkeyToAddress(privateKey.PublicKey),
+		BaseToken:       common.HexToAddress("0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"),
+		QuoteToken:      common.HexToAddress("0xd9bb01454c85247B2ef35BB5BE57384cC275a8cf"),
+		Status:          status,
+		Side:            side,
+		Type:            "LO",
+		PairName:        "BTC/USD",
+	}
+	nonce, _ := getNonce(t, msg.UserAddress)
+	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
+	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
+	if err != nil {
+		log.Print(err)
+	}
+
+	err = client.SendOrderTransaction(context.Background(), signedTx)
+	if err != nil {
+		log.Print(err)
+	}
+}
+
 func testSendOrderETHBTC(t *testing.T, amount, price *big.Int, side string, status string, orderID uint64) {
 
 	client, err := ethclient.Dial("http://127.0.0.1:8501")
@@ -140,30 +211,20 @@ func TestSendSellOrder(t *testing.T) {
 func TestFilled(t *testing.T) {
 	//BTC/TOMO
 	price := new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000))
-	testSendOrder(t, new(big.Int).SetUint64(10000000000000), price, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(10000000000000), price, "SELL", "NEW", 0)
-	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(100000000000000000), price, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(100000000000000000), price, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(200000000000000000), price, "SELL", "NEW", 0)
-	time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(10000000000000), price, "SELL", "NEW", 0)
+	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000)), price, "BUY", "NEW", 0)
 	//ETH/BTC
-	price = new(big.Int).Mul(big.NewInt(10000000000000000), big.NewInt(20))
-	testSendOrderETHBTC(t, new(big.Int).SetUint64(1000000000), price, "BUY", "NEW", 0)
+	price = new(big.Int).Mul(big.NewInt(10000000000000000), big.NewInt(20000))
+	testSendOrderBTCUSD(t, new(big.Int).SetUint64(1000000000), price, "BUY", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrderETHBTC(t, new(big.Int).SetUint64(1000000000), price, "SELL", "NEW", 0)
+	testSendOrderBTCUSD(t, new(big.Int).SetUint64(1000000000), price, "SELL", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrderETHBTC(t, new(big.Int).SetUint64(100000000000000000), price, "BUY", "NEW", 0)
+	testSendOrderBTCUSD(t, new(big.Int).SetUint64(100000000000000000), price, "BUY", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrderETHBTC(t, new(big.Int).SetUint64(100000000000000000), price, "BUY", "NEW", 0)
+	testSendOrderBTCUSD(t, new(big.Int).SetUint64(100000000000000000), price, "BUY", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrderETHBTC(t, new(big.Int).SetUint64(200000000000000000), price, "SELL", "NEW", 0)
+	testSendOrderBTCUSD(t, new(big.Int).SetUint64(200000000000000000), price, "SELL", "NEW", 0)
 	time.Sleep(5 * time.Second)
-	testSendOrderETHBTC(t, new(big.Int).SetUint64(100000000), price, "SELL", "NEW", 0)
+	testSendOrderBTCUSD(t, new(big.Int).SetUint64(100000000), price, "SELL", "NEW", 0)
 }
 func TestPartialFilled(t *testing.T) {
 
