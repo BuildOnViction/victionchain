@@ -33,8 +33,14 @@ import (
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
 
 var (
-	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
-	errNoSigner   = errors.New("missing signing methods")
+	ErrInvalidSig               = errors.New("invalid transaction v, r, s values")
+	errNoSigner                 = errors.New("missing signing methods")
+	skipNonceDestinationAddress = map[string]bool{
+		common.TomoXAddr:                true,
+		common.TradingStateAddr:         true,
+		common.TomoXLendingAddress:      true,
+		common.TomoXLendingTradeAddress: true,
+	}
 )
 
 // deriveSigner makes a *best* guess about which signer to use.
@@ -313,7 +319,6 @@ func (tx *Transaction) IsTradingTransaction() bool {
 	return true
 }
 
-
 func (tx *Transaction) IsLendingTransaction() bool {
 	if tx.To() == nil {
 		return false
@@ -325,12 +330,22 @@ func (tx *Transaction) IsLendingTransaction() bool {
 	return true
 }
 
+func (tx *Transaction) IsLendingClosedTradeTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+
+	if tx.To().String() != common.TomoXLendingTradeAddress {
+		return false
+	}
+	return true
+}
 
 func (tx *Transaction) IsSkipNonceTransaction() bool {
 	if tx.To() == nil {
 		return false
 	}
-	if tx.To().String() == common.TomoXAddr || tx.To().String() == common.TradingStateAddr {
+	if skip := skipNonceDestinationAddress[tx.To().String()]; skip {
 		return true
 	}
 	return false

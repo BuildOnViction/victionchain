@@ -234,11 +234,26 @@ func ExtractLendingTransactions(transactions types.Transactions) ([]lendingstate
 		if tx.IsLendingTransaction() {
 			txMatchBatch, err := lendingstate.DecodeTxLendingBatch(tx.Data())
 			if err != nil {
-				return []lendingstate.TxLendingBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
+				return []lendingstate.TxLendingBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode lendingTransaction. Error: %s", err)
 			}
 			txMatchBatch.TxHash = tx.Hash()
 			batchData = append(batchData, txMatchBatch)
 		}
 	}
 	return batchData, nil
+}
+
+func ExtractLendingClosedTradeTransactions(transactions types.Transactions) (lendingstate.ClosedTrade, error) {
+	for _, tx := range transactions {
+		if tx.IsLendingClosedTradeTransaction() {
+			closedTrades, err := lendingstate.DecodeClosedTrades(tx.Data())
+			if err != nil {
+				return lendingstate.ClosedTrade{}, fmt.Errorf("transaction is corrupted. Failed to decode LendingClosedTradeTransaction. Error: %s", err)
+			}
+			closedTrades.TxHash = tx.Hash()
+			// each block has only one tx of this type
+			return closedTrades, nil
+		}
+	}
+	return lendingstate.ClosedTrade{}, nil
 }

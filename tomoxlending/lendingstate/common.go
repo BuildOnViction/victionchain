@@ -75,6 +75,13 @@ type MatchingResult struct {
 	Rejects []*LendingItem
 }
 
+type ClosedTrade struct {
+	Liquidated []common.Hash
+	Finalized  []common.Hash
+	TxHash     common.Hash
+	Timestamp  int64
+}
+
 // use orderHash instead of tradeId
 // because both takerOrders don't have tradeId
 func GetLendingItemHistoryKey(lendingToken, collateralToken common.Address, lendingItemHash common.Hash) common.Hash {
@@ -181,4 +188,25 @@ func EtherToWei(amount *big.Int) *big.Int {
 
 func WeiToEther(amount *big.Int) *big.Int {
 	return new(big.Int).Div(amount, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+}
+
+func EncodeClosedTrades(liquidatedTrades, finalizedTrades []common.Hash) ([]byte, error) {
+	closedTrades := ClosedTrade{
+		Liquidated: liquidatedTrades,
+		Finalized:  finalizedTrades,
+		Timestamp:  time.Now().UnixNano(),
+	}
+	data, err := json.Marshal(closedTrades)
+	if err != nil || data == nil {
+		return []byte{}, err
+	}
+	return data, nil
+}
+
+func DecodeClosedTrades(data []byte) (closedTrades ClosedTrade, err error) {
+	closedTrades = ClosedTrade{}
+	if err := json.Unmarshal(data, &closedTrades); err != nil {
+		return ClosedTrade{}, err
+	}
+	return closedTrades, nil
 }

@@ -190,26 +190,32 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	resultTrade, _ := lru.New(tradingstate.OrderCacheLimit)
 	rejectedOrders, _ := lru.New(tradingstate.OrderCacheLimit)
 
+	// tomoxlending
+	resultLendingTrade, _ := lru.New(tradingstate.OrderCacheLimit)
+	rejectedLendingItem, _ := lru.New(tradingstate.OrderCacheLimit)
+
 	bc := &BlockChain{
-		chainConfig:      chainConfig,
-		cacheConfig:      cacheConfig,
-		db:               db,
-		triegc:           prque.New(),
-		stateCache:       state.NewDatabase(db),
-		quit:             make(chan struct{}),
-		bodyCache:        bodyCache,
-		bodyRLPCache:     bodyRLPCache,
-		blockCache:       blockCache,
-		futureBlocks:     futureBlocks,
-		resultProcess:    resultProcess,
-		calculatingBlock: preparingBlock,
-		downloadingBlock: downloadingBlock,
-		engine:           engine,
-		vmConfig:         vmConfig,
-		badBlocks:        badBlocks,
-		blocksHashCache:  blocksHashCache,
-		resultTrade:      resultTrade,
-		rejectedOrders:   rejectedOrders,
+		chainConfig:         chainConfig,
+		cacheConfig:         cacheConfig,
+		db:                  db,
+		triegc:              prque.New(),
+		stateCache:          state.NewDatabase(db),
+		quit:                make(chan struct{}),
+		bodyCache:           bodyCache,
+		bodyRLPCache:        bodyRLPCache,
+		blockCache:          blockCache,
+		futureBlocks:        futureBlocks,
+		resultProcess:       resultProcess,
+		calculatingBlock:    preparingBlock,
+		downloadingBlock:    downloadingBlock,
+		engine:              engine,
+		vmConfig:            vmConfig,
+		badBlocks:           badBlocks,
+		blocksHashCache:     blocksHashCache,
+		resultTrade:         resultTrade,
+		rejectedOrders:      rejectedOrders,
+		resultLendingTrade:  resultLendingTrade,
+		rejectedLendingItem: rejectedLendingItem,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -1546,6 +1552,12 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 						return i, events, coalescedLogs, err
 					}
 				}
+
+				// liquidate / finalize open lendingTrades
+				_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+				if err != nil {
+					return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
+				}
 				//check
 				if true {
 					gotRoot := lendingState.IntermediateRoot()
@@ -1813,14 +1825,18 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 					return nil, err
 				}
 			}
-			if len(batches) > 0 {
-				gotRoot := lendingState.IntermediateRoot()
-				expectRoot, _ := lendingService.GetLendingStateRoot(block)
-				if gotRoot != expectRoot {
-					err = fmt.Errorf("invalid lending merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
-					bc.reportBlock(block, nil, err)
-					return nil, err
-				}
+
+			// liquidate / finalize open lendingTrades
+			_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
+			if err != nil {
+				return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
+			}
+			gotRoot := lendingState.IntermediateRoot()
+			expectRoot, _ := lendingService.GetLendingStateRoot(block)
+			if gotRoot != expectRoot {
+				err = fmt.Errorf("invalid lending merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+				bc.reportBlock(block, nil, err)
+				return nil, err
 			}
 			parentLendingRoot, _ := lendingService.GetLendingStateRoot(parent)
 			nextLendingRoot, _ := lendingService.GetLendingStateRoot(block)
@@ -2524,20 +2540,6 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	}
 }
 
-func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]tradingstate.MatchingResult) {
-	for hash, result := range matchingResults {
-		bc.resultTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
-		bc.rejectedOrders.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
-	}
-}
-
-func (bc *BlockChain) AddLendingResult(txHash common.Hash, lendingResults map[common.Hash]lendingstate.MatchingResult) {
-	for hash, result := range lendingResults {
-		bc.resultLendingTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
-		bc.rejectedLendingItem.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
-	}
-}
-
 func (bc *BlockChain) logLendingData(block *types.Block) {
 	engine, ok := bc.Engine().(*posv.Posv)
 	if !ok || engine == nil {
@@ -2595,5 +2597,30 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 				return
 			}
 		}
+	}
+
+	// update closedTrades
+	closedTrades, err := ExtractLendingClosedTradeTransactions(block.Transactions())
+	if err != nil {
+		log.Error("failed to extract lendingClosedTrade transaction", "err", err)
+		return
+	}
+	if err := lendingService.CloseTrade(closedTrades); err != nil {
+		log.Error("lending: failed to CloseTrade ", "blockNumber", block.Number(), "err", err)
+		return
+	}
+}
+
+func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]tradingstate.MatchingResult) {
+	for hash, result := range matchingResults {
+		bc.resultTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
+		bc.rejectedOrders.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
+	}
+}
+
+func (bc *BlockChain) AddLendingResult(txHash common.Hash, lendingResults map[common.Hash]lendingstate.MatchingResult) {
+	for hash, result := range lendingResults {
+		bc.resultLendingTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
+		bc.rejectedLendingItem.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
 	}
 }
