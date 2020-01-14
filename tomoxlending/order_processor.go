@@ -49,7 +49,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	case lendingstate.Deposit:
-		err, reject := l.ProcessDeposit(lendingStateDB, statedb, tradingStateDb, order)
+		err, reject, newLendingTrade := l.ProcessDeposit(lendingStateDB, statedb, tradingStateDb, order)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -58,6 +58,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		}
 		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
+		trades = append(trades, newLendingTrade)
 		return trades, rejects, nil
 	case lendingstate.Payment:
 		lendingTradeId := common.HexToHash(order.ExtraData).Big().Uint64()
@@ -68,6 +69,9 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		}
 		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
+		trades = append(trades, &lendingstate.LendingTrade{
+			Status: lendingstate.TradeStatusFinalized,
+		})
 		return trades, rejects, nil
 	default:
 	}
@@ -339,6 +343,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 			tradeRecord.TakerOrderSide = order.Side
 			tradeRecord.TakerOrderType = order.Type
 			tradeRecord.MakerOrderType = oldestOrder.Type
+			tradeRecord.InvestingFee = lendingstate.Zero // current design: no investing fee
 
 			if order.Side == lendingstate.Borrowing {
 				// taker is a borrower
@@ -352,7 +357,6 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				// fee
 				if settleBalanceResult != nil {
 					tradeRecord.BorrowingFee = settleBalanceResult.Taker.Fee
-					tradeRecord.InvestingFee = lendingstate.Zero // current design: no investing fee
 				}
 			} else if order.Side == lendingstate.Investing {
 				// taker is an investor
@@ -365,7 +369,6 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				// fee
 				if settleBalanceResult != nil {
 					tradeRecord.BorrowingFee = settleBalanceResult.Maker.Fee
-					tradeRecord.InvestingFee = lendingstate.Zero // current design: no investing fee
 				}
 			}
 
@@ -682,18 +685,18 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 	return nil, false
 }
 
-func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem) (error, bool) {
+func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem) (error, bool, *lendingstate.LendingTrade) {
 	lendingTradeId := common.HexToHash(order.ExtraData)
 	lendingBook := lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeId)
 	if order.Quantity.Sign() <= 0 || lendingTrade.TradeId != lendingTradeId.Big().Uint64() {
 		log.Debug("invalid order deposit", "Quantity", order.Quantity, "lendingTradeId", lendingTradeId.Hex())
-		return nil, true
+		return nil, true, nil
 	}
 	tokenBalance := lendingstate.GetTokenBalance(order.UserAddress, lendingTrade.CollateralToken, statedb)
 	if tokenBalance.Cmp(order.Quantity) < 0 {
 		log.Debug("not enough balance deposit", "Quantity", order.Quantity, "tokenBalance", tokenBalance)
-		return nil, true
+		return nil, true, nil
 	}
 	tradingStateDb.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTrade.TradeId)
 
@@ -706,8 +709,12 @@ func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, st
 	lendingStateDB.UpdateLiquidationPrice(lendingBook, lendingTrade.TradeId, newLiquidationPrice)
 	lendingStateDB.UpdateCollateralLockedAmount(lendingBook, lendingTrade.TradeId, newLockedAmount)
 	tradingStateDb.InsertLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), newLiquidationPrice, lendingBook, lendingTrade.TradeId)
-	return nil, false
+	newLendingTrade := lendingTrade
+	newLendingTrade.LiquidationPrice = newLiquidationPrice
+	newLendingTrade.CollateralLockedAmount = newLockedAmount
+	return nil, false, &newLendingTrade
 }
+
 // return hash: hash of lendingTrade
 // return isFinalized: true if this trade is finalized, otherwise return false (it may be liquidated)
 func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (hash common.Hash, isFinalized bool, err error) {
@@ -738,7 +745,7 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 		tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
 		lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
 	}
-	return lendingTrade.Hash, true,nil
+	return lendingTrade.Hash, true, nil
 }
 
 // return hash of liquidatedTrade
