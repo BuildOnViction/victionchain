@@ -258,7 +258,7 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int)
 		if number.Cmp(common.TIPTRC21Fee) > 0 {
 			msg.gasPrice = common.TRC21GasPrice
 		} else {
-			msg.gasPrice = common.TRC21GasPrice
+			msg.gasPrice = common.TRC21GasPriceBefore
 		}
 	}
 	return msg, err
