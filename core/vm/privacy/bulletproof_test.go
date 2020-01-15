@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -289,7 +289,7 @@ func TestMRPProveZERO(t *testing.T) {
 		new(big.Int).SetInt64(0),
 	})
 	mv := MRPVerify(&mRangeProof)
-	assert.Assert(t, mv, " MRProof incorrect")
+	assert.Equal(t, mv, true, " MRProof incorrect")
 }
 
 func TestMRPProve_MAX_2_POW_64(t *testing.T) {
@@ -298,7 +298,7 @@ func TestMRPProve_MAX_2_POW_64(t *testing.T) {
 		new(big.Int).SetUint64(0xFFFFFFFFFFFFFFFF),
 	})
 	mv := MRPVerify(&mRangeProof)
-	assert.Assert(t, mv, " MRProof incorrect")
+	assert.Equal(t, mv, true, " MRProof incorrect")
 }
 
 func TestMRPProveOutOfSupportedRange(t *testing.T) {
@@ -307,26 +307,26 @@ func TestMRPProveOutOfSupportedRange(t *testing.T) {
 	_, err := MRPProve([]*big.Int{
 		value,
 	})
-	assert.Assert(t, err != nil, " MRProof incorrect")
+	assert.NotNil(t, err, " MRProof incorrect")
 }
 
 func TestMRPProve_RANDOM(t *testing.T) {
 
 	mRangeProof, _ := MRPProve(Rand64Vector(1))
 	mv := MRPVerify(&mRangeProof)
-	assert.Assert(t, mv, " MRProof incorrect")
+	assert.Equal(t, mv, true, " MRProof incorrect")
 
 	mRangeProof, _ = MRPProve(Rand64Vector(2))
 	mv = MRPVerify(&mRangeProof)
-	assert.Assert(t, mv, " MRProof incorrect")
+	assert.Equal(t, mv, true, " MRProof incorrect")
 
 	mRangeProof, _ = MRPProve(Rand64Vector(4))
 	mv = MRPVerify(&mRangeProof)
-	assert.Assert(t, mv, " MRProof incorrect")
+	assert.Equal(t, mv, true, " MRProof incorrect")
 
 	mRangeProof, _ = MRPProve(Rand64Vector(8))
 	mv = MRPVerify(&mRangeProof)
-	assert.Assert(t, mv, " MRProof incorrect")
+	assert.Equal(t, mv, true, " MRProof incorrect")
 }
 
 func Rand64Vector(l int) []*big.Int {
@@ -344,32 +344,32 @@ func Rand64Vector(l int) []*big.Int {
 func TestMRPProveValueNumberNotSupported(t *testing.T) {
 
 	_, err := MRPProve(Rand64Vector(3))
-	assert.Assert(t, err != nil, "MRProof incorrect - accepted 3 inputs")
+	assert.NotNil(t, err, "MRProof incorrect - accepted 3 inputs")
 
 	_, err = MRPProve(Rand64Vector(5))
-	assert.Assert(t, err != nil, "MRProof incorrect - accepted 5 inputs")
+	assert.NotNil(t, err, "MRProof incorrect - accepted 5 inputs")
 
 	_, err = MRPProve(Rand64Vector(6))
-	assert.Assert(t, err != nil, "MRProof incorrect - accepted 6 inputs")
+	assert.NotNil(t, err, "MRProof incorrect - accepted 6 inputs")
 
 	_, err = MRPProve(Rand64Vector(7))
-	assert.Assert(t, err != nil, "MRProof incorrect - accepted 7 inputs")
+	assert.NotNil(t, err, "MRProof incorrect - accepted 7 inputs")
 
 	_, err = MRPProve(Rand64Vector(10))
-	assert.Assert(t, err != nil, "MRProof incorrect - accepted 10 inputs")
+	assert.NotNil(t, err, "MRProof incorrect - accepted 10 inputs")
 
 	_, err = MRPProve(Rand64Vector(1))
-	assert.Assert(t, err == nil, "MRProof incorrect - not accepted 1 inputs")
+	assert.Nil(t, err, "MRProof incorrect - not accepted 1 inputs")
 
 	_, err = MRPProve(Rand64Vector(2))
-	assert.Assert(t, err == nil, "MRProof incorrect - not accepted 2 inputs")
+	assert.Nil(t, err, "MRProof incorrect - not accepted 2 inputs")
 
 	_, err = MRPProve(Rand64Vector(4))
 	fmt.Println(err)
-	assert.Assert(t, err == nil, "MRProof incorrect - not accepted 4 inputs")
+	assert.Nil(t, err, "MRProof incorrect - not accepted 4 inputs")
 
 	_, err = MRPProve(Rand64Vector(8))
-	assert.Assert(t, err == nil, "MRProof incorrect - not accepted 8 inputs")
+	assert.Nil(t, err, "MRProof incorrect - not accepted 8 inputs")
 }
 
 type Point struct {
