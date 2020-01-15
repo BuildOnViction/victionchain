@@ -62,7 +62,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		return trades, rejects, nil
 	case lendingstate.Payment:
 		lendingTradeId := common.HexToHash(order.ExtraData).Big().Uint64()
-		_, _, err := l.ProcessPayment(createdBlockTime, lendingStateDB, statedb, tradingStateDb, lendingOrderBook, lendingTradeId)
+		_, err := l.ProcessPayment(createdBlockTime, lendingStateDB, statedb, tradingStateDb, lendingOrderBook, lendingTradeId)
 		if err != nil {
 			log.Debug("Can not process payment", "err", err)
 			rejects = append(rejects, order)
@@ -70,7 +70,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		trades = append(trades, &lendingstate.LendingTrade{
-			Status: lendingstate.TradeStatusFinalized,
+			Status: lendingstate.TradeStatusClosed,
 		})
 		return trades, rejects, nil
 	default:
@@ -717,7 +717,7 @@ func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, st
 
 // return hash: hash of lendingTrade
 // return isFinalized: true if this trade is finalized, otherwise return false (it may be liquidated)
-func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (hash common.Hash, isFinalized bool, err error) {
+func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (hash common.Hash, err error) {
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
@@ -730,10 +730,10 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 	paymentBalance = new(big.Int).Div(paymentBalance, common.BaseLendingInterest)
 	if tokenBalance.Cmp(paymentBalance) < 0 {
 		if lendingTrade.LiquidationTime > time {
-			return common.Hash{}, false, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
+			return common.Hash{}, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
 		}
 		hash, err = l.LiquidationTrade(lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
-		return hash, false, err
+		return hash, err
 	} else {
 		lendingstate.SubTokenBalance(lendingTrade.Borrower, paymentBalance, lendingTrade.LendingToken, statedb)
 		lendingstate.AddTokenBalance(lendingTrade.Investor, paymentBalance, lendingTrade.LendingToken, statedb)
@@ -745,7 +745,7 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 		tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
 		lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
 	}
-	return lendingTrade.Hash, true, nil
+	return lendingTrade.Hash, nil
 }
 
 // return hash of liquidatedTrade

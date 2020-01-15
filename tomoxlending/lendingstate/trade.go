@@ -14,7 +14,7 @@ import (
 
 const (
 	TradeStatusOpen       = "OPEN"
-	TradeStatusFinalized  = "FINALIZED"
+	TradeStatusClosed     = "CLOSED"
 	TradeStatusLiquidated = "LIQUIDATED"
 )
 

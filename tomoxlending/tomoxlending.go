@@ -398,21 +398,18 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	return nil
 }
 
-func (l *Lending) CloseTrade(closedTrades lendingstate.ClosedTrade) error {
+func (l *Lending) UpdateLiquidatedTrade(result lendingstate.LiquidatedResult) error {
 	db := l.GetMongoDB()
 	sc := db.InitLendingBulk()
 	defer sc.Close()
 
-	txhash := closedTrades.TxHash
-	txTime := time.Unix(0, (closedTrades.Timestamp/1e6)*1e6).UTC() // round to milliseconds
-	if err := l.UpdateLendingTrade(closedTrades.Liquidated, lendingstate.TradeStatusLiquidated, txhash, txTime); err != nil {
-		return err
-	}
-	if err := l.UpdateLendingTrade(closedTrades.Finalized, lendingstate.TradeStatusFinalized, txhash, txTime); err != nil {
+	txhash := result.TxHash
+	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
+	if err := l.UpdateLendingTrade(result.Liquidated, lendingstate.TradeStatusLiquidated, txhash, txTime); err != nil {
 		return err
 	}
 	if err := db.CommitLendingBulk(); err != nil {
-		return fmt.Errorf("SDKNode fail to commit bulk update closedTrades at txhash %s . Error: %s", txhash.Hex(), err.Error())
+		return fmt.Errorf("SDKNode fail to commit bulk update liquidatedResult at txhash %s . Error: %s", txhash.Hex(), err.Error())
 	}
 	return nil
 }
@@ -581,16 +578,16 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 	}
 }
 
-func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades, finalizationTrades []common.Hash, err error) {
+func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades []common.Hash, err error) {
 	allPairs, err := lendingstate.GetAllLendingPairs(statedb)
 	if err != nil {
 		log.Error("Fail when get all trading pairs", "error", err)
-		return []common.Hash{}, []common.Hash{}, err
+		return  []common.Hash{}, err
 	}
 	allLendingBooks, err := lendingstate.GetAllLendingBooks(statedb)
 	if err != nil {
 		log.Error("Fail when get all lending books", "error", err)
-		return []common.Hash{}, []common.Hash{}, err
+		return []common.Hash{}, err
 	}
 
 	for _, lendingPair := range allPairs {
@@ -598,7 +595,7 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		_, liquidationPrice, err := l.GetCollateralPrices(chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
 		if err != nil {
 			log.Error("Fail when get all trading pairs", "error", err)
-			return []common.Hash{}, []common.Hash{}, err
+			return []common.Hash{}, err
 		}
 		lowestPrice, liquidationData := tradingState.GetLowestLiquidationPriceData(orderbook, liquidationPrice)
 		for lowestPrice.Sign() > 0 && lowestPrice.Cmp(liquidationPrice) < 0 {
@@ -607,7 +604,7 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 					h, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
 					if err != nil {
 						log.Error("Fail when remove liquidation trade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
-						return []common.Hash{}, []common.Hash{}, err
+						return []common.Hash{}, err
 					}
 					if (h != common.Hash{}) {
 						liquidatedTrades = append(liquidatedTrades, h)
@@ -622,20 +619,16 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
 			for _, tradingId := range tradingIds {
-				h, isFinalized, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
+				h, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
-					return []common.Hash{}, []common.Hash{}, err
+					return []common.Hash{}, err
 				}
 				if (h != common.Hash{}) {
-					if isFinalized {
-						finalizationTrades = append(finalizationTrades, h)
-					} else {
-						liquidatedTrades = append(liquidatedTrades, h)
-					}
+					liquidatedTrades = append(liquidatedTrades, h)
 				}
 			}
 		}
 	}
-	return liquidatedTrades, finalizationTrades, nil
+	return liquidatedTrades, nil
 }

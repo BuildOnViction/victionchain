@@ -1554,7 +1554,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 
 				// liquidate / finalize open lendingTrades
-				_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+				_, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
 				if err != nil {
 					return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 				}
@@ -1827,7 +1827,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			}
 
 			// liquidate / finalize open lendingTrades
-			_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
+			_, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
 			if err != nil {
 				return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 			}
@@ -2599,14 +2599,14 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 		}
 	}
 
-	// update closedTrades
-	closedTrades, err := ExtractLendingClosedTradeTransactions(block.Transactions())
+	// update liquidatedTrades
+	liquidatedTrades, err := ExtractLendingLiquidatedTradeTransactions(block.Transactions())
 	if err != nil {
-		log.Error("failed to extract lendingClosedTrade transaction", "err", err)
+		log.Error("failed to extract liquidatedTrades transaction", "err", err)
 		return
 	}
-	if err := lendingService.CloseTrade(closedTrades); err != nil {
-		log.Error("lending: failed to CloseTrade ", "blockNumber", block.Number(), "err", err)
+	if err := lendingService.UpdateLiquidatedTrade(liquidatedTrades); err != nil {
+		log.Error("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
 		return
 	}
 }
