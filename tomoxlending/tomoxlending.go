@@ -269,12 +269,18 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		filledAmount := tradeRecord.Amount
 		// maker dirty order
 		makerFilledAmount := big.NewInt(0)
-		if amount, ok := makerDirtyFilledAmount[tradeRecord.InvestingOrderHash.Hex()]; ok {
+		makerOrderHash := common.Hash{}
+		if updatedTakerLendingItem.Side == lendingstate.Borrowing {
+			makerOrderHash = tradeRecord.InvestingOrderHash
+		} else {
+			makerOrderHash = tradeRecord.BorrowingOrderHash
+		}
+		if amount, ok := makerDirtyFilledAmount[makerOrderHash.Hex()]; ok {
 			makerFilledAmount = lendingstate.CloneBigInt(amount)
 		}
 		makerFilledAmount.Add(makerFilledAmount, filledAmount)
-		makerDirtyFilledAmount[tradeRecord.InvestingOrderHash.Hex()] = makerFilledAmount
-		makerDirtyHashes = append(makerDirtyHashes, tradeRecord.InvestingOrderHash.Hex())
+		makerDirtyFilledAmount[makerOrderHash.Hex()] = makerFilledAmount
+		makerDirtyHashes = append(makerDirtyHashes, makerOrderHash.Hex())
 
 		//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 		//  update filledAmount, status of takerOrder
@@ -582,7 +588,7 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 	allPairs, err := lendingstate.GetAllLendingPairs(statedb)
 	if err != nil {
 		log.Error("Fail when get all trading pairs", "error", err)
-		return  []common.Hash{}, err
+		return []common.Hash{}, err
 	}
 	allLendingBooks, err := lendingstate.GetAllLendingBooks(statedb)
 	if err != nil {
