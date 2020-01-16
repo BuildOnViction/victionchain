@@ -635,7 +635,7 @@ func (self *LendingStateDB) GetLowestLiquidationTime(lendingBook common.Hash, ti
 	liquidationData := []common.Hash{}
 	lendingExchangeState := self.getLendingExchange(lendingBook)
 	if lendingExchangeState == nil {
-		return nil, liquidationData
+		return common.Big0, liquidationData
 	}
 	lowestPriceHash, liquidationState := lendingExchangeState.getLowestLiquidationTime(self.db)
 	lowestTime := new(big.Int).SetBytes(lowestPriceHash[:])

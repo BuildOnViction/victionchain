@@ -309,12 +309,24 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				TradeId:                tradingId,
 				Term:                   oldestOrder.Term,
 				LendingToken:           oldestOrder.LendingToken,
+				CollateralToken:        collateralToken,
 				Amount:                 quantityToTrade,
 				LiquidationTime:        liquidationTime,
 				LiquidationPrice:       liquidationPrice,
 				Interest:               oldestOrder.Interest.Uint64(),
 				LendingRate:            depositRate,
 				CollateralLockedAmount: collateralLockedAmount,
+			}
+			if order.Side == lendingstate.Investing {
+				lendingTrade.Borrower=oldestOrder.UserAddress
+				lendingTrade.BorrowingRelayer=oldestOrder.Relayer
+				lendingTrade.Investor=order.UserAddress
+				lendingTrade.InvestingRelayer=order.Relayer
+			}else {
+				lendingTrade.Borrower=order.UserAddress
+				lendingTrade.BorrowingRelayer=order.Relayer
+				lendingTrade.Investor=oldestOrder.UserAddress
+				lendingTrade.InvestingRelayer=oldestOrder.Relayer
 			}
 			lendingStateDB.InsertTradingItem(lendingOrderBook, tradingId, lendingTrade)
 			lendingStateDB.InsertLiquidationTime(lendingOrderBook, new(big.Int).SetUint64(liquidationTime), tradingId)

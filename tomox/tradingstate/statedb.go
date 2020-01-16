@@ -607,6 +607,9 @@ func (s *TradingStateDB) Commit() (root common.Hash, err error) {
 func (self *TradingStateDB) GetLowestLiquidationPriceData(orderBook common.Hash, price *big.Int) (*big.Int, map[common.Hash][]common.Hash) {
 	liquidationData := map[common.Hash][]common.Hash{}
 	orderbookState := self.getStateExchangeObject(orderBook)
+	if orderbookState == nil {
+		return common.Big0, liquidationData
+	}
 	lowestPriceHash, liquidationState := orderbookState.getLowestLiquidationPrice(self.db)
 	lowestPrice := new(big.Int).SetBytes(lowestPriceHash[:])
 	if liquidationState != nil && lowestPrice.Sign() > 0 && lowestPrice.Cmp(price) <= 0 {
