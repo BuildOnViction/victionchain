@@ -2527,7 +2527,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
 			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
 		}
-		if deletedTx.IsLendingTransaction() && lendingService != nil {
+		if lendingService != nil && (deletedTx.IsLendingTransaction() || deletedTx.IsLendingLiquidatedTradeTransaction()) {
 			log.Debug("Rollback reorg lendingItem", "txhash", deletedTx.Hash())
 			lendingService.RollbackLendingData(deletedTx.Hash())
 		}

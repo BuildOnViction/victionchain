@@ -716,7 +716,6 @@ func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, st
 }
 
 // return hash: hash of lendingTrade
-// return isFinalized: true if this trade is finalized, otherwise return false (it may be liquidated)
 func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (hash common.Hash, err error) {
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
