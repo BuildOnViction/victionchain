@@ -1840,6 +1840,16 @@ func (s *PublicTomoXTransactionPoolAPI) SendOrderRawTransaction(ctx context.Cont
 	return submitOrderTransaction(ctx, s.b, tx)
 }
 
+// SendLendingRawTransaction will add the signed transaction to the transaction pool.
+// The sender is responsible for signing the transaction and using the correct nonce.
+func (s *PublicTomoXTransactionPoolAPI) SendLendingRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	tx := new(types.LendingTransaction)
+	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
+		return common.Hash{}, err
+	}
+	return submitLendingTransaction(ctx, s.b, tx)
+}
+
 // OrderMsg struct
 type OrderMsg struct {
 	AccountNonce    uint64         `json:"nonce"    gencodec:"required"`

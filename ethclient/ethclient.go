@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/tomochain/tomochain"
+	ethereum "github.com/tomochain/tomochain"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/core/types"
@@ -255,7 +255,7 @@ func (ec *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*
 
 func (ec *Client) GetTransactionReceiptResult(ctx context.Context, txHash common.Hash) (*types.Receipt, json.RawMessage, error) {
 	var r *types.Receipt
-	result, err := ec.c.GetResultCallContext(ctx, &r,"eth_getTransactionReceipt", txHash)
+	result, err := ec.c.GetResultCallContext(ctx, &r, "eth_getTransactionReceipt", txHash)
 	if err == nil {
 		if r == nil {
 			return nil, nil, ethereum.NotFound
@@ -496,6 +496,15 @@ func (ec *Client) SendOrderTransaction(ctx context.Context, tx *types.OrderTrans
 		return err
 	}
 	return ec.c.CallContext(ctx, nil, "tomox_sendOrderRawTransaction", common.ToHex(data))
+}
+
+// SendLendingTransaction send lending to pool
+func (ec *Client) SendLendingTransaction(ctx context.Context, tx *types.LendingTransaction) error {
+	data, err := rlp.EncodeToBytes(tx)
+	if err != nil {
+		return err
+	}
+	return ec.c.CallContext(ctx, nil, "tomox_sendLendingRawTransaction", common.ToHex(data))
 }
 
 func toCallArg(msg ethereum.CallMsg) interface{} {

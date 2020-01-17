@@ -708,7 +708,13 @@ web3._extend({
             name: 'sendOrderRawTransaction',
             call: 'tomox_sendOrderRawTransaction',
             params: 1
-        }),
+		}),
+		new web3._extend.Method({
+            name: 'sendLendingRawTransaction',
+            call: 'tomox_sendLendingRawTransaction',
+            params: 1
+		}),
+		
 		new web3._extend.Method({
             name: 'sendOrderTransaction',
             call: 'tomox_sendOrder',
