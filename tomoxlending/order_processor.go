@@ -320,59 +320,44 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				DepositRate:            depositRate,
 				CollateralLockedAmount: collateralLockedAmount,
 			}
-			if order.Side == lendingstate.Investing {
-				lendingTrade.Borrower = oldestOrder.UserAddress
-				lendingTrade.BorrowingRelayer = oldestOrder.Relayer
-				lendingTrade.Investor = order.UserAddress
-				lendingTrade.InvestingRelayer = order.Relayer
-			} else {
-				lendingTrade.Borrower = order.UserAddress
+			lendingTrade.Status = lendingstate.TradeStatusOpen
+			lendingTrade.TakerOrderSide = order.Side
+			lendingTrade.TakerOrderType = order.Type
+			lendingTrade.MakerOrderType = oldestOrder.Type
+			lendingTrade.InvestingFee = lendingstate.Zero // current design: no investing fee
+
+			if order.Side == lendingstate.Borrowing {
+				// taker is a borrower
+				lendingTrade.BorrowingOrderHash = order.Hash
+				lendingTrade.InvestingOrderHash = oldestOrder.Hash
 				lendingTrade.BorrowingRelayer = order.Relayer
-				lendingTrade.Investor = oldestOrder.UserAddress
 				lendingTrade.InvestingRelayer = oldestOrder.Relayer
+				lendingTrade.Borrower = order.UserAddress
+				lendingTrade.Investor = oldestOrder.UserAddress
+
+				// fee
+				if settleBalanceResult != nil {
+					lendingTrade.BorrowingFee = settleBalanceResult.Taker.Fee
+				}
+			} else if order.Side == lendingstate.Investing {
+				// taker is an investor
+				lendingTrade.BorrowingOrderHash = oldestOrder.Hash
+				lendingTrade.InvestingOrderHash = order.Hash
+				lendingTrade.BorrowingRelayer = oldestOrder.Relayer
+				lendingTrade.InvestingRelayer = order.Relayer
+				lendingTrade.Borrower = oldestOrder.UserAddress
+				lendingTrade.Investor = order.UserAddress
+				// fee
+				if settleBalanceResult != nil {
+					lendingTrade.BorrowingFee = settleBalanceResult.Maker.Fee
+				}
 			}
 			lendingStateDB.InsertTradingItem(lendingOrderBook, tradingId, lendingTrade)
 			lendingStateDB.InsertLiquidationTime(lendingOrderBook, new(big.Int).SetUint64(liquidationTime), tradingId)
 			lendingStateDB.SetTradeNonce(lendingOrderBook, tradingId+1)
 			tradingStateDb.InsertLiquidationPrice(tradingstate.GetTradingOrderBookHash(order.CollateralToken, order.LendingToken), liquidationPrice, lendingOrderBook, tradingId)
 
-			// attach more trade information for sdk
-			tradeRecord := lendingTrade
-			tradeRecord.CollateralToken = oldestOrder.CollateralToken
-			tradeRecord.Status = lendingstate.TradeStatusOpen
-			tradeRecord.TakerOrderSide = order.Side
-			tradeRecord.TakerOrderType = order.Type
-			tradeRecord.MakerOrderType = oldestOrder.Type
-			tradeRecord.InvestingFee = lendingstate.Zero // current design: no investing fee
-
-			if order.Side == lendingstate.Borrowing {
-				// taker is a borrower
-				tradeRecord.BorrowingOrderHash = order.Hash
-				tradeRecord.InvestingOrderHash = oldestOrder.Hash
-				tradeRecord.BorrowingRelayer = order.Relayer
-				tradeRecord.InvestingRelayer = oldestOrder.Relayer
-				tradeRecord.Borrower = order.UserAddress
-				tradeRecord.Investor = oldestOrder.UserAddress
-
-				// fee
-				if settleBalanceResult != nil {
-					tradeRecord.BorrowingFee = settleBalanceResult.Taker.Fee
-				}
-			} else if order.Side == lendingstate.Investing {
-				// taker is an investor
-				tradeRecord.BorrowingOrderHash = oldestOrder.Hash
-				tradeRecord.InvestingOrderHash = order.Hash
-				tradeRecord.BorrowingRelayer = oldestOrder.Relayer
-				tradeRecord.InvestingRelayer = order.Relayer
-				tradeRecord.Borrower = oldestOrder.UserAddress
-				tradeRecord.Investor = order.UserAddress
-				// fee
-				if settleBalanceResult != nil {
-					tradeRecord.BorrowingFee = settleBalanceResult.Maker.Fee
-				}
-			}
-
-			trades = append(trades, &tradeRecord)
+			trades = append(trades, &lendingTrade)
 
 		}
 		if rejectMaker {
