@@ -30,7 +30,7 @@ var TIPSigning = big.NewInt(3000000)
 var TIPRandomize = big.NewInt(3464000)
 var BlackListHFNumber = uint64(9349100)
 var TIPTomoX = big.NewInt(0)
-var TIPTomoXTestnet = big.NewInt(11303000)
+var TIPTomoXTestnet = big.NewInt(0)
 var IsTestnet bool = false
 var StoreRewardFolder string
 var RollbackHash Hash
@@ -42,7 +42,7 @@ var RelayerCancelFee = big.NewInt(100000000000000) // 0.0001
 var TomoXBaseCancelFee = big.NewInt(10000)         // 1/10000
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
-var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
+var TRC21IssuerSMCTestNet = HexToAddress("0x0E2C88753131CE01c7551B726b28BFD04e44003F")
 var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
 var TRC21GasPriceBefore = big.NewInt(2500)
 var TRC21GasPrice = big.NewInt(250000000)
