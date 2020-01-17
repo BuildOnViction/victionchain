@@ -120,7 +120,7 @@ func (l *Lending) processMarketOrder(createdBlockTime uint64, coinbase common.Ad
 	// speedup the comparison, do not assign because it is pointer
 	zero := lendingstate.Zero
 	if side == lendingstate.Borrowing {
-		bestInterest, volume := lendingStateDB.GetBestBorrowRate(lendingOrderBook)
+		bestInterest, volume := lendingStateDB.GetBestInvestingRate(lendingOrderBook)
 		log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && bestInterest.Cmp(zero) > 0 {
 			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime, coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, bestInterest, quantityToTrade, order)
@@ -129,11 +129,11 @@ func (l *Lending) processMarketOrder(createdBlockTime uint64, coinbase common.Ad
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
-			bestInterest, volume = lendingStateDB.GetBestBorrowRate(lendingOrderBook)
+			bestInterest, volume = lendingStateDB.GetBestInvestingRate(lendingOrderBook)
 			log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		}
 	} else {
-		bestInterest, volume := lendingStateDB.GetBestInvestingRate(lendingOrderBook)
+		bestInterest, volume := lendingStateDB.GetBestBorrowRate(lendingOrderBook)
 		log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && bestInterest.Cmp(zero) > 0 {
 			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime, coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, bestInterest, quantityToTrade, order)
@@ -142,7 +142,7 @@ func (l *Lending) processMarketOrder(createdBlockTime uint64, coinbase common.Ad
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
-			bestInterest, volume = lendingStateDB.GetBestInvestingRate(lendingOrderBook)
+			bestInterest, volume = lendingStateDB.GetBestBorrowRate(lendingOrderBook)
 			log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		}
 	}
@@ -151,7 +151,7 @@ func (l *Lending) processMarketOrder(createdBlockTime uint64, coinbase common.Ad
 
 // processLimitOrder : process the limit order, can change the quote
 // If not care for performance, we should make a copy of quote to prevent further reference problem
-func (l *Lending) processLimitOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, LendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
+func (l *Lending) processLimitOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]map[string]string, []*lendingstate.LendingItem, error) {
 	var (
 		trades     []map[string]string
 		newTrades  []map[string]string
@@ -167,43 +167,43 @@ func (l *Lending) processLimitOrder(createdBlockTime uint64, coinbase common.Add
 	zero := lendingstate.Zero
 
 	if side == lendingstate.Borrowing {
-		minInterest, volume := LendingStateDB.GetBestBorrowRate(lendingOrderBook)
+		minInterest, volume := lendingStateDB.GetBestInvestingRate(lendingOrderBook)
 		log.Debug("processLimitOrder ", "side", side, "minInterest", minInterest, "orderInterest", Interest, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && Interest.Cmp(minInterest) >= 0 && minInterest.Cmp(zero) > 0 {
-			log.Debug("Min Interest in Investings tree", "Interest", minInterest.String())
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime, coinbase, chain, statedb, LendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, minInterest, quantityToTrade, order)
+			log.Debug("Min Interest in Investing tree", "Interest", minInterest.String())
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime, coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Investing, lendingOrderBook, minInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
 			log.Debug("New trade found", "newTrades", newTrades, "quantityToTrade", quantityToTrade)
-			minInterest, volume = LendingStateDB.GetBestBorrowRate(lendingOrderBook)
+			minInterest, volume = lendingStateDB.GetBestInvestingRate(lendingOrderBook)
 			log.Debug("processLimitOrder ", "side", side, "minInterest", minInterest, "orderInterest", Interest, "volume", volume)
 		}
 	} else {
-		maxInterest, volume := LendingStateDB.GetBestInvestingRate(lendingOrderBook)
+		maxInterest, volume := lendingStateDB.GetBestBorrowRate(lendingOrderBook)
 		log.Debug("processLimitOrder ", "side", side, "maxInterest", maxInterest, "orderInterest", Interest, "volume", volume)
 		for quantityToTrade.Cmp(zero) > 0 && Interest.Cmp(maxInterest) <= 0 && maxInterest.Cmp(zero) > 0 {
-			log.Debug("Max Interest in Borrowings tree", "Interest", maxInterest.String())
-			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime, coinbase, chain, statedb, LendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, maxInterest, quantityToTrade, order)
+			log.Debug("Max Interest in Borrowing tree", "Interest", maxInterest.String())
+			quantityToTrade, newTrades, newRejects, err = l.processOrderList(createdBlockTime, coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingstate.Borrowing, lendingOrderBook, maxInterest, quantityToTrade, order)
 			if err != nil {
 				return nil, nil, err
 			}
 			trades = append(trades, newTrades...)
 			rejects = append(rejects, newRejects...)
 			log.Debug("New trade found", "newTrades", newTrades, "quantityToTrade", quantityToTrade)
-			maxInterest, volume = LendingStateDB.GetBestInvestingRate(lendingOrderBook)
+			maxInterest, volume = lendingStateDB.GetBestBorrowRate(lendingOrderBook)
 			log.Debug("processLimitOrder ", "side", side, "maxInterest", maxInterest, "orderInterest", Interest, "volume", volume)
 		}
 	}
 	if quantityToTrade.Cmp(zero) > 0 {
-		orderId := LendingStateDB.GetNonce(lendingOrderBook)
+		orderId := lendingStateDB.GetNonce(lendingOrderBook)
 		order.LendingId = orderId + 1
 		order.Quantity = quantityToTrade
-		LendingStateDB.SetNonce(lendingOrderBook, orderId+1)
+		lendingStateDB.SetNonce(lendingOrderBook, orderId+1)
 		orderIdHash := common.BigToHash(new(big.Int).SetUint64(order.LendingId))
-		LendingStateDB.InsertLendingItem(lendingOrderBook, orderIdHash, *order)
+		lendingStateDB.InsertLendingItem(lendingOrderBook, orderIdHash, *order)
 		log.Debug("After matching, order (unmatched part) is now added to tree", "side", order.Side, "order", order)
 	}
 	return trades, rejects, nil
@@ -318,15 +318,15 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				CollateralLockedAmount: collateralLockedAmount,
 			}
 			if order.Side == lendingstate.Investing {
-				lendingTrade.Borrower=oldestOrder.UserAddress
-				lendingTrade.BorrowingRelayer=oldestOrder.Relayer
-				lendingTrade.Investor=order.UserAddress
-				lendingTrade.InvestingRelayer=order.Relayer
-			}else {
-				lendingTrade.Borrower=order.UserAddress
-				lendingTrade.BorrowingRelayer=order.Relayer
-				lendingTrade.Investor=oldestOrder.UserAddress
-				lendingTrade.InvestingRelayer=oldestOrder.Relayer
+				lendingTrade.Borrower = oldestOrder.UserAddress
+				lendingTrade.BorrowingRelayer = oldestOrder.Relayer
+				lendingTrade.Investor = order.UserAddress
+				lendingTrade.InvestingRelayer = order.Relayer
+			} else {
+				lendingTrade.Borrower = order.UserAddress
+				lendingTrade.BorrowingRelayer = order.Relayer
+				lendingTrade.Investor = oldestOrder.UserAddress
+				lendingTrade.InvestingRelayer = oldestOrder.Relayer
 			}
 			lendingStateDB.InsertTradingItem(lendingOrderBook, tradingId, lendingTrade)
 			lendingStateDB.InsertLiquidationTime(lendingOrderBook, new(big.Int).SetUint64(liquidationTime), tradingId)
