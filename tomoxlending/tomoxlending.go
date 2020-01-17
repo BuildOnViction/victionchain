@@ -67,6 +67,7 @@ func New(tomox *tomox.TomoX) *Lending {
 		lendingTradeHistory: lendingTradeCache,
 	}
 	lending.StateCache = lendingstate.NewDatabase(tomox.GetLevelDB())
+	lending.tomox = tomox
 	return lending
 }
 
@@ -120,6 +121,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 			Quantity:        tx.Quantity(),
 			Interest:        new(big.Int).SetUint64(tx.Interest()),
 			Relayer:         tx.RelayerAddress(),
+			Term:            tx.Term(),
 			UserAddress:     tx.UserAddress(),
 			LendingToken:    tx.LendingToken(),
 			CollateralToken: tx.CollateralToken(),

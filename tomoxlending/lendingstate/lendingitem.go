@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	Investing                  = "INVESTING"
-	Borrowing                  = "BORROWING"
+	Investing                  = "INVEST"
+	Borrowing                  = "BORROW"
 	Deposit                    = "DEPOSIT"
 	Payment                    = "PAYMENT"
 	LendingStatusNew           = "NEW"
@@ -282,17 +282,12 @@ func (l *LendingItem) EncodedSide() *big.Int {
 
 //verify signatures
 func (l *LendingItem) VerifyLendingSignature() error {
-	bigstr := l.Nonce.String()
-	n, err := strconv.ParseInt(bigstr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("verify lending item: invalid signature")
-	}
 	V := big.NewInt(int64(l.Signature.V))
 	R := l.Signature.R.Big()
 	S := l.Signature.S.Big()
 
 	//(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id uint64
-	tx := types.NewLendingTransaction(uint64(n), l.Quantity, l.Interest.Uint64(), l.Term, l.Relayer, l.UserAddress,
+	tx := types.NewLendingTransaction(l.Nonce.Uint64(), l.Quantity, l.Interest.Uint64(), l.Term, l.Relayer, l.UserAddress,
 		l.LendingToken, l.CollateralToken, l.Status, l.Side, l.Type, l.Hash, l.LendingId)
 	tx.ImportSignature(V, R, S)
 	from, _ := types.LendingSender(types.LendingTxSigner{}, tx)

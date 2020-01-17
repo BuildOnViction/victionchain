@@ -53,10 +53,6 @@ var (
 var (
 	LendingTypeLimit    = "LO"
 	LendingTypeMarket   = "MO"
-	LendingStatusNew    = "NEW"
-	LendingStatusCancel = "CANCELLED"
-	LendingSideBid      = "BUY"
-	LendingSideAsk      = "SELL"
 )
 
 // LendingPoolConfig are the configuration parameters of the order transaction pool.
@@ -440,7 +436,7 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 			}
 		}
 
-		if lendingSide != LendingSideAsk && lendingSide != LendingSideBid {
+		if lendingSide != lendingstate.Investing && lendingSide != lendingstate.Borrowing {
 			return ErrInvalidLendingSide
 		}
 		if lendingType != LendingTypeLimit && lendingType != LendingTypeMarket {
