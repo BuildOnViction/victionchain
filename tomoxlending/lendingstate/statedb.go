@@ -361,7 +361,7 @@ func (self *LendingStateDB) GetBestBorrowRate(orderBook common.Hash) (*big.Int, 
 		if common.EmptyHash(priceHash) {
 			return Zero, Zero
 		}
-		orderList := stateObject.getInvestingOrderList(self.db, priceHash)
+		orderList := stateObject.getBorrowingOrderList(self.db, priceHash)
 		if orderList == nil {
 			log.Error("order list ask not found", "key", priceHash.Hex())
 			return Zero, Zero
