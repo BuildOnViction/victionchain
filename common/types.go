@@ -28,23 +28,24 @@ import (
 )
 
 const (
-	HashLength          = 32
-	AddressLength       = 20
-	BlockSigners        = "0x0000000000000000000000000000000000000089"
-	MasternodeVotingSMC = "0x0000000000000000000000000000000000000088"
-	RandomizeSMC        = "0x0000000000000000000000000000000000000090"
-	FoudationAddr       = "0x0000000000000000000000000000000000000068"
-	TeamAddr            = "0x0000000000000000000000000000000000000099"
-	TomoXAddr           = "0x0000000000000000000000000000000000000091"
-	TradingStateAddr    = "0x0000000000000000000000000000000000000092"
-	TomoXLendingAddress = "0x0000000000000000000000000000000000000093"
-	TomoNativeAddress   = "0x0000000000000000000000000000000000000001"
-	LendingLockAddress  = "0x0000000000000000000000000000000000000011"
-	VoteMethod          = "0x6dd7d8ea"
-	UnvoteMethod        = "0x02aa9be2"
-	ProposeMethod       = "0x01267951"
-	ResignMethod        = "0xae6e43f5"
-	SignMethod          = "0xe341eaa4"
+	HashLength                         = 32
+	AddressLength                      = 20
+	BlockSigners                       = "0x0000000000000000000000000000000000000089"
+	MasternodeVotingSMC                = "0x0000000000000000000000000000000000000088"
+	RandomizeSMC                       = "0x0000000000000000000000000000000000000090"
+	FoudationAddr                      = "0x0000000000000000000000000000000000000068"
+	TeamAddr                           = "0x0000000000000000000000000000000000000099"
+	TomoXAddr                          = "0x0000000000000000000000000000000000000091"
+	TradingStateAddr                   = "0x0000000000000000000000000000000000000092"
+	TomoXLendingAddress                = "0x0000000000000000000000000000000000000093"
+	TomoXLendingLiquidatedTradeAddress = "0x0000000000000000000000000000000000000094"
+	TomoNativeAddress                  = "0x0000000000000000000000000000000000000001"
+	LendingLockAddress                 = "0x0000000000000000000000000000000000000011"
+	VoteMethod                         = "0x6dd7d8ea"
+	UnvoteMethod                       = "0x02aa9be2"
+	ProposeMethod                      = "0x01267951"
+	ResignMethod                       = "0xae6e43f5"
+	SignMethod                         = "0xe341eaa4"
 )
 
 var (

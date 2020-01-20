@@ -149,12 +149,16 @@ func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingSta
 	if posvEngine == nil || !ok {
 		return ErrNotPoSV
 	}
+	tomoXService := posvEngine.GetTomoXService()
+	if tomoXService == nil {
+		return fmt.Errorf("tomox not found")
+	}
 	lendingService := posvEngine.GetLendingService()
 	if lendingService == nil {
 		return fmt.Errorf("lendingService not found")
 	}
 	log.Debug("verify lendingItem ", "numItems", len(batch.Data))
-	//lendingResult := map[common.Hash]lendingstate.MatchingResult{}
+	lendingResult := map[common.Hash]lendingstate.MatchingResult{}
 	for _, l := range batch.Data {
 		// verify lendingItem
 
@@ -163,20 +167,18 @@ func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingSta
 			return fmt.Errorf("invalid lendingItem . Error: %v", err)
 		}
 		// process Matching Engine
-		_, _, err := lendingService.ApplyOrder(uint64(batch.Timestamp), coinbase, v.bc, statedb, lendingStateDb, tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
+		newTrades, newRejectedOrders, err := lendingService.ApplyOrder(uint64(batch.Timestamp), coinbase, v.bc, statedb, lendingStateDb, tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
 		if err != nil {
 			return err
 		}
-		//TODO:@nguyennguyen
-		// SDKnode need to store lendingResult
-		//lendingResult[order.Hash] = tradingstate.MatchingResult{
-		//	Trades:  newTrades,
-		//	Rejects: newRejectedOrders,
-		//}
+		lendingResult[l.Hash] = lendingstate.MatchingResult{
+			Trades:  newTrades,
+			Rejects: newRejectedOrders,
+		}
 	}
-	//if lendingService.IsSDKNode() {
-	//	v.bc.AddMatchingResult(batch.TxHash, lendingResult)
-	//}
+	if tomoXService.IsSDKNode() {
+		v.bc.AddLendingResult(batch.TxHash, lendingResult)
+	}
 	return nil
 }
 
@@ -232,11 +234,26 @@ func ExtractLendingTransactions(transactions types.Transactions) ([]lendingstate
 		if tx.IsLendingTransaction() {
 			txMatchBatch, err := lendingstate.DecodeTxLendingBatch(tx.Data())
 			if err != nil {
-				return []lendingstate.TxLendingBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
+				return []lendingstate.TxLendingBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode lendingTransaction. Error: %s", err)
 			}
 			txMatchBatch.TxHash = tx.Hash()
 			batchData = append(batchData, txMatchBatch)
 		}
 	}
 	return batchData, nil
+}
+
+func ExtractLendingLiquidatedTradeTransactions(transactions types.Transactions) (lendingstate.LiquidatedResult, error) {
+	for _, tx := range transactions {
+		if tx.IsLendingLiquidatedTradeTransaction() {
+			liquidatedTrades, err := lendingstate.DecodeLiquidatedResult(tx.Data())
+			if err != nil {
+				return lendingstate.LiquidatedResult{}, fmt.Errorf("transaction is corrupted. Failed to decode LendingClosedTradeTransaction. Error: %s", err)
+			}
+			liquidatedTrades.TxHash = tx.Hash()
+			// each block has only one tx of this type
+			return liquidatedTrades, nil
+		}
+	}
+	return lendingstate.LiquidatedResult{}, nil
 }

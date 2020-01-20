@@ -8,7 +8,10 @@ import (
 	"math/big"
 )
 
-var ErrQuantityTradeTooSmall = errors.New("quantity trade too small")
+var (
+	ErrQuantityTradeTooSmall = errors.New("quantity trade too small")
+	ErrInvalidCollateralPrice = errors.New("unable to retrieve price of this collateral. Please try another collateral")
+)
 
 type TradeResult struct {
 	Fee      *big.Int
@@ -39,6 +42,10 @@ func GetSettleBalance(takerSide string,
 	collateralTokenDecimal *big.Int,
 	quantityToLend *big.Int) (*LendingSettleBalance, error) {
 	log.Debug("GetSettleBalance", "takerSide", takerSide, "borrowFee", borrowFee, "lendingToken", lendingToken, "collateralToken", collateralToken, "quantityToLend", quantityToLend)
+	if collateralPrice == nil || collateralPrice.Sign() <= 0 {
+		return nil, ErrInvalidCollateralPrice
+	}
+
 	var result *LendingSettleBalance
 	//result = map[common.Address]map[string]interface{}{}
 	if takerSide == Borrowing {

@@ -150,7 +150,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 			order.Status = lendingstate.LendingStatusCancelled
 		}
 
-		_, newRejectedOrders, err := l.CommitOrder(createdBlockTime, coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
+		newTrades, newRejectedOrders, err := l.CommitOrder(createdBlockTime, coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
 
 		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)
@@ -185,7 +185,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 		originalOrder.LendingId = order.LendingId
 		lendingItems = append(lendingItems, originalOrder)
 		matchingResults[order.Hash] = lendingstate.MatchingResult{
-			//Trades:  newTrades,
+			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}
 	}
@@ -257,10 +257,9 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		}
 		tradeRecord.UpdatedAt = txMatchTime
 		tradeRecord.TxHash = txHash
-		tradeRecord.Status = lendingstate.TradeStatusSuccess
 		tradeRecord.Hash = tradeRecord.ComputeHash()
 		log.Debug("LendingTrade history ", "Term", tradeRecord.Term, "amount", tradeRecord.Amount, "Interest", tradeRecord.Interest,
-			"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "TakerOrderHash", tradeRecord.TakerOrderHash.Hex(), "MakerOrderHash", tradeRecord.MakerOrderHash.Hex(),
+			"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "BorrowingOrderHash", tradeRecord.BorrowingOrderHash.Hex(), "InvestingOrderHash", tradeRecord.InvestingOrderHash.Hex(),
 			"borrowing", tradeRecord.BorrowingFee.String(), "investingFee", tradeRecord.InvestingFee.String())
 		if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {
 			return fmt.Errorf("SDKNode: failed to store lendingTrade %s", err.Error())
@@ -270,12 +269,18 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		filledAmount := tradeRecord.Amount
 		// maker dirty order
 		makerFilledAmount := big.NewInt(0)
-		if amount, ok := makerDirtyFilledAmount[tradeRecord.MakerOrderHash.Hex()]; ok {
+		makerOrderHash := common.Hash{}
+		if updatedTakerLendingItem.Side == lendingstate.Borrowing {
+			makerOrderHash = tradeRecord.InvestingOrderHash
+		} else {
+			makerOrderHash = tradeRecord.BorrowingOrderHash
+		}
+		if amount, ok := makerDirtyFilledAmount[makerOrderHash.Hex()]; ok {
 			makerFilledAmount = lendingstate.CloneBigInt(amount)
 		}
 		makerFilledAmount.Add(makerFilledAmount, filledAmount)
-		makerDirtyFilledAmount[tradeRecord.MakerOrderHash.Hex()] = makerFilledAmount
-		makerDirtyHashes = append(makerDirtyHashes, tradeRecord.MakerOrderHash.Hex())
+		makerDirtyFilledAmount[makerOrderHash.Hex()] = makerFilledAmount
+		makerDirtyHashes = append(makerDirtyHashes, makerOrderHash.Hex())
 
 		//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 		//  update filledAmount, status of takerOrder
@@ -398,6 +403,51 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	}
 	return nil
 }
+
+func (l *Lending) UpdateLiquidatedTrade(result lendingstate.LiquidatedResult) error {
+	db := l.GetMongoDB()
+	sc := db.InitLendingBulk()
+	defer sc.Close()
+
+	txhash := result.TxHash
+	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
+	if err := l.UpdateLendingTrade(result.Liquidated, lendingstate.TradeStatusLiquidated, txhash, txTime); err != nil {
+		return err
+	}
+	if err := db.CommitLendingBulk(); err != nil {
+		return fmt.Errorf("SDKNode fail to commit bulk update liquidatedResult at txhash %s . Error: %s", txhash.Hex(), err.Error())
+	}
+	return nil
+}
+
+func (l *Lending) UpdateLendingTrade(hashes []common.Hash, status string, txhash common.Hash, txTime time.Time) error {
+	db := l.GetMongoDB()
+	hashQuery := []string{}
+	for _, h := range hashes {
+		hashQuery = append(hashQuery, h.Hex())
+	}
+	items := db.GetListItemByHashes(hashQuery, &lendingstate.LendingTrade{})
+	if items != nil && len(items.([]*lendingstate.LendingTrade)) > 0 {
+		for _, trade := range items.([]*lendingstate.LendingTrade) {
+			history := lendingstate.LendingTradeHistoryItem{
+				TxHash:                 trade.TxHash,
+				CollateralLockedAmount: trade.CollateralLockedAmount,
+				LiquidationPrice:       trade.LiquidationPrice,
+				Status:                 trade.Status,
+				UpdatedAt:              trade.UpdatedAt,
+			}
+			l.UpdateLendingTradeCache(trade.Hash, txhash, history)
+			trade.TxHash = txhash
+			trade.Status = status
+			trade.UpdatedAt = txTime
+			if err := db.PutObject(trade.Hash, trade); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (l *Lending) GetLendingState(block *types.Block) (*lendingstate.LendingStateDB, error) {
 	root, err := l.GetLendingStateRoot(block)
 	if err != nil {
@@ -534,16 +584,16 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 	}
 }
 
-func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) error {
+func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades []common.Hash, err error) {
 	allPairs, err := lendingstate.GetAllLendingPairs(statedb)
 	if err != nil {
 		log.Error("Fail when get all trading pairs", "error", err)
-		return err
+		return []common.Hash{}, err
 	}
 	allLendingBooks, err := lendingstate.GetAllLendingBooks(statedb)
 	if err != nil {
 		log.Error("Fail when get all lending books", "error", err)
-		return err
+		return []common.Hash{}, err
 	}
 
 	for _, lendingPair := range allPairs {
@@ -551,16 +601,19 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		_, liquidationPrice, err := l.GetCollateralPrices(chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
 		if err != nil {
 			log.Error("Fail when get all trading pairs", "error", err)
-			return err
+			return []common.Hash{}, err
 		}
 		lowestPrice, liquidationData := tradingState.GetLowestLiquidationPriceData(orderbook, liquidationPrice)
 		for lowestPrice.Sign() > 0 && lowestPrice.Cmp(liquidationPrice) < 0 {
 			for lendingBook, tradingIds := range liquidationData {
 				for _, tradingIdHash := range tradingIds {
-					err = l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
+					h, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
 					if err != nil {
 						log.Error("Fail when remove liquidation trade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
-						return err
+						return []common.Hash{}, err
+					}
+					if (h != common.Hash{}) {
+						liquidatedTrades = append(liquidatedTrades, h)
 					}
 				}
 			}
@@ -572,13 +625,16 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
 			for _, tradingId := range tradingIds {
-				err = l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
+				h, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
-					return err
+					return []common.Hash{}, err
+				}
+				if (h != common.Hash{}) {
+					liquidatedTrades = append(liquidatedTrades, h)
 				}
 			}
 		}
 	}
-	return nil
+	return liquidatedTrades, nil
 }

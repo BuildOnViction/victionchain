@@ -622,14 +622,16 @@ func (self *worker) commitNewWork() {
 	}
 	// won't grasp txs at checkpoint
 	var (
-		txs                    *types.TransactionsByPriceAndNonce
-		specialTxs             types.Transactions
-		tradingTransaction     *types.Transaction
-		lendingTransaction     *types.Transaction
-		tradingTxMatches       []tradingstate.TxDataMatch
-		tradingMatchingResults map[common.Hash]tradingstate.MatchingResult
-		lendingMatchingResults map[common.Hash]lendingstate.MatchingResult
-		lendingInput           []*lendingstate.LendingItem
+		txs                               *types.TransactionsByPriceAndNonce
+		specialTxs                        types.Transactions
+		tradingTransaction                *types.Transaction
+		lendingTransaction                *types.Transaction
+		tradingTxMatches                  []tradingstate.TxDataMatch
+		tradingMatchingResults            map[common.Hash]tradingstate.MatchingResult
+		lendingMatchingResults            map[common.Hash]lendingstate.MatchingResult
+		lendingInput                      []*lendingstate.LendingItem
+		liquidatedTrades                  []common.Hash
+		lendingLiquidatedTradeTransaction *types.Transaction
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -666,7 +668,7 @@ func (self *worker) commitNewWork() {
 				lendingOrderPending, _ := self.eth.LendingPool().Pending()
 				lendingInput, lendingMatchingResults = tomoXLending.ProcessOrderPending(header.Time.Uint64(), self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
 				log.Debug("lending transaction matches found", "lendingInput", len(lendingInput), "lendingMatchingResults", len(lendingMatchingResults))
-				err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
+				liquidatedTrades, err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
 				if err != nil {
 					log.Error("Fail when process lending liquidation data ", "error", err)
 					return
@@ -716,11 +718,26 @@ func (self *worker) commitNewWork() {
 					return
 				} else {
 					lendingTransaction = signedLendingTx
-					//TODO:@nguyennguyen
-					// SDKnode need to store lendingResult
-					//if tomoX != nil && tomoX.IsSDKNode() {
-					//	self.chain.AddMatchingResult(tradingTransaction.Hash(), matchingResults)
-					//}
+					if tomoX != nil && tomoX.IsSDKNode() {
+						self.chain.AddLendingResult(lendingTransaction.Hash(), lendingMatchingResults)
+					}
+				}
+			}
+
+			if len(liquidatedTrades) > 0 {
+				liquidatedTradeData, err := lendingstate.EncodeLiquidatedResult(liquidatedTrades)
+				if err != nil {
+					log.Error("Fail to marshal lendingData", "error", err)
+					return
+				}
+				nonce := work.state.GetNonce(self.coinbase)
+				liquidatedTx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXLendingLiquidatedTradeAddress), big.NewInt(0), txMatchGasLimit, big.NewInt(0), liquidatedTradeData)
+				signedLiquidatedTradeTx, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, liquidatedTx, self.config.ChainId)
+				if err != nil {
+					log.Error("Fail to create lending tx", "error", err)
+					return
+				} else {
+					lendingLiquidatedTradeTransaction = signedLiquidatedTradeTx
 				}
 			}
 		}
@@ -731,6 +748,9 @@ func (self *worker) commitNewWork() {
 		}
 		if lendingTransaction != nil {
 			specialTxs = append(specialTxs, lendingTransaction)
+		}
+		if lendingLiquidatedTradeTransaction != nil {
+			specialTxs = append(specialTxs, lendingLiquidatedTradeTransaction)
 		}
 
 		TomoxStateRoot := work.tradingState.IntermediateRoot()

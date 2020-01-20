@@ -492,7 +492,7 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 				tx.LendingID(),
 				common.Hash{}, // common.HexToHash(l.ExtraData()) //TODO: get lendingTradeId from l.ExtraData()
 			); err != nil {
-				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToke: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
+				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToken: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
 			}
 		}
 
