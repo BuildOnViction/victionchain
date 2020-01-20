@@ -215,6 +215,29 @@ func GetAllCollateral(statedb *state.StateDB) []common.Address {
 	return collaterals
 }
 
+// @function GetAllLendingBooks
+// @param statedb : current state
+// @return: a map to specify whether lendingBook (combination of baseToken and term) is valid or not
+func GetAllLendingBooks(statedb *state.StateDB) (mapLendingBook map[common.Hash]bool, err error) {
+	mapLendingBook = make(map[common.Hash]bool)
+	baseTokens := GetSupportedBaseToken(statedb)
+	terms := GetSupportedTerms(statedb)
+	if len(baseTokens) == 0 {
+		return nil, fmt.Errorf("GetAllLendingBooks: empty baseToken list")
+	}
+	if len(terms) == 0 {
+		return nil, fmt.Errorf("GetAllLendingPairs: empty term list")
+	}
+	for _, baseToken := range baseTokens {
+		for _, term := range terms {
+			if (baseToken != common.Address{}) && (term > 0) {
+				mapLendingBook[GetLendingOrderBookHash(baseToken, term)] = true
+			}
+		}
+	}
+	return mapLendingBook, nil
+}
+
 // @function GetAllLendingPairs
 // @param statedb : current state
 // @return: list of lendingPair (combination of baseToken and collateralToken)
@@ -238,27 +261,4 @@ func GetAllLendingPairs(statedb *state.StateDB) (allPairs []LendingPair, err err
 		}
 	}
 	return allPairs, nil
-}
-
-// @function GetAllLendingBooks
-// @param statedb : current state
-// @return: a map to specify whether lendingBook (combination of baseToken and term) is valid or not
-func GetAllLendingBooks(statedb *state.StateDB) (mapLendingBook map[common.Hash]bool, err error) {
-	mapLendingBook = make(map[common.Hash]bool)
-	baseTokens := GetSupportedBaseToken(statedb)
-	terms := GetSupportedTerms(statedb)
-	if len(baseTokens) == 0 {
-		return nil, fmt.Errorf("GetAllLendingBooks: empty baseToken list")
-	}
-	if len(terms) == 0 {
-		return nil, fmt.Errorf("GetAllLendingPairs: empty term list")
-	}
-	for _, baseToken := range baseTokens {
-		for _, term := range terms {
-			if (baseToken != common.Address{}) && (term > 0) {
-				mapLendingBook[GetLendingOrderBookHash(baseToken, term)] = true
-			}
-		}
-	}
-	return mapLendingBook, nil
 }
