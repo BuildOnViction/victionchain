@@ -1157,15 +1157,17 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	}
 	engine, _ := bc.Engine().(*posv.Posv)
 	var tradingTrieDb *trie.Database
-	tradingService := engine.GetTomoXService()
-	if bc.Config().IsTIPTomoX(block.Number()) && tradingService != nil {
-		tradingTrieDb = tradingService.GetStateCache().TrieDB()
+	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+		if tradingService := engine.GetTomoXService(); tradingService != nil {
+			tradingTrieDb = tradingService.GetStateCache().TrieDB()
+		}
 	}
 
 	var lendingTrieDb *trie.Database
-	lendingService := engine.GetLendingService()
-	if bc.Config().IsTIPTomoX(block.Number()) && lendingService != nil {
-		lendingTrieDb = lendingService.GetStateCache().TrieDB()
+	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+		if lendingService := engine.GetTomoXService(); lendingService != nil {
+			lendingTrieDb = lendingService.GetStateCache().TrieDB()
+		}
 	}
 	triedb := bc.stateCache.TrieDB()
 
@@ -1192,13 +1194,13 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			if tradingTrieDb != nil {
 				tradingTrieDb.Reference(tradingRoot, common.Hash{})
 			}
-			if tradingService != nil {
+			if tradingService := engine.GetTomoXService(); tradingService != nil {
 				tradingService.GetTriegc().Push(tradingRoot, -float32(block.NumberU64()))
 			}
 			if lendingTrieDb != nil {
 				lendingTrieDb.Reference(lendingRoot, common.Hash{})
 			}
-			if lendingService != nil {
+			if lendingService := engine.GetLendingService(); lendingService != nil {
 				lendingService.GetTriegc().Push(lendingRoot, -float32(block.NumberU64()))
 			}
 		}
@@ -1208,11 +1210,11 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			chosen := header.Number.Uint64()
 			oldTradingRoot := common.Hash{}
 			oldLendingRoot := common.Hash{}
-			if bc.Config().IsTIPTomoX(block.Number()) {
-				if tradingService != nil {
+			if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+				if tradingService := engine.GetTomoXService(); tradingService != nil {
 					oldTradingRoot, _ = tradingService.GetTradingStateRoot(bc.GetBlock(header.Hash(), current-triesInMemory))
 				}
-				if lendingService != nil {
+				if lendingService := engine.GetLendingService(); lendingService != nil {
 					oldLendingRoot, _ = lendingService.GetLendingStateRoot(bc.GetBlock(header.Hash(), current-triesInMemory))
 				}
 			}
@@ -1253,8 +1255,8 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 				}
 				triedb.Dereference(root.(common.Hash), common.Hash{})
 			}
-			if bc.Config().IsTIPTomoX(block.Number()) {
-				if tradingService != nil {
+			if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+				if tradingService := engine.GetTomoXService(); tradingService != nil {
 					for !tradingService.GetTriegc().Empty() {
 						tradingRoot, number := tradingService.GetTriegc().Pop()
 						if uint64(-number) > chosen {
@@ -1264,7 +1266,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 						tradingTrieDb.Dereference(tradingRoot.(common.Hash), common.Hash{})
 					}
 				}
-				if lendingService != nil {
+				if lendingService := engine.GetLendingService(); lendingService != nil {
 					for !lendingService.GetTriegc().Empty() {
 						lendingRoot, number := lendingService.GetTriegc().Pop()
 						if uint64(-number) > chosen {
