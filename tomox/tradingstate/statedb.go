@@ -168,7 +168,7 @@ func (self *TradingStateDB) SetMediumPrice(addr common.Hash, price *big.Int, qua
 			prevPrice:    stateObject.data.MediumPrice,
 			prevQuantity: stateObject.data.TotalQuantity,
 		})
-		stateObject.setLastPrice(price)
+		stateObject.setMediumPrice(price, quantity)
 	}
 }
 
