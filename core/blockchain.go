@@ -1198,7 +1198,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
-		if block.NumberU64() > bc.chainConfig.Posv.Epoch && bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
 			if tradingTrieDb != nil {
 				tradingTrieDb.Reference(tradingRoot, common.Hash{})
 			}
@@ -1496,7 +1496,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		// clear the previous dry-run cache
 		var tradingState *tradingstate.TradingStateDB
 		var lendingState *lendingstate.LendingStateDB
-		if block.NumberU64() > bc.chainConfig.Posv.Epoch && bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+		if  bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
 			// p2p trading
 			if tradingService := engine.GetTomoXService(); tradingService != nil {
 				txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
@@ -1775,7 +1775,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	}
 	var tomoxState *tradingstate.TradingStateDB
 	var lendingState *lendingstate.LendingStateDB
-	if block.NumberU64() > bc.chainConfig.Posv.Epoch && bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
 		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
 			tomoxState, err = tomoXService.GetTradingState(parent)
 			if err != nil {

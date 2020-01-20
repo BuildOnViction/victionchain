@@ -315,6 +315,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 				//=> price = volume /quantity
 				// averagePrice = totalVolume / totalQuantity
 				// averagePrice = (oldVolume + newTradeVolume) / (oldQuantity + newTradeQuantity)
+				// FIXME: average price formula
 				// https://user-images.githubusercontent.com/17243442/72722447-ecb83700-3bb0-11ea-9273-1c1028dbade0.jpg
 				
 				oldVolume := new(big.Int).Mul(oldAveragePrice, oldTotalQuantity)
