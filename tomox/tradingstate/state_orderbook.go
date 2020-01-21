@@ -596,7 +596,7 @@ func (self *tradingExchanges) createStateLiquidationPrice(db Database, liquidati
 	if err != nil {
 		panic(fmt.Errorf("can't encode liquidation price object at %x: %v", liquidationPrice[:], err))
 	}
-	self.setError(self.bidsTrie.TryUpdate(liquidationPrice[:], data))
+	self.setError(self.getLiquidationPriceTrie(db).TryUpdate(liquidationPrice[:], data))
 	if self.onDirty != nil {
 		self.onDirty(self.Hash())
 		self.onDirty = nil

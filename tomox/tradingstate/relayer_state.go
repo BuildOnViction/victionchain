@@ -91,11 +91,9 @@ func GetRelayerCount(statedb *state.StateDB) uint64 {
 func GetAllCoinbases(statedb *state.StateDB) []common.Address {
 	relayerCount := GetRelayerCount(statedb)
 	slot := RelayerMappingSlot["RELAYER_COINBASES"]
-	slotHash := common.BigToHash(new(big.Int).SetUint64(slot))
 	coinbases := []common.Address{}
 	for i := uint64(0); i < relayerCount; i++ {
-		retByte := crypto.Keccak256(new(big.Int).SetUint64(i).Bytes(), slotHash.Bytes())
-		valueHash := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BytesToHash(retByte))
+		valueHash := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BytesToHash(state.GetLocMappingAtKey(common.BigToHash(big.NewInt(int64(i))), slot).Bytes()))
 		coinbases = append(coinbases, common.BytesToAddress(valueHash.Bytes()))
 	}
 	return coinbases
@@ -114,19 +112,20 @@ func GetAllTradingPairs(statedb *state.StateDB) (map[common.Hash]bool, error) {
 			return map[common.Hash]bool{}, fmt.Errorf("Invalid length from token & to toke : from :%d , to :%d ", fromTokenLength, toTokenLength)
 		}
 		fromTokens := []common.Address{}
+		fromTokenSlotHash := common.BytesToHash(fromTokenSlot.Bytes())
 		for i := uint64(0); i < fromTokenLength; i++ {
-			slotKecBig := crypto.Keccak256Hash(fromTokenSlot.Bytes()).Big()
-			arrBig := slotKecBig.Add(slotKecBig, new(big.Int).SetUint64(i))
-			fromToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(arrBig)).Bytes())
+			fromToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), state.GetLocDynamicArrAtElement(fromTokenSlotHash, i, uint64(1))).Bytes())
 			fromTokens = append(fromTokens, fromToken)
 		}
+		toTokenSlotHash := common.BytesToHash(toTokenSlot.Bytes())
 		for i := uint64(0); i < toTokenLength; i++ {
-			slotKecBig := crypto.Keccak256Hash(toTokenSlot.Bytes()).Big()
-			arrBig := slotKecBig.Add(slotKecBig, new(big.Int).SetUint64(i))
-			toToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), common.BigToHash(arrBig)).Bytes())
+			toToken := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), state.GetLocDynamicArrAtElement(toTokenSlotHash, i, uint64(1))).Bytes())
+
+			log.Debug("GetAllTradingPairs all pair info", "from", fromTokens[i].Hex(), "toToken", toToken.Hex())
 			allPairs[GetTradingOrderBookHash(fromTokens[i], toToken)] = true
 		}
 	}
+	log.Debug("GetAllTradingPairs", "coinbase", len(coinbases), "allPairs",len(allPairs))
 	return allPairs, nil
 }
 

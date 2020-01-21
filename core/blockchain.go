@@ -1198,7 +1198,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
-		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
 			if tradingTrieDb != nil {
 				tradingTrieDb.Reference(tradingRoot, common.Hash{})
 			}
@@ -1496,7 +1496,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		// clear the previous dry-run cache
 		var tradingState *tradingstate.TradingStateDB
 		var lendingState *lendingstate.LendingStateDB
-		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+		if  bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
 			// p2p trading
 			if tradingService := engine.GetTomoXService(); tradingService != nil {
 				txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
@@ -1517,14 +1517,17 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 						return i, events, coalescedLogs, err
 					}
 				}
-				if len(txMatchBatchData) > 0 {
-					gotRoot := tradingState.IntermediateRoot()
-					expectRoot, _ := tradingService.GetTradingStateRoot(block)
-					if gotRoot != expectRoot {
-						err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
-						bc.reportBlock(block, nil, err)
+				if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
+					if err := tradingService.UpdateMediumPriceLastEpoch(tradingState, statedb); err != nil {
 						return i, events, coalescedLogs, err
 					}
+				}
+				gotRoot := tradingState.IntermediateRoot()
+				expectRoot, _ := tradingService.GetTradingStateRoot(block)
+				if gotRoot != expectRoot {
+					err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+					bc.reportBlock(block, nil, err)
+					return i, events, coalescedLogs, err
 				}
 				parentTomoXRoot, _ := tradingService.GetTradingStateRoot(parent)
 				nextTomoxRoot, _ := tradingService.GetTradingStateRoot(block)
@@ -1772,7 +1775,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	}
 	var tomoxState *tradingstate.TradingStateDB
 	var lendingState *lendingstate.LendingStateDB
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
 		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
 			tomoxState, err = tomoXService.GetTradingState(parent)
 			if err != nil {
@@ -1792,18 +1795,22 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 					return nil, err
 				}
 			}
-			if len(txMatchBatchData) > 0 {
-				gotRoot := tomoxState.IntermediateRoot()
-				expectRoot, _ := tomoXService.GetTradingStateRoot(block)
-				if gotRoot != expectRoot {
-					err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
-					bc.reportBlock(block, nil, err)
+			if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
+				if err := tomoXService.UpdateMediumPriceLastEpoch(tomoxState, statedb); err != nil {
 					return nil, err
 				}
+			}
+			gotRoot := tomoxState.IntermediateRoot()
+			expectRoot, _ := tomoXService.GetTradingStateRoot(block)
+			if gotRoot != expectRoot {
+				err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+				bc.reportBlock(block, nil, err)
+				return nil, err
 			}
 			parentTomoXRoot, _ := tomoXService.GetTradingStateRoot(parent)
 			nextTomoxRoot, _ := tomoXService.GetTradingStateRoot(block)
 			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+
 		}
 
 		if lendingService := engine.GetLendingService(); lendingService != nil {

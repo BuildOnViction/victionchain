@@ -304,10 +304,27 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 			tradeRecord[tradingstate.MakerOrderType] = oldestOrder.Type
 			trades = append(trades, tradeRecord)
 
-			mediumPrice, totalQuantity := tradingStateDB.GetMediumPriceAndTotalAmount(orderBook)
-			newTotalQuantity := new(big.Int).Add(totalQuantity, tradedQuantity)
-			newMediumPrice := new(big.Int).Div(new(big.Int).Mul(mediumPrice, totalQuantity), newTotalQuantity)
-			tradingStateDB.SetMediumPrice(orderBook, newMediumPrice, newTotalQuantity)
+			oldAveragePrice, oldTotalQuantity := tradingStateDB.GetMediumPriceAndTotalAmount(orderBook)
+
+			var newAveragePrice, newTotalQuantity *big.Int
+			if oldAveragePrice == nil || oldAveragePrice.Sign() <= 0 || oldTotalQuantity == nil || oldTotalQuantity.Sign() <= 0{
+				newAveragePrice = price
+				newTotalQuantity = tradedQuantity
+			} else {
+				//volume = price * quantity
+				//=> price = volume /quantity
+				// averagePrice = totalVolume / totalQuantity
+				// averagePrice = (oldVolume + newTradeVolume) / (oldQuantity + newTradeQuantity)
+				// FIXME: average price formula
+				// https://user-images.githubusercontent.com/17243442/72722447-ecb83700-3bb0-11ea-9273-1c1028dbade0.jpg
+				
+				oldVolume := new(big.Int).Mul(oldAveragePrice, oldTotalQuantity)
+				newTradeVolume := new(big.Int).Mul(price, tradedQuantity)
+				newTotalQuantity = new(big.Int).Add(oldTotalQuantity, tradedQuantity)
+				newAveragePrice = new(big.Int).Div(new(big.Int).Add(oldVolume, newTradeVolume), newTotalQuantity)
+			}
+
+			tradingStateDB.SetMediumPrice(orderBook, newAveragePrice, newTotalQuantity)
 		}
 		if rejectMaker {
 			rejects = append(rejects, &oldestOrder)
@@ -638,12 +655,15 @@ func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tradingsta
 
 func (tomox *TomoX) UpdateMediumPriceLastEpoch(tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error {
 	mapPairs, err := tradingstate.GetAllTradingPairs(statedb)
+	log.Debug("UpdateMediumPriceLastEpoch", "len(mapPairs)", len(mapPairs))
+
 	if err != nil {
 		return err
 	}
 	for orderBook, _ := range mapPairs {
 		oldMediumPriceLastEpoch := tradingStateDB.GetMediumPriceLastEpoch(orderBook)
 		mediumPriceCurrent, _ := tradingStateDB.GetMediumPriceAndTotalAmount(orderBook)
+		log.Debug("UpdateMediumPriceLastEpoch", "mediumPriceCurrent", mediumPriceCurrent)
 		if mediumPriceCurrent.Sign() > 0 && mediumPriceCurrent.Cmp(oldMediumPriceLastEpoch) != 0 {
 			tradingStateDB.SetMediumPriceLastEpoch(orderBook, mediumPriceCurrent)
 		}

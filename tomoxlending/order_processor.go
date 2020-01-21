@@ -765,7 +765,7 @@ func getCancelFee(lendTokenDecimal *big.Int, collateralPrice, borrowFee *big.Int
 
 func (l *Lending) getMediumTradePriceLastEpoch(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, baseToken common.Address, quoteToken common.Address) (*big.Int, error) {
 	price := tradingStateDb.GetMediumPriceLastEpoch(tradingstate.GetTradingOrderBookHash(baseToken, quoteToken))
-	if price != nil && price.Sign() == 0 {
+	if price != nil && price.Sign() > 0 {
 		return price, nil
 	} else {
 		inversePrice := tradingStateDb.GetMediumPriceLastEpoch(tradingstate.GetTradingOrderBookHash(quoteToken, baseToken))
@@ -792,7 +792,7 @@ func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *sta
 	collateralPrice := big.NewInt(0)
 	lendTokenTOMOPrice, err := l.getMediumTradePriceLastEpoch(chain, statedb, tradingStateDb, common.HexToAddress(common.TomoNativeAddress), lendingToken)
 	if err != nil {
-		return collateralPrice, lendTokenTOMOPrice, err
+		return lendTokenTOMOPrice, collateralPrice, err
 	}
 	if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() == 0 {
 		lendTokenTOMOPrice = lendingTOMOBasePrice
@@ -800,12 +800,14 @@ func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *sta
 	if collateralToken.String() != common.TomoNativeAddress {
 		lastMediumPrice, err := l.getMediumTradePriceLastEpoch(chain, statedb, tradingStateDb, collateralToken, lendingToken)
 		if err != nil {
-			return collateralPrice, lendTokenTOMOPrice, err
+			return lendTokenTOMOPrice, collateralPrice, err
 		}
+		log.Debug("GetCollateralPrices", "lastMediumPrice", lastMediumPrice)
 		if lastMediumPrice != nil && lastMediumPrice.Sign() > 0 {
 			collateralPrice = lastMediumPrice
 		} else {
 			collateralTOMOPrice, err := l.getMediumTradePriceLastEpoch(chain, statedb, tradingStateDb, collateralToken, common.HexToAddress(common.TomoNativeAddress))
+			log.Debug("GetCollateralPrices", "collateralTOMOPrice", collateralTOMOPrice)
 			if err != nil {
 				return collateralPrice, lendTokenTOMOPrice, err
 			}
@@ -814,6 +816,12 @@ func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *sta
 			}
 			if lendTokenTOMOPrice != nil && lendTokenTOMOPrice.Sign() > 0 {
 				collateralPrice = new(big.Int).Div(collateralTOMOPrice, lendTokenTOMOPrice)
+				lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, common.Address{}, lendingToken)
+				if err != nil {
+					return nil, nil, err
+				}
+				collateralPrice = collateralPrice.Mul(collateralPrice, lendingTokenDecimal)
+				log.Debug("GetCollateralPrices: Calculate collateral/LendToken price from collateral/TOMO, lendToken/TOMO", "collateralPrice", collateralPrice)
 			}
 		}
 	}

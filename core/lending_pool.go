@@ -475,6 +475,13 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 			// lendTokenTOMOPrice: price of lendingToken in TOMO quote
 
 			lendTokenTOMOPrice, collateralPrice, err := lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
+			if err != nil {
+				return err
+			}
+			if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() <= 0 || collateralPrice == nil || collateralPrice.Sign() <= 0 {
+				log.Debug("ValidateLending: ErrInvalidCollateralPrice", "lendTokenTOMOPrice", lendTokenTOMOPrice, "collateralPrice", collateralPrice)
+				return lendingstate.ErrInvalidCollateralPrice
+			}
 			if err := lendingstate.VerifyBalance(cloneStateDb,
 				cloneLendingStateDb,
 				tx.Side(),
