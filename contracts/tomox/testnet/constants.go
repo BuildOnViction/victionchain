@@ -12,7 +12,7 @@ var (
 	BaseTOMO    = big.NewInt(0).Mul(big.NewInt(10), big.NewInt(100000000000000000)) // 1 TOMO
 	RpcEndpoint = "http://127.0.0.1:8545/"
 	MainKey, _  = crypto.HexToECDSA(os.Getenv("MAIN_ADDRESS_KEY"))
-	MainAddr    = crypto.PubkeyToAddress(MainKey.PublicKey) //0x17F2beD710ba50Ed27aEa52fc4bD7Bda5ED4a037
+	MainAddr    = crypto.PubkeyToAddress(MainKey.PublicKey)
 
 	// TRC21 Token
 	MinTRC21Apply   = big.NewInt(0).Mul(big.NewInt(10), BaseTOMO) // 10 TOMO
@@ -27,10 +27,10 @@ var (
 	TradeFee     = uint16(10)                                     // trade fee decimals 10
 
 	RelayerCoinbaseKey, _ = crypto.HexToECDSA(os.Getenv("RELAYER_COINBASE_KEY")) //
-	RelayerCoinbaseAddr   = crypto.PubkeyToAddress(RelayerCoinbaseKey.PublicKey) // 0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e
+	RelayerCoinbaseAddr   = crypto.PubkeyToAddress(RelayerCoinbaseKey.PublicKey)
 
 	OwnerRelayerKey, _ = crypto.HexToECDSA(os.Getenv("RELAYER_OWNER_KEY"))
-	OwnerRelayerAddr   = crypto.PubkeyToAddress(OwnerRelayerKey.PublicKey) //0x703c4b2bD70c169f5717101CaeE543299Fc946C7
+	OwnerRelayerAddr   = crypto.PubkeyToAddress(OwnerRelayerKey.PublicKey)
 
 	TOMONative = common.HexToAddress("0x0000000000000000000000000000000000000001")
 
