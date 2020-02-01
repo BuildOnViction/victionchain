@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
@@ -705,7 +706,7 @@ func (self *worker) commitNewWork() {
 					// lending transaction
 					lendingBatch := &lendingstate.TxLendingBatch{
 						Data:      lendingInput,
-						Timestamp: time.Now().UnixNano(),
+						Timestamp: int64(header.Time.Uint64()),
 						TxHash:    common.Hash{},
 					}
 					lendingDataBytes, err := lendingstate.EncodeTxLendingBatch(*lendingBatch)
