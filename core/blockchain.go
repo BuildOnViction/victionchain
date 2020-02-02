@@ -1198,7 +1198,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
-		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
+		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 			if tradingTrieDb != nil {
 				tradingTrieDb.Reference(tradingRoot, common.Hash{})
 			}
@@ -1496,7 +1496,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		// clear the previous dry-run cache
 		var tradingState *tradingstate.TradingStateDB
 		var lendingState *lendingstate.LendingStateDB
-		if  bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
+		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 			// p2p trading
 			if tradingService := engine.GetTomoXService(); tradingService != nil {
 				txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
@@ -1775,7 +1775,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	}
 	var tomoxState *tradingstate.TradingStateDB
 	var lendingState *lendingstate.LendingStateDB
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch{
+	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
 			tomoxState, err = tomoXService.GetTradingState(parent)
 			if err != nil {
@@ -1800,16 +1800,6 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 					return nil, err
 				}
 			}
-			gotRoot := tomoxState.IntermediateRoot()
-			expectRoot, _ := tomoXService.GetTradingStateRoot(block)
-			if gotRoot != expectRoot {
-				err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
-				bc.reportBlock(block, nil, err)
-				return nil, err
-			}
-			parentTomoXRoot, _ := tomoXService.GetTradingStateRoot(parent)
-			nextTomoxRoot, _ := tomoXService.GetTradingStateRoot(block)
-			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
 
 		}
 
@@ -1825,7 +1815,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				return nil, err
 			}
 			for _, batch := range batches {
-				log.Debug("Verify matching transaction", "txHash", batch.TxHash.Hex())
+				log.Debug("Lending Verify matching transaction", "txHash", batch.TxHash.Hex())
 				err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tomoxState, batch, author)
 				if err != nil {
 					bc.reportBlock(block, nil, err)
@@ -1849,6 +1839,19 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			nextLendingRoot, _ := lendingService.GetLendingStateRoot(block)
 			log.Debug("Lending State Root", "number", block.NumberU64(), "parent", parentLendingRoot.Hex(), "nextLendingRoot", nextLendingRoot.Hex())
 		}
+		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
+			gotRoot := tomoxState.IntermediateRoot()
+			expectRoot, _ := tomoXService.GetTradingStateRoot(block)
+			if gotRoot != expectRoot {
+				err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+				bc.reportBlock(block, nil, err)
+				return nil, err
+			}
+			parentTomoXRoot, _ := tomoXService.GetTradingStateRoot(parent)
+			nextTomoxRoot, _ := tomoXService.GetTradingStateRoot(block)
+			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+		}
+
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	// Process block using the parent state as reference point.
