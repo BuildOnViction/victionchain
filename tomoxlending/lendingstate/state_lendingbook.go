@@ -286,7 +286,7 @@ func (self *lendingExchangeState) updateLendingTimeTrie(db Database) Trie {
 	for lendingId, lendingItem := range self.lendingItemStates {
 		if _, isDirty := self.lendingItemStatesDirty[lendingId]; isDirty {
 			delete(self.lendingItemStatesDirty, lendingId)
-			if (lendingItem.empty()) {
+			if lendingItem.empty() {
 				self.setError(tr.TryDelete(lendingId[:]))
 				continue
 			}
@@ -303,7 +303,7 @@ func (self *lendingExchangeState) updateLendingTradeTrie(db Database) Trie {
 	for lendingId, lendingItem := range self.lendingTradeStates {
 		if _, isDirty := self.lendingTradeStatesDirty[lendingId]; isDirty {
 			delete(self.lendingTradeStatesDirty, lendingId)
-			if (lendingItem.empty()) {
+			if lendingItem.empty() {
 				self.setError(tr.TryDelete(lendingId[:]))
 				continue
 			}
@@ -319,7 +319,7 @@ func (self *lendingExchangeState) updateBorrowingTrie(db Database) Trie {
 	for rate, orderList := range self.borrowingStates {
 		if _, isDirty := self.borrowingStatesDirty[rate]; isDirty {
 			delete(self.borrowingStatesDirty, rate)
-			if (orderList.empty()) {
+			if orderList.empty() {
 				self.setError(tr.TryDelete(rate[:]))
 				continue
 			}
@@ -337,7 +337,7 @@ func (self *lendingExchangeState) updateInvestingTrie(db Database) Trie {
 	for rate, orderList := range self.investingStates {
 		if _, isDirty := self.investingStatesDirty[rate]; isDirty {
 			delete(self.investingStatesDirty, rate)
-			if (orderList.empty()) {
+			if orderList.empty() {
 				self.setError(tr.TryDelete(rate[:]))
 				continue
 			}
@@ -355,7 +355,7 @@ func (self *lendingExchangeState) updateLiquidationTimeTrie(db Database) Trie {
 	for time, itemList := range self.liquidationTimeStates {
 		if _, isDirty := self.liquidationTimestatesDirty[time]; isDirty {
 			delete(self.liquidationTimestatesDirty, time)
-			if (itemList.empty()) {
+			if itemList.empty() {
 				self.setError(tr.TryDelete(time[:]))
 				continue
 			}
@@ -514,8 +514,10 @@ func (self *lendingExchangeState) getBestInvestingInterest(db Database) common.H
 
 	// Insert into the live set.
 	interest := common.BytesToHash(encKey)
-	obj := newItemListState(self.db, self.lendingBook, interest, data, self.MarkInvestingDirty)
-	self.investingStates[interest] = obj
+	if _, exist := self.investingStates[interest]; !exist {
+		obj := newItemListState(self.db, self.lendingBook, interest, data, self.MarkInvestingDirty)
+		self.investingStates[interest] = obj
+	}
 	return interest
 }
 
@@ -537,8 +539,10 @@ func (self *lendingExchangeState) getBestBorrowingInterest(db Database) common.H
 	}
 	// Insert into the live set.
 	interest := common.BytesToHash(encKey)
-	obj := newItemListState(self.db, self.lendingBook, interest, data, self.MarkBorrowingDirty)
-	self.borrowingStates[interest] = obj
+	if _, exist := self.borrowingStates[interest]; !exist {
+		obj := newItemListState(self.db, self.lendingBook, interest, data, self.MarkBorrowingDirty)
+		self.borrowingStates[interest] = obj
+	}
 	return interest
 }
 
@@ -559,8 +563,11 @@ func (self *lendingExchangeState) getLowestLiquidationTime(db Database) (common.
 		return EmptyHash, nil
 	}
 	price := common.BytesToHash(encKey)
-	obj := newLiquidationTimeState(self.db, self.lendingBook, price, data, self.MarkLiquidationTimeDirty)
-	self.liquidationTimeStates[price] = obj
+	obj, exist := self.liquidationTimeStates[price]
+	if !exist {
+		obj = newLiquidationTimeState(self.db, self.lendingBook, price, data, self.MarkLiquidationTimeDirty)
+		self.liquidationTimeStates[price] = obj
+	}
 	return price, obj
 }
 
@@ -652,7 +659,7 @@ func (self *lendingExchangeState) createInvestingOrderList(db Database, price co
 	if err != nil {
 		panic(fmt.Errorf("can't encode order list object at %x: %v", price[:], err))
 	}
-	self.setError(self.investingTrie.TryUpdate(price[:], data))
+	self.setError(self.getInvestingTrie(db).TryUpdate(price[:], data))
 	if self.onDirty != nil {
 		self.onDirty(self.Hash())
 		self.onDirty = nil
@@ -708,7 +715,7 @@ func (self *lendingExchangeState) createBorrowingOrderList(db Database, price co
 	if err != nil {
 		panic(fmt.Errorf("can't encode order list object at %x: %v", price[:], err))
 	}
-	self.setError(self.borrowingTrie.TryUpdate(price[:], data))
+	self.setError(self.getBorrowingTrie(db).TryUpdate(price[:], data))
 	if self.onDirty != nil {
 		self.onDirty(self.Hash())
 		self.onDirty = nil
@@ -732,6 +739,15 @@ func (self *lendingExchangeState) createLiquidationTime(db Database, time common
 	newobj = newLiquidationTimeState(self.db, time, self.lendingBook, itemList{Volume: Zero}, self.MarkLiquidationTimeDirty)
 	self.liquidationTimeStates[time] = newobj
 	self.liquidationTimestatesDirty[time] = struct{}{}
+	data, err := rlp.EncodeToBytes(newobj)
+	if err != nil {
+		panic(fmt.Errorf("can't encode liquidation time at %x: %v", time[:], err))
+	}
+	self.setError(self.getLiquidationTimeTrie(db).TryUpdate(time[:], data))
+	if self.onDirty != nil {
+		self.onDirty(self.lendingBook)
+		self.onDirty = nil
+	}
 	return newobj
 }
 
