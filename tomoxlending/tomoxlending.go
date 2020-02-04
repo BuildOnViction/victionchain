@@ -634,6 +634,7 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 					liquidatedTrades = append(liquidatedTrades, h)
 				}
 			}
+			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
 		}
 	}
 	return liquidatedTrades, nil

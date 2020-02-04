@@ -12,11 +12,13 @@ import (
 )
 
 func (l *Lending) CommitOrder(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]*lendingstate.LendingTrade, []*lendingstate.LendingItem, error) {
-	tomoxSnap := lendingStateDB.Snapshot()
+	lendingSnap := lendingStateDB.Snapshot()
+	tradingSnap := tradingStateDb.Snapshot()
 	dbSnap := statedb.Snapshot()
 	trades, rejects, err := l.ApplyOrder(createdBlockTime, coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 	if err != nil {
-		lendingStateDB.RevertToSnapshot(tomoxSnap)
+		lendingStateDB.RevertToSnapshot(lendingSnap)
+		tradingStateDb.RevertToSnapshot(tradingSnap)
 		statedb.RevertToSnapshot(dbSnap)
 		return nil, nil, err
 	}
@@ -169,7 +171,6 @@ func (l *Lending) processLimitOrder(createdBlockTime uint64, coinbase common.Add
 
 	// speedup the comparison, do not assign because it is pointer
 	zero := lendingstate.Zero
-
 	if side == lendingstate.Borrowing {
 		minInterest, volume := lendingStateDB.GetBestInvestingRate(lendingOrderBook)
 		log.Debug("processLimitOrder ", "side", side, "minInterest", minInterest, "orderInterest", Interest, "volume", volume)
@@ -222,12 +223,15 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 		rejects []*lendingstate.LendingItem
 	)
 	for quantityToTrade.Sign() > 0 {
-		orderId, amount, _ := lendingStateDB.GetBestLendingIdAndAmount(lendingOrderBook, Interest, side)
+		orderId, amount, err := lendingStateDB.GetBestLendingIdAndAmount(lendingOrderBook, Interest, side)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		var oldestOrder lendingstate.LendingItem
 		if amount.Sign() > 0 {
 			oldestOrder = lendingStateDB.GetLendingOrder(lendingOrderBook, orderId)
 		}
-		log.Debug("found order ", "orderId ", orderId, "side", oldestOrder.Side, "amount", amount)
+		log.Debug("found order ", "orderId ", orderId, "side", oldestOrder.Side, "amount", amount, "side", side, "Interest", Interest)
 		if oldestOrder.Quantity == nil || oldestOrder.Quantity.Sign() == 0 && amount.Sign() == 0 {
 			break
 		}
