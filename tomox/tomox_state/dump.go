@@ -38,7 +38,7 @@ func (self *TomoXStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]DumpO
 	mapResult := map[*big.Int]DumpOrderList{}
 	it := trie.NewIterator(exhangeObject.getAsksTrie(self.db).NodeIterator(nil))
 	for it.Next() {
-		priceHash := common.BytesToHash(self.trie.GetKey(it.Key))
+		priceHash := common.BytesToHash(it.Key)
 		if common.EmptyHash(priceHash) {
 			continue
 		}
@@ -81,7 +81,7 @@ func (self *TomoXStateDB) DumpBidTrie(orderBook common.Hash) (map[*big.Int]DumpO
 	mapResult := map[*big.Int]DumpOrderList{}
 	it := trie.NewIterator(exhangeObject.getBidsTrie(self.db).NodeIterator(nil))
 	for it.Next() {
-		priceHash := common.BytesToHash(self.trie.GetKey(it.Key))
+		priceHash := common.BytesToHash(it.Key)
 		if common.EmptyHash(priceHash) {
 			continue
 		}
@@ -120,7 +120,7 @@ func (self *stateOrderList) DumpOrderList(db Database) DumpOrderList {
 	mapResult := DumpOrderList{Volume: self.Volume(), Orders: map[*big.Int]*big.Int{}}
 	orderListIt := trie.NewIterator(self.getTrie(db).NodeIterator(nil))
 	for orderListIt.Next() {
-		keyHash := common.BytesToHash(self.trie.GetKey(orderListIt.Key))
+		keyHash := common.BytesToHash(orderListIt.Key)
 		if common.EmptyHash(keyHash) {
 			continue
 		}
