@@ -226,6 +226,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		updatedTakerLendingItem = originTakerLendingItem
 	} else {
 		updatedTakerLendingItem = takerLendingItem
+		updatedTakerLendingItem.FilledAmount = new(big.Int)
 	}
 
 	if takerLendingItem.Status != lendingstate.LendingStatusCancelled {
