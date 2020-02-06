@@ -295,6 +295,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		updatedTakerOrder = originTakerOrder
 	} else {
 		updatedTakerOrder = takerOrderInTx
+		updatedTakerOrder.FilledAmount = new(big.Int)
 	}
 
 	if takerOrderInTx.Status != tradingstate.OrderStatusCancelled {

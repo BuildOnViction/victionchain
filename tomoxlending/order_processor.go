@@ -317,7 +317,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				Term:                   oldestOrder.Term,
 				LendingToken:           oldestOrder.LendingToken,
 				CollateralToken:        collateralToken,
-				Amount:                 quantityToTrade,
+				Amount:                 tradedQuantity,
 				LiquidationTime:        liquidationTime,
 				LiquidationPrice:       liquidationPrice,
 				Interest:               oldestOrder.Interest.Uint64(),
