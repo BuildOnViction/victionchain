@@ -791,10 +791,14 @@ func (l *Lending) getMediumTradePriceLastEpoch(chain consensus.ChainContext, sta
 }
 
 func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, collateralToken common.Address, lendingToken common.Address) (*big.Int, *big.Int, error) {
+	// lendTokenTOMOPrice: price of ticker lendToken/TOMO
+	// collateralTOMOPrice: price of ticker collateralToken/TOMO
+	// collateralPrice: price of ticker collateralToken/lendToken
+
 	_, _, collateralTOMOBasePrice := lendingstate.GetCollateralDetail(statedb, collateralToken)
 	_, _, lendingTOMOBasePrice := lendingstate.GetCollateralDetail(statedb, lendingToken)
 	collateralPrice := big.NewInt(0)
-	lendTokenTOMOPrice, err := l.getMediumTradePriceLastEpoch(chain, statedb, tradingStateDb, common.HexToAddress(common.TomoNativeAddress), lendingToken)
+	lendTokenTOMOPrice, err := l.getMediumTradePriceLastEpoch(chain, statedb, tradingStateDb, lendingToken, common.HexToAddress(common.TomoNativeAddress))
 	if err != nil {
 		return lendTokenTOMOPrice, collateralPrice, err
 	}
