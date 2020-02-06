@@ -622,38 +622,42 @@ func DoSettleBalance(coinbase common.Address, takerOrder, makerOrder *lendingsta
 }
 
 func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, chain consensus.ChainContext, coinbase common.Address, lendingOrderBook common.Hash, order *lendingstate.LendingItem) (error, bool) {
-	if err := lendingstate.CheckRelayerFee(order.Relayer, common.RelayerCancelFee, statedb); err != nil {
+	originOrder := lendingStateDB.GetLendingOrder(lendingOrderBook, common.BigToHash(new(big.Int).SetUint64(order.LendingId)))
+	if originOrder == lendingstate.EmptyLendingOrder {
+		return fmt.Errorf("lendingOrder not found. Id: %v. LendToken: %s . Term: %v. CollateralToken: %v", order.LendingId, order.LendingToken.Hex(), order.Term, order.CollateralToken.Hex()), false
+	}
+	if err := lendingstate.CheckRelayerFee(originOrder.Relayer, common.RelayerCancelFee, statedb); err != nil {
 		log.Debug("Relayer not enough fee when cancel order", "err", err)
 		return nil, true
 	}
-	lendTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, order.LendingToken)
+	lendTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, originOrder.LendingToken)
 	if err != nil || lendTokenDecimal.Sign() == 0 {
-		log.Debug("Fail to get tokenDecimal ", "Token", order.LendingToken.String(), "err", err)
+		log.Debug("Fail to get tokenDecimal ", "Token", originOrder.LendingToken.String(), "err", err)
 		return err, false
 	}
 	var tokenBalance *big.Int
-	switch order.Side {
+	switch originOrder.Side {
 	case lendingstate.Investing:
-		tokenBalance = lendingstate.GetTokenBalance(order.UserAddress, order.LendingToken, statedb)
+		tokenBalance = lendingstate.GetTokenBalance(originOrder.UserAddress, originOrder.LendingToken, statedb)
 	case lendingstate.Borrowing:
-		tokenBalance = lendingstate.GetTokenBalance(order.UserAddress, order.CollateralToken, statedb)
+		tokenBalance = lendingstate.GetTokenBalance(originOrder.UserAddress, originOrder.CollateralToken, statedb)
 	default:
-		log.Debug("Not found order side", "Side", order.Side)
+		log.Debug("Not found order side", "Side", originOrder.Side)
 		return nil, true
 	}
-	log.Debug("ProcessCancelOrder", "LendingToken", order.LendingToken, "CollateralToken", order.CollateralToken, "makerInterest", order.Interest, "lendTokenDecimal", lendTokenDecimal, "quantity", order.Quantity)
-	borrowFee := lendingstate.GetFee(statedb, order.Relayer)
+	log.Debug("ProcessCancelOrder", "LendingToken", originOrder.LendingToken, "CollateralToken", originOrder.CollateralToken, "makerInterest", originOrder.Interest, "lendTokenDecimal", lendTokenDecimal, "quantity", originOrder.Quantity)
+	borrowFee := lendingstate.GetFee(statedb, originOrder.Relayer)
 	collateralPrice := common.BasePrice
 
-	if order.Side == lendingstate.Borrowing {
-		_, collateralPrice, err = l.GetCollateralPrices(chain, statedb, tradingStateDb, order.CollateralToken, order.LendingToken)
+	if originOrder.Side == lendingstate.Borrowing {
+		_, collateralPrice, err = l.GetCollateralPrices(chain, statedb, tradingStateDb, originOrder.CollateralToken, originOrder.LendingToken)
 		if err != nil {
 			return err, false
 		}
 	}
-	tokenCancelFee := getCancelFee(lendTokenDecimal, collateralPrice, borrowFee, order)
+	tokenCancelFee := getCancelFee(lendTokenDecimal, collateralPrice, borrowFee, &originOrder)
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
-		log.Debug("User not enough balance when cancel order", "Side", order.Side, "Interest", order.Interest, "Quantity", order.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
+		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "Interest", originOrder.Interest, "Quantity", originOrder.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
 		return nil, true
 	}
 	err = lendingStateDB.CancelLendingOrder(lendingOrderBook, order)
@@ -661,16 +665,23 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 		log.Debug("Error when cancel order", "order", order)
 		return err, false
 	}
-	lendingstate.SubRelayerFee(order.Relayer, common.RelayerCancelFee, statedb)
-	switch order.Side {
+	// relayers pay TOMO for masternode
+	lendingstate.SubRelayerFee(originOrder.Relayer, common.RelayerCancelFee, statedb)
+	switch originOrder.Side {
 	case lendingstate.Investing:
-		lendingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.LendingToken, statedb)
+		// users pay token for relayer
+		lendingstate.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.LendingToken, statedb)
+		lendingstate.AddTokenBalance(originOrder.Relayer, tokenCancelFee, originOrder.LendingToken, statedb)
 	case lendingstate.Borrowing:
-		lendingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.CollateralToken, statedb)
+		// users pay token for relayer
+		lendingstate.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.CollateralToken, statedb)
+		lendingstate.AddTokenBalance(originOrder.Relayer, tokenCancelFee, originOrder.CollateralToken, statedb)
 	default:
 	}
 	masternodeOwner := statedb.GetOwner(coinbase)
-	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
+	// relayers pay TOMO for masternode
+	lendingCancelFeeInTOMO := new(big.Int).Div(common.RelayerLendingFee, new(big.Int).SetUint64(10))
+	statedb.AddBalance(masternodeOwner, lendingCancelFeeInTOMO)
 	return nil, false
 }
 
