@@ -599,15 +599,21 @@ func (tomox *TomoX) ProcessCancelOrder(tomoXstatedb *tomox_state.TomoXStateDB, s
 		log.Debug("Error when cancel order", "order", order)
 		return err, false
 	}
+	// relayers pay TOMO for masternode
 	tomox_state.SubRelayerFee(originOrder.ExchangeAddress, common.RelayerCancelFee, statedb)
 	switch originOrder.Side {
 	case tomox_state.Ask:
+		// users pay token (which they have) for relayer
 		tomox_state.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.BaseToken, statedb)
+		tomox_state.AddTokenBalance(originOrder.ExchangeAddress, tokenCancelFee, originOrder.BaseToken, statedb)
 	case tomox_state.Bid:
+		// users pay token (which they have) for relayer
 		tomox_state.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.QuoteToken, statedb)
+		tomox_state.AddTokenBalance(originOrder.ExchangeAddress, tokenCancelFee, originOrder.QuoteToken, statedb)
 	default:
 	}
 	masternodeOwner := statedb.GetOwner(coinbase)
+	// relayers pay TOMO for masternode
 	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
 	return nil, false
 }
