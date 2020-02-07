@@ -317,7 +317,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 				// averagePrice = (oldVolume + newTradeVolume) / (oldQuantity + newTradeQuantity)
 				// FIXME: average price formula
 				// https://user-images.githubusercontent.com/17243442/72722447-ecb83700-3bb0-11ea-9273-1c1028dbade0.jpg
-				
+
 				oldVolume := new(big.Int).Mul(oldAveragePrice, oldTotalQuantity)
 				newTradeVolume := new(big.Int).Mul(price, tradedQuantity)
 				newTotalQuantity = new(big.Int).Add(oldTotalQuantity, tradedQuantity)
@@ -592,21 +592,25 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 		log.Debug("Fail to get tokenDecimal ", "Token", order.BaseToken.String(), "err", err)
 		return err, false
 	}
+	// order: basic order information (includes orderId, orderHash, baseToken, quoteToken) which user send to tomox to cancel order
+	// originOrder: full order information getting from order trie
 	originOrder := tradingStateDB.GetOrder(orderBook, common.BigToHash(new(big.Int).SetUint64(order.OrderID)))
-
+	if originOrder == tradingstate.EmptyOrder {
+		return fmt.Errorf("order not found. OrderId: %v. Base: %s. Quote: %s", order.OrderID, order.BaseToken, order.QuoteToken), false
+	}
 	var tokenBalance *big.Int
 	switch originOrder.Side {
 	case tradingstate.Ask:
-		tokenBalance = tradingstate.GetTokenBalance(order.UserAddress, order.BaseToken, statedb)
+		tokenBalance = tradingstate.GetTokenBalance(originOrder.UserAddress, originOrder.BaseToken, statedb)
 	case tradingstate.Bid:
-		tokenBalance = tradingstate.GetTokenBalance(order.UserAddress, order.QuoteToken, statedb)
+		tokenBalance = tradingstate.GetTokenBalance(originOrder.UserAddress, originOrder.QuoteToken, statedb)
 	default:
 		log.Debug("Not found order side", "Side", originOrder.Side)
-		return nil, true
+		return nil, false
 	}
-	log.Debug("ProcessCancelOrder", "baseToken", order.BaseToken, "quoteToken", order.QuoteToken)
-	feeRate := tradingstate.GetExRelayerFee(order.ExchangeAddress, statedb)
-	tokenCancelFee := getCancelFee(baseTokenDecimal, feeRate, order)
+	log.Debug("ProcessCancelOrder", "baseToken", originOrder.BaseToken, "quoteToken", originOrder.QuoteToken)
+	feeRate := tradingstate.GetExRelayerFee(originOrder.ExchangeAddress, statedb)
+	tokenCancelFee := getCancelFee(baseTokenDecimal, feeRate, &originOrder)
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
 		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "balance", tokenBalance, "fee", tokenCancelFee)
 		return nil, true
@@ -617,15 +621,21 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 		log.Debug("Error when cancel order", "order", order)
 		return err, false
 	}
-	tradingstate.SubRelayerFee(order.ExchangeAddress, common.RelayerCancelFee, statedb)
+	// relayers pay TOMO for masternode
+	tradingstate.SubRelayerFee(originOrder.ExchangeAddress, common.RelayerCancelFee, statedb)
 	switch originOrder.Side {
 	case tradingstate.Ask:
-		tradingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.BaseToken, statedb)
+		// users pay token (which they have) for relayer
+		tradingstate.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.BaseToken, statedb)
+		tradingstate.AddTokenBalance(originOrder.ExchangeAddress, tokenCancelFee, originOrder.BaseToken, statedb)
 	case tradingstate.Bid:
-		tradingstate.SubTokenBalance(order.UserAddress, tokenCancelFee, order.QuoteToken, statedb)
+		// users pay token (which they have) for relayer
+		tradingstate.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.QuoteToken, statedb)
+		tradingstate.AddTokenBalance(originOrder.ExchangeAddress, tokenCancelFee, originOrder.QuoteToken, statedb)
 	default:
 	}
 	masternodeOwner := statedb.GetOwner(coinbase)
+	// relayers pay TOMO for masternode
 	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
 	return nil, false
 }

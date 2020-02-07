@@ -236,3 +236,40 @@ func TestRevertStates(t *testing.T) {
 	}
 	db.Close()
 }
+
+func TestDumpState(t *testing.T) {
+	orderBook := common.StringToHash("BTC/TOMO")
+	numberOrder := 5
+	orderItems := []OrderItem{}
+	for i := 0; i < numberOrder; i++ {
+		id := new(big.Int).SetUint64(uint64(i) + 1)
+		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Ask, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}})
+		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 2)), Price: big.NewInt(int64(2*i + 2)), Side: Bid, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
+	}
+	// Create an empty statedb database
+	db, _ := ethdb.NewMemDatabase()
+	stateCache := NewDatabase(db)
+	statedb, _ := New(common.Hash{}, stateCache)
+
+	for i := 0; i < len(orderItems); i++ {
+		orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[i].OrderID))
+		statedb.InsertOrderItem(orderBook, orderIdHash, orderItems[i])
+	}
+	bidTrie, _ := statedb.DumpAskTrie(orderBook)
+	fmt.Println("bidTrie", bidTrie)
+	root := statedb.IntermediateRoot()
+	statedb.Commit()
+	stateCache.TrieDB().Reference(root, common.Hash{})
+	statedb, err := New(root, stateCache)
+	if err != nil {
+		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
+	}
+	maxPrice, volumeMax := statedb.GetBestBidPrice(orderBook)
+	minPrice, volumeMin := statedb.GetBestAskPrice(orderBook)
+	fmt.Println("price", minPrice, volumeMin, maxPrice, volumeMax)
+
+	bidTrie, _ = statedb.DumpBidTrie(orderBook)
+
+	fmt.Println("bidTrie", bidTrie)
+	db.Close()
+}

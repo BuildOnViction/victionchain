@@ -197,6 +197,11 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 			},
 			PairName: tx.PairName(),
 		}
+		// make sure order is valid before running matching engine
+		if err := order.VerifyOrder(statedb); err != nil {
+			log.Error("tomox processOrderPending: invalid order", "err", err)
+			continue
+		}
 		cancel := false
 		if order.Status == tradingstate.OrderStatusCancelled {
 			cancel = true
