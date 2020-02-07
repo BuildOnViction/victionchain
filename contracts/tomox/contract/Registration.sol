@@ -2,6 +2,10 @@ pragma solidity ^0.4.24;
 
 import "./SafeMath.sol";
 
+contract AbstractTOMOXListing {
+    function getTokenStatus(address) public view returns (bool);
+}
+
 contract RelayerRegistration {
     using SafeMath for uint;
 
@@ -33,6 +37,8 @@ contract RelayerRegistration {
     uint public RelayerCount;
     uint256 public MinimumDeposit;
 
+    AbstractTOMOXListing private TomoXListing;
+
     /// @dev Events
     /// struct-mapping -> values
     event ConfigEvent(uint max_relayer, uint max_token, uint256 min_deposit);
@@ -45,7 +51,8 @@ contract RelayerRegistration {
     event SellEvent(bool is_on_sale, address coinbase, uint256 price);
     event BuyEvent(bool success, address coinbase, uint256 price);
 
-    constructor (uint maxRelayers, uint maxTokenList, uint minDeposit) public {
+    constructor (address tomoxListing, uint maxRelayers, uint maxTokenList, uint minDeposit) public {
+        TomoXListing = AbstractTOMOXListing(tomoxListing);
         RelayerCount = 0;
         MaximumRelayers = maxRelayers;
         MaximumTokenList = maxTokenList;
@@ -299,8 +306,7 @@ contract RelayerRegistration {
         return false;
     }
 
-    function validateTokens(address[] memory fromTokens, address[] memory toTokens) internal pure returns(bool) {
-        // check valid tokens
+    function validateTokens(address[] memory fromTokens, address[] memory toTokens) internal returns(bool) {
         uint countPair = 0;
         uint countNonPair = 0;
 
@@ -308,6 +314,11 @@ contract RelayerRegistration {
         address[] memory nonTomoPairs = new address[](fromTokens.length);
 
         for (uint i = 0; i < toTokens.length; i++) {
+            bool b = TomoXListing.getTokenStatus(toTokens[i]) || (toTokens[i] == tomoNative);
+            b = b && (TomoXListing.getTokenStatus(fromTokens[i]) || fromTokens[i] == tomoNative);
+            if (!b) {
+                return false;
+            }
             if (toTokens[i] == tomoNative) {
                 tomoPairs[countPair] = fromTokens[i];
                 countPair++;
@@ -342,6 +353,13 @@ contract RelayerRegistration {
         if (fromToken == tomoNative || toToken == tomoNative) {
             return true;
         }
+
+        bool b = TomoXListing.getTokenStatus(toToken) || (toToken == tomoNative);
+        b = b && (TomoXListing.getTokenStatus(fromToken) || fromToken == tomoNative);
+        if (!b) {
+            return false;
+        }
+
         // get tokens that paired with tomo
         for (uint i = 0; i < RELAYER_LIST[coinbase]._toTokens.length; i++) {
             if (RELAYER_LIST[coinbase]._toTokens[i] == tomoNative) {

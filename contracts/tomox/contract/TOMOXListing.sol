@@ -4,7 +4,7 @@ contract TOMOXListing {
 
     address[] _tokens;
     mapping(address => TokenState) tokensState;
-
+    address constant private foundation = 0x0000000000000000000000000000000000000068;
 
     struct TokenState {
         bool isActive;
@@ -25,7 +25,9 @@ contract TOMOXListing {
     }
 
     function apply(address token) public payable onlyValidApplyNewToken(token){
-        require(msg.value >= 100 ether);
+        require(msg.value >= 1000 ether);
+        foundation.transfer(msg.value);
+
         _tokens.push(token);
         tokensState[token] = TokenState({
             isActive: true

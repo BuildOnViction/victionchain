@@ -2490,15 +2490,15 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 				log.Error("SDK node decode takerOrderInTx failed", "txDataMatch", txMatch)
 				return
 			}
-
+			cacheKey := crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes())
 			// getTrades from cache
-			resultTrades, ok := bc.resultTrade.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
+			resultTrades, ok := bc.resultTrade.Get(cacheKey)
 			if ok && resultTrades != nil {
 				trades = resultTrades.([]map[string]string)
 			}
 
 			// getRejectedOrder from cache
-			rejected, ok := bc.rejectedOrders.Get(crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes()))
+			rejected, ok := bc.rejectedOrders.Get(cacheKey)
 			if ok && rejected != nil {
 				rejectedOrders = rejected.([]*tradingstate.OrderItem)
 			}
@@ -2623,8 +2623,9 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 
 func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]tradingstate.MatchingResult) {
 	for hash, result := range matchingResults {
-		bc.resultTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
-		bc.rejectedOrders.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
+		cacheKey := crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes())
+		bc.resultTrade.Add(cacheKey, result.Trades)
+		bc.rejectedOrders.Add(cacheKey, result.Rejects)
 	}
 }
 
