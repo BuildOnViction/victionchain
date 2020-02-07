@@ -1549,7 +1549,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 				for _, batch := range batches {
 					log.Debug("Verify matching transaction", "txHash", batch.TxHash.Hex())
-					err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author)
+					err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Time().Uint64())
 					if err != nil {
 						bc.reportBlock(block, nil, err)
 						return i, events, coalescedLogs, err
@@ -1816,7 +1816,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			}
 			for _, batch := range batches {
 				log.Debug("Lending Verify matching transaction", "txHash", batch.TxHash.Hex())
-				err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tomoxState, batch, author)
+				err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tomoxState, batch, author, block.Time().Uint64())
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return nil, err

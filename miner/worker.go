@@ -706,7 +706,7 @@ func (self *worker) commitNewWork() {
 					// lending transaction
 					lendingBatch := &lendingstate.TxLendingBatch{
 						Data:      lendingInput,
-						Timestamp: int64(header.Time.Uint64()),
+						Timestamp: time.Now().UnixNano(),
 						TxHash:    common.Hash{},
 					}
 					lendingDataBytes, err := lendingstate.EncodeTxLendingBatch(*lendingBatch)
