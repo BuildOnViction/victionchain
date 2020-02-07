@@ -113,34 +113,36 @@ func main() {
 	fromTokens = append(fromTokens, tokenList[1]["address"].(common.Address))
 	toTokens = append(toTokens, testnet.TOMONative)
 
-	fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
-	toTokens = append(toTokens, testnet.TOMONative)
+	/*
+		fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
+		toTokens = append(toTokens, testnet.TOMONative)
 
-	fromTokens = append(fromTokens, tokenList[3]["address"].(common.Address))
-	toTokens = append(toTokens, testnet.TOMONative)
+		fromTokens = append(fromTokens, tokenList[3]["address"].(common.Address))
+		toTokens = append(toTokens, testnet.TOMONative)
 
-	fromTokens = append(fromTokens, tokenList[4]["address"].(common.Address))
-	toTokens = append(toTokens, testnet.TOMONative)
+		fromTokens = append(fromTokens, tokenList[4]["address"].(common.Address))
+		toTokens = append(toTokens, testnet.TOMONative)
 
-	fromTokens = append(fromTokens, tokenList[5]["address"].(common.Address))
-	toTokens = append(toTokens, testnet.TOMONative)
+		fromTokens = append(fromTokens, tokenList[5]["address"].(common.Address))
+		toTokens = append(toTokens, testnet.TOMONative)
 
-	fromTokens = append(fromTokens, tokenList[6]["address"].(common.Address))
-	toTokens = append(toTokens, testnet.TOMONative)
+		fromTokens = append(fromTokens, tokenList[6]["address"].(common.Address))
+		toTokens = append(toTokens, testnet.TOMONative)
 
-	fromTokens = append(fromTokens, tokenList[7]["address"].(common.Address))
-	toTokens = append(toTokens, testnet.TOMONative)
+		fromTokens = append(fromTokens, tokenList[7]["address"].(common.Address))
+		toTokens = append(toTokens, testnet.TOMONative)
 
-	fromTokens = append(fromTokens, tokenList[8]["address"].(common.Address))
-	toTokens = append(toTokens, testnet.TOMONative)
+		fromTokens = append(fromTokens, tokenList[8]["address"].(common.Address))
+		toTokens = append(toTokens, testnet.TOMONative)
+	*/
 
 	// ETH/BTC
 	fromTokens = append(fromTokens, tokenList[1]["address"].(common.Address))
 	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
 
 	// XRP/BTC
-	fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
-	toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
+	// fromTokens = append(fromTokens, tokenList[2]["address"].(common.Address))
+	// toTokens = append(toTokens, tokenList[0]["address"].(common.Address))
 
 	// BTC/USDT
 	fromTokens = append(fromTokens, tokenList[0]["address"].(common.Address))
