@@ -608,6 +608,7 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		for lowestPrice.Sign() > 0 && lowestPrice.Cmp(liquidationPrice) < 0 {
 			for lendingBook, tradingIds := range liquidationData {
 				for _, tradingIdHash := range tradingIds {
+					log.Debug("LiquidationTrade", "lowestPrice", lowestPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
 					h, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
 					if err != nil {
 						log.Error("Fail when remove liquidation trade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
@@ -626,6 +627,7 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
 			for _, tradingId := range tradingIds {
+				log.Debug("ProcessPayment", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
 				h, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)

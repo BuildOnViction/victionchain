@@ -17,6 +17,7 @@
 package lendingstate
 
 import (
+	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"math/big"
@@ -133,6 +134,7 @@ func TestRevertStates(t *testing.T) {
 		}
 
 	}
+	statedb.InsertLiquidationTime(orderBook, big.NewInt(1), 1)
 	root := statedb.IntermediateRoot()
 	statedb.Commit()
 	//err := stateCache.TrieDB().Commit(root, false)
@@ -191,6 +193,13 @@ func TestRevertStates(t *testing.T) {
 	if gotLendingTrade.Amount.Cmp(EmptyLendingTrade.Amount) != 0 {
 		t.Fatalf(" err insert lending trade : %s after try revert snap shot , got : %v ,want Empty Order", orderIdHash.Hex(), gotLendingTrade.Amount)
 	}
+
+	// insert trade order
+	time, data := statedb.GetLowestLiquidationTime(orderBook, big.NewInt(1))
+	fmt.Println(time, data)
+	statedb.RemoveLiquidationTime(orderBook, 1, common.BigToHash(big.NewInt(1)))
+	time, data = statedb.GetLowestLiquidationTime(orderBook, big.NewInt(1))
+	fmt.Println(time, data)
 	// change key
 	db.Close()
 }
