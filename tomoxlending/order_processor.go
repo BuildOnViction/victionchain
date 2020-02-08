@@ -329,7 +329,8 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 			lendingTrade.TakerOrderType = order.Type
 			lendingTrade.MakerOrderType = oldestOrder.Type
 			lendingTrade.InvestingFee = lendingstate.Zero // current design: no investing fee
-
+			lendingTrade.CollateralPrice = collateralPrice
+			
 			if order.Side == lendingstate.Borrowing {
 				// taker is a borrower
 				lendingTrade.BorrowingOrderHash = order.Hash
