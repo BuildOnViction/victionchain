@@ -613,7 +613,7 @@ func (self *LendingStateDB) InsertLiquidationTime(lendingBook common.Hash, time 
 	liquidationTime.AddVolume(One)
 }
 
-func (self *LendingStateDB) RemoveLiquidationData(lendingBook common.Hash, time uint64, tradeId common.Hash) error {
+func (self *LendingStateDB) RemoveLiquidationTime(lendingBook common.Hash, time uint64, tradeId common.Hash) error {
 	timeHash := common.BigToHash(new(big.Int).SetUint64(time))
 	lendingExchangeState := self.getLendingExchange(lendingBook)
 	if lendingExchangeState == nil {
@@ -626,8 +626,11 @@ func (self *LendingStateDB) RemoveLiquidationData(lendingBook common.Hash, time 
 	if !liquidationTime.Exist(self.db, tradeId) {
 		return fmt.Errorf("tradeId not exist : %s , %d , %s ", lendingBook.Hex(), time, tradeId.Hex())
 	}
-	liquidationTime.removeLendingId(self.db, tradeId)
+	liquidationTime.removeTradeId(self.db, tradeId)
 	liquidationTime.subVolume(One)
+	if liquidationTime.Volume().Sign() == 0 {
+		lendingExchangeState.getLiquidationTimeTrie(self.db).TryDelete(timeHash[:])
+	}
 	return nil
 }
 
@@ -639,7 +642,6 @@ func (self *LendingStateDB) GetLowestLiquidationTime(lendingBook common.Hash, ti
 	}
 	lowestPriceHash, liquidationState := lendingExchangeState.getLowestLiquidationTime(self.db)
 	lowestTime := new(big.Int).SetBytes(lowestPriceHash[:])
-	fmt.Println("lowestTime", lowestTime)
 	if liquidationState != nil && lowestTime.Sign() > 0 && lowestTime.Cmp(time) <= 0 {
 		liquidationData = liquidationState.getAllTradeIds(self.db)
 	}

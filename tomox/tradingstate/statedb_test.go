@@ -84,6 +84,22 @@ func TestEchangeStates(t *testing.T) {
 	if len(liquidationData) == 0 {
 		t.Fatalf("Error when get liquidation data save in database: got : %d , %s  ", liquidationPrice, liquidationData)
 	}
+	fmt.Println("liquidationPrice", liquidationPrice)
+	for lendingBook, tradingIds := range liquidationData {
+		for _, tradingIdHash := range tradingIds {
+			fmt.Println("lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
+			err := statedb.RemoveLiquidationPrice(orderBook, liquidationPrice, lendingBook, new(big.Int).SetBytes(tradingIdHash.Bytes()).Uint64())
+			if err != nil {
+				t.Fatalf("Error when remove liquidation price  in database: %s , err: %v", root.Hex(), err)
+			}
+		}
+	}
+	liquidationPrice, liquidationData = statedb.GetLowestLiquidationPriceData(orderBook, big.NewInt(1))
+	for lendingBook, tradingIds := range liquidationData {
+		for _, tradingIdHash := range tradingIds {
+			fmt.Println("liquidationPrice", liquidationPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
+		}
+	}
 	gotPrice := statedb.GetLastPrice(orderBook)
 	if gotPrice.Cmp(price) != 0 {
 		t.Fatalf("Error when get price save in database: got : %d , wanted : %d ", gotPrice, price)

@@ -155,10 +155,15 @@ func (c *tradingExchanges) getBestPriceAsksTrie(db Database) common.Hash {
 		log.Debug("Not found get best ask trie", "encKey", encKey, "encValue", encValue)
 		return EmptyHash
 	}
-	var data orderList
-	if err := rlp.DecodeBytes(encValue, &data); err != nil {
-		log.Error("Failed to decode state get best ask trie", "err", err)
-		return EmptyHash
+	price := common.BytesToHash(encKey)
+	if _, exit := c.stateAskObjects[price]; !exit {
+		var data orderList
+		if err := rlp.DecodeBytes(encValue, &data); err != nil {
+			log.Error("Failed to decode state get best ask trie", "err", err)
+			return EmptyHash
+		}
+		obj := newStateOrderList(c.db, Bid, c.orderBookHash, price, data, c.MarkStateAskObjectDirty)
+		c.stateAskObjects[price] = obj
 	}
 	return common.BytesToHash(encKey)
 }
@@ -174,10 +179,16 @@ func (c *tradingExchanges) getBestBidsTrie(db Database) common.Hash {
 		log.Debug("Not found get best bid trie", "encKey", encKey, "encValue", encValue)
 		return EmptyHash
 	}
-	var data orderList
-	if err := rlp.DecodeBytes(encValue, &data); err != nil {
-		log.Error("Failed to decode state get best bid trie", "err", err)
-		return EmptyHash
+	price := common.BytesToHash(encKey)
+	if _, exit := c.stateBidObjects[price]; !exit {
+		var data orderList
+		if err := rlp.DecodeBytes(encValue, &data); err != nil {
+			log.Error("Failed to decode state get best bid trie", "err", err)
+			return EmptyHash
+		}
+		// Insert into the live set.
+		obj := newStateOrderList(c.db, Bid, c.orderBookHash, price, data, c.MarkStateBidObjectDirty)
+		c.stateBidObjects[price] = obj
 	}
 	return common.BytesToHash(encKey)
 }
@@ -188,7 +199,7 @@ func (self *tradingExchanges) updateAsksTrie(db Database) Trie {
 	for price, orderList := range self.stateAskObjects {
 		if _, isDirty := self.stateAskObjectsDirty[price]; isDirty {
 			delete(self.stateAskObjectsDirty, price)
-			if (orderList.empty()) {
+			if orderList.empty() {
 				self.setError(tr.TryDelete(price[:]))
 				continue
 			}
@@ -254,7 +265,7 @@ func (self *tradingExchanges) updateBidsTrie(db Database) Trie {
 	for price, orderList := range self.stateBidObjects {
 		if _, isDirty := self.stateBidObjectsDirty[price]; isDirty {
 			delete(self.stateBidObjectsDirty, price)
-			if (orderList.empty()) {
+			if orderList.empty() {
 				self.setError(tr.TryDelete(price[:]))
 				continue
 			}
@@ -547,7 +558,7 @@ func (self *tradingExchanges) updateOrdersTrie(db Database) Trie {
 	for orderId, orderItem := range self.stateOrderObjects {
 		if _, isDirty := self.stateOrderObjectsDirty[orderId]; isDirty {
 			delete(self.stateOrderObjectsDirty, orderId)
-			if (orderItem.empty()) {
+			if orderItem.empty() {
 				self.setError(tr.TryDelete(orderId[:]))
 				continue
 			}
@@ -650,14 +661,17 @@ func (self *tradingExchanges) getLowestLiquidationPrice(db Database) (common.Has
 		log.Debug("Not found get best ask trie", "encKey", encKey, "encValue", encValue)
 		return EmptyHash, nil
 	}
-	var data orderList
-	if err := rlp.DecodeBytes(encValue, &data); err != nil {
-		log.Error("Failed to decode state get best ask trie", "err", err)
-		return EmptyHash, nil
-	}
 	price := common.BytesToHash(encKey)
-	obj := newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
-	self.liquidationPriceStates[price] = obj
+	obj := self.liquidationPriceStates[price]
+	if obj == nil {
+		var data orderList
+		if err := rlp.DecodeBytes(encValue, &data); err != nil {
+			log.Error("Failed to decode state get best ask trie", "err", err)
+			return EmptyHash, nil
+		}
+		obj = newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
+		self.liquidationPriceStates[price] = obj
+	}
 	return price, obj
 }
 
@@ -672,14 +686,17 @@ func (self *tradingExchanges) getHighestLiquidationPrice(db Database) (common.Ha
 		log.Debug("Not found get best ask trie", "encKey", encKey, "encValue", encValue)
 		return EmptyHash, nil
 	}
-	var data orderList
-	if err := rlp.DecodeBytes(encValue, &data); err != nil {
-		log.Error("Failed to decode state get best ask trie", "err", err)
-		return EmptyHash, nil
-	}
 	price := common.BytesToHash(encKey)
-	obj := newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
-	self.liquidationPriceStates[price] = obj
+	obj := self.liquidationPriceStates[price]
+	if obj == nil {
+		var data orderList
+		if err := rlp.DecodeBytes(encValue, &data); err != nil {
+			log.Error("Failed to decode state get best ask trie", "err", err)
+			return EmptyHash, nil
+		}
+		obj := newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
+		self.liquidationPriceStates[price] = obj
+	}
 	return price, obj
 }
 func (self *tradingExchanges) updateLiquidationPriceTrie(db Database) Trie {
@@ -687,7 +704,7 @@ func (self *tradingExchanges) updateLiquidationPriceTrie(db Database) Trie {
 	for price, stateObject := range self.liquidationPriceStates {
 		if _, isDirty := self.liquidationPriceStatesDirty[price]; isDirty {
 			delete(self.liquidationPriceStatesDirty, price)
-			if (stateObject.empty()) {
+			if stateObject.empty() {
 				self.setError(tr.TryDelete(price[:]))
 				continue
 			}

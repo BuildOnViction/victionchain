@@ -701,6 +701,9 @@ func (self *TradingStateDB) RemoveLiquidationPrice(orderBook common.Hash, price 
 	lendingBookState.removeTradingId(self.db, tradeIdHash)
 	lendingBookState.subVolume(One)
 	liquidationPriceState.subVolume(One)
+	if liquidationPriceState.Volume().Sign() == 0 {
+		orderbookState.getLiquidationPriceTrie(self.db).TryDelete(priceHash[:])
+	}
 	orderbookState.subLendingCount(One)
 	self.journal = append(self.journal, removeLiquidationPrice{
 		orderBook:   orderBook,

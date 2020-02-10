@@ -741,9 +741,18 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 		lendingstate.SubTokenBalance(common.HexToAddress(common.LendingLockAddress), lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
 		lendingstate.AddTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
 
-		lendingStateDB.RemoveLiquidationData(lendingBook, lendingTradeId, common.Uint64ToHash(lendingTrade.LiquidationTime))
-		tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
+		err=lendingStateDB.RemoveLiquidationTime(lendingBook, lendingTradeId, common.Uint64ToHash(lendingTrade.LiquidationTime))
+		if err != nil {
+			log.Debug("ProcessPayment RemoveLiquidationTime", "err", err)
+		}
+		err=tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
+		if err != nil {
+			log.Debug("ProcessPayment RemoveLiquidationPrice", "err", err)
+		}
 		lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
+		if err != nil {
+			log.Debug("ProcessPayment CancelLendingTrade", "err", err)
+		}
 	}
 	return lendingTrade.Hash, nil
 }
@@ -758,9 +767,18 @@ func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, 
 	lendingstate.SubTokenBalance(common.HexToAddress(common.LendingLockAddress), lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
 	lendingstate.AddTokenBalance(lendingTrade.Investor, lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
 
-	lendingStateDB.RemoveLiquidationData(lendingBook, lendingTradeId, common.Uint64ToHash(lendingTrade.LiquidationTime))
-	tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
-	lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
+	err := lendingStateDB.RemoveLiquidationTime(lendingBook, lendingTradeId, common.Uint64ToHash(lendingTrade.LiquidationTime))
+	if err != nil {
+		log.Debug("LiquidationTrade RemoveLiquidationTime", "err", err)
+	}
+	err = tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
+	if err != nil {
+		log.Debug("LiquidationTrade RemoveLiquidationPrice", "err", err)
+	}
+	err = lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
+	if err != nil {
+		log.Debug("LiquidationTrade CancelLendingTrade", "err", err)
+	}
 	return lendingTrade.Hash, nil
 }
 func getCancelFee(lendTokenDecimal *big.Int, collateralPrice, borrowFee *big.Int, order *lendingstate.LendingItem) *big.Int {

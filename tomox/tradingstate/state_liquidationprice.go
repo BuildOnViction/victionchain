@@ -196,7 +196,7 @@ func (self *liquidationPriceState) getAllLiquidationData(db Database) map[common
 	}
 	lendingBookListIt := trie.NewIterator(lendingBookTrie.NodeIterator(nil))
 	for lendingBookListIt.Next() {
-		id := common.BytesToHash(self.trie.GetKey(lendingBookListIt.Key))
+		id := common.BytesToHash(lendingBookListIt.Key)
 		if _, exist := self.stateLendingBooks[id]; exist {
 			continue
 		}

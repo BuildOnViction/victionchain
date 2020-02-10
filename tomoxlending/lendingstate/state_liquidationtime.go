@@ -133,7 +133,7 @@ func (self *liquidationTimeState) insertTradeId(db Database, tradeId common.Hash
 	self.setError(self.getTrie(db).TryUpdate(tradeId[:], tradeId[:]))
 }
 
-func (self *liquidationTimeState) removeLendingId(db Database, tradeId common.Hash) {
+func (self *liquidationTimeState) removeTradeId(db Database, tradeId common.Hash) {
 	tr := self.getTrie(db)
 	self.setError(tr.TryDelete(tradeId[:]))
 	self.setTradeId(tradeId, EmptyHash)

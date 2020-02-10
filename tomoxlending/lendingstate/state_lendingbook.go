@@ -506,15 +506,14 @@ func (self *lendingExchangeState) getBestInvestingInterest(db Database) common.H
 		log.Debug("Not found get best investing rate", "encKey", encKey, "encValue", encValue)
 		return EmptyHash
 	}
-	var data itemList
-	if err := rlp.DecodeBytes(encValue, &data); err != nil {
-		log.Error("Failed to decode state get best investing rate", "err", err)
-		return EmptyHash
-	}
-
 	// Insert into the live set.
 	interest := common.BytesToHash(encKey)
 	if _, exist := self.investingStates[interest]; !exist {
+		var data itemList
+		if err := rlp.DecodeBytes(encValue, &data); err != nil {
+			log.Error("Failed to decode state get best investing rate", "err", err)
+			return EmptyHash
+		}
 		obj := newItemListState(self.db, self.lendingBook, interest, data, self.MarkInvestingDirty)
 		self.investingStates[interest] = obj
 	}
@@ -532,14 +531,14 @@ func (self *lendingExchangeState) getBestBorrowingInterest(db Database) common.H
 		log.Debug("Not found get best bid trie", "encKey", encKey, "encValue", encValue)
 		return EmptyHash
 	}
-	var data itemList
-	if err := rlp.DecodeBytes(encValue, &data); err != nil {
-		log.Error("Failed to decode state get best bid trie", "err", err)
-		return EmptyHash
-	}
 	// Insert into the live set.
 	interest := common.BytesToHash(encKey)
 	if _, exist := self.borrowingStates[interest]; !exist {
+		var data itemList
+		if err := rlp.DecodeBytes(encValue, &data); err != nil {
+			log.Error("Failed to decode state get best bid trie", "err", err)
+			return EmptyHash
+		}
 		obj := newItemListState(self.db, self.lendingBook, interest, data, self.MarkBorrowingDirty)
 		self.borrowingStates[interest] = obj
 	}
@@ -557,14 +556,14 @@ func (self *lendingExchangeState) getLowestLiquidationTime(db Database) (common.
 		log.Debug("Not found get liquidation time trie", "encKey", encKey, "encValue", encValue)
 		return EmptyHash, nil
 	}
-	var data itemList
-	if err := rlp.DecodeBytes(encValue, &data); err != nil {
-		log.Error("Failed to decode state get liquidation time trie", "err", err)
-		return EmptyHash, nil
-	}
 	price := common.BytesToHash(encKey)
 	obj, exist := self.liquidationTimeStates[price]
 	if !exist {
+		var data itemList
+		if err := rlp.DecodeBytes(encValue, &data); err != nil {
+			log.Error("Failed to decode state get liquidation time trie", "err", err)
+			return EmptyHash, nil
+		}
 		obj = newLiquidationTimeState(self.db, self.lendingBook, price, data, self.MarkLiquidationTimeDirty)
 		self.liquidationTimeStates[price] = obj
 	}
