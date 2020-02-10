@@ -812,8 +812,8 @@ func (l *Lending) getMediumTradePriceLastEpoch(chain consensus.ChainContext, sta
 			if err != nil || baseTokenDecimal.Sign() == 0 {
 				return nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", baseToken, err)
 			}
-			price = new(big.Int).Div(inversePrice, quoteTokenDecimal)
-			price = new(big.Int).Mul(price, baseTokenDecimal)
+			price = new(big.Int).Mul(baseTokenDecimal, quoteTokenDecimal)
+			price = new(big.Int).Div(price, inversePrice)
 			return price, nil
 		}
 	}
