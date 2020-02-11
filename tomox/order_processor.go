@@ -396,7 +396,7 @@ func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big
 	if takerSide == tradingstate.Bid {
 		// maker InQuantity quoteTokenQuantity=(quantityToTrade*maker.Price/baseTokenDecimal)
 		quoteTokenQuantity := new(big.Int).Mul(quantityToTrade, makerPrice)
-		quoteTokenQuantity = quoteTokenQuantity.Div(quoteTokenQuantity, baseTokenDecimal)
+		quoteTokenQuantity = new(big.Int).Div(quoteTokenQuantity, baseTokenDecimal)
 		// Fee
 		// charge on the token he/she has before the trade, in this case: quoteToken
 		// charge on the token he/she has before the trade, in this case: baseToken
@@ -412,9 +412,9 @@ func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big
 			return quantityToTrade, false
 		} else if takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) >= 0 {
 			newQuantityTrade := new(big.Int).Mul(takerBalance, baseTokenDecimal)
-			newQuantityTrade = newQuantityTrade.Mul(newQuantityTrade, common.TomoXBaseFee)
-			newQuantityTrade = newQuantityTrade.Div(newQuantityTrade, new(big.Int).Add(common.TomoXBaseFee, takerFeeRate))
-			newQuantityTrade = newQuantityTrade.Div(newQuantityTrade, makerPrice)
+			newQuantityTrade = new(big.Int).Mul(newQuantityTrade, common.TomoXBaseFee)
+			newQuantityTrade = new(big.Int).Div(newQuantityTrade, new(big.Int).Add(common.TomoXBaseFee, takerFeeRate))
+			newQuantityTrade = new(big.Int).Div(newQuantityTrade, makerPrice)
 			if newQuantityTrade.Sign() == 0 {
 				log.Debug("Reject order Taker , not enough balance ", "takerSide", takerSide, "takerBalance", takerBalance, "takerOutTotal", takerOutTotal)
 			}
@@ -425,9 +425,9 @@ func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big
 		} else {
 			// takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) < 0
 			newQuantityTrade := new(big.Int).Mul(takerBalance, baseTokenDecimal)
-			newQuantityTrade = newQuantityTrade.Mul(newQuantityTrade, common.TomoXBaseFee)
-			newQuantityTrade = newQuantityTrade.Div(newQuantityTrade, new(big.Int).Add(common.TomoXBaseFee, takerFeeRate))
-			newQuantityTrade = newQuantityTrade.Div(newQuantityTrade, makerPrice)
+			newQuantityTrade = new(big.Int).Mul(newQuantityTrade, common.TomoXBaseFee)
+			newQuantityTrade = new(big.Int).Div(newQuantityTrade, new(big.Int).Add(common.TomoXBaseFee, takerFeeRate))
+			newQuantityTrade = new(big.Int).Div(newQuantityTrade, makerPrice)
 			if newQuantityTrade.Cmp(makerBalance) <= 0 {
 				if newQuantityTrade.Sign() == 0 {
 					log.Debug("Reject order Taker , not enough balance ", "takerSide", takerSide, "takerBalance", takerBalance, "makerBalance", makerBalance, " newQuantityTrade ", newQuantityTrade)
@@ -441,7 +441,7 @@ func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big
 		// Taker InQuantity
 		// quoteTokenQuantity = quantityToTrade * makerPrice / baseTokenDecimal
 		quoteTokenQuantity := new(big.Int).Mul(quantityToTrade, makerPrice)
-		quoteTokenQuantity = quoteTokenQuantity.Div(quoteTokenQuantity, baseTokenDecimal)
+		quoteTokenQuantity = new(big.Int).Div(quoteTokenQuantity, baseTokenDecimal)
 		// maker InQuantity
 
 		// Fee
@@ -449,7 +449,7 @@ func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big
 		// makerFee = quoteTokenQuantity * makerFeeRate / baseFee = quantityToTrade * makerPrice / baseTokenDecimal * makerFeeRate / baseFee
 		// charge on the token he/she has before the trade, in this case: quoteToken
 		makerFee := new(big.Int).Mul(quoteTokenQuantity, makerFeeRate)
-		makerFee = makerFee.Div(makerFee, common.TomoXBaseFee)
+		makerFee = new(big.Int).Div(makerFee, common.TomoXBaseFee)
 
 		takerOutTotal := quantityToTrade
 		// makerOutTotal = quoteTokenQuantity + makerFee  = quantityToTrade * makerPrice / baseTokenDecimal + quantityToTrade * makerPrice / baseTokenDecimal * makerFeeRate / baseFee
@@ -465,17 +465,17 @@ func GetTradeQuantity(takerSide string, takerFeeRate *big.Int, takerBalance *big
 			return takerBalance, false
 		} else if takerBalance.Cmp(takerOutTotal) >= 0 && makerBalance.Cmp(makerOutTotal) < 0 {
 			newQuantityTrade := new(big.Int).Mul(makerBalance, baseTokenDecimal)
-			newQuantityTrade = newQuantityTrade.Mul(newQuantityTrade, common.TomoXBaseFee)
-			newQuantityTrade = newQuantityTrade.Div(newQuantityTrade, new(big.Int).Add(common.TomoXBaseFee, makerFeeRate))
-			newQuantityTrade = newQuantityTrade.Div(newQuantityTrade, makerPrice)
+			newQuantityTrade = new(big.Int).Mul(newQuantityTrade, common.TomoXBaseFee)
+			newQuantityTrade = new(big.Int).Div(newQuantityTrade, new(big.Int).Add(common.TomoXBaseFee, makerFeeRate))
+			newQuantityTrade = new(big.Int).Div(newQuantityTrade, makerPrice)
 			log.Debug("Reject order maker , not enough balance ", "makerBalance", makerBalance, " makerOutTotal", makerOutTotal)
 			return newQuantityTrade, true
 		} else {
 			// takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) < 0
 			newQuantityTrade := new(big.Int).Mul(makerBalance, baseTokenDecimal)
-			newQuantityTrade = newQuantityTrade.Mul(newQuantityTrade, common.TomoXBaseFee)
-			newQuantityTrade = newQuantityTrade.Div(newQuantityTrade, new(big.Int).Add(common.TomoXBaseFee, makerFeeRate))
-			newQuantityTrade = newQuantityTrade.Div(newQuantityTrade, makerPrice)
+			newQuantityTrade = new(big.Int).Mul(newQuantityTrade, common.TomoXBaseFee)
+			newQuantityTrade = new(big.Int).Div(newQuantityTrade, new(big.Int).Add(common.TomoXBaseFee, makerFeeRate))
+			newQuantityTrade = new(big.Int).Div(newQuantityTrade, makerPrice)
 			if newQuantityTrade.Cmp(takerBalance) <= 0 {
 				log.Debug("Reject order maker , not enough balance ", "takerSide", takerSide, "takerBalance", takerBalance, "makerBalance", makerBalance, " newQuantityTrade ", newQuantityTrade)
 				return newQuantityTrade, true
@@ -493,8 +493,8 @@ func DoSettleBalance(coinbase common.Address, takerOrder, makerOrder *tradingsta
 	makerExOwner := tradingstate.GetRelayerOwner(makerOrder.ExchangeAddress, statedb)
 	matchingFee := big.NewInt(0)
 	// masternodes charges fee of both 2 relayers. If maker and Taker are on same relayer, that relayer is charged fee twice
-	matchingFee = matchingFee.Add(matchingFee, common.RelayerFee)
-	matchingFee = matchingFee.Add(matchingFee, common.RelayerFee)
+	matchingFee = new(big.Int).Add(matchingFee, common.RelayerFee)
+	matchingFee = new(big.Int).Add(matchingFee, common.RelayerFee)
 
 	if common.EmptyHash(takerExOwner.Hash()) || common.EmptyHash(makerExOwner.Hash()) {
 		return fmt.Errorf("Echange owner empty , Taker: %v , maker : %v ", takerExOwner, makerExOwner)
@@ -654,7 +654,7 @@ func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tradingsta
 		// quoteTokenQuantity = 10000 && fee rate =2
 		// => cancel fee =2
 		quoteTokenQuantity := new(big.Int).Mul(order.Quantity, order.Price)
-		quoteTokenQuantity = quoteTokenQuantity.Div(quoteTokenQuantity, baseTokenDecimal)
+		quoteTokenQuantity = new(big.Int).Div(quoteTokenQuantity, baseTokenDecimal)
 		// Fee
 		// makerFee = quoteTokenQuantity * feeRate / baseFee = quantityToTrade * makerPrice / baseTokenDecimal * feeRate / baseFee
 		cancelFee = new(big.Int).Mul(quoteTokenQuantity, feeRate)

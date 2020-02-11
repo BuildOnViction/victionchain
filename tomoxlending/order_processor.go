@@ -449,16 +449,16 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 	if takerSide == lendingstate.Borrowing {
 		// taker = Borrower : takerOutTotal = CollateralLockedAmount = quantityToLend * collateral Token Decimal/ CollateralPrice  * deposit rate
 		takerOutTotal := new(big.Int).Mul(quantityToLend, collateralTokenDecimal)
-		takerOutTotal = takerOutTotal.Mul(takerOutTotal, depositRate)
-		takerOutTotal = takerOutTotal.Div(takerOutTotal, collateralPrice)
+		takerOutTotal = new(big.Int).Mul(takerOutTotal, depositRate)
+		takerOutTotal = new(big.Int).Div(takerOutTotal, collateralPrice)
 		// Investor : makerOutTotal = quantityToLend
 		makerOutTotal := quantityToLend
 		if takerBalance.Cmp(takerOutTotal) >= 0 && makerBalance.Cmp(makerOutTotal) >= 0 {
 			return quantityToLend, false
 		} else if takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) >= 0 {
 			newQuantityLend := new(big.Int).Mul(takerBalance, collateralPrice)
-			newQuantityLend = newQuantityLend.Div(newQuantityLend, depositRate)
-			newQuantityLend = newQuantityLend.Div(newQuantityLend, collateralTokenDecimal)
+			newQuantityLend = new(big.Int).Div(newQuantityLend, depositRate)
+			newQuantityLend = new(big.Int).Div(newQuantityLend, collateralTokenDecimal)
 			if newQuantityLend.Sign() == 0 {
 				log.Debug("Reject lending order Taker , not enough balance ", "takerSide", takerSide, "takerBalance", takerBalance, "takerOutTotal", takerOutTotal)
 			}
@@ -469,8 +469,8 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 		} else {
 			// takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) < 0
 			newQuantityLend := new(big.Int).Mul(takerBalance, collateralPrice)
-			newQuantityLend = newQuantityLend.Div(newQuantityLend, depositRate)
-			newQuantityLend = newQuantityLend.Div(newQuantityLend, collateralTokenDecimal)
+			newQuantityLend = new(big.Int).Div(newQuantityLend, depositRate)
+			newQuantityLend = new(big.Int).Div(newQuantityLend, collateralTokenDecimal)
 			if newQuantityLend.Cmp(makerBalance) <= 0 {
 				if newQuantityLend.Sign() == 0 {
 					log.Debug("Reject lending order Taker , not enough balance ", "takerSide", takerSide, "takerBalance", takerBalance, "makerBalance", makerBalance, " newQuantityLend ", newQuantityLend)
@@ -483,8 +483,8 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 	} else {
 		// maker =  Borrower : makerOutTotal = CollateralLockedAmount = quantityToLend * collateral Token Decimal / CollateralPrice  * deposit rate
 		makerOutTotal := new(big.Int).Mul(quantityToLend, collateralTokenDecimal)
-		makerOutTotal = makerOutTotal.Mul(makerOutTotal, depositRate)
-		makerOutTotal = makerOutTotal.Div(makerOutTotal, collateralPrice)
+		makerOutTotal = new(big.Int).Mul(makerOutTotal, depositRate)
+		makerOutTotal = new(big.Int).Div(makerOutTotal, collateralPrice)
 		// Investor : makerOutTotal = quantityToLend
 		takerOutTotal := quantityToLend
 		if takerBalance.Cmp(takerOutTotal) >= 0 && makerBalance.Cmp(makerOutTotal) >= 0 {
@@ -496,15 +496,15 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 			return takerBalance, false
 		} else if takerBalance.Cmp(takerOutTotal) >= 0 && makerBalance.Cmp(makerOutTotal) < 0 {
 			newQuantityLend := new(big.Int).Mul(makerBalance, collateralPrice)
-			newQuantityLend = newQuantityLend.Div(newQuantityLend, depositRate)
-			newQuantityLend = newQuantityLend.Div(newQuantityLend, collateralTokenDecimal)
+			newQuantityLend = new(big.Int).Div(newQuantityLend, depositRate)
+			newQuantityLend = new(big.Int).Div(newQuantityLend, collateralTokenDecimal)
 			log.Debug("Reject lending order maker , not enough balance ", "makerBalance", makerBalance, " makerOutTotal", makerOutTotal)
 			return newQuantityLend, true
 		} else {
 			// takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) < 0
 			newQuantityLend := new(big.Int).Mul(makerBalance, collateralPrice)
-			newQuantityLend = newQuantityLend.Div(newQuantityLend, depositRate)
-			newQuantityLend = newQuantityLend.Div(newQuantityLend, collateralTokenDecimal)
+			newQuantityLend = new(big.Int).Div(newQuantityLend, depositRate)
+			newQuantityLend = new(big.Int).Div(newQuantityLend, collateralTokenDecimal)
 			if newQuantityLend.Cmp(takerBalance) <= 0 {
 				log.Debug("Reject lending order maker , not enough balance ", "takerSide", takerSide, "takerBalance", takerBalance, "makerBalance", makerBalance, " newQuantityLend ", newQuantityLend)
 				return newQuantityLend, true
@@ -522,7 +522,7 @@ func DoSettleBalance(coinbase common.Address, takerOrder, makerOrder *lendingsta
 	makerExOwner := lendingstate.GetRelayerOwner(makerOrder.Relayer, statedb)
 	matchingFee := big.NewInt(0)
 	// masternodes only charge borrower relayer fee
-	matchingFee = matchingFee.Add(matchingFee, common.RelayerLendingFee)
+	matchingFee = new(big.Int).Add(matchingFee, common.RelayerLendingFee)
 
 	if common.EmptyHash(takerExOwner.Hash()) || common.EmptyHash(makerExOwner.Hash()) {
 		return fmt.Errorf("Echange owner empty , Taker: %v , maker : %v ", takerExOwner, makerExOwner)
@@ -723,7 +723,7 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
 	interest := new(big.Int).SetUint64(lendingTrade.Interest)
 	if (lendingTrade.LiquidationTime - time) >= (lendingTrade.Term / 2) {
-		interest = interest.Div(interest, new(big.Int).SetUint64(2))
+		interest = new(big.Int).Div(interest, new(big.Int).SetUint64(2))
 	}
 
 	paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(common.BaseLendingInterest, interest))
@@ -858,7 +858,7 @@ func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *sta
 				if err != nil {
 					return nil, nil, err
 				}
-				collateralPrice = collateralPrice.Mul(collateralPrice, lendingTokenDecimal)
+				collateralPrice = new(big.Int).Mul(collateralPrice, lendingTokenDecimal)
 				log.Debug("GetCollateralPrices: Calculate collateral/LendToken price from collateral/TOMO, lendToken/TOMO", "collateralPrice", collateralPrice)
 			}
 		}

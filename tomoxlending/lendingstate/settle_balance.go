@@ -51,9 +51,9 @@ func GetSettleBalance(takerSide string,
 	if takerSide == Borrowing {
 		// taker = Borrower : takerOutTotal = CollateralLockedAmount = quantityToLend * collateral Token Decimal/ CollateralPrice  * deposit rate
 		takerOutTotal := new(big.Int).Mul(quantityToLend, collateralTokenDecimal)
-		takerOutTotal = takerOutTotal.Mul(takerOutTotal, depositRate) // eg: depositRate = 150%
-		takerOutTotal = takerOutTotal.Div(takerOutTotal, big.NewInt(100))
-		takerOutTotal = takerOutTotal.Div(takerOutTotal, collateralPrice)
+		takerOutTotal = new(big.Int).Mul(takerOutTotal, depositRate) // eg: depositRate = 150%
+		takerOutTotal = new(big.Int).Div(takerOutTotal, big.NewInt(100))
+		takerOutTotal = new(big.Int).Div(takerOutTotal, collateralPrice)
 		// Fee
 		// takerFee = quantityToLend*borrowFee/baseFee
 		takerFee := new(big.Int).Mul(quantityToLend, borrowFee)
@@ -64,7 +64,7 @@ func GetSettleBalance(takerSide string,
 		}
 		if lendingToken.String() != common.TomoNativeAddress && lendTokenTOMOPrice != nil && lendTokenTOMOPrice.Cmp(common.Big0) > 0 {
 			exTakerReceivedFee := new(big.Int).Mul(takerFee, lendTokenTOMOPrice)
-			exTakerReceivedFee = exTakerReceivedFee.Div(exTakerReceivedFee, lendTokenDecimal)
+			exTakerReceivedFee = new(big.Int).Div(exTakerReceivedFee, lendTokenDecimal)
 			log.Debug("exTakerReceivedFee", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee)
 			if exTakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 {
 				log.Debug("takerFee too small", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee)
@@ -100,9 +100,9 @@ func GetSettleBalance(takerSide string,
 	} else {
 		// maker =  Borrower : makerOutTotal = CollateralLockedAmount = quantityToLend * collateral Token Decimal / CollateralPrice  * deposit rate
 		makerOutTotal := new(big.Int).Mul(quantityToLend, collateralTokenDecimal)
-		makerOutTotal = makerOutTotal.Mul(makerOutTotal, depositRate) // eg: depositRate = 150%
-		makerOutTotal = makerOutTotal.Div(makerOutTotal, big.NewInt(100))
-		makerOutTotal = makerOutTotal.Div(makerOutTotal, collateralPrice)
+		makerOutTotal = new(big.Int).Mul(makerOutTotal, depositRate) // eg: depositRate = 150%
+		makerOutTotal = new(big.Int).Div(makerOutTotal, big.NewInt(100))
+		makerOutTotal = new(big.Int).Div(makerOutTotal, collateralPrice)
 		// Fee
 		makerFee := new(big.Int).Mul(quantityToLend, borrowFee)
 		makerFee = new(big.Int).Div(makerFee, common.TomoXBaseFee)
@@ -112,7 +112,7 @@ func GetSettleBalance(takerSide string,
 		}
 		if lendingToken.String() != common.TomoNativeAddress && lendTokenTOMOPrice != nil && lendTokenTOMOPrice.Cmp(common.Big0) > 0 {
 			exMakerReceivedFee := new(big.Int).Mul(makerFee, lendTokenTOMOPrice)
-			exMakerReceivedFee = exMakerReceivedFee.Div(exMakerReceivedFee, lendTokenDecimal)
+			exMakerReceivedFee = new(big.Int).Div(exMakerReceivedFee, lendTokenDecimal)
 			log.Debug("exMakerReceivedFee", "quantityToLend", quantityToLend, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "borrowFee", borrowFee)
 			if exMakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 {
 				log.Debug("makerFee too small", "quantityToLend", quantityToLend, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "borrowFee", borrowFee)

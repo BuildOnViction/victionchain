@@ -285,13 +285,13 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		if amount, ok := makerDirtyFilledAmount[makerOrderHash.Hex()]; ok {
 			makerFilledAmount = lendingstate.CloneBigInt(amount)
 		}
-		makerFilledAmount.Add(makerFilledAmount, filledAmount)
+		makerFilledAmount = new(big.Int).Add(makerFilledAmount, filledAmount)
 		makerDirtyFilledAmount[makerOrderHash.Hex()] = makerFilledAmount
 		makerDirtyHashes = append(makerDirtyHashes, makerOrderHash.Hex())
 
 		//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 		//  update filledAmount, status of takerOrder
-		updatedTakerLendingItem.FilledAmount.Add(updatedTakerLendingItem.FilledAmount, filledAmount)
+		updatedTakerLendingItem.FilledAmount = new(big.Int).Add(updatedTakerLendingItem.FilledAmount, filledAmount)
 		if updatedTakerLendingItem.FilledAmount.Cmp(updatedTakerLendingItem.Quantity) < 0 && updatedTakerLendingItem.Type == lendingstate.Limit {
 			updatedTakerLendingItem.Status = lendingstate.LendingStatusPartialFilled
 		} else {
@@ -333,7 +333,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 			l.UpdateLendingItemCache(m.LendingToken, m.CollateralToken, m.Hash, txHash, lastState)
 			m.TxHash = txHash
 			m.UpdatedAt = txMatchTime
-			m.FilledAmount.Add(m.FilledAmount, makerDirtyFilledAmount[m.Hash.Hex()])
+			m.FilledAmount = new(big.Int).Add(m.FilledAmount, makerDirtyFilledAmount[m.Hash.Hex()])
 			if m.FilledAmount.Cmp(m.Quantity) < 0 {
 				m.Status = lendingstate.LendingStatusPartialFilled
 			} else {
@@ -393,7 +393,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 				l.UpdateLendingItemCache(r.LendingToken, r.CollateralToken, r.Hash, txHash, historyRecord)
 				dirtyFilledAmount, ok := makerDirtyFilledAmount[r.Hash.Hex()]
 				if ok && dirtyFilledAmount != nil {
-					r.FilledAmount.Add(r.FilledAmount, dirtyFilledAmount)
+					r.FilledAmount = new(big.Int).Add(r.FilledAmount, dirtyFilledAmount)
 				}
 				r.Status = lendingstate.LendingStatusReject
 				r.TxHash = txHash
