@@ -624,8 +624,8 @@ func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tomox_stat
 		// SELL 1 BTC => TOMO ,,
 		// order.Quantity =1 && fee rate =2
 		// ==> cancel fee = 2/10000
-		baseTokenQuantity := new(big.Int).Mul(order.Quantity, baseTokenDecimal)
-		cancelFee = new(big.Int).Mul(baseTokenQuantity, feeRate)
+		// order.Quantity already included baseToken decimal
+		cancelFee = new(big.Int).Mul(order.Quantity, feeRate)
 		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
 	} else {
 		// BUY 1 BTC => TOMO with Price : 10000
