@@ -1886,7 +1886,10 @@ type LendingMsg struct {
 	Status          string         `json:"status,omitempty"`
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
-	LendingID       uint64         `json:"lendingId,omitempty"`
+	LendingId       uint64         `json:"lendingId,omitempty"`
+	LendingTradeId  uint64         `json:"tradeId,omitempty"`
+	ExtraData       string         `json:"extraData,omitempty"`
+
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
 	R *big.Int `json:"r" gencodec:"required"`
@@ -1912,7 +1915,7 @@ func (s *PublicTomoXTransactionPoolAPI) SendOrder(ctx context.Context, msg Order
 // SendLending will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTomoXTransactionPoolAPI) SendLending(ctx context.Context, msg LendingMsg) (common.Hash, error) {
-	tx := types.NewLendingTransaction(msg.AccountNonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, msg.Hash, msg.LendingID)
+	tx := types.NewLendingTransaction(msg.AccountNonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, msg.Hash, msg.LendingId, msg.LendingTradeId, msg.ExtraData)
 	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
 	return submitLendingTransaction(ctx, s.b, tx)
 }

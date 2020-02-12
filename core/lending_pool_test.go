@@ -2,15 +2,15 @@ package core
 
 import (
 	"context"
-	"log"
-	"math/big"
-	"testing"
-	"time"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/ethclient"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
+	"log"
+	"math/big"
+	"testing"
+	"time"
 )
 
 type LendingMsg struct {
@@ -25,7 +25,9 @@ type LendingMsg struct {
 	Status          string         `json:"status,omitempty"`
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
-	LendingID       uint64         `json:"lendingId,omitempty"`
+	LendingId       uint64         `json:"lendingId,omitempty"`
+	LendingTradeId  uint64         `json:"tradeId,omitempty"`
+	ExtraData       string         `json:"extraData,omitempty"`
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
 	R *big.Int `json:"r" gencodec:"required"`
@@ -35,7 +37,7 @@ type LendingMsg struct {
 	Hash common.Hash `json:"hash" rlp:"-"`
 }
 
-func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint64, side string, status string, lendingID uint64) {
+func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint64, side string, status string, lendingId, tradeId uint64, extraData string) {
 
 	client, err := ethclient.Dial("http://127.0.0.1:8501")
 	if err != nil {
@@ -57,9 +59,12 @@ func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint6
 		Type:            "LO",
 		Term:            86400,
 		Interest:        interest,
+		LendingId:       lendingId,
+		LendingTradeId:  tradeId,
+		ExtraData:       extraData,
 	}
 
-	tx := types.NewLendingTransaction(nonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, common.Hash{}, lendingID)
+	tx := types.NewLendingTransaction(nonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, common.Hash{}, lendingId, tradeId, msg.ExtraData)
 	signedTx, err := types.LendingSignTx(tx, types.LendingTxSigner{}, privateKey)
 	if err != nil {
 		log.Print(err)
@@ -72,7 +77,9 @@ func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint6
 }
 
 func TestSendLending(t *testing.T) {
-	testSendLending(t, 0, new(big.Int).SetUint64(1000000000000000000), 10, "INVEST", "NEW", 0)
+	testSendLending(t, 0, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,"")
 	time.Sleep(2000)
-	testSendLending(t, 1, new(big.Int).SetUint64(1000000000000000000), 10, "BORROW", "NEW", 0)
+	testSendLending(t, 1, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0,"")
+	time.Sleep(2000)
+	testSendLending(t, 2, new(big.Int).Mul(new(big.Int).SetUint64(1000000000000000000), big.NewInt(1005)), 10, lendingstate.Borrowing, lendingstate.Payment, 0, 1, common.Uint64ToHash(1).Hex())
 }

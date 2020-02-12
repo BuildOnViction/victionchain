@@ -65,7 +65,8 @@ type LendingItem struct {
 	Nonce           *big.Int       `bson:"nonce" json:"nonce"`
 	CreatedAt       time.Time      `bson:"createdAt" json:"createdAt"`
 	UpdatedAt       time.Time      `bson:"updatedAt" json:"updatedAt"`
-	LendingId       uint64         `bson:"tradeId" json:"tradeId"`
+	LendingId       uint64         `bson:"lendingId" json:"lendingId"`
+	LendingTradeId  uint64         `bson:"tradeId" json:"tradeId"`
 	ExtraData       string         `bson:"extraData" json:"extraData"`
 }
 
@@ -87,7 +88,8 @@ type LendingItemBSON struct {
 	Nonce           string           `bson:"nonce" json:"nonce"`
 	CreatedAt       time.Time        `bson:"createdAt" json:"createdAt"`
 	UpdatedAt       time.Time        `bson:"updatedAt" json:"updatedAt"`
-	LendingId       string           `bson:"tradeId" json:"tradeId"`
+	LendingId       string           `bson:"lendingId" json:"lendingId"`
+	LendingTradeId  string           `bson:"tradeId" json:"tradeId"`
 	ExtraData       string           `bson:"extraData" json:"extraData"`
 }
 
@@ -109,6 +111,7 @@ func (l *LendingItem) GetBSON() (interface{}, error) {
 		CreatedAt:       l.CreatedAt,
 		UpdatedAt:       l.UpdatedAt,
 		LendingId:       strconv.FormatUint(l.LendingId, 10),
+		LendingTradeId:  strconv.FormatUint(l.LendingTradeId, 10),
 		ExtraData:       l.ExtraData,
 	}
 
@@ -171,6 +174,11 @@ func (l *LendingItem) SetBSON(raw bson.Raw) error {
 		return err
 	}
 	l.LendingId = uint64(lendingId)
+	lendingTradeId, err := strconv.ParseInt(decoded.LendingTradeId, 10, 64)
+	if err != nil {
+		return err
+	}
+	l.LendingTradeId = uint64(lendingTradeId)
 	l.ExtraData = decoded.ExtraData
 	return nil
 }
@@ -288,7 +296,7 @@ func (l *LendingItem) VerifyLendingSignature() error {
 
 	//(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id uint64
 	tx := types.NewLendingTransaction(l.Nonce.Uint64(), l.Quantity, l.Interest.Uint64(), l.Term, l.Relayer, l.UserAddress,
-		l.LendingToken, l.CollateralToken, l.Status, l.Side, l.Type, l.Hash, l.LendingId)
+		l.LendingToken, l.CollateralToken, l.Status, l.Side, l.Type, l.Hash, l.LendingId, l.LendingTradeId, l.ExtraData)
 	tx.ImportSignature(V, R, S)
 	from, _ := types.LendingSender(types.LendingTxSigner{}, tx)
 	if from != tx.UserAddress() {
@@ -300,7 +308,7 @@ func (l *LendingItem) VerifyLendingSignature() error {
 func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 	side, status string, userAddress, relayer, lendingToken, collateralToken common.Address,
 	quantity, lendingTokenDecimal, collateralTokenDecimal, lendTokenTOMOPrice, collateralPrice *big.Int,
-	term uint64, lendingId uint64, lendingTradeId common.Hash) error {
+	term uint64, lendingId uint64, lendingTradeId uint64) error {
 	borrowingFeeRate := GetFee(statedb, relayer)
 	switch side {
 	case Investing:
@@ -357,25 +365,25 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 			}
 		case Deposit:
 			lendingBook := GetLendingOrderBookHash(lendingToken, term)
-			lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, lendingTradeId)
+			lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
 			if lendingTrade == EmptyLendingTrade {
-				return fmt.Errorf("VerifyBalance: process deposit for emptyLendingTrade is not allowed. lendingTradeId: %s", lendingTradeId.Hex())
+				return fmt.Errorf("VerifyBalance: process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 			}
 			tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
 			if tokenBalance.Cmp(quantity) < 0 {
 				return fmt.Errorf("VerifyBalance: not enough balance to process deposit for lendingTrade."+
-					"lendingTradeId: %s. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
-					lendingTradeId.Hex(), lendingTrade.CollateralToken.Hex(), quantity.String(), tokenBalance.String())
+					"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
+					lendingTradeId, lendingTrade.CollateralToken.Hex(), quantity.String(), tokenBalance.String())
 			}
 		case Payment:
 			lendingBook := GetLendingOrderBookHash(lendingToken, term)
-			lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, lendingTradeId)
+			lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
 			if lendingTrade == EmptyLendingTrade {
-				return fmt.Errorf("VerifyBalance: process payment for emptyLendingTrade is not allowed. lendingTradeId: %s", lendingTradeId.Hex())
+				return fmt.Errorf("VerifyBalance: process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 			}
 			tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
 			interest := new(big.Int).SetUint64(lendingTrade.Interest)
-			if (lendingTrade.LiquidationTime - uint64(time.Now().UnixNano())) >= (lendingTrade.Term / 2) {
+			if (lendingTrade.LiquidationTime - uint64(time.Now().Unix())) >= (lendingTrade.Term / 2) {
 				interest = new(big.Int).Div(interest, new(big.Int).SetUint64(2))
 			}
 
@@ -383,8 +391,8 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 			paymentBalance = new(big.Int).Div(paymentBalance, common.BaseLendingInterest)
 			if tokenBalance.Cmp(paymentBalance) < 0 {
 				return fmt.Errorf("VerifyBalance: not enough balance to process payment for lendingTrade."+
-					"lendingTradeId: %s. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
-					lendingTradeId.Hex(), lendingTrade.LendingToken.Hex(), paymentBalance.String(), tokenBalance.String())
+					"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
+					lendingTradeId, lendingTrade.LendingToken.Hex(), paymentBalance.String(), tokenBalance.String())
 
 			}
 		default:

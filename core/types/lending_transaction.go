@@ -66,7 +66,10 @@ type lendingtxdata struct {
 	Status          string         `json:"status,omitempty"`
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
-	LendingID       uint64         `json:"lendingId,omitempty"`
+	LendingId       uint64         `json:"lendingId,omitempty"`
+	LendingTradeId  uint64         `json:"tradeId,omitempty"`
+	ExtraData       string         `json:"extraData,omitempty"`
+
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
 	R *big.Int `json:"r" gencodec:"required"`
@@ -152,14 +155,20 @@ func (tx *LendingTransaction) Side() string { return tx.data.Side }
 // Type return type of lending transaction
 func (tx *LendingTransaction) Type() string { return tx.data.Type }
 
+// Type return extraData of lending transaction
+func (tx *LendingTransaction) ExtraData() string { return tx.data.ExtraData }
+
 // Signature return signature of lending transaction
 func (tx *LendingTransaction) Signature() (V, R, S *big.Int) { return tx.data.V, tx.data.R, tx.data.S }
 
 // LendingHash return hash of lending transaction
 func (tx *LendingTransaction) LendingHash() common.Hash { return tx.data.Hash }
 
-// LendingID return lending id
-func (tx *LendingTransaction) LendingID() uint64 { return tx.data.LendingID }
+// LendingId return lending id
+func (tx *LendingTransaction) LendingId() uint64 { return tx.data.LendingId }
+
+// LendingId return lendingTradeId
+func (tx *LendingTransaction) LendingTradeId() uint64 { return tx.data.LendingTradeId }
 
 // SetLendingHash set hash of lending transaction hash
 func (tx *LendingTransaction) SetLendingHash(h common.Hash) { tx.data.Hash = h }
@@ -236,11 +245,11 @@ func (tx *LendingTransaction) Size() common.StorageSize {
 }
 
 // NewLendingTransaction init lending from value
-func NewLendingTransaction(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id uint64) *LendingTransaction {
-	return newLendingTransaction(nonce, quantity, interest, duration, relayerAddress, userAddress, lendingToken, collateralToken, status, side, typeLending, hash, id)
+func NewLendingTransaction(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id, tradeId uint64, extraData string) *LendingTransaction {
+	return newLendingTransaction(nonce, quantity, interest, duration, relayerAddress, userAddress, lendingToken, collateralToken, status, side, typeLending, hash, id, tradeId, extraData)
 }
 
-func newLendingTransaction(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id uint64) *LendingTransaction {
+func newLendingTransaction(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id, tradeId uint64, extraData string) *LendingTransaction {
 	d := lendingtxdata{
 		AccountNonce:    nonce,
 		Quantity:        new(big.Int),
@@ -254,7 +263,9 @@ func newLendingTransaction(nonce uint64, quantity *big.Int, interest, duration u
 		Side:            side,
 		Type:            typeLending,
 		Hash:            hash,
-		LendingID:       id,
+		LendingId:       id,
+		LendingTradeId:  tradeId,
+		ExtraData:       extraData,
 		V:               new(big.Int),
 		R:               new(big.Int),
 		S:               new(big.Int),

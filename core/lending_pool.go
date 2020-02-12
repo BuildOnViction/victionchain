@@ -496,10 +496,10 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 				lendTokenTOMOPrice,
 				collateralPrice,
 				tx.Term(),
-				tx.LendingID(),
-				common.Hash{}, // common.HexToHash(l.ExtraData()) //TODO: get lendingTradeId from l.ExtraData()
+				tx.LendingId(),
+				tx.LendingTradeId(),
 			); err != nil {
-				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToken: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
+				return fmt.Errorf("VerifyBalance failed ! OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToken: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
 			}
 		}
 
@@ -588,7 +588,7 @@ func (pool *LendingPool) add(tx *types.LendingTransaction, local bool) (bool, er
 		pool.all[tx.Hash()] = tx
 		pool.journalTx(from, tx)
 
-		log.Debug("Lending Pooled new executable transaction", "hash", hash, "useraddress", tx.UserAddress(), "nonce", tx.Nonce(), "status", tx.Status(), "lendingid", tx.LendingID())
+		log.Debug("Lending Pooled new executable transaction", "hash", hash, "useraddress", tx.UserAddress(), "nonce", tx.Nonce(), "status", tx.Status(), "lendingid", tx.LendingId())
 		return old != nil, nil
 
 	}
@@ -680,7 +680,7 @@ func (pool *LendingPool) promoteTx(addr common.Address, hash common.Hash, tx *ty
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *LendingPool) AddLocal(tx *types.LendingTransaction) error {
-	log.Debug("Lending add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.LendingHash().Hex(), "status", tx.Status(), "lendingid", tx.LendingID())
+	log.Debug("Lending add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.LendingHash().Hex(), "status", tx.Status(), "lendingid", tx.LendingId())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
