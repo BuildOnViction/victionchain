@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/log"
-	"github.com/pkg/errors"
 )
 
 func GetLocMappingAtKey(key common.Hash, slot uint64) *big.Int {
@@ -107,7 +107,7 @@ func CheckRelayerFee(relayer common.Address, fee *big.Int, statedb *state.StateD
 	locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locBig, RelayerStructMappingSlot["_deposit"])
 	locHashDeposit := common.BigToHash(locBigDeposit)
 	balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
-	if new(big.Int).Sub(balance,fee).Cmp(new(big.Int).Mul(common.BasePrice, common.RelayerLockedFund)) < 0 {
+	if new(big.Int).Sub(balance, fee).Cmp(new(big.Int).Mul(common.BasePrice, common.RelayerLockedFund)) < 0 {
 		return errors.Errorf("relayer %s isn't enough tomo fee : balance %d , fee : %d ", relayer.Hex(), balance.Uint64(), fee.Uint64())
 	}
 	return nil
@@ -117,8 +117,8 @@ func AddTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 	if token.String() == common.TomoNativeAddress {
 		balance := statedb.GetBalance(addr)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: ADD TOKEN TOMO NATIVE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
-		balance = balance.Add(balance, value)
-		statedb.SetBalance(addr, balance)
+		balance = big.NewInt(0).Add(balance, value)
+		statedb.AddBalance(addr, value)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: ADD TOMO NATIVE BALANCE AFTER", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 
 		return nil
@@ -142,7 +142,6 @@ func AddTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, statedb *state.StateDB) error {
 	// TOMO native
 	if token.String() == common.TomoNativeAddress {
-
 		balance := statedb.GetBalance(addr)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOMO NATIVE BALANCE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 		if balance.Cmp(value) < 0 {
@@ -151,6 +150,7 @@ func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 		balance = balance.Sub(balance, value)
 		statedb.SetBalance(addr, balance)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOMO NATIVE BALANCE AFTER", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
+
 		return nil
 	}
 
