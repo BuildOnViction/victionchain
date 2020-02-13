@@ -146,3 +146,17 @@ func GetSettleBalance(takerSide string,
 	}
 	return result, nil
 }
+
+// apr: annual percentage rate
+// this function returns actual interest rate base on borrowing time and apr
+func CalculateInterestRate(finalizeTime, liquidationTime, term uint64, apr uint64) *big.Int {
+	startBorrowingTime := liquidationTime - term
+	borrowingTime := new(big.Int).SetUint64(finalizeTime - startBorrowingTime)
+	// if borrower finalize the loan in the first half, interestRate = interestRate / 2
+	// otherwise, pay full interestRate
+	interestRate := new(big.Int).Div(new(big.Int).Mul(borrowingTime, new(big.Int).SetUint64(apr)), new(big.Int).SetUint64(common.OneYear))
+	if (liquidationTime - finalizeTime) >= (term / 2) {
+		interestRate = new(big.Int).Div(interestRate, new(big.Int).SetUint64(2))
+	}
+	return interestRate
+}

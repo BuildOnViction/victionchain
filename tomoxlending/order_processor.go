@@ -728,12 +728,9 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 		return common.Hash{}, fmt.Errorf("process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 	}
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
-	interest := new(big.Int).SetUint64(lendingTrade.Interest)
-	if (lendingTrade.LiquidationTime - time) >= (lendingTrade.Term / 2) {
-		interest = new(big.Int).Div(interest, new(big.Int).SetUint64(2))
-	}
+	interestRate := lendingstate.CalculateInterestRate(time, lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest)
 
-	paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(common.BaseLendingInterest, interest))
+	paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(common.BaseLendingInterest, interestRate))
 	paymentBalance = new(big.Int).Div(paymentBalance, common.BaseLendingInterest)
 	if tokenBalance.Cmp(paymentBalance) < 0 {
 		if lendingTrade.LiquidationTime > time {

@@ -387,7 +387,7 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 				interest = new(big.Int).Div(interest, new(big.Int).SetUint64(2))
 			}
 
-			paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(common.BaseLendingInterest, interest))
+			paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(common.BaseLendingInterest, interestRate))
 			paymentBalance = new(big.Int).Div(paymentBalance, common.BaseLendingInterest)
 			if tokenBalance.Cmp(paymentBalance) < 0 {
 				return fmt.Errorf("VerifyBalance: not enough balance to process payment for lendingTrade."+
