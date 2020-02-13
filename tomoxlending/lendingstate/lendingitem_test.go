@@ -357,7 +357,7 @@ func TestVerifyBalance(t *testing.T) {
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
 				Term:            uint64(30),
-				ExtraData:       common.Uint64ToHash(1).Hex(),
+				LendingTradeId:  uint64(1),
 			},
 			false,
 		},
@@ -370,7 +370,7 @@ func TestVerifyBalance(t *testing.T) {
 				Quantity:        EtherToWei(big.NewInt(1)),
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
-				ExtraData:       common.BigToAddress(big.NewInt(0)).Hex(),
+				LendingTradeId:  uint64(0),
 			},
 			true,
 		},
@@ -384,7 +384,7 @@ func TestVerifyBalance(t *testing.T) {
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
 				Term:            uint64(30),
-				ExtraData:       common.Uint64ToHash(1).Hex(),
+				LendingTradeId:  uint64(1),
 			},
 			false,
 		},
@@ -398,7 +398,7 @@ func TestVerifyBalance(t *testing.T) {
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
 				Term:            uint64(30),
-				ExtraData:       common.Uint64ToHash(2).Hex(),
+				LendingTradeId:  uint64(2),
 			},
 			true,
 		},
@@ -433,7 +433,7 @@ func TestVerifyBalance(t *testing.T) {
 				EtherToWei(big.NewInt(8000)), // BTC = 8000 USD
 				tt.fields.Term,
 				tt.fields.LendingId,
-				common.HexToHash(tt.fields.ExtraData),
+				tt.fields.LendingTradeId,
 			); (err != nil) != tt.wantErr {
 				t.Errorf("VerifyBalance() error = %v, wantErr %v", err, tt.wantErr)
 			}
