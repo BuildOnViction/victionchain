@@ -668,6 +668,9 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 	}
 	// relayers pay TOMO for masternode
 	lendingstate.SubRelayerFee(originOrder.Relayer, common.RelayerCancelFee, statedb)
+	masternodeOwner := statedb.GetOwner(coinbase)
+	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
+
 	switch originOrder.Side {
 	case lendingstate.Investing:
 		// users pay token for relayer
@@ -679,10 +682,7 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 		lendingstate.AddTokenBalance(originOrder.Relayer, tokenCancelFee, originOrder.CollateralToken, statedb)
 	default:
 	}
-	masternodeOwner := statedb.GetOwner(coinbase)
-	// relayers pay TOMO for masternode
-	lendingCancelFeeInTOMO := new(big.Int).Div(common.RelayerLendingFee, new(big.Int).SetUint64(10))
-	statedb.AddBalance(masternodeOwner, lendingCancelFeeInTOMO)
+
 	return nil, false
 }
 
@@ -791,8 +791,8 @@ func getCancelFee(lendTokenDecimal *big.Int, collateralPrice, borrowFee *big.Int
 		// Fee ==  quantityToLend/base lend token decimal *price*borrowFee/LendingCancelFee
 		cancelFee = new(big.Int).Mul(order.Quantity, collateralPrice)
 		cancelFee = new(big.Int).Mul(cancelFee, borrowFee)
-		cancelFee = new(big.Int).Mul(cancelFee, lendTokenDecimal)
-		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
+		cancelFee = new(big.Int).Div(cancelFee, lendTokenDecimal)
+		cancelFee = new(big.Int).Div(cancelFee, common.LendingCancelFee)
 	}
 	return cancelFee
 }
