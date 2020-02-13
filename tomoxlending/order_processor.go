@@ -671,15 +671,16 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 	masternodeOwner := statedb.GetOwner(coinbase)
 	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
 
+	relayerOwner := lendingstate.GetRelayerOwner(originOrder.Relayer, statedb)
 	switch originOrder.Side {
 	case lendingstate.Investing:
 		// users pay token for relayer
 		lendingstate.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.LendingToken, statedb)
-		lendingstate.AddTokenBalance(originOrder.Relayer, tokenCancelFee, originOrder.LendingToken, statedb)
+		lendingstate.AddTokenBalance(relayerOwner, tokenCancelFee, originOrder.LendingToken, statedb)
 	case lendingstate.Borrowing:
 		// users pay token for relayer
 		lendingstate.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.CollateralToken, statedb)
-		lendingstate.AddTokenBalance(originOrder.Relayer, tokenCancelFee, originOrder.CollateralToken, statedb)
+		lendingstate.AddTokenBalance(relayerOwner, tokenCancelFee, originOrder.CollateralToken, statedb)
 	default:
 	}
 
