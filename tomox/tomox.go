@@ -382,13 +382,13 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		if amount, ok := makerDirtyFilledAmount[trade[tradingstate.TradeMakerOrderHash]]; ok {
 			makerFilledAmount = tradingstate.CloneBigInt(amount)
 		}
-		makerFilledAmount.Add(makerFilledAmount, filledAmount)
+		makerFilledAmount = new(big.Int).Add(makerFilledAmount, filledAmount)
 		makerDirtyFilledAmount[trade[tradingstate.TradeMakerOrderHash]] = makerFilledAmount
 		makerDirtyHashes = append(makerDirtyHashes, trade[tradingstate.TradeMakerOrderHash])
 
 		//updatedTakerOrder = tomox.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 		//  update filledAmount, status of takerOrder
-		updatedTakerOrder.FilledAmount.Add(updatedTakerOrder.FilledAmount, filledAmount)
+		updatedTakerOrder.FilledAmount = new(big.Int).Add(updatedTakerOrder.FilledAmount, filledAmount)
 		if updatedTakerOrder.FilledAmount.Cmp(updatedTakerOrder.Quantity) < 0 && updatedTakerOrder.Type == tradingstate.Limit {
 			updatedTakerOrder.Status = tradingstate.OrderStatusPartialFilled
 		} else {
@@ -429,7 +429,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 			tomox.UpdateOrderCache(o.BaseToken, o.QuoteToken, o.Hash, txHash, lastState)
 			o.TxHash = txHash
 			o.UpdatedAt = txMatchTime
-			o.FilledAmount.Add(o.FilledAmount, makerDirtyFilledAmount[o.Hash.Hex()])
+			o.FilledAmount = new(big.Int).Add(o.FilledAmount, makerDirtyFilledAmount[o.Hash.Hex()])
 			if o.FilledAmount.Cmp(o.Quantity) < 0 {
 				o.Status = tradingstate.OrderStatusPartialFilled
 			} else {
@@ -489,7 +489,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 				tomox.UpdateOrderCache(order.BaseToken, order.QuoteToken, order.Hash, txHash, orderHistoryRecord)
 				dirtyFilledAmount, ok := makerDirtyFilledAmount[order.Hash.Hex()]
 				if ok && dirtyFilledAmount != nil {
-					order.FilledAmount.Add(order.FilledAmount, dirtyFilledAmount)
+					order.FilledAmount = new(big.Int).Add(order.FilledAmount, dirtyFilledAmount)
 				}
 				order.Status = tradingstate.OrderStatusRejected
 				order.TxHash = txHash

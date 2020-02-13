@@ -376,7 +376,7 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 			tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
 			interest := new(big.Int).SetUint64(lendingTrade.Interest)
 			if (lendingTrade.LiquidationTime - uint64(time.Now().UnixNano())) >= (lendingTrade.Term / 2) {
-				interest = interest.Div(interest, new(big.Int).SetUint64(2))
+				interest = new(big.Int).Div(interest, new(big.Int).SetUint64(2))
 			}
 
 			paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(common.BaseLendingInterest, interest))

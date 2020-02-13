@@ -22,7 +22,7 @@ func GetLocMappingAtKey(key common.Hash, slot uint64) *big.Int {
 func GetExRelayerFee(relayer common.Address, statedb *state.StateDB) *big.Int {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
-	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_fee"])
+	locBig = new(big.Int).Add(locBig, RelayerStructMappingSlot["_fee"])
 	locHash := common.BigToHash(locBig)
 	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big()
 }
@@ -31,7 +31,7 @@ func GetRelayerOwner(relayer common.Address, statedb *state.StateDB) common.Addr
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
 	log.Debug("GetRelayerOwner", "relayer", relayer.Hex(), "slot", slot, "locBig", locBig)
-	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_owner"])
+	locBig = new(big.Int).Add(locBig, RelayerStructMappingSlot["_owner"])
 	locHash := common.BigToHash(locBig)
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Bytes())
 }
@@ -50,7 +50,7 @@ func IsResignedRelayer(relayer common.Address, statedb *state.StateDB) bool {
 func GetBaseTokenLength(relayer common.Address, statedb *state.StateDB) uint64 {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
-	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_fromTokens"])
+	locBig = new(big.Int).Add(locBig, RelayerStructMappingSlot["_fromTokens"])
 	locHash := common.BigToHash(locBig)
 	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big().Uint64()
 }
@@ -58,7 +58,7 @@ func GetBaseTokenLength(relayer common.Address, statedb *state.StateDB) uint64 {
 func GetBaseTokenAtIndex(relayer common.Address, statedb *state.StateDB, index uint64) common.Address {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
-	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_fromTokens"])
+	locBig = new(big.Int).Add(locBig, RelayerStructMappingSlot["_fromTokens"])
 	locHash := common.BigToHash(locBig)
 	loc := state.GetLocDynamicArrAtElement(locHash, index, 1)
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), loc).Bytes())
@@ -67,7 +67,7 @@ func GetBaseTokenAtIndex(relayer common.Address, statedb *state.StateDB, index u
 func GetQuoteTokenLength(relayer common.Address, statedb *state.StateDB) uint64 {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
-	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_toTokens"])
+	locBig = new(big.Int).Add(locBig, RelayerStructMappingSlot["_toTokens"])
 	locHash := common.BigToHash(locBig)
 	return statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHash).Big().Uint64()
 }
@@ -75,7 +75,7 @@ func GetQuoteTokenLength(relayer common.Address, statedb *state.StateDB) uint64 
 func GetQuoteTokenAtIndex(relayer common.Address, statedb *state.StateDB, index uint64) common.Address {
 	slot := RelayerMappingSlot["RELAYER_LIST"]
 	locBig := GetLocMappingAtKey(relayer.Hash(), slot)
-	locBig = locBig.Add(locBig, RelayerStructMappingSlot["_toTokens"])
+	locBig = new(big.Int).Add(locBig, RelayerStructMappingSlot["_toTokens"])
 	locHash := common.BigToHash(locBig)
 	loc := state.GetLocDynamicArrAtElement(locHash, index, 1)
 	return common.BytesToAddress(statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), loc).Bytes())
@@ -117,8 +117,8 @@ func AddTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 	if token.String() == common.TomoNativeAddress {
 		balance := statedb.GetBalance(addr)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: ADD TOKEN TOMO NATIVE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
-		balance = balance.Add(balance, value)
-		statedb.SetBalance(addr, balance)
+		statedb.AddBalance(addr, value)
+		balance = statedb.GetBalance(addr)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: ADD TOMO NATIVE BALANCE AFTER", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 
 		return nil
@@ -130,7 +130,7 @@ func AddTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 		locHash := common.BigToHash(GetLocMappingAtKey(addr.Hash(), slot))
 		balance := statedb.GetState(token, locHash).Big()
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: ADD TOKEN BALANCE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
-		balance = balance.Add(balance, value)
+		balance = new(big.Int).Add(balance, value)
 		statedb.SetState(token, locHash, common.BigToHash(balance))
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: ADD TOKEN BALANCE AFTER", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 		return nil
@@ -148,8 +148,8 @@ func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 		if balance.Cmp(value) < 0 {
 			return errors.Errorf("value %s in token %s not enough , have : %s , want : %s  ", addr.String(), token.String(), balance, value)
 		}
-		balance = balance.Sub(balance, value)
-		statedb.SetBalance(addr, balance)
+		statedb.SubBalance(addr, value)
+		balance = statedb.GetBalance(addr)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOMO NATIVE BALANCE AFTER", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 		return nil
 	}
@@ -163,7 +163,7 @@ func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 		if balance.Cmp(value) < 0 {
 			return errors.Errorf("value %s in token %s not enough , have : %s , want : %s  ", addr.String(), token.String(), balance, value)
 		}
-		balance = balance.Sub(balance, value)
+		balance = new(big.Int).Sub(balance, value)
 		statedb.SetState(token, locHash, common.BigToHash(balance))
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOKEN BALANCE AFTER", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 		return nil
