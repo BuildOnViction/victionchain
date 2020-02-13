@@ -210,7 +210,7 @@ contract RelayerRegistration {
 
     function depositMore(address coinbase) public payable relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) nonZeroValue {
         require(msg.value >= 1 ether, "At least 1 TOMO is required for a deposit request");
-        RELAYER_LIST[coinbase]._deposit.add(msg.value);
+        RELAYER_LIST[coinbase]._deposit = RELAYER_LIST[coinbase]._deposit.add(msg.value);
         emit UpdateEvent(RELAYER_LIST[coinbase]._deposit,
                          RELAYER_LIST[coinbase]._tradeFee,
                          RELAYER_LIST[coinbase]._fromTokens,
