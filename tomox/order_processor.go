@@ -663,19 +663,19 @@ func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tradingsta
 	return cancelFee
 }
 
-func (tomox *TomoX) UpdateMediumPriceLastEpoch(tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error {
+func (tomox *TomoX) UpdateMediumPriceBeforeEpoch(tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error {
 	mapPairs, err := tradingstate.GetAllTradingPairs(statedb)
-	log.Debug("UpdateMediumPriceLastEpoch", "len(mapPairs)", len(mapPairs))
+	log.Debug("UpdateMediumPriceBeforeEpoch", "len(mapPairs)", len(mapPairs))
 
 	if err != nil {
 		return err
 	}
 	for orderBook, _ := range mapPairs {
-		oldMediumPriceLastEpoch := tradingStateDB.GetMediumPriceLastEpoch(orderBook)
+		oldMediumPriceBeforeEpoch := tradingStateDB.GetMediumPriceBeforeEpoch(orderBook)
 		mediumPriceCurrent, _ := tradingStateDB.GetMediumPriceAndTotalAmount(orderBook)
-		log.Debug("UpdateMediumPriceLastEpoch", "mediumPriceCurrent", mediumPriceCurrent)
-		if mediumPriceCurrent.Sign() > 0 && mediumPriceCurrent.Cmp(oldMediumPriceLastEpoch) != 0 {
-			tradingStateDB.SetMediumPriceLastEpoch(orderBook, mediumPriceCurrent)
+		log.Debug("UpdateMediumPriceBeforeEpoch", "mediumPriceCurrent", mediumPriceCurrent)
+		if mediumPriceCurrent.Sign() > 0 && mediumPriceCurrent.Cmp(oldMediumPriceBeforeEpoch) != 0 {
+			tradingStateDB.SetMediumPriceBeforeEpoch(orderBook, mediumPriceCurrent)
 		}
 		tradingStateDB.SetMediumPrice(orderBook, tradingstate.Zero, tradingstate.Zero)
 	}

@@ -58,7 +58,7 @@ type (
 		prevPrice    *big.Int
 		prevQuantity *big.Int
 	}
-	mediumPriceLastEpochChange struct {
+	mediumPriceBeforeEpochChange struct {
 		hash         common.Hash
 		prevPrice    *big.Int
 	}
@@ -115,6 +115,6 @@ func (ch lastPriceChange) undo(s *TradingStateDB) {
 func (ch mediumPriceChange) undo(s *TradingStateDB) {
 	s.SetMediumPrice(ch.hash, ch.prevPrice, ch.prevQuantity)
 }
-func (ch mediumPriceLastEpochChange) undo(s *TradingStateDB) {
-	s.SetMediumPriceLastEpoch(ch.hash, ch.prevPrice)
+func (ch mediumPriceBeforeEpochChange) undo(s *TradingStateDB) {
+	s.SetMediumPriceBeforeEpoch(ch.hash, ch.prevPrice)
 }

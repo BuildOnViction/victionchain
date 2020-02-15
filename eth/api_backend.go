@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -430,4 +431,8 @@ func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 
 func (b *EthApiBackend) TomoxService() *tomox.TomoX {
 	return b.eth.TomoX
+}
+
+func (b *EthApiBackend) LendingService() *tomoxlending.Lending {
+	return b.eth.Lending
 }

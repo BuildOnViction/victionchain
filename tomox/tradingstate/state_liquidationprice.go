@@ -87,7 +87,7 @@ func (self *liquidationPriceState) MarkStateLendingBookDirty(price common.Hash) 
 }
 
 func (self *liquidationPriceState) createLendingBook(db Database, lendingBook common.Hash) (newobj *stateLendingBook) {
-	newobj = newStateLendingBook(self.db, self.orderBook, self.liquidationPrice, lendingBook, orderList{Volume: Zero}, self.MarkStateLendingBookDirty)
+	newobj = newStateLendingBook(self.orderBook, self.liquidationPrice, lendingBook, orderList{Volume: Zero}, self.MarkStateLendingBookDirty)
 	self.stateLendingBooks[lendingBook] = newobj
 	self.stateLendingBooksDirty[lendingBook] = struct{}{}
 	if self.onDirty != nil {
@@ -113,7 +113,7 @@ func (self *liquidationPriceState) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for lendingId, stateObject := range self.stateLendingBooks {
 		delete(self.stateLendingBooksDirty, lendingId)
-		if (stateObject.empty()) {
+		if stateObject.empty() {
 			self.setError(tr.TryDelete(lendingId[:]))
 			continue
 		}
@@ -152,7 +152,7 @@ func (self *liquidationPriceState) deepCopy(db *TradingStateDB, onDirty func(liq
 		stateOrderList.trie = db.db.CopyTrie(self.trie)
 	}
 	for key, value := range self.stateLendingBooks {
-		stateOrderList.stateLendingBooks[key] = value.deepCopy(db,self.MarkStateLendingBookDirty)
+		stateOrderList.stateLendingBooks[key] = value.deepCopy(db, self.MarkStateLendingBookDirty)
 	}
 	for key, value := range self.stateLendingBooksDirty {
 		stateOrderList.stateLendingBooksDirty[key] = value
@@ -179,7 +179,7 @@ func (self *liquidationPriceState) getStateLendingBook(db Database, lendingBook 
 		return nil
 	}
 	// Insert into the live set.
-	obj := newStateLendingBook(self.db, self.orderBook, self.liquidationPrice, lendingBook, data, self.MarkStateLendingBookDirty)
+	obj := newStateLendingBook(self.orderBook, self.liquidationPrice, lendingBook, data, self.MarkStateLendingBookDirty)
 	self.stateLendingBooks[lendingBook] = obj
 	return obj
 }

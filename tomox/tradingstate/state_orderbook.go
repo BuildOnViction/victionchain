@@ -75,6 +75,15 @@ func (s *tradingExchanges) empty() bool {
 	if s.data.LastPrice != nil && s.data.LastPrice.Sign() > 0 {
 		return false
 	}
+	if s.data.MediumPrice != nil && s.data.MediumPrice.Sign() > 0 {
+		return false
+	}
+	if s.data.MediumPriceBeforeEpoch != nil && s.data.MediumPriceBeforeEpoch.Sign() > 0 {
+		return false
+	}
+	if s.data.TotalQuantity != nil && s.data.TotalQuantity.Sign() > 0 {
+		return false
+	}
 	if !common.EmptyHash(s.data.AskRoot) {
 		return false
 	}
@@ -373,8 +382,8 @@ func (self *tradingExchanges) setLastPrice(price *big.Int) {
 	}
 }
 
-func (self *tradingExchanges) setMediumPriceLastEpoch(price *big.Int) {
-	self.data.MediumPriceLastEpoch = price
+func (self *tradingExchanges) setMediumPriceBeforeEpoch(price *big.Int) {
+	self.data.MediumPriceBeforeEpoch = price
 	if self.onDirty != nil {
 		self.onDirty(self.Hash())
 		self.onDirty = nil

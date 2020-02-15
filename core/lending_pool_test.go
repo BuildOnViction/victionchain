@@ -52,8 +52,8 @@ func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint6
 		Quantity:        amount,
 		RelayerAddress:  common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
 		UserAddress:     crypto.PubkeyToAddress(privateKey.PublicKey),
-		CollateralToken: common.HexToAddress("0xC2fa1BA90b15E3612E0067A0020192938784D9C5"),
-		LendingToken:    common.HexToAddress("0x45c25041b8e6CBD5c963E7943007187C3673C7c9"),
+		CollateralToken: BTCAddress,
+		LendingToken:    USDAddress,
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
@@ -77,9 +77,9 @@ func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint6
 }
 
 func TestSendLending(t *testing.T) {
-	testSendLending(t, 0, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,"")
+	testSendLending(t, 0, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, "")
 	time.Sleep(2000)
-	testSendLending(t, 1, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0,"")
+	testSendLending(t, 1, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, "")
 	time.Sleep(2000)
 	testSendLending(t, 2, new(big.Int).Mul(new(big.Int).SetUint64(1000000000000000000), big.NewInt(1005)), 10, lendingstate.Borrowing, lendingstate.Payment, 0, 1, common.Uint64ToHash(1).Hex())
 }

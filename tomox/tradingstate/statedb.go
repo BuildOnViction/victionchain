@@ -117,10 +117,10 @@ func (self *TradingStateDB) GetLastPrice(addr common.Hash) *big.Int {
 	return nil
 }
 
-func (self *TradingStateDB) GetMediumPriceLastEpoch(addr common.Hash) *big.Int {
+func (self *TradingStateDB) GetMediumPriceBeforeEpoch(addr common.Hash) *big.Int {
 	stateObject := self.getStateExchangeObject(addr)
 	if stateObject != nil {
-		return stateObject.data.MediumPriceLastEpoch
+		return stateObject.data.MediumPriceBeforeEpoch
 	}
 	return Zero
 }
@@ -172,14 +172,14 @@ func (self *TradingStateDB) SetMediumPrice(addr common.Hash, price *big.Int, qua
 	}
 }
 
-func (self *TradingStateDB) SetMediumPriceLastEpoch(addr common.Hash, price *big.Int) {
+func (self *TradingStateDB) SetMediumPriceBeforeEpoch(addr common.Hash, price *big.Int) {
 	stateObject := self.GetOrNewStateExchangeObject(addr)
 	if stateObject != nil {
-		self.journal = append(self.journal, mediumPriceLastEpochChange{
+		self.journal = append(self.journal, mediumPriceBeforeEpochChange{
 			hash:      addr,
-			prevPrice: stateObject.data.MediumPriceLastEpoch,
+			prevPrice: stateObject.data.MediumPriceBeforeEpoch,
 		})
-		stateObject.setMediumPriceLastEpoch(price)
+		stateObject.setMediumPriceBeforeEpoch(price)
 	}
 }
 
@@ -465,7 +465,7 @@ func (self *TradingStateDB) MarkStateExchangeObjectDirty(addr common.Hash) {
 // createStateOrderListObject creates a new state object. If there is an existing orderId with
 // the given address, it is overwritten and returned as the second return value.
 func (self *TradingStateDB) createExchangeObject(hash common.Hash) (newobj *tradingExchanges) {
-	newobj = newStateExchanges(self, hash, tradingExchangeObject{LendingCount: Zero, MediumPrice: Zero, MediumPriceLastEpoch: Zero, TotalQuantity: Zero}, self.MarkStateExchangeObjectDirty)
+	newobj = newStateExchanges(self, hash, tradingExchangeObject{LendingCount: Zero, MediumPrice: Zero, MediumPriceBeforeEpoch: Zero, TotalQuantity: Zero}, self.MarkStateExchangeObjectDirty)
 	newobj.setNonce(0) // sets the object to dirty
 	self.setStateExchangeObject(newobj)
 	return newobj
@@ -633,6 +633,9 @@ func (self *TradingStateDB) GetLowestLiquidationPriceData(orderBook common.Hash,
 func (self *TradingStateDB) GetHighestLiquidationPriceData(orderBook common.Hash, price *big.Int) (*big.Int, map[common.Hash][]common.Hash) {
 	liquidationData := map[common.Hash][]common.Hash{}
 	orderbookState := self.getStateExchangeObject(orderBook)
+	if orderbookState == nil {
+		return common.Big0, liquidationData
+	}
 	highestPriceHash, liquidationState := orderbookState.getHighestLiquidationPrice(self.db)
 	highestPrice := new(big.Int).SetBytes(highestPriceHash[:])
 	if liquidationState != nil && highestPrice.Sign() > 0 && highestPrice.Cmp(price) >= 0 {

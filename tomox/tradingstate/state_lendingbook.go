@@ -31,7 +31,6 @@ type stateLendingBook struct {
 	orderBook   common.Hash
 	lendingBook common.Hash
 	data        orderList
-	db          *TradingStateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -53,9 +52,8 @@ func (s *stateLendingBook) empty() bool {
 	return s.data.Volume == nil || s.data.Volume.Sign() == 0
 }
 
-func newStateLendingBook(db *TradingStateDB, orderBook common.Hash, price common.Hash, lendingBook common.Hash, data orderList, onDirty func(price common.Hash)) *stateLendingBook {
+func newStateLendingBook(orderBook common.Hash, price common.Hash, lendingBook common.Hash, data orderList, onDirty func(price common.Hash)) *stateLendingBook {
 	return &stateLendingBook{
-		db:            db,
 		lendingBook:   lendingBook,
 		orderBook:     orderBook,
 		price:         price,
@@ -179,7 +177,7 @@ func (self *stateLendingBook) updateRoot(db Database) error {
 }
 
 func (self *stateLendingBook) deepCopy(db *TradingStateDB, onDirty func(price common.Hash)) *stateLendingBook {
-	stateLendingBook := newStateLendingBook(db, self.lendingBook, self.orderBook, self.price, self.data, onDirty)
+	stateLendingBook := newStateLendingBook(self.lendingBook, self.orderBook, self.price, self.data, onDirty)
 	if self.trie != nil {
 		stateLendingBook.trie = db.db.CopyTrie(self.trie)
 	}

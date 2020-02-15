@@ -63,7 +63,28 @@ type lendingExchangeState struct {
 
 // empty returns whether the tradeId is considered empty.
 func (s *lendingExchangeState) empty() bool {
-	return s.data.Nonce == 0 && common.EmptyHash(s.data.InvestingRoot) && common.EmptyHash(s.data.BorrowingRoot)
+	if s.data.Nonce != 0 {
+		return false
+	}
+	if s.data.TradeNonce != 0 {
+		return false
+	}
+	if !common.EmptyHash(s.data.InvestingRoot) {
+		return false
+	}
+	if !common.EmptyHash(s.data.BorrowingRoot) {
+		return false
+	}
+	if !common.EmptyHash(s.data.LendingItemRoot) {
+		return false
+	}
+	if !common.EmptyHash(s.data.LendingTradeRoot) {
+		return false
+	}
+	if !common.EmptyHash(s.data.LiquidationTimeRoot) {
+		return false
+	}
+	return true
 }
 
 func newStateExchanges(db *LendingStateDB, hash common.Hash, data lendingObject, onDirty func(addr common.Hash)) *lendingExchangeState {
@@ -181,7 +202,7 @@ func (self *lendingExchangeState) getBorrowingOrderList(db Database, rate common
 		return nil
 	}
 	// Insert into the live set.
-	obj := newItemListState(self.db, self.lendingBook, rate, data, self.MarkBorrowingDirty)
+	obj := newItemListState(self.lendingBook, rate, data, self.MarkBorrowingDirty)
 	self.borrowingStates[rate] = obj
 	return obj
 }
@@ -204,7 +225,7 @@ func (self *lendingExchangeState) getInvestingOrderList(db Database, rate common
 		return nil
 	}
 	// Insert into the live set.
-	obj := newItemListState(self.db, self.lendingBook, rate, data, self.MarkBorrowingDirty)
+	obj := newItemListState(self.lendingBook, rate, data, self.MarkBorrowingDirty)
 	self.investingStates[rate] = obj
 	return obj
 }
@@ -227,7 +248,7 @@ func (self *lendingExchangeState) getLiquidationTimeOrderList(db Database, time 
 		return nil
 	}
 	// Insert into the live set.
-	obj := newLiquidationTimeState(self.db, self.lendingBook, time, data, self.MarkInvestingDirty)
+	obj := newLiquidationTimeState(self.lendingBook, time, data, self.MarkInvestingDirty)
 	self.liquidationTimeStates[time] = obj
 	return obj
 }
@@ -300,16 +321,16 @@ func (self *lendingExchangeState) updateLendingTimeTrie(db Database) Trie {
 
 func (self *lendingExchangeState) updateLendingTradeTrie(db Database) Trie {
 	tr := self.getLendingTradeTrie(db)
-	for lendingId, lendingItem := range self.lendingTradeStates {
-		if _, isDirty := self.lendingTradeStatesDirty[lendingId]; isDirty {
-			delete(self.lendingTradeStatesDirty, lendingId)
-			if lendingItem.empty() {
-				self.setError(tr.TryDelete(lendingId[:]))
+	for tradeId, lendingTradeItem := range self.lendingTradeStates {
+		if _, isDirty := self.lendingTradeStatesDirty[tradeId]; isDirty {
+			delete(self.lendingTradeStatesDirty, tradeId)
+			if lendingTradeItem.empty() {
+				self.setError(tr.TryDelete(tradeId[:]))
 				continue
 			}
 			// Encoding []byte cannot fail, ok to ignore the error.
-			v, _ := rlp.EncodeToBytes(lendingItem)
-			self.setError(tr.TryUpdate(lendingId[:], v))
+			v, _ := rlp.EncodeToBytes(lendingTradeItem)
+			self.setError(tr.TryUpdate(tradeId[:], v))
 		}
 	}
 	return tr
@@ -514,7 +535,7 @@ func (self *lendingExchangeState) getBestInvestingInterest(db Database) common.H
 			log.Error("Failed to decode state get best investing rate", "err", err)
 			return EmptyHash
 		}
-		obj := newItemListState(self.db, self.lendingBook, interest, data, self.MarkInvestingDirty)
+		obj := newItemListState(self.lendingBook, interest, data, self.MarkInvestingDirty)
 		self.investingStates[interest] = obj
 	}
 	return interest
@@ -539,7 +560,7 @@ func (self *lendingExchangeState) getBestBorrowingInterest(db Database) common.H
 			log.Error("Failed to decode state get best bid trie", "err", err)
 			return EmptyHash
 		}
-		obj := newItemListState(self.db, self.lendingBook, interest, data, self.MarkBorrowingDirty)
+		obj := newItemListState(self.lendingBook, interest, data, self.MarkBorrowingDirty)
 		self.borrowingStates[interest] = obj
 	}
 	return interest
@@ -564,7 +585,7 @@ func (self *lendingExchangeState) getLowestLiquidationTime(db Database) (common.
 			log.Error("Failed to decode state get liquidation time trie", "err", err)
 			return EmptyHash, nil
 		}
-		obj = newLiquidationTimeState(self.db, self.lendingBook, price, data, self.MarkLiquidationTimeDirty)
+		obj = newLiquidationTimeState(self.lendingBook, price, data, self.MarkLiquidationTimeDirty)
 		self.liquidationTimeStates[price] = obj
 	}
 	return price, obj
@@ -651,7 +672,7 @@ func (self *lendingExchangeState) removeBorrowingOrderList(db Database, stateOrd
 }
 
 func (self *lendingExchangeState) createInvestingOrderList(db Database, price common.Hash) (newobj *itemListState) {
-	newobj = newItemListState(self.db, self.lendingBook, price, itemList{Volume: Zero}, self.MarkInvestingDirty)
+	newobj = newItemListState(self.lendingBook, price, itemList{Volume: Zero}, self.MarkInvestingDirty)
 	self.investingStates[price] = newobj
 	self.investingStatesDirty[price] = struct{}{}
 	data, err := rlp.EncodeToBytes(newobj)
@@ -707,7 +728,7 @@ func (self *lendingExchangeState) MarkLiquidationTimeDirty(orderId common.Hash) 
 }
 
 func (self *lendingExchangeState) createBorrowingOrderList(db Database, price common.Hash) (newobj *itemListState) {
-	newobj = newItemListState(self.db, self.lendingBook, price, itemList{Volume: Zero}, self.MarkBorrowingDirty)
+	newobj = newItemListState(self.lendingBook, price, itemList{Volume: Zero}, self.MarkBorrowingDirty)
 	self.borrowingStates[price] = newobj
 	self.borrowingStatesDirty[price] = struct{}{}
 	data, err := rlp.EncodeToBytes(newobj)
@@ -735,7 +756,7 @@ func (self *lendingExchangeState) createLendingItem(db Database, orderId common.
 }
 
 func (self *lendingExchangeState) createLiquidationTime(db Database, time common.Hash) (newobj *liquidationTimeState) {
-	newobj = newLiquidationTimeState(self.db, time, self.lendingBook, itemList{Volume: Zero}, self.MarkLiquidationTimeDirty)
+	newobj = newLiquidationTimeState(time, self.lendingBook, itemList{Volume: Zero}, self.MarkLiquidationTimeDirty)
 	self.liquidationTimeStates[time] = newobj
 	self.liquidationTimestatesDirty[time] = struct{}{}
 	data, err := rlp.EncodeToBytes(newobj)
@@ -750,7 +771,7 @@ func (self *lendingExchangeState) createLiquidationTime(db Database, time common
 	return newobj
 }
 
-func (self *lendingExchangeState) insertLendingTrade(db Database, tradeId common.Hash, order LendingTrade) (newobj *lendingTradeState) {
+func (self *lendingExchangeState) insertLendingTrade(tradeId common.Hash, order LendingTrade) (newobj *lendingTradeState) {
 	newobj = newLendingTradeState(self.lendingBook, tradeId, order, self.MarkLendingTradeDirty)
 	self.lendingTradeStates[tradeId] = newobj
 	self.lendingTradeStatesDirty[tradeId] = struct{}{}

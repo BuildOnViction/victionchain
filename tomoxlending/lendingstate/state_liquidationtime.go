@@ -30,7 +30,6 @@ type liquidationTimeState struct {
 	time        common.Hash
 	lendingBook common.Hash
 	data        itemList
-	db          *LendingStateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -52,9 +51,8 @@ func (s *liquidationTimeState) empty() bool {
 	return s.data.Volume == nil || s.data.Volume.Sign() == 0
 }
 
-func newLiquidationTimeState(db *LendingStateDB, time common.Hash, lendingBook common.Hash, data itemList, onDirty func(time common.Hash)) *liquidationTimeState {
+func newLiquidationTimeState(time common.Hash, lendingBook common.Hash, data itemList, onDirty func(time common.Hash)) *liquidationTimeState {
 	return &liquidationTimeState{
-		db:            db,
 		lendingBook:   lendingBook,
 		time:          time,
 		data:          data,
@@ -153,7 +151,7 @@ func (self *liquidationTimeState) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
-		if (value == EmptyHash) {
+		if value == EmptyHash {
 			self.setError(tr.TryDelete(key[:]))
 			continue
 		}
@@ -177,7 +175,7 @@ func (self *liquidationTimeState) updateRoot(db Database) error {
 }
 
 func (self *liquidationTimeState) deepCopy(db *LendingStateDB, onDirty func(time common.Hash)) *liquidationTimeState {
-	stateLendingBook := newLiquidationTimeState(db, self.lendingBook, self.time, self.data, onDirty)
+	stateLendingBook := newLiquidationTimeState(self.lendingBook, self.time, self.data, onDirty)
 	if self.trie != nil {
 		stateLendingBook.trie = db.db.CopyTrie(self.trie)
 	}

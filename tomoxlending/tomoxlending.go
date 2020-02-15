@@ -159,7 +159,6 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 		}
 
 		newTrades, newRejectedOrders, err := l.CommitOrder(createdBlockTime, coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
-
 		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)
 		}
@@ -596,13 +595,13 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades []common.Hash, err error) {
 	allPairs, err := lendingstate.GetAllLendingPairs(statedb)
 	if err != nil {
-		log.Error("Fail when get all trading pairs", "error", err)
-		return []common.Hash{}, err
+		log.Debug("Not found all trading pairs", "error", err)
+		return []common.Hash{}, nil
 	}
 	allLendingBooks, err := lendingstate.GetAllLendingBooks(statedb)
 	if err != nil {
-		log.Error("Fail when get all lending books", "error", err)
-		return []common.Hash{}, err
+		log.Debug("Not found all lending books", "error", err)
+		return []common.Hash{}, nil
 	}
 
 	for _, lendingPair := range allPairs {
@@ -612,11 +611,11 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 			log.Error("Fail when get all trading pairs", "error", err)
 			return []common.Hash{}, err
 		}
-		lowestPrice, liquidationData := tradingState.GetLowestLiquidationPriceData(orderbook, liquidationPrice)
-		for lowestPrice.Sign() > 0 && lowestPrice.Cmp(liquidationPrice) < 0 {
+		highestPrice, liquidationData := tradingState.GetHighestLiquidationPriceData(orderbook, liquidationPrice)
+		for highestPrice.Sign() > 0 && highestPrice.Cmp(liquidationPrice) >= 0 {
 			for lendingBook, tradingIds := range liquidationData {
 				for _, tradingIdHash := range tradingIds {
-					log.Debug("LiquidationTrade", "lowestPrice", lowestPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
+					log.Debug("LiquidationTrade", "highestPrice", highestPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
 					h, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
 					if err != nil {
 						log.Error("Fail when remove liquidation trade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
@@ -627,7 +626,7 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 					}
 				}
 			}
-			lowestPrice, liquidationData = tradingState.GetLowestLiquidationPriceData(orderbook, liquidationPrice)
+			highestPrice, liquidationData = tradingState.GetHighestLiquidationPriceData(orderbook, liquidationPrice)
 		}
 	}
 
