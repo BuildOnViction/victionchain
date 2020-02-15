@@ -302,9 +302,9 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, trc21Issuers map[co
 	removed := l.txs.Filter(func(tx *types.Transaction) bool {
 		maximum := costLimit
 		if tx.To() != nil {
-			if balance, ok := trc21Issuers[*tx.To()]; ok {
-				maximum = balance
-			}
+			if feeCapacity, ok := trc21Issuers[*tx.To()]; ok {
+                                return new(big.Int).Add(costLimit, feeCapacity).Cmp(tx.TRC21Cost()) < 0 || tx.Gas() > gasLimit
+                        }
 		}
 		return tx.Cost().Cmp(maximum) > 0 || tx.Gas() > gasLimit
 	})
