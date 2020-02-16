@@ -73,7 +73,6 @@ func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint6
 	err = client.SendLendingTransaction(context.Background(), signedTx)
 	if err != nil {
 		log.Print(err)
-		t.FailNow()
 	}
 }
 
