@@ -332,7 +332,7 @@ contract RelayerRegistration {
             }
         }
 
-        for (uint j = 0; j < nonTomoPairs.length; j++) {
+        for (uint j = 0; j < countNonPair; j++) {
             if (!indexOf(tomoPairs, nonTomoPairs[j])) {
                 return false;
             }
