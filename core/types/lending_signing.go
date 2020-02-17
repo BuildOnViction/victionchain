@@ -125,6 +125,7 @@ func (lendingsign LendingTxSigner) LendingCreateHash(tx *LendingTransaction) com
 	sha.Write([]byte(tx.Status()))
 	sha.Write([]byte(tx.Type()))
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.LendingTradeId()))).Bytes())
 	return common.BytesToHash(sha.Sum(nil))
 }
 
@@ -134,7 +135,7 @@ func (lendingsign LendingTxSigner) LendingCancelHash(tx *LendingTransaction) com
 	sha.Write(tx.LendingHash().Bytes())
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
 	sha.Write(tx.UserAddress().Bytes())
-	sha.Write(common.BigToHash(big.NewInt(int64(tx.LendingID()))).Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.LendingId()))).Bytes())
 	sha.Write([]byte(tx.Status()))
 	sha.Write(tx.RelayerAddress().Bytes())
 	return common.BytesToHash(sha.Sum(nil))

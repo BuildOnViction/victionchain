@@ -63,7 +63,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		trades = append(trades, newLendingTrade)
 		return trades, rejects, nil
 	case lendingstate.Payment:
-		lendingTradeId := common.HexToHash(order.ExtraData).Big().Uint64()
+		lendingTradeId := order.LendingTradeId
 		_, err := l.ProcessPayment(createdBlockTime, lendingStateDB, statedb, tradingStateDb, lendingOrderBook, lendingTradeId)
 		if err != nil {
 			log.Debug("Can not process payment", "err", err)
@@ -688,9 +688,12 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 }
 
 func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem) (error, bool, *lendingstate.LendingTrade) {
-	lendingTradeId := common.HexToHash(order.ExtraData)
+	lendingTradeId := common.Uint64ToHash(order.LendingTradeId)
 	lendingBook := lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeId)
+	if lendingTrade == lendingstate.EmptyLendingTrade {
+		return fmt.Errorf("process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId.Hex()), true, nil
+	}
 	if order.Quantity.Sign() <= 0 || lendingTrade.TradeId != lendingTradeId.Big().Uint64() {
 		log.Debug("invalid order deposit", "Quantity", order.Quantity, "lendingTradeId", lendingTradeId.Hex())
 		return nil, true, nil
@@ -721,6 +724,9 @@ func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, st
 func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (hash common.Hash, err error) {
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
+	if lendingTrade == lendingstate.EmptyLendingTrade {
+		return common.Hash{}, fmt.Errorf("process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
+	}
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
 	interest := new(big.Int).SetUint64(lendingTrade.Interest)
 	if (lendingTrade.LiquidationTime - time) >= (lendingTrade.Term / 2) {
