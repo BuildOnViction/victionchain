@@ -2567,9 +2567,6 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 		log.Error("failed to extract lending transaction", "err", err)
 		return
 	}
-	if len(batches) == 0 {
-		return
-	}
 	start := time.Now()
 	defer func() {
 		//The deferred call's arguments are evaluated immediately, but the function call is not executed until the surrounding function returns
@@ -2614,9 +2611,11 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 		log.Error("failed to extract liquidatedTrades transaction", "err", err)
 		return
 	}
-	if err := lendingService.UpdateLiquidatedTrade(liquidatedTrades); err != nil {
-		log.Error("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
-		return
+	if len(liquidatedTrades.Liquidated) > 0 {
+		if err := lendingService.UpdateLiquidatedTrade(liquidatedTrades); err != nil {
+			log.Error("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
+			return
+		}
 	}
 }
 

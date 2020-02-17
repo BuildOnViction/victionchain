@@ -236,11 +236,10 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		updatedTakerLendingItem.FilledAmount = new(big.Int)
 	}
 
-	if takerLendingItem.Status != lendingstate.LendingStatusCancelled {
+	if takerLendingItem.Status == lendingstate.LendingStatusNew {
 		updatedTakerLendingItem.Status = lendingstate.LendingStatusOpen
-	} else {
-		updatedTakerLendingItem.Status = lendingstate.LendingStatusCancelled
 	}
+
 	updatedTakerLendingItem.TxHash = txHash
 	if updatedTakerLendingItem.CreatedAt.IsZero() {
 		updatedTakerLendingItem.CreatedAt = txMatchTime
@@ -265,7 +264,9 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		}
 		tradeRecord.UpdatedAt = txMatchTime
 		tradeRecord.TxHash = txHash
-		tradeRecord.Hash = tradeRecord.ComputeHash()
+		if tradeRecord.Status == lendingstate.TradeStatusOpen {
+			tradeRecord.Hash = tradeRecord.ComputeHash()
+		}
 		log.Debug("LendingTrade history ", "Term", tradeRecord.Term, "amount", tradeRecord.Amount, "Interest", tradeRecord.Interest,
 			"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "BorrowingOrderHash", tradeRecord.BorrowingOrderHash.Hex(), "InvestingOrderHash", tradeRecord.InvestingOrderHash.Hex(),
 			"borrowing", tradeRecord.BorrowingFee.String(), "investingFee", tradeRecord.InvestingFee.String())
@@ -274,7 +275,10 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		}
 
 		// 2.b. update status and filledAmount
-		filledAmount := tradeRecord.Amount
+		filledAmount := new(big.Int)
+		if tradeRecord.Amount != nil {
+			filledAmount = lendingstate.CloneBigInt(tradeRecord.Amount)
+		}
 		// maker dirty order
 		makerFilledAmount := big.NewInt(0)
 		makerOrderHash := common.Hash{}
@@ -290,32 +294,37 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		makerDirtyFilledAmount[makerOrderHash.Hex()] = makerFilledAmount
 		makerDirtyHashes = append(makerDirtyHashes, makerOrderHash.Hex())
 
-		//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
-		//  update filledAmount, status of takerOrder
-		updatedTakerLendingItem.FilledAmount = new(big.Int).Add(updatedTakerLendingItem.FilledAmount, filledAmount)
-		if updatedTakerLendingItem.FilledAmount.Cmp(updatedTakerLendingItem.Quantity) < 0 && updatedTakerLendingItem.Type == lendingstate.Limit {
-			updatedTakerLendingItem.Status = lendingstate.LendingStatusPartialFilled
-		} else {
-			updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
+		if updatedTakerLendingItem.Status != lendingstate.Payment && updatedTakerLendingItem.Status != lendingstate.Deposit {
+			//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
+			//  update filledAmount, status of takerOrder
+			updatedTakerLendingItem.FilledAmount = new(big.Int).Add(updatedTakerLendingItem.FilledAmount, filledAmount)
+			if updatedTakerLendingItem.FilledAmount.Cmp(updatedTakerLendingItem.Quantity) < 0 && updatedTakerLendingItem.Type == lendingstate.Limit {
+				updatedTakerLendingItem.Status = lendingstate.LendingStatusPartialFilled
+			} else {
+				updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
+			}
+		}
+	}
+	if updatedTakerLendingItem.Status != lendingstate.Payment && updatedTakerLendingItem.Status != lendingstate.Deposit {
+		// update status for Market orders
+		if updatedTakerLendingItem.Type == lendingstate.Market {
+			if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
+				updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
+			} else {
+				updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
+			}
+		}
+
+		log.Debug("PutObject processed takerLendingItem",
+			"term", updatedTakerLendingItem.Term, "userAddr", updatedTakerLendingItem.UserAddress.Hex(), "side", updatedTakerLendingItem.Side,
+			"Interest", updatedTakerLendingItem.Interest, "quantity", updatedTakerLendingItem.Quantity, "filledAmount", updatedTakerLendingItem.FilledAmount, "status", updatedTakerLendingItem.Status,
+			"hash", updatedTakerLendingItem.Hash.Hex(), "txHash", updatedTakerLendingItem.TxHash.Hex())
+
+		if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
+			return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerLendingItem.Hash.Hex(), err.Error())
 		}
 	}
 
-	// update status for Market orders
-	if updatedTakerLendingItem.Type == lendingstate.Market {
-		if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
-			updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
-		} else {
-			updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
-		}
-	}
-
-	log.Debug("PutObject processed takerLendingItem",
-		"term", updatedTakerLendingItem.Term, "userAddr", updatedTakerLendingItem.UserAddress.Hex(), "side", updatedTakerLendingItem.Side,
-		"Interest", updatedTakerLendingItem.Interest, "quantity", updatedTakerLendingItem.Quantity, "filledAmount", updatedTakerLendingItem.FilledAmount, "status", updatedTakerLendingItem.Status,
-		"hash", updatedTakerLendingItem.Hash.Hex(), "txHash", updatedTakerLendingItem.TxHash.Hex())
-	if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
-		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerLendingItem.Hash.Hex(), err.Error())
-	}
 	items := db.GetListItemByHashes(makerDirtyHashes, &lendingstate.LendingItem{})
 	if items != nil {
 		makerItems := items.([]*lendingstate.LendingItem)
@@ -561,7 +570,7 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 	items = db.GetListItemByTxHash(txhash, &lendingstate.LendingTrade{})
 	if items != nil {
 		for _, trade := range items.([]*lendingstate.LendingTrade) {
-			c, ok := l.lendingItemHistory.Get(txhash)
+			c, ok := l.lendingTradeHistory.Get(txhash)
 			log.Debug("tomoxlending reorg: rollback LendingTrade", "txhash", txhash.Hex(), "trade", lendingstate.ToJSON(trade), "LendingTradeHistory", c)
 			if !ok {
 				log.Debug("tomoxlending reorg: remove trade due to no LendingTradeHistory", "trade", lendingstate.ToJSON(trade))
@@ -635,13 +644,13 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
 			for _, tradingId := range tradingIds {
 				log.Debug("ProcessPayment", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
-				h, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
+				trade, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
 					return []common.Hash{}, err
 				}
-				if (h != common.Hash{}) {
-					liquidatedTrades = append(liquidatedTrades, h)
+				if trade != nil && trade.Status == lendingstate.TradeStatusLiquidated && trade.Hash != (common.Hash{}) {
+					liquidatedTrades = append(liquidatedTrades, trade.Hash)
 				}
 			}
 			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
