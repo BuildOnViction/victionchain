@@ -723,6 +723,7 @@ func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, st
 	newLendingTrade := lendingTrade
 	newLendingTrade.LiquidationPrice = newLiquidationPrice
 	newLendingTrade.CollateralLockedAmount = newLockedAmount
+	log.Debug("ProcessDeposit successfully", "price", newLiquidationPrice, "lockAmount", newLockedAmount)
 	return nil, false, &newLendingTrade
 }
 

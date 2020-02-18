@@ -75,8 +75,9 @@ type MatchingResult struct {
 	Rejects []*LendingItem
 }
 
-type LiquidatedResult struct {
+type FinalizedResult struct {
 	Liquidated []common.Hash
+	Closed     []common.Hash
 	TxHash     common.Hash
 	Timestamp  int64
 }
@@ -189,9 +190,10 @@ func WeiToEther(amount *big.Int) *big.Int {
 	return new(big.Int).Div(amount, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
 }
 
-func EncodeLiquidatedResult(liquidatedTrades []common.Hash) ([]byte, error) {
-	result := LiquidatedResult{
+func EncodeFinalizedResult(liquidatedTrades, closedTrades []common.Hash) ([]byte, error) {
+	result := FinalizedResult{
 		Liquidated: liquidatedTrades,
+		Closed:     closedTrades,
 		Timestamp:  time.Now().UnixNano(),
 	}
 	data, err := json.Marshal(result)
@@ -201,10 +203,10 @@ func EncodeLiquidatedResult(liquidatedTrades []common.Hash) ([]byte, error) {
 	return data, nil
 }
 
-func DecodeLiquidatedResult(data []byte) (result LiquidatedResult, err error) {
-	result = LiquidatedResult{}
+func DecodeFinalizedResult(data []byte) (result FinalizedResult, err error) {
+	result = FinalizedResult{}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return LiquidatedResult{}, err
+		return FinalizedResult{}, err
 	}
 	return result, nil
 }

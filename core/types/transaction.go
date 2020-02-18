@@ -36,10 +36,10 @@ var (
 	ErrInvalidSig               = errors.New("invalid transaction v, r, s values")
 	errNoSigner                 = errors.New("missing signing methods")
 	skipNonceDestinationAddress = map[string]bool{
-		common.TomoXAddr:                          true,
-		common.TradingStateAddr:                   true,
-		common.TomoXLendingAddress:                true,
-		common.TomoXLendingLiquidatedTradeAddress: true,
+		common.TomoXAddr:                         true,
+		common.TradingStateAddr:                  true,
+		common.TomoXLendingAddress:               true,
+		common.TomoXLendingFinalizedTradeAddress: true,
 	}
 )
 
@@ -330,12 +330,12 @@ func (tx *Transaction) IsLendingTransaction() bool {
 	return true
 }
 
-func (tx *Transaction) IsLendingLiquidatedTradeTransaction() bool {
+func (tx *Transaction) IsLendingFinalizedTradeTransaction() bool {
 	if tx.To() == nil {
 		return false
 	}
 
-	if tx.To().String() != common.TomoXLendingLiquidatedTradeAddress {
+	if tx.To().String() != common.TomoXLendingFinalizedTradeAddress {
 		return false
 	}
 	return true

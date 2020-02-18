@@ -128,7 +128,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 			Status:          tx.Status(),
 			Side:            tx.Side(),
 			Type:            tx.Type(),
-			Hash:            tx.Hash(),
+			Hash:            tx.LendingHash(),
 			LendingId:       tx.LendingId(),
 			LendingTradeId:  tx.LendingTradeId(),
 			ExtraData:       tx.ExtraData(),
@@ -238,6 +238,8 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 
 	if takerLendingItem.Status == lendingstate.LendingStatusNew {
 		updatedTakerLendingItem.Status = lendingstate.LendingStatusOpen
+	} else if takerLendingItem.Status == lendingstate.LendingStatusCancelled {
+		updatedTakerLendingItem.Status = lendingstate.LendingStatusCancelled
 	}
 
 	updatedTakerLendingItem.TxHash = txHash
@@ -267,12 +269,12 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		if tradeRecord.Status == lendingstate.TradeStatusOpen {
 			tradeRecord.Hash = tradeRecord.ComputeHash()
 		}
-		log.Debug("LendingTrade history ", "Term", tradeRecord.Term, "amount", tradeRecord.Amount, "Interest", tradeRecord.Interest,
-			"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "BorrowingOrderHash", tradeRecord.BorrowingOrderHash.Hex(), "InvestingOrderHash", tradeRecord.InvestingOrderHash.Hex(),
-			"borrowing", tradeRecord.BorrowingFee.String(), "investingFee", tradeRecord.InvestingFee.String())
-		if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {
-			return fmt.Errorf("SDKNode: failed to store lendingTrade %s", err.Error())
-		}
+			log.Debug("LendingTrade history ", "Term", tradeRecord.Term, "amount", tradeRecord.Amount, "Interest", tradeRecord.Interest,
+				"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "BorrowingOrderHash", tradeRecord.BorrowingOrderHash.Hex(), "InvestingOrderHash", tradeRecord.InvestingOrderHash.Hex(),
+				"borrowing", tradeRecord.BorrowingFee.String(), "investingFee", tradeRecord.InvestingFee.String())
+			if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {
+				return fmt.Errorf("SDKNode: failed to store lendingTrade %s", err.Error())
+			}
 
 		// 2.b. update status and filledAmount
 		filledAmount := new(big.Int)
@@ -421,18 +423,16 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	return nil
 }
 
-func (l *Lending) UpdateLiquidatedTrade(result lendingstate.LiquidatedResult) error {
-	db := l.GetMongoDB()
-	sc := db.InitLendingBulk()
-	defer sc.Close()
+func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult) error {
+	log.Debug("UpdateLiquidatedTrade", "liquidated", result.Liquidated, "closed", result.Closed)
 
 	txhash := result.TxHash
 	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
 	if err := l.UpdateLendingTrade(result.Liquidated, lendingstate.TradeStatusLiquidated, txhash, txTime); err != nil {
 		return err
 	}
-	if err := db.CommitLendingBulk(); err != nil {
-		return fmt.Errorf("SDKNode fail to commit bulk update liquidatedResult at txhash %s . Error: %s", txhash.Hex(), err.Error())
+	if err := l.UpdateLendingTrade(result.Closed, lendingstate.TradeStatusClosed, txhash, txTime); err != nil {
+		return err
 	}
 	return nil
 }
@@ -601,24 +601,27 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 	}
 }
 
-func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades []common.Hash, err error) {
+func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades, closedTrades []common.Hash, err error) {
 	allPairs, err := lendingstate.GetAllLendingPairs(statedb)
 	if err != nil {
 		log.Debug("Not found all trading pairs", "error", err)
-		return []common.Hash{}, nil
+		return []common.Hash{}, []common.Hash{}, nil
 	}
 	allLendingBooks, err := lendingstate.GetAllLendingBooks(statedb)
 	if err != nil {
 		log.Debug("Not found all lending books", "error", err)
-		return []common.Hash{}, nil
+		return []common.Hash{}, []common.Hash{}, nil
 	}
+
+	liquidatedTrades = []common.Hash{}
+	closedTrades = []common.Hash{}
 
 	for _, lendingPair := range allPairs {
 		orderbook := tradingstate.GetTradingOrderBookHash(lendingPair.CollateralToken, lendingPair.LendingToken)
 		_, liquidationPrice, err := l.GetCollateralPrices(chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
 		if err != nil {
 			log.Error("Fail when get all trading pairs", "error", err)
-			return []common.Hash{}, err
+			return []common.Hash{}, []common.Hash{}, err
 		}
 		highestPrice, liquidationData := tradingState.GetHighestLiquidationPriceData(orderbook, liquidationPrice)
 		for highestPrice.Sign() > 0 && highestPrice.Cmp(liquidationPrice) >= 0 {
@@ -628,7 +631,7 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 					h, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
 					if err != nil {
 						log.Error("Fail when remove liquidation trade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
-						return []common.Hash{}, err
+						return []common.Hash{}, []common.Hash{}, err
 					}
 					if (h != common.Hash{}) {
 						liquidatedTrades = append(liquidatedTrades, h)
@@ -641,20 +644,26 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 
 	for lendingBook, _ := range allLendingBooks {
 		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
+		log.Debug("ProcessLiquidationData time", "tradeIds", len(tradingIds))
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
 			for _, tradingId := range tradingIds {
 				log.Debug("ProcessPayment", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
 				trade, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
-					return []common.Hash{}, err
+					return []common.Hash{}, []common.Hash{}, err
 				}
-				if trade != nil && trade.Status == lendingstate.TradeStatusLiquidated && trade.Hash != (common.Hash{}) {
-					liquidatedTrades = append(liquidatedTrades, trade.Hash)
+				if trade != nil && trade.Hash != (common.Hash{}) {
+					if trade.Status == lendingstate.TradeStatusClosed {
+						closedTrades = append(closedTrades, trade.Hash)
+					} else {
+						liquidatedTrades = append(liquidatedTrades, trade.Hash)
+					}
 				}
 			}
 			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
 		}
 	}
-	return liquidatedTrades, nil
+	log.Debug("liquidatedTrades", "liquidatedTrades", len(liquidatedTrades), "closedTrades", len(closedTrades))
+	return liquidatedTrades, closedTrades, nil
 }

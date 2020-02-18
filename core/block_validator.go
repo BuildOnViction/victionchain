@@ -243,17 +243,17 @@ func ExtractLendingTransactions(transactions types.Transactions) ([]lendingstate
 	return batchData, nil
 }
 
-func ExtractLendingLiquidatedTradeTransactions(transactions types.Transactions) (lendingstate.LiquidatedResult, error) {
+func ExtractLendingFinalizedTradeTransactions(transactions types.Transactions) (lendingstate.FinalizedResult, error) {
 	for _, tx := range transactions {
-		if tx.IsLendingLiquidatedTradeTransaction() {
-			liquidatedTrades, err := lendingstate.DecodeLiquidatedResult(tx.Data())
+		if tx.IsLendingFinalizedTradeTransaction() {
+			finalizedTrades, err := lendingstate.DecodeFinalizedResult(tx.Data())
 			if err != nil {
-				return lendingstate.LiquidatedResult{}, fmt.Errorf("transaction is corrupted. Failed to decode LendingClosedTradeTransaction. Error: %s", err)
+				return lendingstate.FinalizedResult{}, fmt.Errorf("transaction is corrupted. Failed to decode LendingClosedTradeTransaction. Error: %s", err)
 			}
-			liquidatedTrades.TxHash = tx.Hash()
+			finalizedTrades.TxHash = tx.Hash()
 			// each block has only one tx of this type
-			return liquidatedTrades, nil
+			return finalizedTrades, nil
 		}
 	}
-	return lendingstate.LiquidatedResult{}, nil
+	return lendingstate.FinalizedResult{}, nil
 }

@@ -1556,7 +1556,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 
 				// liquidate / finalize open lendingTrades
-				_, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+				_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
 				if err != nil {
 					return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 				}
@@ -1824,7 +1824,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				}
 
 				// liquidate / finalize open lendingTrades
-				_, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
+				_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
 				if err != nil {
 					return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 				}
@@ -2543,7 +2543,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
 			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
 		}
-		if lendingService != nil && (deletedTx.IsLendingTransaction() || deletedTx.IsLendingLiquidatedTradeTransaction()) {
+		if lendingService != nil && (deletedTx.IsLendingTransaction() || deletedTx.IsLendingFinalizedTradeTransaction()) {
 			log.Debug("Rollback reorg lendingItem", "txhash", deletedTx.Hash())
 			lendingService.RollbackLendingData(deletedTx.Hash())
 		}
@@ -2612,14 +2612,15 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 		}
 	}
 
-	// update liquidatedTrades
-	liquidatedTrades, err := ExtractLendingLiquidatedTradeTransactions(block.Transactions())
+	// update finalizedTrades
+	finalizedTrades, err := ExtractLendingFinalizedTradeTransactions(block.Transactions())
 	if err != nil {
-		log.Error("failed to extract liquidatedTrades transaction", "err", err)
+		log.Error("failed to extract finalizedTrades transaction", "err", err)
 		return
 	}
-	if len(liquidatedTrades.Liquidated) > 0 {
-		if err := lendingService.UpdateLiquidatedTrade(liquidatedTrades); err != nil {
+	log.Debug("ExtractLendingFinalizedTradeTransactions", "block", block.Number(), "liquidated", len(finalizedTrades.Liquidated), "closed", len(finalizedTrades.Closed))
+	if len(finalizedTrades.Liquidated) > 0 || len(finalizedTrades.Closed) > 0 {
+		if err := lendingService.UpdateLiquidatedTrade(finalizedTrades); err != nil {
 			log.Error("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
 			return
 		}
