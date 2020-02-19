@@ -38,30 +38,35 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
 		return nil, nil, ErrNonceTooLow
 	}
+	// increase nonce
+	tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce + 1)
+	
+	tomoxSnap := tomoXstatedb.Snapshot()
+	dbSnap := statedb.Snapshot()
+	defer func() {
+		if err != nil {
+			tomoXstatedb.RevertToSnapshot(tomoxSnap)
+			statedb.RevertToSnapshot(dbSnap)
+		}
+	}()
 	if order.Status == OrderStatusCancelled {
 		err, reject := tomox.ProcessCancelOrder(tomoXstatedb, statedb, chain, coinbase, orderBook, order)
-		if err != nil {
-			return nil, nil, err
-		}
-		if reject {
+		if err != nil || reject {
+			log.Debug("Reject cancelled order", "err", err)
 			rejects = append(rejects, order)
 		}
-		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
 	if order.Type != tomox_state.Market {
 		if order.Price.Sign() == 0 || common.BigToHash(order.Price).Big().Cmp(order.Price) != 0 {
 			log.Debug("Reject order price invalid", "price", order.Price)
 			rejects = append(rejects, order)
-			tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
 			return trades, rejects, nil
 		}
 	}
 	if order.Quantity.Sign() == 0 || common.BigToHash(order.Quantity).Big().Cmp(order.Quantity) != 0 {
 		log.Debug("Reject order quantity invalid", "quantity", order.Quantity)
 		rejects = append(rejects, order)
-		tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
 	orderType := order.Type
@@ -70,18 +75,20 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 		log.Debug("Process maket order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
 		trades, rejects, err = tomox.processMarketOrder(coinbase, chain, statedb, tomoXstatedb, orderBook, order)
 		if err != nil {
-			return nil, nil, err
+			log.Debug("Reject market order", "err", err, "order", tomox_state.ToJSON(order))
+			trades = []map[string]string{}
+			rejects = append(rejects, order)
 		}
 	} else {
 		log.Debug("Process limit order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
 		trades, rejects, err = tomox.processLimitOrder(coinbase, chain, statedb, tomoXstatedb, orderBook, order)
 		if err != nil {
-			return nil, nil, err
+			log.Debug("Reject limit order", "err", err,  "order", tomox_state.ToJSON(order))
+			trades = []map[string]string{}
+			rejects = append(rejects, order)
 		}
 	}
 
-	log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-	tomoXstatedb.SetNonce(order.UserAddress.Hash(), nonce+1)
 	return trades, rejects, nil
 }
 
