@@ -491,7 +491,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		}
 		originOrder := cloneTomoXStateDb.GetOrder(tomox_state.GetOrderBookHash(tx.BaseToken(), tx.QuoteToken()), common.BigToHash(new(big.Int).SetUint64(tx.OrderID())))
 		if originOrder == tomox_state.EmptyOrder {
-			log.Error("Order not found ", "OrderId", tx.OrderID(), "BaseToken", tx.BaseToken().Hex(), "QuoteToken", tx.QuoteToken().Hex())
+			log.Debug("Order not found ", "OrderId", tx.OrderID(), "BaseToken", tx.BaseToken().Hex(), "QuoteToken", tx.QuoteToken().Hex())
 			return ErrInvalidCancelledOrder
 		}
 	}
