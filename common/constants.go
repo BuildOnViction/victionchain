@@ -23,6 +23,7 @@ const (
 	RangeReturnSigner          = 150
 	MinimunMinerBlockPerEpoch  = 1
 	IgnoreSignerCheckBlock     = uint64(14458500)
+	OneYear                    = uint64(365 * 86400)
 )
 
 var TIP2019Block = big.NewInt(1050000)
@@ -42,7 +43,7 @@ var RelayerCancelFee = big.NewInt(100000000000000)    // 0.0001
 var TomoXBaseCancelFee = big.NewInt(10000)            // 1/10000
 var RelayerLendingFee = big.NewInt(10000000000000000) // 0.01
 var LendingCancelFee = big.NewInt(1000000)            // 1/1000000
-var BaseLendingInterest = big.NewInt(10000)
+var BaseLendingInterest = big.NewInt(100000000) // 1e8
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
