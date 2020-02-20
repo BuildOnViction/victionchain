@@ -1,10 +1,16 @@
 package lendingstate
 
 import (
+	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/rpc"
 	"math/big"
+	"math/rand"
+	"os"
 	"testing"
 	"time"
 )
@@ -439,4 +445,117 @@ func TestVerifyBalance(t *testing.T) {
 			}
 		})
 	}
+}
+
+type LendingOrderMsg struct {
+	AccountNonce    uint64         `json:"nonce"    gencodec:"required"`
+	Quantity        *big.Int       `json:"quantity,omitempty"`
+	RelayerAddress  common.Address `json:"relayerAddress,omitempty"`
+	UserAddress     common.Address `json:"userAddress,omitempty"`
+	CollateralToken common.Address `json:"collateralToken,omitempty"`
+	LendingToken    common.Address `json:"lendingToken,omitempty"`
+	Interest        uint64         `json:"interest,omitempty"`
+	Term            uint64         `json:"term,omitempty"`
+	Status          string         `json:"status,omitempty"`
+	Side            string         `json:"side,omitempty"`
+	Type            string         `json:"type,omitempty"`
+	LendingID       uint64         `json:"lendingID,omitempty"`
+	// Signature values
+	V *big.Int `json:"v" gencodec:"required"`
+	R *big.Int `json:"r" gencodec:"required"`
+	S *big.Int `json:"s" gencodec:"required"`
+
+	// This is only used when marshaling to JSON.
+	Hash common.Hash `json:"hash" rlp:"-"`
+}
+
+func Test_CreateOrder(t *testing.T) {
+	t.SkipNow()
+	for i := 0; i< 1 ; i++ {
+		sendOrder(uint64(i))
+		time.Sleep(time.Microsecond)
+	}
+}
+
+func sendOrder(nonce uint64) {
+	rpcClient, err := rpc.DialHTTP("http://localhost:8501")
+	defer rpcClient.Close()
+	if err != nil {
+		fmt.Println("rpc.DialHTTP failed", "err", err)
+		os.Exit(1)
+	}
+	rand.Seed(time.Now().UTC().UnixNano())
+	item := &LendingOrderMsg{
+		AccountNonce:    nonce,
+		Quantity:        EtherToWei(big.NewInt(1000)),
+		RelayerAddress:  common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
+		UserAddress:     common.HexToAddress("0x17F2beD710ba50Ed27aEa52fc4bD7Bda5ED4a037"),
+		CollateralToken: common.HexToAddress("0xC2fa1BA90b15E3612E0067A0020192938784D9C5"),
+		LendingToken:    common.HexToAddress("0x45c25041b8e6CBD5c963E7943007187C3673C7c9"),
+		Interest:        uint64(100),
+		Term:            uint64(30*86400),
+		Status:          LendingStatusNew,
+		Side:            Borrowing,
+		Type:            Limit,
+		V:               common.Big0,
+		R:               common.Big0,
+		S:               common.Big0,
+		Hash:            common.Hash{},
+	}
+	hash := computeHash(item)
+	if item.Status != LendingStatusCancelled {
+		item.Hash = hash
+	}
+	privKey, _ := crypto.HexToECDSA("65ec4d4dfbcac594a14c36baa462d6f73cd86134840f6cf7b80a1e1cd33473e2")
+	message := crypto.Keccak256(
+		[]byte("\x19Ethereum Signed Message:\n32"),
+		hash.Bytes(),
+	)
+	signatureBytes, _ := crypto.Sign(message, privKey)
+	sig := &Signature{
+		R: common.BytesToHash(signatureBytes[0:32]),
+		S: common.BytesToHash(signatureBytes[32:64]),
+		V: signatureBytes[64] + 27,
+	}
+	item.R = sig.R.Big()
+	item.S = sig.S.Big()
+	item.V = new(big.Int).SetUint64(uint64(sig.V))
+
+	var result interface{}
+
+	err = rpcClient.Call(&result, "tomox_sendLending", item)
+	fmt.Println("sendLendingitem", "nonce", item.AccountNonce)
+	if err != nil {
+		fmt.Println("rpcClient.Call tomox_sendLending failed", "err", err)
+		os.Exit(1)
+	}
+}
+
+func computeHash(l *LendingOrderMsg) common.Hash {
+	sha := sha3.NewKeccak256()
+	if l.Status == LendingStatusCancelled {
+		sha := sha3.NewKeccak256()
+		sha.Write(l.Hash.Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
+		sha.Write(l.UserAddress.Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingID))).Bytes())
+		sha.Write([]byte(l.Status))
+		sha.Write(l.RelayerAddress.Bytes())
+	} else {
+		sha.Write(l.RelayerAddress.Bytes())
+		sha.Write(l.UserAddress.Bytes())
+		sha.Write(l.CollateralToken.Bytes())
+		sha.Write(l.LendingToken.Bytes())
+		sha.Write(common.BigToHash(l.Quantity).Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.Term))).Bytes())
+		if l.Type == Limit {
+			sha.Write(common.BigToHash(big.NewInt(int64(l.Interest))).Bytes())
+		}
+		sha.Write([]byte(l.Side))
+		sha.Write([]byte(l.Status))
+		sha.Write([]byte(l.Type))
+		sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
+	}
+	return common.BytesToHash(sha.Sum(nil))
+
 }

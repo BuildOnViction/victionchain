@@ -29,7 +29,6 @@ type itemListState struct {
 	lendingBook common.Hash
 	key         common.Hash
 	data        itemList
-	db          *LendingStateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -51,9 +50,8 @@ func (s *itemListState) empty() bool {
 	return s.data.Volume == nil || s.data.Volume.Sign() == 0
 }
 
-func newItemListState(db *LendingStateDB, lendingBook common.Hash, key common.Hash, data itemList, onDirty func(price common.Hash)) *itemListState {
+func newItemListState(lendingBook common.Hash, key common.Hash, data itemList, onDirty func(price common.Hash)) *itemListState {
 	return &itemListState{
-		db:            db,
 		lendingBook:   lendingBook,
 		key:           key,
 		data:          data,
@@ -135,7 +133,7 @@ func (self *itemListState) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for orderId, amount := range self.dirtyStorage {
 		delete(self.dirtyStorage, orderId)
-		if (amount == EmptyHash) {
+		if amount == EmptyHash {
 			self.setError(tr.TryDelete(orderId[:]))
 			continue
 		}
@@ -160,7 +158,7 @@ func (self *itemListState) updateRoot(db Database) error {
 }
 
 func (self *itemListState) deepCopy(db *LendingStateDB, onDirty func(price common.Hash)) *itemListState {
-	stateOrderList := newItemListState(db, self.lendingBook, self.key, self.data, onDirty)
+	stateOrderList := newItemListState(self.lendingBook, self.key, self.data, onDirty)
 	if self.trie != nil {
 		stateOrderList.trie = db.db.CopyTrie(self.trie)
 	}

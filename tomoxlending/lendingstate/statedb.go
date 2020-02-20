@@ -182,7 +182,7 @@ func (self *LendingStateDB) InsertTradingItem(orderBook common.Hash, tradeId uin
 		tradeId:   tradeId,
 		prvTrade:  &prvTrade,
 	})
-	stateExchange.insertLendingTrade(self.db, tradeIdHash, order)
+	stateExchange.insertLendingTrade(tradeIdHash, order)
 }
 
 func (self *LendingStateDB) UpdateLiquidationPrice(orderBook common.Hash, tradeId uint64, price *big.Int) {
@@ -613,8 +613,9 @@ func (self *LendingStateDB) InsertLiquidationTime(lendingBook common.Hash, time 
 	liquidationTime.AddVolume(One)
 }
 
-func (self *LendingStateDB) RemoveLiquidationTime(lendingBook common.Hash, time uint64, tradeId common.Hash) error {
-	timeHash := common.BigToHash(new(big.Int).SetUint64(time))
+func (self *LendingStateDB) RemoveLiquidationTime(lendingBook common.Hash, tradeId uint64, time uint64) error {
+	timeHash := common.Uint64ToHash(time)
+	tradeIdHash := common.Uint64ToHash(tradeId)
 	lendingExchangeState := self.getLendingExchange(lendingBook)
 	if lendingExchangeState == nil {
 		return fmt.Errorf("lending book not found : %s ", lendingBook.Hex())
@@ -623,10 +624,10 @@ func (self *LendingStateDB) RemoveLiquidationTime(lendingBook common.Hash, time 
 	if liquidationTime == nil {
 		return fmt.Errorf("liquidation time not found : %s , %d ", lendingBook.Hex(), time)
 	}
-	if !liquidationTime.Exist(self.db, tradeId) {
-		return fmt.Errorf("tradeId not exist : %s , %d , %s ", lendingBook.Hex(), time, tradeId.Hex())
+	if !liquidationTime.Exist(self.db, tradeIdHash) {
+		return fmt.Errorf("tradeId not exist : %s , %d , %d ", lendingBook.Hex(), time, tradeId)
 	}
-	liquidationTime.removeTradeId(self.db, tradeId)
+	liquidationTime.removeTradeId(self.db, tradeIdHash)
 	liquidationTime.subVolume(One)
 	if liquidationTime.Volume().Sign() == 0 {
 		lendingExchangeState.getLiquidationTimeTrie(self.db).TryDelete(timeHash[:])

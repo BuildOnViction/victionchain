@@ -760,6 +760,46 @@ web3._extend({
             call: 'tomox_getPrice',
             params: 2
 		}),
+		new web3._extend.Method({
+            name: 'getTradingOrderBookInfo',
+            call: 'tomox_getTradingOrderBookInfo',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getLiquidationPriceTrie',
+            call: 'tomox_getLiquidationPriceTrie',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getInvestingTrie',
+            call: 'tomox_getInvestingTrie',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBorrowingTrie',
+            call: 'tomox_getBorrowingTrie',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getLendingOrderBookInfo',
+            call: 'tomox_getLendingOrderBookInfo',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getLendingOrderTrie',
+            call: 'tomox_getLendingOrderTrie',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getLendingTradeTrie',
+            call: 'tomox_getLendingTradeTrie',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getLiquidationTimeTrie',
+            call: 'tomox_getLiquidationTimeTrie',
+            params: 2
+		}),
 	]
 });
 `

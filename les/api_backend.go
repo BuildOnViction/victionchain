@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -269,5 +270,9 @@ func (b *LesApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 }
 
 func (b *LesApiBackend) TomoxService() *tomox.TomoX {
+	return nil
+}
+
+func (b *LesApiBackend) LendingService() *tomoxlending.Lending {
 	return nil
 }

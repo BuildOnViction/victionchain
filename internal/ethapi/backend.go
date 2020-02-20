@@ -19,6 +19,7 @@ package ethapi
 
 import (
 	"context"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"math/big"
 
 	"github.com/tomochain/tomochain/tomox"
@@ -49,6 +50,7 @@ type Backend interface {
 	EventMux() *event.TypeMux
 	AccountManager() *accounts.Manager
 	TomoxService() *tomox.TomoX
+	LendingService() *tomoxlending.Lending
 
 	// BlockChain API
 	SetHead(number uint64)

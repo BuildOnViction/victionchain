@@ -64,6 +64,8 @@ func TestEchangeStates(t *testing.T) {
 
 	}
 	statedb.InsertLiquidationTime(orderBook, big.NewInt(1), 1)
+	order := LendingTrade{TradeId: 1, Amount: big.NewInt(2)}
+	statedb.InsertTradingItem(orderBook, 1, order)
 	root := statedb.IntermediateRoot()
 	statedb.Commit()
 	//err := stateCache.TrieDB().Commit(root, false)
@@ -92,6 +94,7 @@ func TestEchangeStates(t *testing.T) {
 			t.Fatalf("Error when get amount save in database: tradeId %d , lendingType %s,got : %d , wanted : %d ", orderItems[i].LendingId, orderItems[i].Side, amount.Uint64(), orderItems[i].Quantity.Uint64())
 		}
 	}
+	fmt.Println(statedb.GetLendingTrade(orderBook, common.BigToHash(big.NewInt(1))).Amount)
 	db.Close()
 }
 
@@ -197,7 +200,7 @@ func TestRevertStates(t *testing.T) {
 	// insert trade order
 	time, data := statedb.GetLowestLiquidationTime(orderBook, big.NewInt(1))
 	fmt.Println(time, data)
-	statedb.RemoveLiquidationTime(orderBook, 1, common.BigToHash(big.NewInt(1)))
+	statedb.RemoveLiquidationTime(orderBook, 1, 1)
 	time, data = statedb.GetLowestLiquidationTime(orderBook, big.NewInt(1))
 	fmt.Println(time, data)
 	// change key

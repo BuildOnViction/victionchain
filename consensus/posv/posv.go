@@ -69,7 +69,7 @@ type TradingService interface {
 	GetStateCache() tradingstate.Database
 	GetTriegc() *prque.Prque
 	ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *tradingstate.TradingStateDB, orderBook common.Hash, order *tradingstate.OrderItem) ([]map[string]string, []*tradingstate.OrderItem, error)
-	UpdateMediumPriceLastEpoch(tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error
+	UpdateMediumPriceBeforeEpoch(tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error
 	IsSDKNode() bool
 	SyncDataToSDKNode(takerOrder *tradingstate.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*tradingstate.OrderItem, dirtyOrderCount *uint64) error
 	RollbackReorgTxMatch(txhash common.Hash)

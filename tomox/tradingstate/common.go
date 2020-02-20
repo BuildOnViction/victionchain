@@ -67,16 +67,16 @@ type orderList struct {
 // tradingExchangeObject is the Ethereum consensus representation of exchanges.
 // These objects are stored in the main orderId trie.
 type tradingExchangeObject struct {
-	Nonce                uint64
-	LastPrice            *big.Int
-	MediumPriceLastEpoch *big.Int
-	MediumPrice          *big.Int
-	TotalQuantity        *big.Int
-	LendingCount         *big.Int
-	AskRoot              common.Hash // merkle root of the storage trie
-	BidRoot              common.Hash // merkle root of the storage trie
-	OrderRoot            common.Hash
-	LiquidationPriceRoot common.Hash
+	Nonce                  uint64
+	LastPrice              *big.Int
+	MediumPriceBeforeEpoch *big.Int
+	MediumPrice            *big.Int
+	TotalQuantity          *big.Int
+	LendingCount           *big.Int
+	AskRoot                common.Hash // merkle root of the storage trie
+	BidRoot                common.Hash // merkle root of the storage trie
+	OrderRoot              common.Hash
+	LiquidationPriceRoot   common.Hash
 }
 
 var (

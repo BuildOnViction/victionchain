@@ -149,7 +149,7 @@ func (self *stateOrderList) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for orderId, amount := range self.dirtyStorage {
 		delete(self.dirtyStorage, orderId)
-		if (amount == EmptyHash) {
+		if amount == EmptyHash {
 			self.setError(tr.TryDelete(orderId[:]))
 			continue
 		}

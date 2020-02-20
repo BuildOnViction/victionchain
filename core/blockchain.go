@@ -1178,7 +1178,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		}
 	}
 	triedb := bc.stateCache.TrieDB()
-
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.Disabled {
 		if err := triedb.Commit(root, false); err != nil {
@@ -1518,7 +1517,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					}
 				}
 				if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
-					if err := tradingService.UpdateMediumPriceLastEpoch(tradingState, statedb); err != nil {
+					if err := tradingService.UpdateMediumPriceBeforeEpoch(tradingState, statedb); err != nil {
 						return i, events, coalescedLogs, err
 					}
 				}
@@ -1796,7 +1795,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				}
 			}
 			if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
-				if err := tomoXService.UpdateMediumPriceLastEpoch(tomoxState, statedb); err != nil {
+				if err := tomoXService.UpdateMediumPriceBeforeEpoch(tomoxState, statedb); err != nil {
 					return nil, err
 				}
 			}
