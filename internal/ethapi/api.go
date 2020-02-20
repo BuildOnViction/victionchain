@@ -21,11 +21,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
 	"math/big"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/tomochain/tomochain/tomox/tomox_state"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -1828,6 +1829,31 @@ func (s *PublicTomoXTransactionPoolAPI) SendOrderRawTransaction(ctx context.Cont
 		return common.Hash{}, err
 	}
 	return submitOrderTransaction(ctx, s.b, tx)
+}
+
+// GetOrderTxMatchByHash returns the bytes of the transaction for the given hash.
+func (s *PublicTomoXTransactionPoolAPI) GetOrderTxMatchByHash(ctx context.Context, hash common.Hash) ([]*tomox_state.OrderItem, error) {
+	var tx *types.Transaction
+	orders := []*tomox_state.OrderItem{}
+	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
+		if tx = s.b.GetPoolTransaction(hash); tx == nil {
+			return []*tomox_state.OrderItem{}, nil
+		}
+	}
+
+	batch, err := tomox_state.DecodeTxMatchesBatch(tx.Data())
+	if err != nil {
+		return []*tomox_state.OrderItem{}, err
+	}
+	for _, txMatch := range batch.Data {
+		order, err := txMatch.DecodeOrder()
+		if err != nil {
+			return []*tomox_state.OrderItem{}, err
+		}
+		orders = append(orders, order)
+	}
+	return orders, nil
+
 }
 
 // OrderMsg struct
