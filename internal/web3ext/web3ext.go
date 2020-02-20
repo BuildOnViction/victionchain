@@ -714,6 +714,11 @@ web3._extend({
             params: 1
 		}),
 		new web3._extend.Method({
+            name: 'getOrderTxMatchByHash',
+            call: 'tomox_getOrderTxMatchByHash',
+            params: 1
+		}),
+		new web3._extend.Method({
             name: 'getOrderCount',
             call: 'tomox_getOrderCount',
             params: 1
