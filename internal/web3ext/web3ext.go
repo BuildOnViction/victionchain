@@ -800,6 +800,11 @@ web3._extend({
             call: 'tomox_getLiquidationTimeTrie',
             params: 2
 		}),
+		new web3._extend.Method({
+            name: 'getLendingOrderCount',
+            call: 'tomox_getLendingOrderCount',
+            params: 1
+        }),
 	]
 });
 `

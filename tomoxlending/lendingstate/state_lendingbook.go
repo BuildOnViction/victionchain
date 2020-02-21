@@ -225,7 +225,7 @@ func (self *lendingExchangeState) getInvestingOrderList(db Database, rate common
 		return nil
 	}
 	// Insert into the live set.
-	obj := newItemListState(self.lendingBook, rate, data, self.MarkBorrowingDirty)
+	obj := newItemListState(self.lendingBook, rate, data, self.MarkInvestingDirty)
 	self.investingStates[rate] = obj
 	return obj
 }
@@ -248,7 +248,7 @@ func (self *lendingExchangeState) getLiquidationTimeOrderList(db Database, time 
 		return nil
 	}
 	// Insert into the live set.
-	obj := newLiquidationTimeState(self.lendingBook, time, data, self.MarkInvestingDirty)
+	obj := newLiquidationTimeState(self.lendingBook, time, data, self.MarkLiquidationTimeDirty)
 	self.liquidationTimeStates[time] = obj
 	return obj
 }

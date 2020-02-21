@@ -128,7 +128,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 			Status:          tx.Status(),
 			Side:            tx.Side(),
 			Type:            tx.Type(),
-			Hash:            tx.Hash(),
+			Hash:            tx.LendingHash(),
 			LendingId:       tx.LendingId(),
 			LendingTradeId:  tx.LendingTradeId(),
 			ExtraData:       tx.ExtraData(),
