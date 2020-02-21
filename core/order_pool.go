@@ -242,10 +242,9 @@ func (pool *OrderPool) loop() {
 			pool.mu.RLock()
 			pending, queued := pool.stats()
 			pool.mu.RUnlock()
-			if pending != prevPending || queued != prevQueued {
-				log.Debug("Order pool status report", "executable", pending, "queued", queued)
-				prevPending, prevQueued = pending, queued
-			}
+
+			log.Debug("Order pool status report", "executable", pending, "queued", queued)
+			prevPending, prevQueued = pending, queued
 
 			// Handle inactive account transaction eviction
 		case <-evict.C:
@@ -666,7 +665,7 @@ func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *type
 	// Set the potentially new pending nonce and notify any subsystems of the new tx
 	pool.beats[addr] = time.Now()
 	pool.pendingState.SetNonce(addr.Hash(), tx.Nonce()+1)
-
+	log.Debug("promoteTx txFeed.Send", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 	go pool.txFeed.Send(OrderTxPreEvent{tx})
 }
 
@@ -674,7 +673,7 @@ func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *type
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *OrderPool) AddLocal(tx *types.OrderTransaction) error {
-	log.Debug("order add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
+	log.Debug("AddLocal order add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
@@ -682,6 +681,7 @@ func (pool *OrderPool) AddLocal(tx *types.OrderTransaction) error {
 // sender is not among the locally tracked ones, full pricing constraints will
 // apply.
 func (pool *OrderPool) AddRemote(tx *types.OrderTransaction) error {
+	log.Debug("AddRemote", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 	return pool.addTx(tx, false)
 }
 
@@ -696,6 +696,9 @@ func (pool *OrderPool) AddLocals(txs []*types.OrderTransaction) []error {
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *OrderPool) AddRemotes(txs []*types.OrderTransaction) []error {
+	for _, tx := range txs {
+		log.Debug("AddRemotes", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
+	}
 	return pool.addTxs(txs, false)
 }
 
@@ -832,7 +835,6 @@ func (pool *OrderPool) removeTx(hash common.Hash) {
 // invalidated transactions (low nonce, low balance) are deleted.
 func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 	start := time.Now()
-	log.Debug("start promoteExecutables")
 	defer log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
 	// Gather all the accounts potentially needing updates
 	if accounts == nil {
@@ -850,7 +852,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(pool.currentOrderState.GetNonce(addr.Hash())) {
 			hash := tx.Hash()
-			log.Trace("Removed old queued transaction", "hash", hash)
+			log.Debug("Removed old queued transaction", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 			delete(pool.all, hash)
 
 		}
@@ -858,7 +860,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 		// Gather all executable transactions and promote them
 		for _, tx := range list.Ready(pool.pendingState.GetNonce(addr.Hash())) {
 			hash := tx.Hash()
-			log.Trace("Promoting queued transaction", "hash", hash)
+			log.Debug("Promoting queued transaction", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 			pool.promoteTx(addr, hash, tx)
 		}
 		// Drop all transactions over the allowed limit
@@ -868,7 +870,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 				delete(pool.all, hash)
 
 				queuedRateLimitCounter.Inc(1)
-				log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
+				log.Debug("Removed cap-exceeding queued transaction", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 			}
 		}
 		// Delete the entire queue entry if it became empty.
@@ -916,7 +918,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 							if nonce := tx.Nonce(); pool.pendingState.GetNonce(offenders[i].Hash()) > nonce {
 								pool.pendingState.SetNonce(offenders[i].Hash(), nonce)
 							}
-							log.Trace("Removed fairness-exceeding pending transaction", "hash", hash)
+							log.Debug("Removed fairness-exceeding pending transaction", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 						}
 						pending--
 					}
@@ -937,7 +939,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 						if nonce := tx.Nonce(); pool.pendingState.GetNonce(addr.Hash()) > nonce {
 							pool.pendingState.SetNonce(addr.Hash(), nonce)
 						}
-						log.Trace("Removed fairness-exceeding pending transaction", "hash", hash)
+						log.Debug("Removed fairness-exceeding pending transaction", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 					}
 					pending--
 				}
@@ -998,7 +1000,7 @@ func (pool *OrderPool) demoteUnexecutables() {
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(nonce) {
 			hash := tx.Hash()
-			log.Debug("Removed old pending transaction", "hash", hash)
+			log.Debug("demoteUnexecutables removed old queued transaction", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 			delete(pool.all, hash)
 		}
 
@@ -1006,7 +1008,7 @@ func (pool *OrderPool) demoteUnexecutables() {
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
 			for _, tx := range list.Cap(0) {
 				hash := tx.Hash()
-				log.Warn("Demoting invalidated transaction", "hash", hash)
+				log.Debug("demoteUnexecutables Demoting invalidated transaction", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 				pool.enqueueTx(hash, tx)
 			}
 		}
