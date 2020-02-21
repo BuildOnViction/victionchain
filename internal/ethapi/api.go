@@ -2104,13 +2104,13 @@ func (s *PublicTomoXTransactionPoolAPI) GetInvestingTrie(ctx context.Context, le
 	}
 	lendingService := s.b.LendingService()
 	if lendingService == nil {
-		return nil, errors.New("TomoX service not found")
+		return nil, errors.New("TomoX Lending service not found")
 	}
-	tomoxState, err := lendingService.GetLendingState(block)
+	lendingState, err := lendingService.GetLendingState(block)
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpInvestingTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	result, err := lendingState.DumpInvestingTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
 	if err != nil {
 		return nil, err
 	}
@@ -2124,13 +2124,13 @@ func (s *PublicTomoXTransactionPoolAPI) GetBorrowingTrie(ctx context.Context, le
 	}
 	lendingService := s.b.LendingService()
 	if lendingService == nil {
-		return nil, errors.New("TomoX service not found")
+		return nil, errors.New("TomoX Lending service not found")
 	}
-	tomoxState, err := lendingService.GetLendingState(block)
+	lendingState, err := lendingService.GetLendingState(block)
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpBorrowingTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	result, err := lendingState.DumpBorrowingTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
 	if err != nil {
 		return nil, err
 	}
@@ -2144,13 +2144,13 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderBookInfo(tx context.Conte
 	}
 	lendingService := s.b.LendingService()
 	if lendingService == nil {
-		return nil, errors.New("TomoX service not found")
+		return nil, errors.New("TomoX Lending service not found")
 	}
-	tomoxState, err := lendingService.GetLendingState(block)
+	lendingState, err := lendingService.GetLendingState(block)
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpOrderBookInfo(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	result, err := lendingState.DumpOrderBookInfo(lendingstate.GetLendingOrderBookHash(lendingToken, term))
 	if err != nil {
 		return nil, err
 	}
@@ -2164,13 +2164,13 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderTrie(ctx context.Context,
 	}
 	lendingService := s.b.LendingService()
 	if lendingService == nil {
-		return nil, errors.New("TomoX service not found")
+		return nil, errors.New("TomoX Lending service not found")
 	}
-	tomoxState, err := lendingService.GetLendingState(block)
+	lendingState, err := lendingService.GetLendingState(block)
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpLendingOrderTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	result, err := lendingState.DumpLendingOrderTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
 	if err != nil {
 		return nil, err
 	}
@@ -2184,13 +2184,13 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingTradeTrie(ctx context.Context,
 	}
 	lendingService := s.b.LendingService()
 	if lendingService == nil {
-		return nil, errors.New("TomoX service not found")
+		return nil, errors.New("TomoX Lending service not found")
 	}
-	tomoxState, err := lendingService.GetLendingState(block)
+	lendingState, err := lendingService.GetLendingState(block)
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpLendingTradeTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	result, err := lendingState.DumpLendingTradeTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
 	if err != nil {
 		return nil, err
 	}
@@ -2204,17 +2204,34 @@ func (s *PublicTomoXTransactionPoolAPI) GetLiquidationTimeTrie(ctx context.Conte
 	}
 	lendingService := s.b.LendingService()
 	if lendingService == nil {
-		return nil, errors.New("TomoX service not found")
+		return nil, errors.New("TomoX Lending service not found")
 	}
-	tomoxState, err := lendingService.GetLendingState(block)
+	lendingState, err := lendingService.GetLendingState(block)
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpLiquidationTimeTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	result, err := lendingState.DumpLiquidationTimeTrie(lendingstate.GetLendingOrderBookHash(lendingToken, term))
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	lendingService := s.b.LendingService()
+	if lendingService == nil {
+		return nil, errors.New("TomoX Lending service not found")
+	}
+	lendingState, err := lendingService.GetLendingState(block)
+	if err != nil {
+		return nil, err
+	}
+	nonce := lendingState.GetNonce(addr.Hash())
+	return (*hexutil.Uint64)(&nonce), err
 }
 
 // Sign calculates an ECDSA signature for:

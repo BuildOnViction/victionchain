@@ -206,3 +206,41 @@ func TestRevertStates(t *testing.T) {
 	// change key
 	db.Close()
 }
+
+func TestDumpStates(t *testing.T) {
+	orderBook := common.StringToHash("BTC/TOMO")
+	numberOrder := 20
+	orderItems := []LendingItem{}
+	relayers := []common.Hash{}
+	for i := 0; i < numberOrder; i++ {
+		relayers = append(relayers, common.BigToHash(big.NewInt(int64(i))))
+		id := new(big.Int).SetUint64(uint64(i) + 1)
+		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(1), Side: Investing, Signature: &Signature{V: 1, R: common.HexToHash("111111"), S: common.HexToHash("222222222222")}})
+		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(1), Side: Borrowing, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
+	}
+	// Create an empty statedb database
+	db, _ := ethdb.NewMemDatabase()
+	stateCache := NewDatabase(db)
+	statedb, _ := New(common.Hash{}, stateCache)
+	for i := 0; i < len(orderItems); i++ {
+		orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderItems[i].LendingId))
+		statedb.InsertLendingItem(orderBook, orderIdHash, orderItems[i])
+	}
+	statedb.InsertLiquidationTime(orderBook, big.NewInt(1), 1)
+	order := LendingTrade{TradeId: 1, Amount: big.NewInt(2)}
+	statedb.InsertTradingItem(orderBook, 1, order)
+	root := statedb.IntermediateRoot()
+	statedb.Commit()
+	//err := stateCache.TrieDB().Commit(root, false)
+	//if err != nil {
+	//	t.Errorf("Error when commit into database: %v", err)
+	//}
+	stateCache.TrieDB().Reference(root, common.Hash{})
+	statedb, err := New(root, stateCache)
+	if err != nil {
+		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
+	}
+
+	fmt.Println(statedb.DumpBorrowingTrie(orderBook))
+	db.Close()
+}

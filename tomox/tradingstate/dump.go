@@ -30,8 +30,8 @@ type DumpOrderList struct {
 	Orders map[*big.Int]*big.Int
 }
 type DumpLendingBook struct {
-	Volume         *big.Int
-	MatchedLending map[common.Hash]DumpOrderList
+	Volume       *big.Int
+	LendingBooks map[common.Hash]DumpOrderList
 }
 
 type DumpOrderBookInfo struct {
@@ -218,7 +218,7 @@ func (self *stateLendingBook) DumpOrderList(db Database) DumpOrderList {
 }
 
 func (self *liquidationPriceState) DumpLendingBook(db Database) (DumpLendingBook, error) {
-	result := DumpLendingBook{Volume: self.Volume()}
+	result := DumpLendingBook{Volume: self.Volume(), LendingBooks: map[common.Hash]DumpOrderList{}}
 	it := trie.NewIterator(self.getTrie(db).NodeIterator(nil))
 	for it.Next() {
 		lendingBook := common.BytesToHash(it.Key)
@@ -233,12 +233,12 @@ func (self *liquidationPriceState) DumpLendingBook(db Database) (DumpLendingBook
 				return result, fmt.Errorf("Failed to decode state lending book orderbook : %s ,liquidation price :%s , lendingBook : %s ,err : %v", self.orderBook, self.liquidationPrice, lendingBook, err)
 			}
 			stateLendingBook := newStateLendingBook(self.orderBook, self.liquidationPrice, lendingBook, data, nil)
-			result.MatchedLending[lendingBook] = stateLendingBook.DumpOrderList(db)
+			result.LendingBooks[lendingBook] = stateLendingBook.DumpOrderList(db)
 		}
 	}
 	for lendingBook, stateLendingBook := range self.stateLendingBooks {
 		if !common.EmptyHash(lendingBook) {
-			result.MatchedLending[lendingBook] = stateLendingBook.DumpOrderList(db)
+			result.LendingBooks[lendingBook] = stateLendingBook.DumpOrderList(db)
 		}
 	}
 	return result, nil
