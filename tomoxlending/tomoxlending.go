@@ -262,7 +262,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	for _, tradeRecord := range trades {
 		// 2.a. put to trades
 		if tradeRecord.Status != lendingstate.TradeStatusOpen {
-			log.Debug("UpdateLendingTrade:", "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status)
+			log.Debug("UpdateLendingTrade:", "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
 			return l.UpdateLendingTrade([]common.Hash{tradeRecord.Hash}, tradeRecord.Status, txHash, txMatchTime)
 		}
 		if tradeRecord.CreatedAt.IsZero() {
@@ -430,10 +430,10 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult) err
 
 	txhash := result.TxHash
 	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
-	if err := l.UpdateLendingTrade(result.Liquidated, lendingstate.TradeStatusLiquidated, txhash, txTime); err != nil {
+	if err := l.UpdateLendingTrade(result.Closed, lendingstate.TradeStatusClosed, txhash, txTime); err != nil {
 		return err
 	}
-	if err := l.UpdateLendingTrade(result.Closed, lendingstate.TradeStatusClosed, txhash, txTime); err != nil {
+	if err := l.UpdateLendingTrade(result.Liquidated, lendingstate.TradeStatusLiquidated, txhash, txTime); err != nil {
 		return err
 	}
 	return nil

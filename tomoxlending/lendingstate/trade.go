@@ -122,6 +122,11 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	if err != nil {
 		return err
 	}
+	tradeId, err := strconv.ParseInt(decoded.TradeId, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse lendingItem.TradeId. Err: %v", err)
+	}
+	t.TradeId = uint64(tradeId)
 	t.Borrower = common.HexToAddress(decoded.Borrower)
 	t.Investor = common.HexToAddress(decoded.Investor)
 	t.LendingToken = common.HexToAddress(decoded.LendingToken)
