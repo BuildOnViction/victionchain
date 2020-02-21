@@ -2541,11 +2541,15 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	for _, deletedTx := range deletedTxs {
 		if deletedTx.IsTradingTransaction() {
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
-			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
+			if err := tomoXService.RollbackReorgTxMatch(deletedTx.Hash()); err != nil {
+				log.Crit("Reorg trading failed", "err", err, "hash", deletedTx.Hash())
+			}
 		}
 		if lendingService != nil && (deletedTx.IsLendingTransaction() || deletedTx.IsLendingFinalizedTradeTransaction()) {
 			log.Debug("Rollback reorg lendingItem", "txhash", deletedTx.Hash())
-			lendingService.RollbackLendingData(deletedTx.Hash())
+			if err:= lendingService.RollbackLendingData(deletedTx.Hash()); err != nil {
+				log.Crit("Reorg lending failed", "err", err, "hash", deletedTx.Hash())
+			}
 		}
 	}
 
@@ -2606,7 +2610,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			milliSecond := batch.Timestamp / 1e6
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
 			if err := lendingService.SyncDataToSDKNode(item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
-				log.Error("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
+				log.Crit("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
 			}
 		}
@@ -2615,13 +2619,13 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 	// update finalizedTrades
 	finalizedTrades, err := ExtractLendingFinalizedTradeTransactions(block.Transactions())
 	if err != nil {
-		log.Error("failed to extract finalizedTrades transaction", "err", err)
+		log.Crit("failed to extract finalizedTrades transaction", "err", err)
 		return
 	}
 	log.Debug("ExtractLendingFinalizedTradeTransactions", "block", block.Number(), "liquidated", len(finalizedTrades.Liquidated), "closed", len(finalizedTrades.Closed))
 	if len(finalizedTrades.Liquidated) > 0 || len(finalizedTrades.Closed) > 0 {
 		if err := lendingService.UpdateLiquidatedTrade(finalizedTrades); err != nil {
-			log.Error("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
+			log.Crit("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
 			return
 		}
 	}

@@ -694,7 +694,7 @@ func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, st
 	lendingBook := lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term)
 	originOrder := lendingStateDB.GetLendingOrder(lendingBook, common.BigToHash(new(big.Int).SetUint64(order.LendingId)))
 	if originOrder == lendingstate.EmptyLendingOrder {
-		return fmt.Errorf("lendingOrder not found. Id: %v. LendToken: %s . Term: %v. CollateralToken: %v", order.LendingId, order.LendingToken.Hex(), order.Term, order.CollateralToken.Hex()), false,nil
+		return fmt.Errorf("lendingOrder not found. Id: %v. LendToken: %s . Term: %v. CollateralToken: %v", order.LendingId, order.LendingToken.Hex(), order.Term, order.CollateralToken.Hex()), false, nil
 	}
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeId)
 	if lendingTrade == lendingstate.EmptyLendingTrade {

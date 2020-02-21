@@ -67,7 +67,7 @@ func (l *LendingMsg) computeHash() common.Hash {
 	return common.BytesToHash(sha.Sum(nil))
 
 }
-func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint64, side string, status string, lendingId, tradeId uint64, extraData string) {
+func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint64, side string, status string, lendingId, tradeId uint64, cancelledHash common.Hash, extraData string) {
 
 	client, err := ethclient.Dial("http://127.0.0.1:1545")
 	if err != nil {
@@ -93,7 +93,11 @@ func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint6
 		LendingTradeId:  tradeId,
 		ExtraData:       extraData,
 	}
-	msg.Hash = msg.computeHash()
+	if cancelledHash != (common.Hash{}) {
+		msg.Hash = cancelledHash
+	} else {
+		msg.Hash = msg.computeHash()
+	}
 
 	tx := types.NewLendingTransaction(nonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, msg.Hash, lendingId, tradeId, msg.ExtraData)
 	signedTx, err := types.LendingSignTx(tx, types.LendingTxSigner{}, privateKey)
@@ -108,10 +112,25 @@ func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint6
 }
 
 func TestSendLending(t *testing.T) {
-	testSendLending(t, 0, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, "")
+	//test matching FULL FILLED
+	testSendLending(t, 0, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
 	time.Sleep(2000)
-	//testSendLending(t, 1, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, "")
-	//time.Sleep(2000)
-	//testSendLending(t, 2, new(big.Int).Mul(new(big.Int).SetUint64(1000000000000000000), big.NewInt(1005)), 10, lendingstate.Borrowing, lendingstate.Payment, 0, 1, common.Uint64ToHash(1).Hex())
+	testSendLending(t, 1, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	time.Sleep(2000)
+	//test pay the above loan
+	testSendLending(t, 2, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.Payment, 0, 1, common.Hash{}, "")
+	time.Sleep(2000)
+
+	// test cancel
+	testSendLending(t, 3, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	time.Sleep(2000)
+	// TODO: update cancelled hash
+	testSendLending(t, 4, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusCancelled, 2, 0, common.HexToHash("0x76c2cdf45ec74dff1e2902ab375c0901ea7298f6363d8201c0d4120a2d213e6e"), "")
+	//
+	// test matching PARTIAL FILLED
+	testSendLending(t, 5, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	time.Sleep(2000)
+	testSendLending(t, 6, new(big.Int).SetUint64(500000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	time.Sleep(2000)
 }
 

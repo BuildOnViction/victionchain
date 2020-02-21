@@ -258,23 +258,25 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	// 2. put trades to database and update status
 	log.Debug("Got lendingTrades", "number", len(trades), "txhash", txHash.Hex())
 	makerDirtyFilledAmount = make(map[string]*big.Int)
+
 	for _, tradeRecord := range trades {
 		// 2.a. put to trades
-
+		if tradeRecord.Status != lendingstate.TradeStatusOpen {
+			log.Debug("UpdateLendingTrade:", "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status)
+			return l.UpdateLendingTrade([]common.Hash{tradeRecord.Hash}, tradeRecord.Status, txHash, txMatchTime)
+		}
 		if tradeRecord.CreatedAt.IsZero() {
 			tradeRecord.CreatedAt = txMatchTime
 		}
 		tradeRecord.UpdatedAt = txMatchTime
 		tradeRecord.TxHash = txHash
-		if tradeRecord.Status == lendingstate.TradeStatusOpen {
-			tradeRecord.Hash = tradeRecord.ComputeHash()
+		tradeRecord.Hash = tradeRecord.ComputeHash()
+		log.Debug("LendingTrade history ", "Term", tradeRecord.Term, "amount", tradeRecord.Amount, "Interest", tradeRecord.Interest,
+			"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "BorrowingOrderHash", tradeRecord.BorrowingOrderHash.Hex(), "InvestingOrderHash", tradeRecord.InvestingOrderHash.Hex(),
+			"borrowing", tradeRecord.BorrowingFee.String(), "investingFee", tradeRecord.InvestingFee.String())
+		if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {
+			return fmt.Errorf("SDKNode: failed to store lendingTrade %s", err.Error())
 		}
-			log.Debug("LendingTrade history ", "Term", tradeRecord.Term, "amount", tradeRecord.Amount, "Interest", tradeRecord.Interest,
-				"borrower", tradeRecord.Borrower.Hex(), "investor", tradeRecord.Investor.Hex(), "BorrowingOrderHash", tradeRecord.BorrowingOrderHash.Hex(), "InvestingOrderHash", tradeRecord.InvestingOrderHash.Hex(),
-				"borrowing", tradeRecord.BorrowingFee.String(), "investingFee", tradeRecord.InvestingFee.String())
-			if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {
-				return fmt.Errorf("SDKNode: failed to store lendingTrade %s", err.Error())
-			}
 
 		// 2.b. update status and filledAmount
 		filledAmount := new(big.Int)
@@ -439,6 +441,8 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult) err
 
 func (l *Lending) UpdateLendingTrade(hashes []common.Hash, status string, txhash common.Hash, txTime time.Time) error {
 	db := l.GetMongoDB()
+	sc := db.InitLendingBulk()
+	defer sc.Close()
 	hashQuery := []string{}
 	for _, h := range hashes {
 		hashQuery = append(hashQuery, h.Hex())
@@ -462,6 +466,10 @@ func (l *Lending) UpdateLendingTrade(hashes []common.Hash, status string, txhash
 			}
 		}
 	}
+	if err := db.CommitLendingBulk(); err != nil {
+		return fmt.Errorf("failed to updateLendingTrade . Err: %v", err)
+	}
+	log.Debug("UpdateLendingTrade successfully", "txhash", txhash, "hash", hashQuery)
 	return nil
 }
 
@@ -523,15 +531,14 @@ func (l *Lending) UpdateLendingTradeCache(hash common.Hash, txhash common.Hash, 
 	if !ok {
 		lendingCacheAtTxHash[hash] = lastState
 	}
-	l.lendingItemHistory.Add(txhash, lendingCacheAtTxHash)
+	l.lendingTradeHistory.Add(txhash, lendingCacheAtTxHash)
 }
 
-func (l *Lending) RollbackLendingData(txhash common.Hash) {
+func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 	db := l.GetMongoDB()
-	defer func() {
-		l.lendingItemHistory.Remove(txhash)
-		l.lendingTradeHistory.Remove(txhash)
-	}()
+	sc := db.InitLendingBulk()
+	defer sc.Close()
+
 
 	// rollback lendingItem
 	items := db.GetListItemByTxHash(txhash, &lendingstate.LendingItem{})
@@ -542,7 +549,7 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 			if !ok {
 				log.Debug("tomoxlending reorg: remove item due to no lendingItemHistory", "item", lendingstate.ToJSON(item))
 				if err := db.DeleteObject(item.Hash, &lendingstate.LendingItem{}); err != nil {
-					log.Error("SDKNode: failed to remove reorg lendingItem", "err", err.Error(), "item", lendingstate.ToJSON(item))
+					return fmt.Errorf("failed to remove reorg LendingItem. Err: %v . Item: %s", err.Error(), lendingstate.ToJSON(item))
 				}
 				continue
 			}
@@ -551,7 +558,7 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 			if (lendingItemHistory == lendingstate.LendingItemHistoryItem{}) {
 				log.Debug("tomoxlending reorg: remove item due to empty lendingItemHistory", "item", lendingstate.ToJSON(item))
 				if err := db.DeleteObject(item.Hash, &lendingstate.LendingItem{}); err != nil {
-					log.Error("SDKNode: failed to remove reorg lendingItem", "err", err.Error(), "item", lendingstate.ToJSON(item))
+					return fmt.Errorf("failed to remove reorg LendingItem. Err: %v . Item: %s", err.Error(), lendingstate.ToJSON(item))
 				}
 				continue
 			}
@@ -561,7 +568,7 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 			item.UpdatedAt = lendingItemHistory.UpdatedAt
 			log.Debug("tomoxlending reorg: update item to the last lendingItemHistory", "item", lendingstate.ToJSON(item), "lendingItemHistory", lendingItemHistory)
 			if err := db.PutObject(item.Hash, item); err != nil {
-				log.Error("SDKNode: failed to update reorg item", "err", err.Error(), "item", lendingstate.ToJSON(item))
+				return fmt.Errorf("failed to update reorg LendingItem. Err: %v . Item: %s", err.Error(), lendingstate.ToJSON(item))
 			}
 		}
 	}
@@ -575,7 +582,7 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 			if !ok {
 				log.Debug("tomoxlending reorg: remove trade due to no LendingTradeHistory", "trade", lendingstate.ToJSON(trade))
 				if err := db.DeleteObject(trade.Hash, &lendingstate.LendingTrade{}); err != nil {
-					log.Error("SDKNode: failed to remove reorg LendingTrade", "err", err.Error(), "trade", lendingstate.ToJSON(trade))
+					return fmt.Errorf("failed to remove reorg LendingTrade. Err: %v . Trade: %s", err.Error(), lendingstate.ToJSON(trade))
 				}
 				continue
 			}
@@ -584,7 +591,7 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 			if (lendingTradeHistoryItem == lendingstate.LendingTradeHistoryItem{}) {
 				log.Debug("tomoxlending reorg: remove trade due to empty LendingTradeHistory", "trade", lendingstate.ToJSON(trade))
 				if err := db.DeleteObject(trade.Hash, &lendingstate.LendingTrade{}); err != nil {
-					log.Error("SDKNode: failed to remove reorg LendingTrade", "err", err.Error(), "trade", lendingstate.ToJSON(trade))
+					return fmt.Errorf("failed to remove reorg LendingTrade. Err: %v . Trade: %s", err.Error(), lendingstate.ToJSON(trade))
 				}
 				continue
 			}
@@ -595,10 +602,14 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) {
 			trade.UpdatedAt = lendingTradeHistoryItem.UpdatedAt
 			log.Debug("tomoxlending reorg: update trade to the last lendingTradeHistoryItem", "trade", lendingstate.ToJSON(trade), "lendingTradeHistoryItem", lendingTradeHistoryItem)
 			if err := db.PutObject(trade.Hash, trade); err != nil {
-				log.Error("SDKNode: failed to update reorg LendingTrade", "err", err.Error(), "trade", lendingstate.ToJSON(trade))
+				return fmt.Errorf("failed to update reorg LendingTrade. Err: %v . Trade: %s", err.Error(), lendingstate.ToJSON(trade))
 			}
 		}
 	}
+	if err := db.CommitLendingBulk(); err != nil {
+		return fmt.Errorf("failed to RollbackLendingData. %v", err)
+	}
+	return nil
 }
 
 func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades, closedTrades []common.Hash, err error) {

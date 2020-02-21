@@ -72,7 +72,7 @@ type TradingService interface {
 	UpdateMediumPriceBeforeEpoch(tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error
 	IsSDKNode() bool
 	SyncDataToSDKNode(takerOrder *tradingstate.OrderItem, txHash common.Hash, txMatchTime time.Time, statedb *state.StateDB, trades []map[string]string, rejectedOrders []*tradingstate.OrderItem, dirtyOrderCount *uint64) error
-	RollbackReorgTxMatch(txhash common.Hash)
+	RollbackReorgTxMatch(txhash common.Hash) error
 	GetTokenDecimal(chain consensus.ChainContext, statedb *state.StateDB, coinbase common.Address, tokenAddr common.Address) (*big.Int, error)
 }
 
@@ -86,7 +86,7 @@ type LendingService interface {
 	ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades, closedTrades []common.Hash, err error)
 	SyncDataToSDKNode(takerOrderInTx *lendingstate.LendingItem, txHash common.Hash, txMatchTime time.Time, trades []*lendingstate.LendingTrade, rejectedOrders []*lendingstate.LendingItem, dirtyOrderCount *uint64) error
 	UpdateLiquidatedTrade(result lendingstate.FinalizedResult) error
-	RollbackLendingData(txhash common.Hash)
+	RollbackLendingData(txhash common.Hash) error
 }
 
 // Posv proof-of-stake-voting protocol constants.

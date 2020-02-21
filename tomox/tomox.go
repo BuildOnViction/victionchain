@@ -553,9 +553,11 @@ func (tomox *TomoX) UpdateOrderCache(baseToken, quoteToken common.Address, order
 	tomox.orderCache.Add(txhash, orderCacheAtTxHash)
 }
 
-func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
+func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) error {
 	db := tomox.GetMongoDB()
-	defer tomox.orderCache.Remove(txhash)
+	sc := db.InitBulk()
+	defer sc.Close()
+
 	items := db.GetListItemByTxHash(txhash, &tradingstate.OrderItem{})
 	if items != nil {
 		for _, order := range items.([]*tradingstate.OrderItem) {
@@ -564,7 +566,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 			if !ok {
 				log.Debug("Tomox reorg: remove order due to no orderCache", "order", tradingstate.ToJSON(order))
 				if err := db.DeleteObject(order.Hash, &tradingstate.OrderItem{}); err != nil {
-					log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
+					return fmt.Errorf("failed to remove reorg orderItem. Err: %v . Trade: %s", err.Error(), tradingstate.ToJSON(order))
 				}
 				continue
 			}
@@ -573,7 +575,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 			if (orderHistoryItem == tradingstate.OrderHistoryItem{}) {
 				log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", tradingstate.ToJSON(order))
 				if err := db.DeleteObject(order.Hash, &tradingstate.OrderItem{}); err != nil {
-					log.Error("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
+					return fmt.Errorf("failed to remove reorg orderItem. Err: %v . Trade: %s", err.Error(), tradingstate.ToJSON(order))
 				}
 				continue
 			}
@@ -583,11 +585,14 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) {
 			order.UpdatedAt = orderHistoryItem.UpdatedAt
 			log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", tradingstate.ToJSON(order), "orderHistoryItem", orderHistoryItem)
 			if err := db.PutObject(order.Hash, order); err != nil {
-				log.Error("SDKNode: failed to update reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
+				return fmt.Errorf("failed to update reorg orderItem. Err: %v . Trade: %s", err.Error(), tradingstate.ToJSON(order))
 			}
 		}
 	}
 	log.Debug("Tomox reorg: DeleteTradeByTxHash", "txhash", txhash.Hex())
 	db.DeleteItemByTxHash(txhash, &tradingstate.Trade{})
-
+	if err := db.CommitBulk(); err != nil {
+		return fmt.Errorf("failed to RollbackTradingData. %v", err)
+	}
+	return nil
 }
