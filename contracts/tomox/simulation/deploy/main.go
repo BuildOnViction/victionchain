@@ -182,6 +182,11 @@ func main() {
 	terms := []*big.Int{}
 	collaterals := []common.Address{}
 
+	// USD 1 minute for testing
+	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
+	terms = append(terms, big.NewInt(60))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
 	// USD 1 days
 	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
 	terms = append(terms, big.NewInt(86400))
@@ -232,6 +237,14 @@ func main() {
 	_, err = lendingRelayerRegistration.AddBaseToken(tokenList[9]["address"].(common.Address))
 	if err != nil {
 		log.Fatal("Lending add base token", err)
+	}
+
+	// add term 1 minute for testing
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(60))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
 	}
 
 	nonce = nonce + 1
