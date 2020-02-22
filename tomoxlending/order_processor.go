@@ -445,7 +445,10 @@ func (l *Lending) getLendQuantity(
 		if err == nil {
 			err = DoSettleBalance(coinbase, takerOrder, makerOrder, settleBalanceResult, statedb)
 		}
-		return quantity, settleBalanceResult.CollateralLockedAmount, rejectMaker, settleBalanceResult, err
+		if err != nil {
+			return lendingstate.Zero, lendingstate.Zero, rejectMaker, nil, err
+		}
+		return quantity, settleBalanceResult.CollateralLockedAmount, rejectMaker, settleBalanceResult, nil
 	}
 	return quantity, lendingstate.Zero, rejectMaker, nil, nil
 }
