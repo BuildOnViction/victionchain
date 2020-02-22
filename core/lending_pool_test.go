@@ -137,22 +137,27 @@ func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string
 
 
 func TestSendLending(t *testing.T) {
-	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
+	// 10%
+	interestRate := 10 * common.BaseLendingInterest.Uint64() / 100
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
 	time.Sleep(2 * time.Second)
-	//testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, _1E8, 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	testSendLending(t, _1E8, interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, _1E8, 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	testSendLending(t, _1E8, interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
 }
 
 func TestCancelLending(t *testing.T) {
-	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	// 10%
+	interestRate := 10 * common.BaseLendingInterest.Uint64() / 100
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
 	time.Sleep(2  * time.Second)
-	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusCancelled, 1, 0, common.HexToHash(""), "")
+	//TODO: run the above testcase first, then updating lendingId, Hash
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusCancelled, 2, 0, common.HexToHash("0xbafc27418d35400650e524050696e078e7c5ac0d2c4a6d565621f4408332ad1b"), "")
 }
 
