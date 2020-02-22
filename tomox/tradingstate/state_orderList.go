@@ -17,7 +17,6 @@
 package tradingstate
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"math/big"
@@ -111,11 +110,7 @@ func (self *stateOrderList) GetOrderAmount(db Database, orderId common.Hash) com
 		return EmptyHash
 	}
 	if len(enc) > 0 {
-		_, content, _, err := rlp.Split(enc)
-		if err != nil {
-			self.setError(err)
-		}
-		amount.SetBytes(content)
+		amount.SetBytes(enc)
 	}
 	self.cachedStorage[orderId] = amount
 	return amount
@@ -153,9 +148,7 @@ func (self *stateOrderList) updateTrie(db Database) Trie {
 			self.setError(tr.TryDelete(orderId[:]))
 			continue
 		}
-		// Encoding []byte cannot fail, ok to ignore the error.
-		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(amount[:], "\x00"))
-		self.setError(tr.TryUpdate(orderId[:], v))
+		self.setError(tr.TryUpdate(orderId[:], amount[:]))
 	}
 	return tr
 }

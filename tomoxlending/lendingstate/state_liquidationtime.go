@@ -17,7 +17,6 @@
 package lendingstate
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
@@ -155,9 +154,7 @@ func (self *liquidationTimeState) updateTrie(db Database) Trie {
 			self.setError(tr.TryDelete(key[:]))
 			continue
 		}
-		// Encoding []byte cannot fail, ok to ignore the error.
-		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
-		self.setError(tr.TryUpdate(key[:], v))
+		self.setError(tr.TryUpdate(key[:], value[:]))
 	}
 	return tr
 }

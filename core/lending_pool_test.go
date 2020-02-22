@@ -2,14 +2,18 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/ethclient"
+	"github.com/tomochain/tomochain/rpc"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"log"
 	"math/big"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -37,6 +41,24 @@ type LendingMsg struct {
 	// This is only used when marshaling to JSON.
 	Hash common.Hash `json:"hash" rlp:"-"`
 }
+
+func getLendingNonce(t *testing.T, userAddress common.Address) (uint64, error) {
+	rpcClient, err := rpc.DialHTTP("http://127.0.0.1:8501")
+	defer rpcClient.Close()
+	if err != nil {
+		return 0, err
+	}
+	var result interface{}
+	err = rpcClient.Call(&result, "tomox_getLendingOrderCount", userAddress)
+	if err != nil {
+		return 0, err
+	}
+	s := result.(string)
+	s = strings.TrimPrefix(s, "0x")
+	n, err := strconv.ParseUint(s, 16, 32)
+	return uint64(n), nil
+}
+
 
 func (l *LendingMsg) computeHash() common.Hash {
 	sha := sha3.NewKeccak256()
@@ -67,16 +89,18 @@ func (l *LendingMsg) computeHash() common.Hash {
 	return common.BytesToHash(sha.Sum(nil))
 
 }
-func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint64, side string, status string, lendingId, tradeId uint64, cancelledHash common.Hash, extraData string) {
+func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string, status string, lendingId, tradeId uint64, cancelledHash common.Hash, extraData string) {
 
-	client, err := ethclient.Dial("http://127.0.0.1:1545")
+	client, err := ethclient.Dial("http://127.0.0.1:8501")
 	if err != nil {
 		log.Print(err)
 	}
-	privateKey, err := crypto.HexToECDSA("65ec4d4dfbcac594a14c36baa462d6f73cd86134840f6cf7b80a1e1cd33473e2")
+	privateKey, err := crypto.HexToECDSA("3b43d337ae657c351d2542c7ee837c39f5db83da7ffffb611992ebc2f676743b")
 	if err != nil {
 		log.Print(err)
 	}
+	nonce, err := getLendingNonce(t, crypto.PubkeyToAddress(privateKey.PublicKey))
+	fmt.Println("nonce", nonce, "err", err)
 	msg := &LendingMsg{
 		AccountNonce:    nonce,
 		Quantity:        amount,
@@ -111,27 +135,24 @@ func testSendLending(t *testing.T, nonce uint64, amount *big.Int, interest uint6
 	}
 }
 
+
 func TestSendLending(t *testing.T) {
-	//test matching FULL FILLED
-	testSendLending(t, 0, new(big.Int).Mul(_1E8, big.NewInt(1000)), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
-	time.Sleep(2000)
-	testSendLending(t, 1, new(big.Int).Mul(_1E8, big.NewInt(1000)), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
-	time.Sleep(2000)
-	//test pay the above loan
-	testSendLending(t, 2, new(big.Int).Mul(_1E8, big.NewInt(1000)), 10, lendingstate.Borrowing, lendingstate.Payment, 0, 1, common.Hash{}, "")
-	time.Sleep(2000)
+	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
+	time.Sleep(2 * time.Second)
+	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
+	time.Sleep(2 * time.Second)
+	//testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
+	time.Sleep(2 * time.Second)
+	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
+	time.Sleep(2 * time.Second)
+	testSendLending(t, _1E8, 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	time.Sleep(2 * time.Second)
+	testSendLending(t, _1E8, 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+}
 
-	// test matching PARTIAL FILLED
-	testSendLending(t, 3, new(big.Int).Mul(_1E8, big.NewInt(1000)), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
-	time.Sleep(2000)
-	testSendLending(t, 4, new(big.Int).Mul(_1E8, big.NewInt(1000)), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
-	time.Sleep(2000)
-
-	//// test cancel
-	testSendLending(t, 5, new(big.Int).Mul(_1E8, big.NewInt(1000)), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
-	time.Sleep(2000)
-	////TODO: update cancelled hash
-	testSendLending(t, 6, new(big.Int).Mul(_1E8, big.NewInt(1000)), 10, lendingstate.Investing, lendingstate.LendingStatusCancelled, 3, 0, common.HexToHash("0xdf2efbe1970dddb9ced42d6f5cf4a3618522bc57704515c5b47027d85b43fec1"), "")
-
+func TestCancelLending(t *testing.T) {
+	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
+	time.Sleep(2  * time.Second)
+	testSendLending(t, _1E8, 10, lendingstate.Investing, lendingstate.LendingStatusCancelled, 1, 0, common.HexToHash(""), "")
 }
 

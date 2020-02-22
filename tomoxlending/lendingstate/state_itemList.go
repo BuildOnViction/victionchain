@@ -17,7 +17,6 @@
 package lendingstate
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
@@ -97,11 +96,7 @@ func (self *itemListState) GetOrderAmount(db Database, orderId common.Hash) comm
 		return EmptyHash
 	}
 	if len(enc) > 0 {
-		_, content, _, err := rlp.Split(enc)
-		if err != nil {
-			self.setError(err)
-		}
-		amount.SetBytes(content)
+		amount.SetBytes(enc)
 	}
 	self.cachedStorage[orderId] = amount
 	return amount
@@ -123,7 +118,7 @@ func (self *itemListState) setOrderItem(orderId common.Hash, amount common.Hash)
 	self.dirtyStorage[orderId] = amount
 
 	if self.onDirty != nil {
-		self.onDirty(self.lendingBook)
+		self.onDirty(self.key)
 		self.onDirty = nil
 	}
 }
@@ -137,9 +132,7 @@ func (self *itemListState) updateTrie(db Database) Trie {
 			self.setError(tr.TryDelete(orderId[:]))
 			continue
 		}
-		// Encoding []byte cannot fail, ok to ignore the error.
-		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(amount[:], "\x00"))
-		self.setError(tr.TryUpdate(orderId[:], v))
+		self.setError(tr.TryUpdate(orderId[:], amount[:]))
 	}
 	return tr
 }

@@ -208,6 +208,9 @@ func (l *Lending) processLimitOrder(createdBlockTime uint64, coinbase common.Add
 		orderIdHash := common.BigToHash(new(big.Int).SetUint64(order.LendingId))
 		lendingStateDB.InsertLendingItem(lendingOrderBook, orderIdHash, *order)
 		log.Debug("After matching, order (unmatched part) is now added to tree", "side", order.Side, "order", order)
+		investingRate, investingVolume := lendingStateDB.GetBestInvestingRate(lendingOrderBook)
+		borrowingRate, borrowingVolume := lendingStateDB.GetBestBorrowRate(lendingOrderBook)
+		log.Debug("After matching", "side", order.Side, "LendingId", order.LendingId, "investingRate", investingRate, "investingVolume", investingVolume, "borrowingRate", borrowingRate, "borrowingVolume", borrowingVolume)
 	}
 	return trades, rejects, nil
 }
@@ -672,7 +675,6 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 	lendingstate.SubRelayerFee(originOrder.Relayer, common.RelayerCancelFee, statedb)
 	masternodeOwner := statedb.GetOwner(coinbase)
 	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
-
 	relayerOwner := lendingstate.GetRelayerOwner(originOrder.Relayer, statedb)
 	switch originOrder.Side {
 	case lendingstate.Investing:
