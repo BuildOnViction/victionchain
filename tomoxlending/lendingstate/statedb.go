@@ -663,6 +663,6 @@ func (self *LendingStateDB) CancelLendingTrade(orderBook common.Hash, tradeId ui
 		orderBook: orderBook,
 		order:     self.GetLendingTrade(orderBook, tradeIdHash),
 	})
-	lendingTrade.data.Amount = Zero
+	lendingTrade.SetAmount(Zero)
 	return nil
 }

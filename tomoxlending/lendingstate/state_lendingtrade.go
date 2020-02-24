@@ -68,3 +68,11 @@ func (self *lendingTradeState) SetLiquidationPrice(price *big.Int) {
 		self.onDirty = nil
 	}
 }
+
+func (self *lendingTradeState) SetAmount(amount *big.Int) {
+	self.data.Amount = amount
+	if self.onDirty != nil {
+		self.onDirty(self.tradeId)
+		self.onDirty = nil
+	}
+}
