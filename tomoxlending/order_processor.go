@@ -697,26 +697,26 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem) (error, bool, *lendingstate.LendingTrade) {
 	lendingTradeId := common.Uint64ToHash(order.LendingTradeId)
 	lendingBook := lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term)
-	originOrder := lendingStateDB.GetLendingOrder(lendingBook, common.BigToHash(new(big.Int).SetUint64(order.LendingId)))
-	if originOrder == lendingstate.EmptyLendingOrder {
-		return fmt.Errorf("lendingOrder not found. Id: %v. LendToken: %s . Term: %v. CollateralToken: %v", order.LendingId, order.LendingToken.Hex(), order.Term, order.CollateralToken.Hex()), false, nil
-	}
+
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeId)
 	if lendingTrade == lendingstate.EmptyLendingTrade {
 		return fmt.Errorf("process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId.Hex()), true, nil
+	}
+	if order.UserAddress != lendingTrade.Borrower {
+		return fmt.Errorf("ProcessDeposit: invalid userAddress . UserAddress: %s . Borrower: %s", order.UserAddress.Hex(), lendingTrade.Borrower.Hex()), true, nil
 	}
 	if order.Quantity.Sign() <= 0 || lendingTrade.TradeId != lendingTradeId.Big().Uint64() {
 		log.Debug("invalid order deposit", "Quantity", order.Quantity, "lendingTradeId", lendingTradeId.Hex())
 		return nil, true, nil
 	}
-	tokenBalance := lendingstate.GetTokenBalance(originOrder.UserAddress, lendingTrade.CollateralToken, statedb)
+	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
 	if tokenBalance.Cmp(order.Quantity) < 0 {
 		log.Debug("not enough balance deposit", "Quantity", order.Quantity, "tokenBalance", tokenBalance)
 		return nil, true, nil
 	}
 	tradingStateDb.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTrade.TradeId)
 
-	lendingstate.SubTokenBalance(originOrder.UserAddress, order.Quantity, lendingTrade.CollateralToken, statedb)
+	lendingstate.SubTokenBalance(lendingTrade.Borrower, order.Quantity, lendingTrade.CollateralToken, statedb)
 	lendingstate.AddTokenBalance(common.HexToAddress(common.LendingLockAddress), order.Quantity, lendingTrade.CollateralToken, statedb)
 	oldLockedAmount := lendingTrade.CollateralLockedAmount
 	newLockedAmount := new(big.Int).Add(order.Quantity, oldLockedAmount)
