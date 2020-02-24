@@ -155,7 +155,7 @@ func (self *itemListState) DumpItemList(db Database) DumpOrderList {
 	for _, id := range listIds {
 		result.Orders[id] = mapResult.Orders[id]
 	}
-	return mapResult
+	return result
 }
 
 func (self *LendingStateDB) DumpOrderBookInfo(orderBook common.Hash) (*DumpOrderBookInfo, error) {
@@ -311,9 +311,9 @@ func (self *LendingStateDB) DumpLendingTradeTrie(orderBook common.Hash) (map[*bi
 			mapResult[tradeId] = data
 		}
 	}
-	//for tradeIdHash, lendingTrade := range exhangeObject.lendingTradeStates {
-	//	mapResult[new(big.Int).SetBytes(tradeIdHash.Bytes())] = lendingTrade.data
-	//}
+	for tradeIdHash, lendingTrade := range exhangeObject.lendingTradeStates {
+		mapResult[new(big.Int).SetBytes(tradeIdHash.Bytes())] = lendingTrade.data
+	}
 	listTradeId := []*big.Int{}
 	for tradeId, _ := range mapResult {
 		listTradeId = append(listTradeId, tradeId)

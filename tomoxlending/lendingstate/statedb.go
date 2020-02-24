@@ -340,16 +340,16 @@ func (self *LendingStateDB) CancelLendingOrder(orderBook common.Hash, order *Len
 func (self *LendingStateDB) GetBestInvestingRate(orderBook common.Hash) (*big.Int, *big.Int) {
 	stateObject := self.getLendingExchange(orderBook)
 	if stateObject != nil {
-		priceHash := stateObject.getBestInvestingInterest(self.db)
-		if common.EmptyHash(priceHash) {
+		investingHash := stateObject.getBestInvestingInterest(self.db)
+		if common.EmptyHash(investingHash) {
 			return Zero, Zero
 		}
-		orderList := stateObject.getInvestingOrderList(self.db, priceHash)
+		orderList := stateObject.getInvestingOrderList(self.db, investingHash)
 		if orderList == nil {
-			log.Error("order list ask not found", "key", priceHash.Hex())
+			log.Error("order list investing not found", "key", investingHash.Hex())
 			return Zero, Zero
 		}
-		return new(big.Int).SetBytes(priceHash.Bytes()), orderList.Volume()
+		return new(big.Int).SetBytes(investingHash.Bytes()), orderList.Volume()
 	}
 	return Zero, Zero
 }
@@ -663,6 +663,6 @@ func (self *LendingStateDB) CancelLendingTrade(orderBook common.Hash, tradeId ui
 		orderBook: orderBook,
 		order:     self.GetLendingTrade(orderBook, tradeIdHash),
 	})
-	lendingTrade.data.Amount = Zero
+	lendingTrade.SetAmount(Zero)
 	return nil
 }
