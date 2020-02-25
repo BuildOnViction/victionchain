@@ -597,6 +597,7 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 		pool.journalTx(from, tx)
 
 		log.Debug("Pooled new executable transaction", "hash", hash, "useraddress", tx.UserAddress().Hex(), "nonce", tx.Nonce(), "status", tx.Status(), "orderid", tx.OrderID())
+		go pool.txFeed.Send(OrderTxPreEvent{tx})
 		return old != nil, nil
 
 	}
