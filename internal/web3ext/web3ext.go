@@ -719,6 +719,16 @@ web3._extend({
             params: 1
 		}),
 		new web3._extend.Method({
+            name: 'getOrderPoolContent',
+            call: 'tomox_getOrderPoolContent',
+            params: 0
+		}),
+		new web3._extend.Method({
+            name: 'getOrderStats',
+            call: 'tomox_getOrderStats',
+            params: 0
+		}),
+		new web3._extend.Method({
             name: 'getOrderCount',
             call: 'tomox_getOrderCount',
             params: 1
