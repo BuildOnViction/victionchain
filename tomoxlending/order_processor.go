@@ -458,6 +458,7 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 		// taker = Borrower : takerOutTotal = CollateralLockedAmount = quantityToLend * collateral Token Decimal/ CollateralPrice  * deposit rate
 		takerOutTotal := new(big.Int).Mul(quantityToLend, collateralTokenDecimal)
 		takerOutTotal = new(big.Int).Mul(takerOutTotal, depositRate)
+		takerOutTotal = new(big.Int).Div(takerOutTotal, big.NewInt(100)) // depositRate in percentage format
 		takerOutTotal = new(big.Int).Div(takerOutTotal, collateralPrice)
 		// Investor : makerOutTotal = quantityToLend
 		makerOutTotal := quantityToLend
@@ -465,6 +466,7 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 			return quantityToLend, false
 		} else if takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) >= 0 {
 			newQuantityLend := new(big.Int).Mul(takerBalance, collateralPrice)
+			newQuantityLend = new(big.Int).Mul(newQuantityLend, big.NewInt(100)) // depositRate in percentage format
 			newQuantityLend = new(big.Int).Div(newQuantityLend, depositRate)
 			newQuantityLend = new(big.Int).Div(newQuantityLend, collateralTokenDecimal)
 			if newQuantityLend.Sign() == 0 {
@@ -477,6 +479,7 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 		} else {
 			// takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) < 0
 			newQuantityLend := new(big.Int).Mul(takerBalance, collateralPrice)
+			newQuantityLend = new(big.Int).Mul(newQuantityLend, big.NewInt(100)) // depositRate in percentage format
 			newQuantityLend = new(big.Int).Div(newQuantityLend, depositRate)
 			newQuantityLend = new(big.Int).Div(newQuantityLend, collateralTokenDecimal)
 			if newQuantityLend.Cmp(makerBalance) <= 0 {
@@ -492,6 +495,7 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 		// maker =  Borrower : makerOutTotal = CollateralLockedAmount = quantityToLend * collateral Token Decimal / CollateralPrice  * deposit rate
 		makerOutTotal := new(big.Int).Mul(quantityToLend, collateralTokenDecimal)
 		makerOutTotal = new(big.Int).Mul(makerOutTotal, depositRate)
+		makerOutTotal = new(big.Int).Div(makerOutTotal, big.NewInt(100)) // depositRate in percentage format
 		makerOutTotal = new(big.Int).Div(makerOutTotal, collateralPrice)
 		// Investor : makerOutTotal = quantityToLend
 		takerOutTotal := quantityToLend
@@ -504,6 +508,7 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 			return takerBalance, false
 		} else if takerBalance.Cmp(takerOutTotal) >= 0 && makerBalance.Cmp(makerOutTotal) < 0 {
 			newQuantityLend := new(big.Int).Mul(makerBalance, collateralPrice)
+			newQuantityLend = new(big.Int).Mul(newQuantityLend, big.NewInt(100)) // depositRate in percentage format
 			newQuantityLend = new(big.Int).Div(newQuantityLend, depositRate)
 			newQuantityLend = new(big.Int).Div(newQuantityLend, collateralTokenDecimal)
 			log.Debug("Reject lending order maker , not enough balance ", "makerBalance", makerBalance, " makerOutTotal", makerOutTotal)
@@ -511,6 +516,7 @@ func GetLendQuantity(takerSide string, collateralTokenDecimal *big.Int, depositR
 		} else {
 			// takerBalance.Cmp(takerOutTotal) < 0 && makerBalance.Cmp(makerOutTotal) < 0
 			newQuantityLend := new(big.Int).Mul(makerBalance, collateralPrice)
+			newQuantityLend = new(big.Int).Mul(newQuantityLend, big.NewInt(100)) // depositRate in percentage format
 			newQuantityLend = new(big.Int).Div(newQuantityLend, depositRate)
 			newQuantityLend = new(big.Int).Div(newQuantityLend, collateralTokenDecimal)
 			if newQuantityLend.Cmp(takerBalance) <= 0 {
