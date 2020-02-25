@@ -76,43 +76,44 @@ type LendingTradeBSON struct {
 	Hash                   string    `bson:"hash" json:"hash"`
 	TxHash                 string    `bson:"txHash" json:"txHash"`
 	ExtraData              string    `bson:"extraData" json:"extraData"`
-	CreatedAt              time.Time `bson:"createdAt" json:"createdAt"`
 	UpdatedAt              time.Time `bson:"updatedAt" json:"updatedAt"`
 }
 
 func (t *LendingTrade) GetBSON() (interface{}, error) {
-	tr := LendingTradeBSON{
-		Borrower:               t.Borrower.Hex(),
-		Investor:               t.Investor.Hex(),
-		LendingToken:           t.LendingToken.Hex(),
-		CollateralToken:        t.CollateralToken.Hex(),
-		BorrowingOrderHash:     t.BorrowingOrderHash.Hex(),
-		InvestingOrderHash:     t.InvestingOrderHash.Hex(),
-		BorrowingRelayer:       t.BorrowingRelayer.Hex(),
-		InvestingRelayer:       t.InvestingRelayer.Hex(),
-		Term:                   strconv.FormatUint(t.Term, 10),
-		Interest:               strconv.FormatUint(t.Interest, 10),
-		CollateralPrice:        t.CollateralPrice.String(),
-		LiquidationPrice:       t.LiquidationPrice.String(),
-		LiquidationTime:        strconv.FormatUint(t.LiquidationTime, 10),
-		CollateralLockedAmount: t.CollateralLockedAmount.String(),
-		DepositRate:            t.DepositRate.String(),
-		Amount:                 t.Amount.String(),
-		BorrowingFee:           t.BorrowingFee.String(),
-		InvestingFee:           t.InvestingFee.String(),
-		Status:                 t.Status,
-		TakerOrderSide:         t.TakerOrderSide,
-		TakerOrderType:         t.TakerOrderType,
-		MakerOrderType:         t.MakerOrderType,
-		TradeId:                strconv.FormatUint(t.TradeId, 10),
-		Hash:                   t.Hash.Hex(),
-		TxHash:                 t.TxHash.Hex(),
-		ExtraData:              t.ExtraData,
-		CreatedAt:              t.CreatedAt,
-		UpdatedAt:              t.UpdatedAt,
-	}
-
-	return tr, nil
+	return bson.M{
+		"$setOnInsert": bson.M{
+			"createdAt": t.CreatedAt,
+		},
+		"$set": LendingTradeBSON{
+			Borrower:               t.Borrower.Hex(),
+			Investor:               t.Investor.Hex(),
+			LendingToken:           t.LendingToken.Hex(),
+			CollateralToken:        t.CollateralToken.Hex(),
+			BorrowingOrderHash:     t.BorrowingOrderHash.Hex(),
+			InvestingOrderHash:     t.InvestingOrderHash.Hex(),
+			BorrowingRelayer:       t.BorrowingRelayer.Hex(),
+			InvestingRelayer:       t.InvestingRelayer.Hex(),
+			Term:                   strconv.FormatUint(t.Term, 10),
+			Interest:               strconv.FormatUint(t.Interest, 10),
+			CollateralPrice:        t.CollateralPrice.String(),
+			LiquidationPrice:       t.LiquidationPrice.String(),
+			LiquidationTime:        strconv.FormatUint(t.LiquidationTime, 10),
+			CollateralLockedAmount: t.CollateralLockedAmount.String(),
+			DepositRate:            t.DepositRate.String(),
+			Amount:                 t.Amount.String(),
+			BorrowingFee:           t.BorrowingFee.String(),
+			InvestingFee:           t.InvestingFee.String(),
+			Status:                 t.Status,
+			TakerOrderSide:         t.TakerOrderSide,
+			TakerOrderType:         t.TakerOrderType,
+			MakerOrderType:         t.MakerOrderType,
+			TradeId:                strconv.FormatUint(t.TradeId, 10),
+			Hash:                   t.Hash.Hex(),
+			TxHash:                 t.TxHash.Hex(),
+			ExtraData:              t.ExtraData,
+			UpdatedAt:              t.UpdatedAt,
+		},
+	}, nil
 }
 
 func (t *LendingTrade) SetBSON(raw bson.Raw) error {
@@ -122,6 +123,11 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	if err != nil {
 		return err
 	}
+	tradeId, err := strconv.ParseInt(decoded.TradeId, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse lendingItem.TradeId. Err: %v", err)
+	}
+	t.TradeId = uint64(tradeId)
 	t.Borrower = common.HexToAddress(decoded.Borrower)
 	t.Investor = common.HexToAddress(decoded.Investor)
 	t.LendingToken = common.HexToAddress(decoded.LendingToken)
@@ -159,7 +165,6 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	t.ExtraData = decoded.ExtraData
 	t.Hash = common.HexToHash(decoded.Hash)
 	t.TxHash = common.HexToHash(decoded.TxHash)
-	t.CreatedAt = decoded.CreatedAt
 	t.UpdatedAt = decoded.UpdatedAt
 
 	return nil

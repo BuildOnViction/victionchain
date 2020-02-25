@@ -1556,7 +1556,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 
 				// liquidate / finalize open lendingTrades
-				_, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+				_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
 				if err != nil {
 					return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 				}
@@ -1781,25 +1781,25 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				bc.reportBlock(block, nil, err)
 				return nil, err
 			}
-			txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
-			if err != nil {
-				bc.reportBlock(block, nil, err)
-				return nil, err
-			}
-			for _, txMatchBatch := range txMatchBatchData {
-				log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-				err := bc.Validator().ValidateTradingOrder(statedb, tomoxState, txMatchBatch, author)
-				if err != nil {
-					bc.reportBlock(block, nil, err)
-					return nil, err
-				}
-			}
 			if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
 				if err := tomoXService.UpdateMediumPriceBeforeEpoch(tomoxState, statedb); err != nil {
 					return nil, err
 				}
+			} else {
+				txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
+				if err != nil {
+					bc.reportBlock(block, nil, err)
+					return nil, err
+				}
+				for _, txMatchBatch := range txMatchBatchData {
+					log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
+					err := bc.Validator().ValidateTradingOrder(statedb, tomoxState, txMatchBatch, author)
+					if err != nil {
+						bc.reportBlock(block, nil, err)
+						return nil, err
+					}
+				}
 			}
-
 		}
 
 		if lendingService := engine.GetLendingService(); lendingService != nil {
@@ -1808,36 +1808,31 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				bc.reportBlock(block, nil, err)
 				return nil, err
 			}
-			batches, err := ExtractLendingTransactions(block.Transactions())
-			if err != nil {
-				bc.reportBlock(block, nil, err)
-				return nil, err
-			}
-			for _, batch := range batches {
-				log.Debug("Lending Verify matching transaction", "txHash", batch.TxHash.Hex())
-				err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tomoxState, batch, author, block.Time().Uint64())
+			if (block.NumberU64() % bc.chainConfig.Posv.Epoch) != 0 {
+				batches, err := ExtractLendingTransactions(block.Transactions())
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return nil, err
 				}
+				for _, batch := range batches {
+					log.Debug("Lending Verify matching transaction", "txHash", batch.TxHash.Hex())
+					err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tomoxState, batch, author, block.Time().Uint64())
+					if err != nil {
+						bc.reportBlock(block, nil, err)
+						return nil, err
+					}
+				}
+
+				// liquidate / finalize open lendingTrades
+				_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
+				if err != nil {
+					return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
+				}
 			}
 
-			// liquidate / finalize open lendingTrades
-			_, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
-			if err != nil {
-				return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
-			}
-			gotRoot := lendingState.IntermediateRoot()
-			expectRoot, _ := lendingService.GetLendingStateRoot(block)
-			if gotRoot != expectRoot {
-				err = fmt.Errorf("invalid lending merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
-				bc.reportBlock(block, nil, err)
-				return nil, err
-			}
-			parentLendingRoot, _ := lendingService.GetLendingStateRoot(parent)
-			nextLendingRoot, _ := lendingService.GetLendingStateRoot(block)
-			log.Debug("Lending State Root", "number", block.NumberU64(), "parent", parentLendingRoot.Hex(), "nextLendingRoot", nextLendingRoot.Hex())
 		}
+
+		// check merke root tries
 		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
 			gotRoot := tomoxState.IntermediateRoot()
 			expectRoot, _ := tomoXService.GetTradingStateRoot(block)
@@ -1851,6 +1846,18 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
 		}
 
+		if lendingService := engine.GetLendingService(); lendingService != nil {
+			gotRoot := lendingState.IntermediateRoot()
+			expectRoot, _ := lendingService.GetLendingStateRoot(block)
+			if gotRoot != expectRoot {
+				err = fmt.Errorf("invalid lending merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+				bc.reportBlock(block, nil, err)
+				return nil, err
+			}
+			parentLendingRoot, _ := lendingService.GetLendingStateRoot(parent)
+			nextLendingRoot, _ := lendingService.GetLendingStateRoot(block)
+			log.Debug("Lending State Root", "number", block.NumberU64(), "parent", parentLendingRoot.Hex(), "nextLendingRoot", nextLendingRoot.Hex())
+		}
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	// Process block using the parent state as reference point.
@@ -2534,11 +2541,15 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	for _, deletedTx := range deletedTxs {
 		if deletedTx.IsTradingTransaction() {
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
-			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
+			if err := tomoXService.RollbackReorgTxMatch(deletedTx.Hash()); err != nil {
+				log.Crit("Reorg trading failed", "err", err, "hash", deletedTx.Hash())
+			}
 		}
-		if lendingService != nil && (deletedTx.IsLendingTransaction() || deletedTx.IsLendingLiquidatedTradeTransaction()) {
+		if lendingService != nil && (deletedTx.IsLendingTransaction() || deletedTx.IsLendingFinalizedTradeTransaction()) {
 			log.Debug("Rollback reorg lendingItem", "txhash", deletedTx.Hash())
-			lendingService.RollbackLendingData(deletedTx.Hash())
+			if err:= lendingService.RollbackLendingData(deletedTx.Hash()); err != nil {
+				log.Crit("Reorg lending failed", "err", err, "hash", deletedTx.Hash())
+			}
 		}
 	}
 
@@ -2565,9 +2576,6 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 	batches, err := ExtractLendingTransactions(block.Transactions())
 	if err != nil {
 		log.Error("failed to extract lending transaction", "err", err)
-		return
-	}
-	if len(batches) == 0 {
 		return
 	}
 	start := time.Now()
@@ -2602,21 +2610,24 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			milliSecond := batch.Timestamp / 1e6
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
 			if err := lendingService.SyncDataToSDKNode(item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
-				log.Error("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
+				log.Crit("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
 			}
 		}
 	}
 
-	// update liquidatedTrades
-	liquidatedTrades, err := ExtractLendingLiquidatedTradeTransactions(block.Transactions())
+	// update finalizedTrades
+	finalizedTrades, err := ExtractLendingFinalizedTradeTransactions(block.Transactions())
 	if err != nil {
-		log.Error("failed to extract liquidatedTrades transaction", "err", err)
+		log.Crit("failed to extract finalizedTrades transaction", "err", err)
 		return
 	}
-	if err := lendingService.UpdateLiquidatedTrade(liquidatedTrades); err != nil {
-		log.Error("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
-		return
+	log.Debug("ExtractLendingFinalizedTradeTransactions", "block", block.Number(), "liquidated", len(finalizedTrades.Liquidated), "closed", len(finalizedTrades.Closed))
+	if len(finalizedTrades.Liquidated) > 0 || len(finalizedTrades.Closed) > 0 {
+		if err := lendingService.UpdateLiquidatedTrade(finalizedTrades); err != nil {
+			log.Crit("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
+			return
+		}
 	}
 }
 

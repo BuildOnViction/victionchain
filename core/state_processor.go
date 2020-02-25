@@ -197,6 +197,11 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	if tx.IsTradingTransaction() && config.IsTIPTomoX(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
+
+	if tx.IsLendingFinalizedTradeTransaction() && config.IsTIPTomoX(header.Number) {
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	}
+
 	var balanceFee *big.Int
 	if tx.To() != nil {
 		if value, ok := tokensFee[*tx.To()]; ok {

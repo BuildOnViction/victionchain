@@ -6,6 +6,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/ethclient"
 	"github.com/tomochain/tomochain/rpc"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
@@ -48,10 +49,6 @@ func getLendingNonce(t *testing.T, userAddress common.Address) (uint64, error) {
 		return 0, err
 	}
 	var result interface{}
-	if err != nil {
-
-		return 0, err
-	}
 	err = rpcClient.Call(&result, "tomox_getLendingOrderCount", userAddress)
 	if err != nil {
 		return 0, err
@@ -62,7 +59,37 @@ func getLendingNonce(t *testing.T, userAddress common.Address) (uint64, error) {
 	return uint64(n), nil
 }
 
-func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string, status string, lendingId, tradeId uint64, extraData string) {
+
+func (l *LendingMsg) computeHash() common.Hash {
+	sha := sha3.NewKeccak256()
+	if l.Status == lendingstate.LendingStatusCancelled {
+		sha := sha3.NewKeccak256()
+		sha.Write(l.Hash.Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
+		sha.Write(l.UserAddress.Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingId))).Bytes())
+		sha.Write([]byte(l.Status))
+		sha.Write(l.RelayerAddress.Bytes())
+	} else {
+		sha.Write(l.RelayerAddress.Bytes())
+		sha.Write(l.UserAddress.Bytes())
+		sha.Write(l.CollateralToken.Bytes())
+		sha.Write(l.LendingToken.Bytes())
+		sha.Write(common.BigToHash(l.Quantity).Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.Term))).Bytes())
+		if l.Type == lendingstate.Limit {
+			sha.Write(common.BigToHash(big.NewInt(int64(l.Interest))).Bytes())
+		}
+		sha.Write([]byte(l.Side))
+		sha.Write([]byte(l.Status))
+		sha.Write([]byte(l.Type))
+		sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingTradeId))).Bytes())
+	}
+	return common.BytesToHash(sha.Sum(nil))
+
+}
+func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string, status string, lendingId, tradeId uint64, cancelledHash common.Hash, extraData string) {
 
 	client, err := ethclient.Dial("http://127.0.0.1:8501")
 	if err != nil {
@@ -84,13 +111,19 @@ func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
-		Term:            86400,
+		Term:            60,
 		Interest:        interest,
 		LendingId:       lendingId,
 		LendingTradeId:  tradeId,
 		ExtraData:       extraData,
 	}
-	tx := types.NewLendingTransaction(nonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, common.Hash{}, lendingId, tradeId, msg.ExtraData)
+	if cancelledHash != (common.Hash{}) {
+		msg.Hash = cancelledHash
+	} else {
+		msg.Hash = msg.computeHash()
+	}
+
+	tx := types.NewLendingTransaction(nonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, msg.Hash, lendingId, tradeId, msg.ExtraData)
 	signedTx, err := types.LendingSignTx(tx, types.LendingTxSigner{}, privateKey)
 	if err != nil {
 		log.Print(err)
@@ -102,67 +135,29 @@ func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string
 	}
 }
 
-func testSendCancelLendingOrder(t *testing.T, nonce uint64, amount *big.Int, interest uint64, side string, lendingId, tradeId uint64, extraData string) {
-	client, err := ethclient.Dial("http://127.0.0.1:8501")
-	if err != nil {
-		log.Print(err)
-	}
-	privateKey, err := crypto.HexToECDSA("3b43d337ae657c351d2542c7ee837c39f5db83da7ffffb611992ebc2f676743b")
-	if err != nil {
-		log.Print(err)
-	}
-	msg := &LendingMsg{
-		AccountNonce:    nonce,
-		Quantity:        amount,
-		RelayerAddress:  common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
-		UserAddress:     crypto.PubkeyToAddress(privateKey.PublicKey),
-		CollateralToken: BTCAddress,
-		LendingToken:    USDAddress,
-		Status:          lendingstate.LendingStatusCancelled,
-		Side:            side,
-		Type:            "LO",
-		Term:            86400,
-		Interest:        interest,
-		LendingId:       lendingId,
-		LendingTradeId:  tradeId,
-		ExtraData:       extraData,
-	}
-
-	tx := types.NewLendingTransaction(nonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, common.Hash{}, lendingId, msg.LendingTradeId, msg.ExtraData)
-	signedTx, err := types.LendingSignTx(tx, types.LendingTxSigner{}, privateKey)
-	if err != nil {
-		log.Print(err)
-	}
-
-	err = client.SendLendingTransaction(context.Background(), signedTx)
-	if err != nil {
-		log.Print(err)
-	}
-}
 
 func TestSendLending(t *testing.T) {
-	testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, "")
+	// 10%
+	interestRate := 10 * common.BaseLendingInterest.Uint64() / 100
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, "")
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, "")
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, "")
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0,  common.Hash{},"")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, "")
+	testSendLending(t, _1E8, interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, "")
-	//time.Sleep(2  * time.Second)
-	//testSendLending(t, new(big.Int).Mul(new(big.Int).SetUint64(1000000000000000000), big.NewInt(1005)), 10, lendingstate.Borrowing, lendingstate.Payment, 0, 1, common.Uint64ToHash(1).Hex())
+	testSendLending(t, _1E8, interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
 }
 
 func TestCancelLending(t *testing.T) {
-	//testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, "")
-	//time.Sleep(2  * time.Second)
-	testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Investing, lendingstate.LendingStatusCancelled, 1, 0, "")
+	// 10%
+	interestRate := 10 * common.BaseLendingInterest.Uint64() / 100
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, 0, 0, common.Hash{}, "")
 	time.Sleep(2  * time.Second)
-	//testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusNew, 0, 0, "")
-	//time.Sleep(2 * time.Second)
-	//testSendLending(t, new(big.Int).SetUint64(1000000000000000000), 10, lendingstate.Borrowing, lendingstate.LendingStatusCancelled, 2, 0, "")
-	//time.Sleep(2  * time.Second)
+	//TODO: run the above testcase first, then updating lendingId, Hash
+	testSendLending(t, _1E8, interestRate, lendingstate.Investing, lendingstate.LendingStatusCancelled, 2, 0, common.HexToHash("0xbafc27418d35400650e524050696e078e7c5ac0d2c4a6d565621f4408332ad1b"), "")
 }
+
