@@ -640,68 +640,10 @@ web3._extend({
 			params: 0
 		}),
 		new web3._extend.Method({
-            name: 'markTrustedPeer',
-            call: 'tomox_markTrustedPeer',
-            params: 1
-        }),
-		new web3._extend.Method({
-            name: 'createOrder',
-            call: 'tomox_createOrder',
-            params: 1,
-            inputFormatter: [null]
-        }),
-        new web3._extend.Method({
-            name: 'cancelOrder',
-            call: 'tomox_cancelOrder',
-            params: 1,
-            inputFormatter: [null]
-        }),
-		new web3._extend.Method({
-            name: 'newTopic',
-            call: 'tomox_newTopic',
-            params: 1
-        }),
-        new web3._extend.Method({
-            name: 'deleteTopic',
-            call: 'tomox_deleteTopic',
-            params: 1
-        }),
-        new web3._extend.Method({
-            name: 'getOrders',
-            call: 'tomox_getOrders',
-            params: 1
-        }),
-		new web3._extend.Method({
-            name: 'getOrderNonce',
-            call: 'tomox_getOrderNonce',
-            params: 1,
-            inputFormatter: [web3._extend.formatters.inputAddressFormatter]
-		}),
-		new web3._extend.Method({
             name: 'GetFeeByEpoch',
             call: 'tomoX_GetFeeByEpoch',
             params: 1,
             inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]
-        }),
-		new web3._extend.Method({
-            name: 'getPendingOrders',
-            call: 'tomox_getPendingOrders',
-            params: 1
-        }),
-		new web3._extend.Method({
-            name: 'getAllPendingHashes',
-            call: 'tomox_getAllPendingHashes',
-            params: 0
-        }),
-		new web3._extend.Method({
-            name: 'purgePendingOrders',
-            call: 'tomox_purgePendingOrders',
-            params: 0
-        }),
-		new web3._extend.Method({
-            name: 'getProcessedHashes',
-            call: 'tomox_getProcessedHashes',
-            params: 0
         }),
 		new web3._extend.Method({
             name: 'sendOrderRawTransaction',
