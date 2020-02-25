@@ -1851,6 +1851,31 @@ func (s *PublicTomoXTransactionPoolAPI) SendLendingRawTransaction(ctx context.Co
 	return submitLendingTransaction(ctx, s.b, tx)
 }
 
+// GetOrderTxMatchByHash returns the bytes of the transaction for the given hash.
+func (s *PublicTomoXTransactionPoolAPI) GetOrderTxMatchByHash(ctx context.Context, hash common.Hash) ([]*tradingstate.OrderItem, error) {
+	var tx *types.Transaction
+	orders := []*tradingstate.OrderItem{}
+	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
+		if tx = s.b.GetPoolTransaction(hash); tx == nil {
+			return []*tradingstate.OrderItem{}, nil
+		}
+	}
+
+	batch, err := tradingstate.DecodeTxMatchesBatch(tx.Data())
+	if err != nil {
+		return []*tradingstate.OrderItem{}, err
+	}
+	for _, txMatch := range batch.Data {
+		order, err := txMatch.DecodeOrder()
+		if err != nil {
+			return []*tradingstate.OrderItem{}, err
+		}
+		orders = append(orders, order)
+	}
+	return orders, nil
+
+}
+
 // OrderMsg struct
 type OrderMsg struct {
 	AccountNonce    uint64         `json:"nonce"    gencodec:"required"`

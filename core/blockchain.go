@@ -2465,7 +2465,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 	}
 	txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
 	if err != nil {
-		log.Error("failed to extract matching transaction", "err", err)
+		log.Crit("failed to extract matching transaction", "err", err)
 		return
 	}
 	if len(txMatchBatchData) == 0 {
@@ -2473,7 +2473,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 	}
 	currentState, err := bc.State()
 	if err != nil {
-		log.Error("failed to get current state", "err", err)
+		log.Crit("logExchangeData: failed to get current state", "err", err)
 		return
 	}
 	start := time.Now()
@@ -2493,7 +2493,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			)
 
 			if takerOrderInTx, err = txMatch.DecodeOrder(); err != nil {
-				log.Error("SDK node decode takerOrderInTx failed", "txDataMatch", txMatch)
+				log.Crit("SDK node decode takerOrderInTx failed", "txDataMatch", txMatch)
 				return
 			}
 			cacheKey := crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes())
@@ -2515,7 +2515,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			milliSecond := txMatchBatch.Timestamp / 1e6
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
 			if err := tomoXService.SyncDataToSDKNode(takerOrderInTx, txMatchBatch.TxHash, txMatchTime, currentState, trades, rejectedOrders, &dirtyOrderCount); err != nil {
-				log.Error("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
+				log.Crit("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
 			}
 		}

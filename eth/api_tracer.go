@@ -654,28 +654,47 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 		return nil, vm.Context{}, nil, err
 	}
 	// Recompute transactions up to the target index.
-	signer := types.MakeSigner(api.config, block.Number())
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
+	if common.TIPSigning.Cmp(block.Header().Number) == 0 {
+		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
+	}
+	core.InitSignerInTransactions(api.config, block.Header(), block.Transactions())
+	balanceUpdated := map[common.Address]*big.Int{}
+	totalFeeUsed := big.NewInt(0)
+	gp := new(core.GasPool).AddGas(block.GasLimit())
+	usedGas := new(uint64)
+	// Iterate over and process the individual transactions
 	for idx, tx := range block.Transactions() {
-		var balacne *big.Int
-		if tx.To() != nil {
-			if value, ok := feeCapacity[*tx.To()]; ok {
-				balacne = value
-			}
-		}
-		// Assemble the transaction call message and return if the requested offset
-		msg, _ := tx.AsMessage(signer, balacne, block.Number())
-		context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
+		statedb.Prepare(tx.Hash(), block.Hash(), idx)
 		if idx == txIndex {
+			var balanceFee *big.Int
+			if tx.To() != nil {
+				if value, ok := feeCapacity[*tx.To()]; ok {
+					balanceFee = value
+				}
+			}
+			msg, err := tx.AsMessage(types.MakeSigner(api.config, block.Header().Number), balanceFee, block.Number())
+			if err != nil {
+				return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
+			}
+			context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 			return msg, context, statedb, nil
 		}
-		// Not yet the searched for transaction, execute on top of the current state
-		vmenv := vm.NewEVM(context, statedb, api.config, vm.Config{})
-		owner := common.Address{}
-		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas()), owner); err != nil {
+		_, gas, err, tokenFeeUsed := core.ApplyTransaction(api.config, feeCapacity, api.eth.blockchain, nil, gp, statedb, block.Header(), tx, usedGas, vm.Config{})
+		if err != nil {
 			return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 		}
-		statedb.DeleteSuicides()
+
+		if tokenFeeUsed {
+			fee := new(big.Int).SetUint64(gas)
+			if block.Header().Number.Cmp(common.TIPTRC21Fee) > 0 {
+				fee = fee.Mul(fee, common.TRC21GasPrice)
+			}
+			feeCapacity[*tx.To()] = new(big.Int).Sub(feeCapacity[*tx.To()], fee)
+			balanceUpdated[*tx.To()] = feeCapacity[*tx.To()]
+			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+		}
 	}
+	statedb.DeleteSuicides()
 	return nil, vm.Context{}, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
 }

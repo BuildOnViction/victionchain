@@ -142,7 +142,6 @@ func AddTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, statedb *state.StateDB) error {
 	// TOMO native
 	if token.String() == common.TomoNativeAddress {
-
 		balance := statedb.GetBalance(addr)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOMO NATIVE BALANCE BEFORE", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
 		if balance.Cmp(value) < 0 {
@@ -151,6 +150,7 @@ func SubTokenBalance(addr common.Address, value *big.Int, token common.Address, 
 		statedb.SubBalance(addr, value)
 		balance = statedb.GetBalance(addr)
 		log.Debug("ApplyTomoXMatchedTransaction settle balance: SUB TOMO NATIVE BALANCE AFTER", "token", token.String(), "address", addr.String(), "balance", balance, "orderValue", value)
+
 		return nil
 	}
 
