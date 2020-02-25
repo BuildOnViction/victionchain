@@ -38,30 +38,35 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
 		return nil, nil, ErrNonceTooLow
 	}
+	// increase nonce
+	tradingStateDB.SetNonce(order.UserAddress.Hash(), nonce + 1)
+
+	tomoxSnap := tradingStateDB.Snapshot()
+	dbSnap := statedb.Snapshot()
+	defer func() {
+		if err != nil {
+			tradingStateDB.RevertToSnapshot(tomoxSnap)
+			statedb.RevertToSnapshot(dbSnap)
+		}
+	}()
 	if order.Status == tradingstate.OrderStatusCancelled {
 		err, reject := tomox.ProcessCancelOrder(tradingStateDB, statedb, chain, coinbase, orderBook, order)
-		if err != nil {
-			return nil, nil, err
-		}
-		if reject {
+		if err != nil || reject {
+			log.Debug("Reject cancelled order", "err", err)
 			rejects = append(rejects, order)
 		}
-		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-		tradingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
 	if order.Type != tradingstate.Market {
 		if order.Price.Sign() == 0 || common.BigToHash(order.Price).Big().Cmp(order.Price) != 0 {
 			log.Debug("Reject order price invalid", "price", order.Price)
 			rejects = append(rejects, order)
-			tradingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 			return trades, rejects, nil
 		}
 	}
 	if order.Quantity.Sign() == 0 || common.BigToHash(order.Quantity).Big().Cmp(order.Quantity) != 0 {
 		log.Debug("Reject order quantity invalid", "quantity", order.Quantity)
 		rejects = append(rejects, order)
-		tradingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
 	orderType := order.Type
@@ -70,18 +75,20 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 		log.Debug("Process maket order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
 		trades, rejects, err = tomox.processMarketOrder(coinbase, chain, statedb, tradingStateDB, orderBook, order)
 		if err != nil {
-			return nil, nil, err
+			log.Debug("Reject market order", "err", err, "order", tradingstate.ToJSON(order))
+			trades = []map[string]string{}
+			rejects = append(rejects, order)
 		}
 	} else {
 		log.Debug("Process limit order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
 		trades, rejects, err = tomox.processLimitOrder(coinbase, chain, statedb, tradingStateDB, orderBook, order)
 		if err != nil {
-			return nil, nil, err
+			log.Debug("Reject limit order", "err", err,  "order", tradingstate.ToJSON(order))
+			trades = []map[string]string{}
+			rejects = append(rejects, order)
 		}
 	}
 
-	log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-	tradingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 	return trades, rejects, nil
 }
 
@@ -623,20 +630,22 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 	}
 	// relayers pay TOMO for masternode
 	tradingstate.SubRelayerFee(originOrder.ExchangeAddress, common.RelayerCancelFee, statedb)
+	masternodeOwner := statedb.GetOwner(coinbase)
+	// relayers pay TOMO for masternode
+	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
+
+	relayerOwner := tradingstate.GetRelayerOwner(originOrder.ExchangeAddress, statedb)
 	switch originOrder.Side {
 	case tradingstate.Ask:
 		// users pay token (which they have) for relayer
 		tradingstate.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.BaseToken, statedb)
-		tradingstate.AddTokenBalance(originOrder.ExchangeAddress, tokenCancelFee, originOrder.BaseToken, statedb)
+		tradingstate.AddTokenBalance(relayerOwner, tokenCancelFee, originOrder.BaseToken, statedb)
 	case tradingstate.Bid:
 		// users pay token (which they have) for relayer
 		tradingstate.SubTokenBalance(originOrder.UserAddress, tokenCancelFee, originOrder.QuoteToken, statedb)
-		tradingstate.AddTokenBalance(originOrder.ExchangeAddress, tokenCancelFee, originOrder.QuoteToken, statedb)
+		tradingstate.AddTokenBalance(relayerOwner, tokenCancelFee, originOrder.QuoteToken, statedb)
 	default:
 	}
-	masternodeOwner := statedb.GetOwner(coinbase)
-	// relayers pay TOMO for masternode
-	statedb.AddBalance(masternodeOwner, common.RelayerCancelFee)
 	return nil, false
 }
 
@@ -646,8 +655,8 @@ func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tradingsta
 		// SELL 1 BTC => TOMO ,,
 		// order.Quantity =1 && fee rate =2
 		// ==> cancel fee = 2/10000
-		baseTokenQuantity := new(big.Int).Mul(order.Quantity, baseTokenDecimal)
-		cancelFee = new(big.Int).Mul(baseTokenQuantity, feeRate)
+		// order.Quantity already included baseToken decimal
+		cancelFee = new(big.Int).Mul(order.Quantity, feeRate)
 		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
 	} else {
 		// BUY 1 BTC => TOMO with Price : 10000

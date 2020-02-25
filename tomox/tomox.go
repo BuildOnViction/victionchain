@@ -197,11 +197,6 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 			},
 			PairName: tx.PairName(),
 		}
-		// make sure order is valid before running matching engine
-		if err := order.VerifyOrder(statedb); err != nil {
-			log.Error("tomox processOrderPending: invalid order", "err", err)
-			continue
-		}
 		cancel := false
 		if order.Status == tradingstate.OrderStatusCancelled {
 			cancel = true
@@ -566,7 +561,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) error {
 			if !ok {
 				log.Debug("Tomox reorg: remove order due to no orderCache", "order", tradingstate.ToJSON(order))
 				if err := db.DeleteObject(order.Hash, &tradingstate.OrderItem{}); err != nil {
-					return fmt.Errorf("failed to remove reorg orderItem. Err: %v . Trade: %s", err.Error(), tradingstate.ToJSON(order))
+					log.Crit("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
 				}
 				continue
 			}
@@ -575,7 +570,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) error {
 			if (orderHistoryItem == tradingstate.OrderHistoryItem{}) {
 				log.Debug("Tomox reorg: remove order due to empty orderHistory", "order", tradingstate.ToJSON(order))
 				if err := db.DeleteObject(order.Hash, &tradingstate.OrderItem{}); err != nil {
-					return fmt.Errorf("failed to remove reorg orderItem. Err: %v . Trade: %s", err.Error(), tradingstate.ToJSON(order))
+					log.Crit("SDKNode: failed to remove reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
 				}
 				continue
 			}
@@ -585,7 +580,7 @@ func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) error {
 			order.UpdatedAt = orderHistoryItem.UpdatedAt
 			log.Debug("Tomox reorg: update order to the last orderHistoryItem", "order", tradingstate.ToJSON(order), "orderHistoryItem", orderHistoryItem)
 			if err := db.PutObject(order.Hash, order); err != nil {
-				return fmt.Errorf("failed to update reorg orderItem. Err: %v . Trade: %s", err.Error(), tradingstate.ToJSON(order))
+				log.Crit("SDKNode: failed to update reorg order", "err", err.Error(), "order", tradingstate.ToJSON(order))
 			}
 		}
 	}
