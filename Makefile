@@ -4,7 +4,7 @@
 
 GOBIN = $(shell pwd)/build/bin
 GOFMT = gofmt
-GO ?= latest
+GO ?= 1.12
 GO_PACKAGES = .
 GO_FILES := $(shell find $(shell go list -f '{{.Dir}}' $(GO_PACKAGES)) -name \*.go)
 
@@ -95,7 +95,7 @@ tomo-darwin-amd64:
 
 tomo-windows-amd64:
 	go run build/ci.go xgo -- --go=$(GO) --targets=windows/amd64 -v ./cmd/tomo
-	@echo "Darwin amd64 cross compilation done:"
+	@echo "Windows amd64 cross compilation done:"
 	@ls -ld $(GOBIN)/tomo-windows-* | grep amd64
 gofmt:
 	$(GOFMT) -s -w $(GO_FILES)
