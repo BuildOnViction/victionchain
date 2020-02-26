@@ -21,10 +21,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+
+	"github.com/tomochain/tomochain/tomox"
 
 	"github.com/tomochain/tomochain/consensus/posv"
 
@@ -196,6 +197,13 @@ func (b *EthApiBackend) Stats() (pending int, queued int) {
 
 func (b *EthApiBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
 	return b.eth.TxPool().Content()
+}
+
+func (b *EthApiBackend) OrderTxPoolContent() (map[common.Address]types.OrderTransactions, map[common.Address]types.OrderTransactions) {
+	return b.eth.OrderPool().Content()
+}
+func (b *EthApiBackend) OrderStats() (pending int, queued int) {
+	return b.eth.txPool.Stats()
 }
 
 func (b *EthApiBackend) SubscribeTxPreEvent(ch chan<- core.TxPreEvent) event.Subscription {

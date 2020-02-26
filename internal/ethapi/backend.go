@@ -19,8 +19,9 @@ package ethapi
 
 import (
 	"context"
-	"github.com/tomochain/tomochain/tomox"
 	"math/big"
+
+	"github.com/tomochain/tomochain/tomox"
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
@@ -64,13 +65,17 @@ type Backend interface {
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
-	SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error
 	GetPoolTransactions() (types.Transactions, error)
 	GetPoolTransaction(txHash common.Hash) *types.Transaction
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
 	Stats() (pending int, queued int)
 	TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions)
 	SubscribeTxPreEvent(chan<- core.TxPreEvent) event.Subscription
+
+	// Order Pool Transaction
+	SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error
+	OrderTxPoolContent() (map[common.Address]types.OrderTransactions, map[common.Address]types.OrderTransactions)
+	OrderStats() (pending int, queued int)
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
