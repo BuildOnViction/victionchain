@@ -50,7 +50,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
-	case lendingstate.Deposit:
+	case lendingstate.TopUp:
 		err, reject, newLendingTrade := l.ProcessDeposit(lendingStateDB, statedb, tradingStateDb, order)
 		if err != nil {
 			return nil, nil, err
@@ -62,7 +62,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		trades = append(trades, newLendingTrade)
 		return trades, rejects, nil
-	case lendingstate.Payment:
+	case lendingstate.Repay:
 		lendingTradeId := order.LendingTradeId
 		lendingTrade, err := l.ProcessPayment(createdBlockTime, lendingStateDB, statedb, tradingStateDb, lendingOrderBook, lendingTradeId)
 		if err != nil {

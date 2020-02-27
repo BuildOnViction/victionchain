@@ -263,7 +263,10 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		// 2.a. put to trades
 		if tradeRecord.Status != lendingstate.TradeStatusOpen {
 			log.Debug("UpdateLendingTrade:", "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
-			return l.UpdateLendingTrade([]common.Hash{tradeRecord.Hash}, tradeRecord.Status, txHash, txMatchTime)
+			if err := l.UpdateLendingTrade([]common.Hash{tradeRecord.Hash}, tradeRecord.Status, txHash, txMatchTime); err != nil {
+				return err
+			}
+			continue
 		}
 		if tradeRecord.CreatedAt.IsZero() {
 			tradeRecord.CreatedAt = txMatchTime
@@ -298,7 +301,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		makerDirtyFilledAmount[makerOrderHash.Hex()] = makerFilledAmount
 		makerDirtyHashes = append(makerDirtyHashes, makerOrderHash.Hex())
 
-		if updatedTakerLendingItem.Status != lendingstate.Payment && updatedTakerLendingItem.Status != lendingstate.Deposit {
+		if updatedTakerLendingItem.Status != lendingstate.Repay && updatedTakerLendingItem.Status != lendingstate.TopUp {
 			//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 			//  update filledAmount, status of takerOrder
 			updatedTakerLendingItem.FilledAmount = new(big.Int).Add(updatedTakerLendingItem.FilledAmount, filledAmount)
@@ -309,24 +312,22 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 			}
 		}
 	}
-	if updatedTakerLendingItem.Status != lendingstate.Payment && updatedTakerLendingItem.Status != lendingstate.Deposit {
-		// update status for Market orders
-		if updatedTakerLendingItem.Type == lendingstate.Market {
-			if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
-				updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
-			} else {
-				updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
-			}
+	// update status for Market orders
+	if updatedTakerLendingItem.Type == lendingstate.Market {
+		if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
+			updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
+		} else {
+			updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
 		}
+	}
 
-		log.Debug("PutObject processed takerLendingItem",
-			"term", updatedTakerLendingItem.Term, "userAddr", updatedTakerLendingItem.UserAddress.Hex(), "side", updatedTakerLendingItem.Side,
-			"Interest", updatedTakerLendingItem.Interest, "quantity", updatedTakerLendingItem.Quantity, "filledAmount", updatedTakerLendingItem.FilledAmount, "status", updatedTakerLendingItem.Status,
-			"hash", updatedTakerLendingItem.Hash.Hex(), "txHash", updatedTakerLendingItem.TxHash.Hex())
+	log.Debug("PutObject processed takerLendingItem",
+		"term", updatedTakerLendingItem.Term, "userAddr", updatedTakerLendingItem.UserAddress.Hex(), "side", updatedTakerLendingItem.Side,
+		"Interest", updatedTakerLendingItem.Interest, "quantity", updatedTakerLendingItem.Quantity, "filledAmount", updatedTakerLendingItem.FilledAmount, "status", updatedTakerLendingItem.Status,
+		"hash", updatedTakerLendingItem.Hash.Hex(), "txHash", updatedTakerLendingItem.TxHash.Hex())
 
-		if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
-			return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerLendingItem.Hash.Hex(), err.Error())
-		}
+	if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
+		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerLendingItem.Hash.Hex(), err.Error())
 	}
 
 	items := db.GetListItemByHashes(makerDirtyHashes, &lendingstate.LendingItem{})
@@ -425,8 +426,11 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	return nil
 }
 
-func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult) error {
+func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, trades map[common.Hash]*lendingstate.LendingTrade) error {
 	log.Debug("UpdateLiquidatedTrade", "liquidated", result.Liquidated, "closed", result.Closed)
+	db := l.GetMongoDB()
+	sc := db.InitLendingBulk()
+	defer sc.Close()
 
 	txhash := result.TxHash
 	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
@@ -436,13 +440,48 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult) err
 	if err := l.UpdateLendingTrade(result.Liquidated, lendingstate.TradeStatusLiquidated, txhash, txTime); err != nil {
 		return err
 	}
+
+	// adding force repay transaction
+	for _, hash := range result.Closed {
+		trade := trades[hash]
+		if trade == nil {
+			continue
+		}
+		repayItem := &lendingstate.LendingItem{
+			Quantity:        trade.Amount,
+			Interest:        big.NewInt(int64(trade.Interest)),
+			Side:            "",
+			Type:            "",
+			LendingToken:    trade.LendingToken,
+			CollateralToken: trade.CollateralToken,
+			FilledAmount:    nil,
+			Status:          lendingstate.Repay,
+			Relayer:         trade.BorrowingRelayer,
+			Term:            trade.Term,
+			UserAddress:     trade.Borrower,
+			Signature:       nil,
+			Hash:            trade.BorrowingOrderHash,
+			TxHash:          txhash,
+			Nonce:           nil,
+			CreatedAt:       txTime,
+			UpdatedAt:       txTime,
+			LendingId:       0,
+			LendingTradeId:  0,
+			ExtraData:       "auto",
+		}
+		if err := db.PutObject(repayItem.Hash, repayItem); err != nil {
+			return err
+		}
+	}
+	if err := db.CommitLendingBulk(); err != nil {
+		return fmt.Errorf("failed to updateLendingTrade . Err: %v", err)
+	}
+
 	return nil
 }
 
 func (l *Lending) UpdateLendingTrade(hashes []common.Hash, status string, txhash common.Hash, txTime time.Time) error {
 	db := l.GetMongoDB()
-	sc := db.InitLendingBulk()
-	defer sc.Close()
 	hashQuery := []string{}
 	for _, h := range hashes {
 		hashQuery = append(hashQuery, h.Hex())
@@ -465,11 +504,8 @@ func (l *Lending) UpdateLendingTrade(hashes []common.Hash, status string, txhash
 				return err
 			}
 		}
+		log.Debug("UpdateLendingTrade successfully", "txhash", txhash, "hash", hashQuery)
 	}
-	if err := db.CommitLendingBulk(); err != nil {
-		return fmt.Errorf("failed to updateLendingTrade . Err: %v", err)
-	}
-	log.Debug("UpdateLendingTrade successfully", "txhash", txhash, "hash", hashQuery)
 	return nil
 }
 
@@ -538,7 +574,6 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 	db := l.GetMongoDB()
 	sc := db.InitLendingBulk()
 	defer sc.Close()
-
 
 	// rollback lendingItem
 	items := db.GetListItemByTxHash(txhash, &lendingstate.LendingItem{})

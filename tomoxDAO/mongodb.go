@@ -21,6 +21,8 @@ const (
 	tradesCollection        = "trades"
 	lendingItemsCollection  = "lending_items"
 	lendingTradesCollection = "lending_trades"
+	lendingTopUpCollection  = "lending_topup"
+	lendingRepayCollection  = "lending_repay"
 )
 
 type MongoDatabase struct {
@@ -31,6 +33,8 @@ type MongoDatabase struct {
 	orderBulk        *mgo.Bulk
 	tradeBulk        *mgo.Bulk
 	lendingItemBulk  *mgo.Bulk
+	topUpBulk        *mgo.Bulk
+	repayBulk        *mgo.Bulk
 	lendingTradeBulk *mgo.Bulk
 }
 
@@ -226,6 +230,15 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 	case *lendingstate.LendingItem:
 		// PutObject order into ordersCollection collection
 		li := val.(*lendingstate.LendingItem)
+		if li.Status == lendingstate.Repay {
+			log.Debug("Insert REPAY to bulk")
+			db.repayBulk.Insert(li)
+			return nil
+		}
+		if li.Status == lendingstate.TopUp {
+			db.topUpBulk.Insert(li)
+			return nil
+		}
 		if li.Status == lendingstate.LendingStatusOpen {
 			db.lendingItemBulk.Insert(li)
 		} else {
@@ -295,6 +308,8 @@ func (db *MongoDatabase) InitLendingBulk() *mgo.Session {
 	sc := db.Session.Copy()
 	db.lendingItemBulk = sc.DB(db.dbName).C(lendingItemsCollection).Bulk()
 	db.lendingTradeBulk = sc.DB(db.dbName).C(lendingTradesCollection).Bulk()
+	db.topUpBulk = sc.DB(db.dbName).C(lendingTopUpCollection).Bulk()
+	db.repayBulk = sc.DB(db.dbName).C(lendingRepayCollection).Bulk()
 	return sc
 }
 
@@ -313,6 +328,13 @@ func (db *MongoDatabase) CommitLendingBulk() error {
 		return err
 	}
 	if _, err := db.lendingTradeBulk.Run(); err != nil && !mgo.IsDup(err) {
+		return err
+	}
+	if _, err := db.topUpBulk.Run(); err != nil && !mgo.IsDup(err) {
+		return err
+	}
+	log.Debug("Commit REPAY bulk")
+	if _, err := db.repayBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
 	return nil
