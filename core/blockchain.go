@@ -164,6 +164,7 @@ type BlockChain struct {
 	rejectedOrders      *lru.Cache // rejected orders: key - takerOrderHash, value: rejected orders corresponding to takerOrder
 	resultLendingTrade  *lru.Cache
 	rejectedLendingItem *lru.Cache
+	finalizedTrade      *lru.Cache // include both trades which force update to closed/liquidated by the protocol
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -193,7 +194,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	// tomoxlending
 	resultLendingTrade, _ := lru.New(tradingstate.OrderCacheLimit)
 	rejectedLendingItem, _ := lru.New(tradingstate.OrderCacheLimit)
-
+	finalizedTrade, _ := lru.New(tradingstate.OrderCacheLimit)
 	bc := &BlockChain{
 		chainConfig:         chainConfig,
 		cacheConfig:         cacheConfig,
@@ -216,6 +217,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		rejectedOrders:      rejectedOrders,
 		resultLendingTrade:  resultLendingTrade,
 		rejectedLendingItem: rejectedLendingItem,
+		finalizedTrade:      finalizedTrade,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -1495,9 +1497,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		// clear the previous dry-run cache
 		var tradingState *tradingstate.TradingStateDB
 		var lendingState *lendingstate.LendingStateDB
+		isSDKNode := false
 		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 			// p2p trading
 			if tradingService := engine.GetTomoXService(); tradingService != nil {
+				isSDKNode = tradingService.IsSDKNode()
 				txMatchBatchData, err := ExtractTradingTransactions(block.Transactions())
 				if err != nil {
 					bc.reportBlock(block, nil, err)
@@ -1556,10 +1560,19 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 
 				// liquidate / finalize open lendingTrades
-				_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+				finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
+				finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
 				if err != nil {
 					return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 				}
+				if isSDKNode {
+					finalizedTx := lendingstate.FinalizedResult{}
+					if finalizedTx, err = ExtractLendingFinalizedTradeTransactions(block.Transactions()); err != nil {
+						return i, events, coalescedLogs, err
+					}
+					bc.AddFinalizedTrades(finalizedTx.TxHash, finalizedTrades)
+				}
+
 				//check
 				if true {
 					gotRoot := lendingState.IntermediateRoot()
@@ -1774,8 +1787,10 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	}
 	var tomoxState *tradingstate.TradingStateDB
 	var lendingState *lendingstate.LendingStateDB
+	isSDKNode := false
 	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
+			isSDKNode = tomoXService.IsSDKNode()
 			tomoxState, err = tomoXService.GetTradingState(parent)
 			if err != nil {
 				bc.reportBlock(block, nil, err)
@@ -1824,9 +1839,17 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				}
 
 				// liquidate / finalize open lendingTrades
-				_, _, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
+				finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
+				finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
 				if err != nil {
 					return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
+				}
+				if isSDKNode {
+					finalizedTx := lendingstate.FinalizedResult{}
+					if finalizedTx, err = ExtractLendingFinalizedTradeTransactions(block.Transactions()); err != nil {
+						return nil, err
+					}
+					bc.AddFinalizedTrades(finalizedTx.TxHash, finalizedTrades)
 				}
 			}
 
@@ -2547,7 +2570,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 		}
 		if lendingService != nil && (deletedTx.IsLendingTransaction() || deletedTx.IsLendingFinalizedTradeTransaction()) {
 			log.Debug("Rollback reorg lendingItem", "txhash", deletedTx.Hash())
-			if err:= lendingService.RollbackLendingData(deletedTx.Hash()); err != nil {
+			if err := lendingService.RollbackLendingData(deletedTx.Hash()); err != nil {
 				log.Crit("Reorg lending failed", "err", err, "hash", deletedTx.Hash())
 			}
 		}
@@ -2611,22 +2634,23 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
 			if err := lendingService.SyncDataToSDKNode(item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Crit("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
-				return
 			}
 		}
 	}
 
 	// update finalizedTrades
-	finalizedTrades, err := ExtractLendingFinalizedTradeTransactions(block.Transactions())
+	finalizedTx, err := ExtractLendingFinalizedTradeTransactions(block.Transactions())
 	if err != nil {
 		log.Crit("failed to extract finalizedTrades transaction", "err", err)
-		return
 	}
-	log.Debug("ExtractLendingFinalizedTradeTransactions", "block", block.Number(), "liquidated", len(finalizedTrades.Liquidated), "closed", len(finalizedTrades.Closed))
-	if len(finalizedTrades.Liquidated) > 0 || len(finalizedTrades.Closed) > 0 {
-		if err := lendingService.UpdateLiquidatedTrade(finalizedTrades); err != nil {
+	finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
+	finalizedData, ok := bc.finalizedTrade.Get(finalizedTx.TxHash)
+	if ok && finalizedData != nil {
+		finalizedTrades = finalizedData.(map[common.Hash]*lendingstate.LendingTrade)
+	}
+	if len(finalizedTrades) > 0 {
+		if err := lendingService.UpdateLiquidatedTrade(finalizedTx, finalizedTrades); err != nil {
 			log.Crit("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
-			return
 		}
 	}
 }
@@ -2644,4 +2668,8 @@ func (bc *BlockChain) AddLendingResult(txHash common.Hash, lendingResults map[co
 		bc.resultLendingTrade.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Trades)
 		bc.rejectedLendingItem.Add(crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes()), result.Rejects)
 	}
+}
+
+func (bc *BlockChain) AddFinalizedTrades(txHash common.Hash, trades map[common.Hash]*lendingstate.LendingTrade) {
+	bc.finalizedTrade.Add(txHash, trades)
 }

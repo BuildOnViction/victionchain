@@ -647,40 +647,39 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 	return nil
 }
 
-func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (liquidatedTrades, closedTrades []common.Hash, err error) {
+func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (finalizedTrades map[common.Hash]*lendingstate.LendingTrade, err error) {
 	allPairs, err := lendingstate.GetAllLendingPairs(statedb)
 	if err != nil {
 		log.Debug("Not found all trading pairs", "error", err)
-		return []common.Hash{}, []common.Hash{}, nil
+		return map[common.Hash]*lendingstate.LendingTrade{}, nil
 	}
 	allLendingBooks, err := lendingstate.GetAllLendingBooks(statedb)
 	if err != nil {
 		log.Debug("Not found all lending books", "error", err)
-		return []common.Hash{}, []common.Hash{}, nil
+		return map[common.Hash]*lendingstate.LendingTrade{}, nil
 	}
 
-	liquidatedTrades = []common.Hash{}
-	closedTrades = []common.Hash{}
-
+	finalizedTrades = map[common.Hash]*lendingstate.LendingTrade{}
 	for _, lendingPair := range allPairs {
 		orderbook := tradingstate.GetTradingOrderBookHash(lendingPair.CollateralToken, lendingPair.LendingToken)
 		_, liquidationPrice, err := l.GetCollateralPrices(chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
 		if err != nil {
 			log.Error("Fail when get all trading pairs", "error", err)
-			return []common.Hash{}, []common.Hash{}, err
+			return map[common.Hash]*lendingstate.LendingTrade{}, err
 		}
 		highestPrice, liquidationData := tradingState.GetHighestLiquidationPriceData(orderbook, liquidationPrice)
 		for highestPrice.Sign() > 0 && highestPrice.Cmp(liquidationPrice) >= 0 {
 			for lendingBook, tradingIds := range liquidationData {
 				for _, tradingIdHash := range tradingIds {
 					log.Debug("LiquidationTrade", "highestPrice", highestPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
-					h, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
+					trade, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
 					if err != nil {
 						log.Error("Fail when remove liquidation trade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
-						return []common.Hash{}, []common.Hash{}, err
+						return map[common.Hash]*lendingstate.LendingTrade{}, err
 					}
-					if (h != common.Hash{}) {
-						liquidatedTrades = append(liquidatedTrades, h)
+					if trade != nil && trade.Hash != (common.Hash{}) {
+						trade.Status = lendingstate.TradeStatusLiquidated
+						finalizedTrades[trade.Hash] = trade
 					}
 				}
 			}
@@ -697,19 +696,15 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 				trade, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
-					return []common.Hash{}, []common.Hash{}, err
+					return map[common.Hash]*lendingstate.LendingTrade{}, err
 				}
 				if trade != nil && trade.Hash != (common.Hash{}) {
-					if trade.Status == lendingstate.TradeStatusClosed {
-						closedTrades = append(closedTrades, trade.Hash)
-					} else {
-						liquidatedTrades = append(liquidatedTrades, trade.Hash)
-					}
+					finalizedTrades[trade.Hash] = trade
 				}
 			}
 			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
 		}
 	}
-	log.Debug("liquidatedTrades", "liquidatedTrades", len(liquidatedTrades), "closedTrades", len(closedTrades))
-	return liquidatedTrades, closedTrades, nil
+	log.Debug("ProcessLiquidationData", "len", len(finalizedTrades))
+	return finalizedTrades, nil
 }

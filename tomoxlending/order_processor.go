@@ -785,12 +785,12 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 	return &lendingTrade, nil
 }
 
-// return hash of liquidatedTrade
-func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (common.Hash, error) {
+// return liquidatedTrade
+func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (*lendingstate.LendingTrade, error) {
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
 	if lendingTrade.TradeId != lendingTradeId {
-		return common.Hash{}, fmt.Errorf("Lending Trade Id not found : %d ", lendingTradeId)
+		return nil, fmt.Errorf("Lending Trade Id not found : %d ", lendingTradeId)
 	}
 	lendingstate.SubTokenBalance(common.HexToAddress(common.LendingLockAddress), lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
 	lendingstate.AddTokenBalance(lendingTrade.Investor, lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
@@ -807,7 +807,7 @@ func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, 
 	if err != nil {
 		log.Debug("LiquidationTrade CancelLendingTrade", "err", err)
 	}
-	return lendingTrade.Hash, nil
+	return &lendingTrade, nil
 }
 func getCancelFee(lendTokenDecimal *big.Int, collateralPrice, borrowFee *big.Int, order *lendingstate.LendingItem) *big.Int {
 	cancelFee := big.NewInt(0)
