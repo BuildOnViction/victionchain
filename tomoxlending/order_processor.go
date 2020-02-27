@@ -750,10 +750,14 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 	}
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
 	interestRate := lendingstate.CalculateInterestRate(time, lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest)
-	interestRate = new(big.Int).Div(interestRate, new(big.Int).SetUint64(100))
 
-	paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(common.BaseLendingInterest, interestRate))
-	paymentBalance = new(big.Int).Div(paymentBalance, common.BaseLendingInterest)
+	// interest 10%
+	// user should send: 10 * common.BaseLendingInterest
+	// decimal = common.BaseLendingInterest * 100
+	baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
+	paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(baseInterestDecimal, interestRate))
+	paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
+	log.Debug("ProcessPayment", "rate", interestRate ,"totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "token", lendingTrade.LendingToken.Hex())
 	if tokenBalance.Cmp(paymentBalance) < 0 {
 		if lendingTrade.LiquidationTime > time {
 			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
