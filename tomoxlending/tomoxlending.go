@@ -313,7 +313,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		}
 	}
 	// update status for Market orders
-	if updatedTakerLendingItem.Type == lendingstate.Market {
+	if updatedTakerLendingItem.Type == lendingstate.Market && updatedTakerLendingItem.Status != lendingstate.Repay && updatedTakerLendingItem.Status != lendingstate.TopUp {
 		if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
 			updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
 		} else {
@@ -442,37 +442,40 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 	}
 
 	// adding force repay transaction
-	for _, hash := range result.Closed {
-		trade := trades[hash]
-		if trade == nil {
-			continue
-		}
-		repayItem := &lendingstate.LendingItem{
-			Quantity:        trade.Amount,
-			Interest:        big.NewInt(int64(trade.Interest)),
-			Side:            "",
-			Type:            "",
-			LendingToken:    trade.LendingToken,
-			CollateralToken: trade.CollateralToken,
-			FilledAmount:    nil,
-			Status:          lendingstate.Repay,
-			Relayer:         trade.BorrowingRelayer,
-			Term:            trade.Term,
-			UserAddress:     trade.Borrower,
-			Signature:       nil,
-			Hash:            trade.BorrowingOrderHash,
-			TxHash:          txhash,
-			Nonce:           nil,
-			CreatedAt:       txTime,
-			UpdatedAt:       txTime,
-			LendingId:       0,
-			LendingTradeId:  0,
-			ExtraData:       "auto",
-		}
-		if err := db.PutObject(repayItem.Hash, repayItem); err != nil {
-			return err
+	if len(result.Closed) > 0 {
+		for _, hash := range result.Closed {
+			trade := trades[hash]
+			if trade == nil {
+				continue
+			}
+			repayItem := &lendingstate.LendingItem{
+				Quantity:        trade.Amount,
+				Interest:        big.NewInt(int64(trade.Interest)),
+				Side:            "",
+				Type:            "",
+				LendingToken:    trade.LendingToken,
+				CollateralToken: trade.CollateralToken,
+				FilledAmount:    nil,
+				Status:          lendingstate.Repay,
+				Relayer:         trade.BorrowingRelayer,
+				Term:            trade.Term,
+				UserAddress:     trade.Borrower,
+				Signature:       nil,
+				Hash:            trade.BorrowingOrderHash,
+				TxHash:          txhash,
+				Nonce:           nil,
+				CreatedAt:       txTime,
+				UpdatedAt:       txTime,
+				LendingId:       0,
+				LendingTradeId:  trade.TradeId,
+				ExtraData:       "auto",
+			}
+			if err := db.PutObject(repayItem.Hash, repayItem); err != nil {
+				return err
+			}
 		}
 	}
+
 	if err := db.CommitLendingBulk(); err != nil {
 		return fmt.Errorf("failed to updateLendingTrade . Err: %v", err)
 	}
@@ -641,6 +644,11 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 			}
 		}
 	}
+
+	// remove repay/topup history
+	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Status: lendingstate.Repay})
+	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Status: lendingstate.TopUp})
+
 	if err := db.CommitLendingBulk(); err != nil {
 		return fmt.Errorf("failed to RollbackLendingData. %v", err)
 	}

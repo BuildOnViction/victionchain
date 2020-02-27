@@ -119,8 +119,8 @@ func TestLendingItem_VerifyLendingStatus(t *testing.T) {
 		{"status: filled", &LendingItem{Status: LendingStatusFilled}, true},
 		{"status: cancelled", &LendingItem{Status: LendingStatusCancelled}, false},
 		{"status: rejected", &LendingItem{Status: LendingStatusReject}, true},
-		{"status: deposit", &LendingItem{Status: TopUp}, false},
-		{"status: payment", &LendingItem{Status: Repay}, false},
+		{"status: topup", &LendingItem{Status: TopUp}, false},
+		{"status: repay", &LendingItem{Status: Repay}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

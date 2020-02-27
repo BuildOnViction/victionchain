@@ -231,7 +231,6 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 		// PutObject order into ordersCollection collection
 		li := val.(*lendingstate.LendingItem)
 		if li.Status == lendingstate.Repay {
-			log.Debug("Insert REPAY to bulk")
 			db.repayBulk.Insert(li)
 			return nil
 		}
@@ -333,7 +332,6 @@ func (db *MongoDatabase) CommitLendingBulk() error {
 	if _, err := db.topUpBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
-	log.Debug("Commit REPAY bulk")
 	if _, err := db.repayBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
@@ -375,6 +373,19 @@ func (db *MongoDatabase) DeleteItemByTxHash(txhash common.Hash, val interface{})
 			log.Error("DeleteItemByTxHash: failed to delete trade", "txhash", txhash, "err", err)
 		}
 	case *lendingstate.LendingItem:
+		item := val.(*lendingstate.LendingItem)
+		if item.Status == lendingstate.Repay {
+			if err := sc.DB(db.dbName).C(lendingRepayCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
+				log.Error("DeleteItemByTxHash: failed to delete repayItem", "txhash", txhash, "err", err)
+			}
+			return
+		}
+		if item.Status == lendingstate.TopUp {
+			if err := sc.DB(db.dbName).C(lendingTopUpCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
+				log.Error("DeleteItemByTxHash: failed to delete topupItem", "txhash", txhash, "err", err)
+			}
+			return
+		}
 		if err := sc.DB(db.dbName).C(lendingItemsCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
 			log.Error("DeleteItemByTxHash: failed to delete lendingItem", "txhash", txhash, "err", err)
 		}
@@ -522,6 +533,36 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Sparse:     true,
 		Name:       "index_lending_trade_tx_hash",
 	}
+	repayHashIndex := mgo.Index{
+		Key:        []string{"hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_repay_hash",
+	}
+	repayTxHashIndex := mgo.Index{
+		Key:        []string{"txHash"},
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_repay_tx_hash",
+	}
+	topupHashIndex := mgo.Index{
+		Key:        []string{"hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_topup_hash",
+	}
+	topupTxHashIndex := mgo.Index{
+		Key:        []string{"txHash"},
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_topup_tx_hash",
+	}
 	sc := db.Session.Copy()
 	defer sc.Close()
 	if err := sc.DB(db.dbName).C(ordersCollection).EnsureIndex(orderHashIndex); err != nil {
@@ -547,6 +588,18 @@ func (db *MongoDatabase) EnsureIndexes() error {
 	}
 	if err := sc.DB(db.dbName).C(lendingTradesCollection).EnsureIndex(lendingTradeTxHashIndex); err != nil {
 		return fmt.Errorf("failed to index lending_trades.txHash . Err: %v", err)
+	}
+	if err := sc.DB(db.dbName).C(lendingRepayCollection).EnsureIndex(repayHashIndex); err != nil {
+		return fmt.Errorf("failed to index lending_repay.hash . Err: %v", err)
+	}
+	if err := sc.DB(db.dbName).C(lendingRepayCollection).EnsureIndex(repayTxHashIndex); err != nil {
+		return fmt.Errorf("failed to index lending_repay.txHash . Err: %v", err)
+	}
+	if err := sc.DB(db.dbName).C(lendingTopUpCollection).EnsureIndex(topupHashIndex); err != nil {
+		return fmt.Errorf("failed to index lending_topup.hash . Err: %v", err)
+	}
+	if err := sc.DB(db.dbName).C(lendingTopUpCollection).EnsureIndex(topupTxHashIndex); err != nil {
+		return fmt.Errorf("failed to index lending_topup.txHash . Err: %v", err)
 	}
 	return nil
 }
