@@ -40,9 +40,11 @@ jobs:
     - kill %1
 
   - stage: Github release
-    go: '1.11.x'
+    go: '1.12.x'
     script:
-      - make tomo-cross
+      - GOARCH=amd64 GOOS=linux go build -o ./build/bin/proxy-$TRAVIS_TAG.linux.amd64 -v ./cmd/tomo
+      - GOARCH=amd64 GOOS=darwin go build -o ./buid/bin/proxy-$TRAVIS_TAG.darwin.amd64 -v ./cmd/tomo
+      - GOARCH=amd64 GOOS=windows go build -o ./build/bin/proxy-$TRAVIS_TAG.amd64.exe -v ./cmd/tomo
     deploy:
       provider: releases
       api_key: $GITHUB_TOKEN
