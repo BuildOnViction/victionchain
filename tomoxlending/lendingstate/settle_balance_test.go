@@ -21,9 +21,8 @@ func TestCalculateInterestRate(t *testing.T) {
 	}{
 		// apr = 10% per year
 		// finalize after one day
-		// interestRate = 1 * 10 * interestDecimal / 365 = 10 * 1e8 / 365 = 2739726
-		// early finalize in the first half => interestRate = interestRate / 2 = 1369863
-		// mean 1369863 / 1e8 =  0,01369863 %
+		// have to pay interest for a half of year
+		// interestRate = (365/2) * 10 * interestDecimal / 365 = 10 * 1e8 / 365 = 5 * 1e8
 		{
 			"early finalize in the first half",
 			args{
@@ -32,7 +31,7 @@ func TestCalculateInterestRate(t *testing.T) {
 				term:            common.OneYear,
 				apr:             10 * 1e8,
 			},
-			new(big.Int).SetUint64(1369863),
+			new(big.Int).SetUint64(500000000),
 		},
 
 		// apr = 10% per year (365 days)
@@ -54,7 +53,6 @@ func TestCalculateInterestRate(t *testing.T) {
 		// term: 30 days
 		// finalize after 15 days
 		// pay a half of interestRate 10% for 15 days / 365 days
-		// interestRate = 10% * 15 /365 / 2 = 0,41095890 % / 2 = 0,20547945 %
 		{
 			"term: 30 days, finalize after 15 days",
 			args{
@@ -63,7 +61,7 @@ func TestCalculateInterestRate(t *testing.T) {
 				term:            30 * 86400,
 				apr:             10 * 1e8,
 			},
-			new(big.Int).SetUint64(20547945),
+			new(big.Int).SetUint64(41095890),
 		},
 
 		// apr = 10% per year (365 days)
