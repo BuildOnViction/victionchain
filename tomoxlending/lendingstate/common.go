@@ -3,6 +3,7 @@ package lendingstate
 import (
 	"encoding/json"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"time"
 
@@ -190,7 +191,23 @@ func WeiToEther(amount *big.Int) *big.Int {
 	return new(big.Int).Div(amount, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
 }
 
-func EncodeFinalizedResult(liquidatedTrades, closedTrades []common.Hash) ([]byte, error) {
+func EncodeFinalizedResult(finalizedTrades map[common.Hash]*LendingTrade) ([]byte, error) {
+	liquidatedTrades := []common.Hash{}
+	closedTrades := []common.Hash{}
+	for hash, trade := range finalizedTrades {
+		switch trade.Status {
+		case TradeStatusLiquidated:
+			liquidatedTrades = append(liquidatedTrades, hash)
+			break
+		case TradeStatusClosed:
+			closedTrades = append(closedTrades, hash)
+			break
+		default:
+			log.Debug("unknown status of finalizedTrade", "status", trade.Status)
+			break
+
+		}
+	}
 	result := FinalizedResult{
 		Liquidated: liquidatedTrades,
 		Closed:     closedTrades,

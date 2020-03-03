@@ -631,7 +631,7 @@ func (self *worker) commitNewWork() {
 		tradingMatchingResults           map[common.Hash]tradingstate.MatchingResult
 		lendingMatchingResults           map[common.Hash]lendingstate.MatchingResult
 		lendingInput                     []*lendingstate.LendingItem
-		liquidatedTrades, closedTrades   []common.Hash
+		finalizedTrades                  map[common.Hash]*lendingstate.LendingTrade
 		lendingFinalizedTradeTransaction *types.Transaction
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
@@ -672,7 +672,7 @@ func (self *worker) commitNewWork() {
 					lendingOrderPending, _ := self.eth.LendingPool().Pending()
 					lendingInput, lendingMatchingResults = tomoXLending.ProcessOrderPending(header.Time.Uint64(), self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
 					log.Debug("lending transaction matches found", "lendingInput", len(lendingInput), "lendingMatchingResults", len(lendingMatchingResults))
-					liquidatedTrades, closedTrades, err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
+					finalizedTrades, err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
 					if err != nil {
 						log.Error("Fail when process lending liquidation data ", "error", err)
 						return
@@ -728,9 +728,9 @@ func (self *worker) commitNewWork() {
 					}
 				}
 
-				if len(liquidatedTrades) > 0 || len(closedTrades) > 0 {
+				if len(finalizedTrades) > 0 {
 					log.Debug("M1 finalized trades")
-					finalizedTradeData, err := lendingstate.EncodeFinalizedResult(liquidatedTrades, closedTrades)
+					finalizedTradeData, err := lendingstate.EncodeFinalizedResult(finalizedTrades)
 					if err != nil {
 						log.Error("Fail to marshal lendingData", "error", err)
 						return
@@ -743,6 +743,9 @@ func (self *worker) commitNewWork() {
 						return
 					} else {
 						lendingFinalizedTradeTransaction = signedFinalizedTx
+						if tomoX.IsSDKNode() {
+							self.chain.AddFinalizedTrades(lendingFinalizedTradeTransaction.Hash(), finalizedTrades)
+						}
 					}
 				}
 			}

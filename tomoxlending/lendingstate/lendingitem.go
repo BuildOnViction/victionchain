@@ -15,8 +15,8 @@ import (
 const (
 	Investing                  = "INVEST"
 	Borrowing                  = "BORROW"
-	Deposit                    = "DEPOSIT"
-	Payment                    = "PAYMENT"
+	TopUp                      = "TOPUP"
+	Repay                      = "REPAY"
 	LendingStatusNew           = "NEW"
 	LendingStatusOpen          = "OPEN"
 	LendingStatusReject        = "REJECTED"
@@ -28,8 +28,8 @@ const (
 )
 
 var ValidInputLendingStatus = map[string]bool{
-	Deposit:                true,
-	Payment:                true,
+	TopUp:                  true,
+	Repay:                  true,
 	LendingStatusNew:       true,
 	LendingStatusCancelled: true,
 }
@@ -363,7 +363,7 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 				return fmt.Errorf("VerifyBalance: borrower doesn't have enough collateralToken to pay cancel fee. User: %s. CollateralToken: %s . ExpectedBalance: %s . ActualBalance: %s",
 					userAddress.Hex(), lendingToken.Hex(), cancelFee.String(), actualBalance.String())
 			}
-		case Deposit:
+		case TopUp:
 			lendingBook := GetLendingOrderBookHash(lendingToken, term)
 			lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
 			if lendingTrade == EmptyLendingTrade {
@@ -375,7 +375,7 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 					"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
 					lendingTradeId, lendingTrade.CollateralToken.Hex(), quantity.String(), tokenBalance.String())
 			}
-		case Payment:
+		case Repay:
 			lendingBook := GetLendingOrderBookHash(lendingToken, term)
 			lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
 			if lendingTrade == EmptyLendingTrade {

@@ -50,7 +50,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
-	case lendingstate.Deposit:
+	case lendingstate.TopUp:
 		err, reject, newLendingTrade := l.ProcessDeposit(lendingStateDB, statedb, tradingStateDb, order)
 		if err != nil {
 			return nil, nil, err
@@ -62,7 +62,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		trades = append(trades, newLendingTrade)
 		return trades, rejects, nil
-	case lendingstate.Payment:
+	case lendingstate.Repay:
 		lendingTradeId := order.LendingTradeId
 		lendingTrade, err := l.ProcessPayment(createdBlockTime, lendingStateDB, statedb, tradingStateDb, lendingOrderBook, lendingTradeId)
 		if err != nil {
@@ -789,12 +789,12 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 	return &lendingTrade, nil
 }
 
-// return hash of liquidatedTrade
-func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (common.Hash, error) {
+// return liquidatedTrade
+func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (*lendingstate.LendingTrade, error) {
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
 	if lendingTrade.TradeId != lendingTradeId {
-		return common.Hash{}, fmt.Errorf("Lending Trade Id not found : %d ", lendingTradeId)
+		return nil, fmt.Errorf("Lending Trade Id not found : %d ", lendingTradeId)
 	}
 	lendingstate.SubTokenBalance(common.HexToAddress(common.LendingLockAddress), lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
 	lendingstate.AddTokenBalance(lendingTrade.Investor, lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
@@ -811,7 +811,7 @@ func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, 
 	if err != nil {
 		log.Debug("LiquidationTrade CancelLendingTrade", "err", err)
 	}
-	return lendingTrade.Hash, nil
+	return &lendingTrade, nil
 }
 func getCancelFee(lendTokenDecimal *big.Int, collateralPrice, borrowFee *big.Int, order *lendingstate.LendingItem) *big.Int {
 	cancelFee := big.NewInt(0)
