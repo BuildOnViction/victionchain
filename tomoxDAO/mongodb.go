@@ -23,6 +23,7 @@ const (
 	lendingTradesCollection = "lending_trades"
 	lendingTopUpCollection  = "lending_topup"
 	lendingRepayCollection  = "lending_repay"
+	epochPriceCollection    = "epoch_price"
 )
 
 type MongoDatabase struct {
@@ -32,6 +33,7 @@ type MongoDatabase struct {
 	cacheItems       *lru.Cache // Cache for reading
 	orderBulk        *mgo.Bulk
 	tradeBulk        *mgo.Bulk
+	epochPriceBulk   *mgo.Bulk
 	lendingItemBulk  *mgo.Bulk
 	topUpBulk        *mgo.Bulk
 	repayBulk        *mgo.Bulk
@@ -218,6 +220,11 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 			db.orderBulk.Upsert(query, o)
 		}
 		return nil
+	case *tradingstate.EpochPriceItem:
+		item := val.(*tradingstate.EpochPriceItem)
+		query := bson.M{"hash": item.Hash.Hex()}
+		db.epochPriceBulk.Upsert(query, item)
+		return nil
 	case *lendingstate.LendingTrade:
 		lt := val.(*lendingstate.LendingTrade)
 		// PutObject LendingTrade into tradesCollection collection
@@ -300,6 +307,7 @@ func (db *MongoDatabase) InitBulk() *mgo.Session {
 	sc := db.Session.Copy()
 	db.orderBulk = sc.DB(db.dbName).C(ordersCollection).Bulk()
 	db.tradeBulk = sc.DB(db.dbName).C(tradesCollection).Bulk()
+	db.epochPriceBulk = sc.DB(db.dbName).C(epochPriceCollection).Bulk()
 	return sc
 }
 
@@ -317,6 +325,9 @@ func (db *MongoDatabase) CommitBulk() error {
 		return err
 	}
 	if _, err := db.tradeBulk.Run(); err != nil && !mgo.IsDup(err) {
+		return err
+	}
+	if _, err := db.epochPriceBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
 	return nil
@@ -563,78 +574,95 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Sparse:     true,
 		Name:       "index_lending_topup_tx_hash",
 	}
+
+	epochPriceIndex := mgo.Index{
+		Key:        []string{"hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_epoch_price",
+	}
+
 	sc := db.Session.Copy()
 	defer sc.Close()
 
 	indexes, _ := sc.DB(db.dbName).C(ordersCollection).Indexes()
 	if !existingIndex(orderHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(ordersCollection).EnsureIndex(orderHashIndex); err != nil {
-			return fmt.Errorf("failed to index orders.hash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", orderHashIndex.Name, err)
 		}
 	}
 	if !existingIndex(orderTxHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(ordersCollection).EnsureIndex(orderTxHashIndex); err != nil {
-			return fmt.Errorf("failed to index orders.txHash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", orderTxHashIndex.Name, err)
 		}
 	}
 
 	indexes, _ = sc.DB(db.dbName).C(tradesCollection).Indexes()
 	if !existingIndex(tradeHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(tradesCollection).EnsureIndex(tradeHashIndex); err != nil {
-			return fmt.Errorf("failed to index trades.hash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", tradeHashIndex.Name, err)
 		}
 	}
 	if !existingIndex(tradeTxHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(tradesCollection).EnsureIndex(tradeTxHashIndex); err != nil {
-			return fmt.Errorf("failed to index trades.txHash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", tradeTxHashIndex.Name, err)
 		}
 	}
 
 	indexes, _ = sc.DB(db.dbName).C(lendingItemsCollection).Indexes()
 	if !existingIndex(lendingItemHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingItemsCollection).EnsureIndex(lendingItemHashIndex); err != nil {
-			return fmt.Errorf("failed to index lending_items.hash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", lendingItemHashIndex.Name, err)
 		}
 	}
 	if !existingIndex(lendingItemTxHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingItemsCollection).EnsureIndex(lendingItemTxHashIndex); err != nil {
-			return fmt.Errorf("failed to index lending_items.txHash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", lendingItemTxHashIndex.Name, err)
 		}
 	}
 
 	indexes, _ = sc.DB(db.dbName).C(lendingTradesCollection).Indexes()
 	if !existingIndex(lendingTradeHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingTradesCollection).EnsureIndex(lendingTradeHashIndex); err != nil {
-			return fmt.Errorf("failed to index lending_trades.hash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", lendingTradeHashIndex.Name, err)
 		}
 	}
 	if !existingIndex(lendingTradeTxHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingTradesCollection).EnsureIndex(lendingTradeTxHashIndex); err != nil {
-			return fmt.Errorf("failed to index lending_trades.txHash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", lendingTradeTxHashIndex.Name, err)
 		}
 	}
 
 	indexes, _ = sc.DB(db.dbName).C(lendingRepayCollection).Indexes()
 	if !existingIndex(repayHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingRepayCollection).EnsureIndex(repayHashIndex); err != nil {
-			return fmt.Errorf("failed to index lending_repay.hash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", repayHashIndex.Name, err)
 		}
 	}
 	if !existingIndex(repayTxHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingRepayCollection).EnsureIndex(repayTxHashIndex); err != nil {
-			return fmt.Errorf("failed to index lending_repay.txHash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", repayTxHashIndex.Name, err)
 		}
 	}
 
 	indexes, _ = sc.DB(db.dbName).C(lendingTopUpCollection).Indexes()
 	if !existingIndex(topupHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingTopUpCollection).EnsureIndex(topupHashIndex); err != nil {
-			return fmt.Errorf("failed to index lending_topup.hash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", topupHashIndex.Name, err)
 		}
 	}
 	if !existingIndex(topupTxHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingTopUpCollection).EnsureIndex(topupTxHashIndex); err != nil {
-			return fmt.Errorf("failed to index lending_topup.txHash . Err: %v", err)
+			return fmt.Errorf("failed to create index %s . Err: %v", topupTxHashIndex.Name, err)
+		}
+	}
+
+	indexes, _ = sc.DB(db.dbName).C(epochPriceCollection).Indexes()
+	if !existingIndex(epochPriceIndex.Name, indexes) {
+		if err := sc.DB(db.dbName).C(epochPriceCollection).EnsureIndex(epochPriceIndex); err != nil {
+			return fmt.Errorf("failed to create index %s . Err: %v", epochPriceIndex.Name, err)
 		}
 	}
 	return nil

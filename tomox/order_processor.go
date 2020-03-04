@@ -672,21 +672,56 @@ func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tradingsta
 	return cancelFee
 }
 
-func (tomox *TomoX) UpdateMediumPriceBeforeEpoch(tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error {
+func (tomox *TomoX) UpdateMediumPriceBeforeEpoch(epochNumber uint64, tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error {
 	mapPairs, err := tradingstate.GetAllTradingPairs(statedb)
 	log.Debug("UpdateMediumPriceBeforeEpoch", "len(mapPairs)", len(mapPairs))
 
 	if err != nil {
 		return err
 	}
-	for orderBook, _ := range mapPairs {
-		oldMediumPriceBeforeEpoch := tradingStateDB.GetMediumPriceBeforeEpoch(orderBook)
-		mediumPriceCurrent, _ := tradingStateDB.GetMediumPriceAndTotalAmount(orderBook)
-		log.Debug("UpdateMediumPriceBeforeEpoch", "mediumPriceCurrent", mediumPriceCurrent)
+	epochPriceResult := map[common.Hash]*big.Int{}
+	for orderbook, _ := range mapPairs {
+		oldMediumPriceBeforeEpoch := tradingStateDB.GetMediumPriceBeforeEpoch(orderbook)
+		mediumPriceCurrent, _ := tradingStateDB.GetMediumPriceAndTotalAmount(orderbook)
+
+		// if there is no trade in this epoch, use average price of last epoch
+		epochPriceResult[orderbook] = oldMediumPriceBeforeEpoch
 		if mediumPriceCurrent.Sign() > 0 && mediumPriceCurrent.Cmp(oldMediumPriceBeforeEpoch) != 0 {
-			tradingStateDB.SetMediumPriceBeforeEpoch(orderBook, mediumPriceCurrent)
+			log.Debug("UpdateMediumPriceBeforeEpoch", "mediumPriceCurrent", mediumPriceCurrent)
+			tradingStateDB.SetMediumPriceBeforeEpoch(orderbook, mediumPriceCurrent)
+			epochPriceResult[orderbook] = mediumPriceCurrent
 		}
-		tradingStateDB.SetMediumPrice(orderBook, tradingstate.Zero, tradingstate.Zero)
+		tradingStateDB.SetMediumPrice(orderbook, tradingstate.Zero, tradingstate.Zero)
+	}
+	if tomox.IsSDKNode() {
+		if err := tomox.LogEpochPrice(epochNumber, epochPriceResult); err != nil {
+			log.Error("failed to update epochPrice", "err", err)
+		}
+	}
+	return nil
+}
+
+func (tomox *TomoX) LogEpochPrice(epochNumber uint64, epochPriceResult map[common.Hash]*big.Int) error {
+	db := tomox.GetMongoDB()
+	sc := db.InitBulk()
+	defer sc.Close()
+
+	for orderbook, price := range epochPriceResult {
+		if price.Sign() <= 0 {
+			continue
+		}
+		epochPriceItem := &tradingstate.EpochPriceItem{
+			Epoch:     epochNumber,
+			Orderbook: orderbook,
+			Price:     price,
+		}
+		epochPriceItem.Hash = epochPriceItem.ComputeHash()
+		if err := db.PutObject(epochPriceItem.Hash, epochPriceItem); err != nil {
+			return err
+		}
+	}
+	if err := db.CommitBulk(); err != nil {
+		return err
 	}
 	return nil
 }

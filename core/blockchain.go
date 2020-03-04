@@ -1521,7 +1521,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					}
 				}
 				if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
-					if err := tradingService.UpdateMediumPriceBeforeEpoch(tradingState, statedb); err != nil {
+					if err := tradingService.UpdateMediumPriceBeforeEpoch(block.NumberU64() / bc.chainConfig.Posv.Epoch, tradingState, statedb); err != nil {
 						return i, events, coalescedLogs, err
 					}
 				}
@@ -1797,7 +1797,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				return nil, err
 			}
 			if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
-				if err := tomoXService.UpdateMediumPriceBeforeEpoch(tomoxState, statedb); err != nil {
+				if err := tomoXService.UpdateMediumPriceBeforeEpoch(block.NumberU64() / bc.chainConfig.Posv.Epoch, tomoxState, statedb); err != nil {
 					return nil, err
 				}
 			} else {
