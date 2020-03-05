@@ -40,9 +40,9 @@ jobs:
     - kill %1
 
   - stage: Github release
-    go: '1.11.x'
+    go: '1.12.x'
     script:
-      - make tomo-cross
+      - GOARCH=amd64 GOOS=linux go build -o ./build/bin/tomo-linux-amd64 -v ./cmd/tomo
     deploy:
       provider: releases
       api_key: $GITHUB_TOKEN
