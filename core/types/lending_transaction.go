@@ -43,6 +43,8 @@ const (
 	LendingStatusCancelled     = "CANCELLED"
 	LendingTypeMo              = "MO"
 	LendingTypeLo              = "LO"
+	LendingSideBorrow          = "BORROW"
+	LendingSideInvest          = "INVEST"
 	LendingStatusRePay         = "REPAY"
 	LendingStatusTopup         = "TOPUP"
 )
@@ -63,6 +65,7 @@ type lendingtxdata struct {
 	RelayerAddress  common.Address `json:"relayerAddress,omitempty"`
 	UserAddress     common.Address `json:"userAddress,omitempty"`
 	CollateralToken common.Address `json:"collateralToken,omitempty"`
+	AutoTopUp       bool           `json:"autoTopUp,omitempty"`
 	LendingToken    common.Address `json:"lendingToken,omitempty"`
 	Term            uint64         `json:"term"`
 	Status          string         `json:"status,omitempty"`
@@ -166,8 +169,11 @@ func (tx *LendingTransaction) Duration() uint64 { return tx.data.Term }
 // Term return period of transaction
 func (tx *LendingTransaction) Term() uint64 { return tx.data.Term }
 
-// CollateralToken return collrateral token address
+// CollateralToken return collateral token address
 func (tx *LendingTransaction) CollateralToken() common.Address { return tx.data.CollateralToken }
+
+// CollateralToken return autoTopUp flag
+func (tx *LendingTransaction) AutoTopUp() bool { return tx.data.AutoTopUp }
 
 // LendingToken return lending token address of transaction
 func (tx *LendingTransaction) LendingToken() common.Address { return tx.data.LendingToken }
@@ -271,11 +277,11 @@ func (tx *LendingTransaction) Size() common.StorageSize {
 }
 
 // NewLendingTransaction init lending from value
-func NewLendingTransaction(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id, tradeId uint64, extraData string) *LendingTransaction {
-	return newLendingTransaction(nonce, quantity, interest, duration, relayerAddress, userAddress, lendingToken, collateralToken, status, side, typeLending, hash, id, tradeId, extraData)
+func NewLendingTransaction(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, autoTopUp bool, status, side, typeLending string, hash common.Hash, id, tradeId uint64, extraData string) *LendingTransaction {
+	return newLendingTransaction(nonce, quantity, interest, duration, relayerAddress, userAddress, lendingToken, collateralToken, autoTopUp, status, side, typeLending, hash, id, tradeId, extraData)
 }
 
-func newLendingTransaction(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id, tradeId uint64, extraData string) *LendingTransaction {
+func newLendingTransaction(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, autoTopUp bool, status, side, typeLending string, hash common.Hash, id, tradeId uint64, extraData string) *LendingTransaction {
 	d := lendingtxdata{
 		AccountNonce:    nonce,
 		Quantity:        new(big.Int),
@@ -285,6 +291,7 @@ func newLendingTransaction(nonce uint64, quantity *big.Int, interest, duration u
 		UserAddress:     userAddress,
 		LendingToken:    lendingToken,
 		CollateralToken: collateralToken,
+		AutoTopUp:       autoTopUp,
 		Status:          status,
 		Side:            side,
 		Type:            typeLending,

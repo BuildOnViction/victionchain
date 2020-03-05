@@ -340,7 +340,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				lendingTrade.InvestingRelayer = oldestOrder.Relayer
 				lendingTrade.Borrower = order.UserAddress
 				lendingTrade.Investor = oldestOrder.UserAddress
-
+				lendingTrade.AutoTopUp = order.AutoTopUp
 				// fee
 				if settleBalanceResult != nil {
 					lendingTrade.BorrowingFee = settleBalanceResult.Taker.Fee
@@ -353,6 +353,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				lendingTrade.InvestingRelayer = order.Relayer
 				lendingTrade.Borrower = oldestOrder.UserAddress
 				lendingTrade.Investor = order.UserAddress
+				lendingTrade.AutoTopUp = oldestOrder.AutoTopUp
 				// fee
 				if settleBalanceResult != nil {
 					lendingTrade.BorrowingFee = settleBalanceResult.Maker.Fee
@@ -901,4 +902,9 @@ func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *sta
 		}
 	}
 	return lendTokenTOMOPrice, collateralPrice, nil
+}
+
+func (l *Lending) AutoTopUp (trade *lendingstate.LendingTrade, currentPrice *big.Int) (*lendingstate.LendingTrade, error) {
+	//TODO: lock more collateral to make sure LiquidationPrice = currentPrice * AutoTopUpGap / 100
+	return nil, nil
 }

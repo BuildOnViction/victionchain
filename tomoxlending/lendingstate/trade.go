@@ -32,6 +32,7 @@ type LendingTrade struct {
 	CollateralPrice        *big.Int       `bson:"collateralPrice" json:"collateralPrice"`
 	LiquidationPrice       *big.Int       `bson:"liquidationPrice" json:"liquidationPrice"`
 	CollateralLockedAmount *big.Int       `bson:"collateralLockedAmount" json:"collateralLockedAmount"`
+	AutoTopUp              bool           `bson:"autoTopUp" json:"autoTopUp"`
 	LiquidationTime        uint64         `bson:"liquidationTime" json:"liquidationTime"`
 	DepositRate            *big.Int       `bson:"depositRate" json:"depositRate"`
 	Amount                 *big.Int       `bson:"amount" json:"amount"`
@@ -64,6 +65,7 @@ type LendingTradeBSON struct {
 	LiquidationPrice       string    `bson:"liquidationPrice" json:"liquidationPrice"`
 	LiquidationTime        string    `bson:"liquidationTime" json:"liquidationTime"`
 	CollateralLockedAmount string    `bson:"collateralLockedAmount" json:"collateralLockedAmount"`
+	AutoTopUp              bool      `bson:"autoTopUp" json:"autoTopUp"`
 	DepositRate            string    `bson:"depositRate" json:"depositRate"`
 	Amount                 string    `bson:"amount" json:"amount"`
 	BorrowingFee           string    `bson:"borrowingFee" json:"borrowingFee"`
@@ -99,6 +101,7 @@ func (t *LendingTrade) GetBSON() (interface{}, error) {
 			LiquidationPrice:       t.LiquidationPrice.String(),
 			LiquidationTime:        strconv.FormatUint(t.LiquidationTime, 10),
 			CollateralLockedAmount: t.CollateralLockedAmount.String(),
+			AutoTopUp:              t.AutoTopUp,
 			DepositRate:            t.DepositRate.String(),
 			Amount:                 t.Amount.String(),
 			BorrowingFee:           t.BorrowingFee.String(),
@@ -132,6 +135,7 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	t.Investor = common.HexToAddress(decoded.Investor)
 	t.LendingToken = common.HexToAddress(decoded.LendingToken)
 	t.CollateralToken = common.HexToAddress(decoded.CollateralToken)
+	t.AutoTopUp = decoded.AutoTopUp
 	t.BorrowingOrderHash = common.HexToHash(decoded.BorrowingOrderHash)
 	t.InvestingOrderHash = common.HexToHash(decoded.InvestingOrderHash)
 	t.BorrowingRelayer = common.HexToAddress(decoded.BorrowingRelayer)

@@ -1981,6 +1981,7 @@ type LendingMsg struct {
 	RelayerAddress  common.Address `json:"relayerAddress,omitempty"`
 	UserAddress     common.Address `json:"userAddress,omitempty"`
 	CollateralToken common.Address `json:"collateralToken,omitempty"`
+	AutoTopUp       bool           `json:"autoTopUp,omitempty"`
 	LendingToken    common.Address `json:"lendingToken,omitempty"`
 	Term            uint64         `json:"term,omitempty"`
 	Interest        uint64         `json:"interest,omitempty"`
@@ -2016,7 +2017,7 @@ func (s *PublicTomoXTransactionPoolAPI) SendOrder(ctx context.Context, msg Order
 // SendLending will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTomoXTransactionPoolAPI) SendLending(ctx context.Context, msg LendingMsg) (common.Hash, error) {
-	tx := types.NewLendingTransaction(msg.AccountNonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.Status, msg.Side, msg.Type, msg.Hash, msg.LendingId, msg.LendingTradeId, msg.ExtraData)
+	tx := types.NewLendingTransaction(msg.AccountNonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.AutoTopUp, msg.Status, msg.Side, msg.Type, msg.Hash, msg.LendingId, msg.LendingTradeId, msg.ExtraData)
 	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
 	return submitLendingTransaction(ctx, s.b, tx)
 }

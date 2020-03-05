@@ -27,6 +27,7 @@ const (
 	ProtocolVersion    = uint64(1)
 	ProtocolVersionStr = "1.0"
 	defaultCacheLimit  = 1024
+	AutoTopUpGap       = 90 // After making autoTopUp, liquidationPrice = 90% currentPrice
 )
 
 var (
@@ -679,15 +680,23 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		for highestPrice.Sign() > 0 && highestPrice.Cmp(liquidationPrice) >= 0 {
 			for lendingBook, tradingIds := range liquidationData {
 				for _, tradingIdHash := range tradingIds {
+					trade := lendingState.GetLendingTrade(lendingBook, tradingIdHash)
+					if trade.AutoTopUp {
+						if newTrade, err := l.AutoTopUp(&trade, liquidationPrice); err == nil {
+							// if this action complete successfully, do not liquidate this trade in this epoch
+							log.Debug("AutoTopUp", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
+							continue
+						}
+					}
 					log.Debug("LiquidationTrade", "highestPrice", highestPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
-					trade, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
+					newTrade, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
 					if err != nil {
-						log.Error("Fail when remove liquidation trade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
+						log.Error("Fail when remove liquidation newTrade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
 						return map[common.Hash]*lendingstate.LendingTrade{}, err
 					}
-					if trade != nil && trade.Hash != (common.Hash{}) {
-						trade.Status = lendingstate.TradeStatusLiquidated
-						finalizedTrades[trade.Hash] = trade
+					if newTrade != nil && newTrade.Hash != (common.Hash{}) {
+						newTrade.Status = lendingstate.TradeStatusLiquidated
+						finalizedTrades[newTrade.Hash] = newTrade
 					}
 				}
 			}

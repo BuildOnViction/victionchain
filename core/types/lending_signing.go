@@ -125,6 +125,13 @@ func (lendingsign LendingTxSigner) LendingCreateHash(tx *LendingTransaction) com
 	sha.Write([]byte(tx.Status()))
 	sha.Write([]byte(tx.Type()))
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
+	if tx.Side() == LendingSideBorrow {
+		autoTopUp := int64(0)
+		if tx.AutoTopUp() {
+			autoTopUp = int64(1)
+		}
+		sha.Write(common.BigToHash(big.NewInt(autoTopUp)).Bytes())
+	}
 	return common.BytesToHash(sha.Sum(nil))
 }
 
