@@ -19,7 +19,7 @@ type EpochPriceItem struct {
 type EpochPriceItemBSON struct {
 	Epoch     string `bson:"epoch" json:"epoch"`
 	Orderbook string `bson:"orderbook" json:"orderbook"`
-	Hash      string `bson:"hash" json:"hash"`
+	Hash      string `bson:"hash" json:"hash"` // Keccak256Hash of Epoch and orderbook, used as an index of this collection
 	Price     string `bson:"price" json:"price"`
 }
 

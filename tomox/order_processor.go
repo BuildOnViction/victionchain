@@ -701,6 +701,9 @@ func (tomox *TomoX) UpdateMediumPriceBeforeEpoch(epochNumber uint64, tradingStat
 	return nil
 }
 
+// put average price of epoch to mongodb for tracking liquidation trades
+// epochPriceResult: a map of epoch average price, key is orderbook hash , value is epoch average price
+// orderbook hash genereted from baseToken, quoteToken at tomochain/tomox/tradingstate/common.go:214
 func (tomox *TomoX) LogEpochPrice(epochNumber uint64, epochPriceResult map[common.Hash]*big.Int) error {
 	db := tomox.GetMongoDB()
 	sc := db.InitBulk()
