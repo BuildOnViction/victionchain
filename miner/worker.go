@@ -654,7 +654,7 @@ func (self *worker) commitNewWork() {
 			tomoXLending := self.eth.GetTomoXLending()
 			if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
 				if header.Number.Uint64()%self.config.Posv.Epoch == 0 {
-					err := tomoX.UpdateMediumPriceBeforeEpoch(work.tradingState, work.state)
+					err := tomoX.UpdateMediumPriceBeforeEpoch(header.Number.Uint64()/self.config.Posv.Epoch, work.tradingState, work.state)
 					if err != nil {
 						log.Error("Fail when update medium price last epoch", "error", err)
 						return
