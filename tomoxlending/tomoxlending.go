@@ -126,6 +126,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 			UserAddress:     tx.UserAddress(),
 			LendingToken:    tx.LendingToken(),
 			CollateralToken: tx.CollateralToken(),
+			AutoTopUp:       tx.AutoTopUp(),
 			Status:          tx.Status(),
 			Side:            tx.Side(),
 			Type:            tx.Type(),
