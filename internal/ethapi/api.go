@@ -1876,6 +1876,81 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderTxMatchByHash(ctx context.Contex
 
 }
 
+// GetOrderPoolContent return pending, queued content
+func (s *PublicTomoXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context) interface{} {
+	pendingOrders := []*tradingstate.OrderItem{}
+	queuedOrders := []*tradingstate.OrderItem{}
+	pending, queued := s.b.OrderTxPoolContent()
+
+	for _, txs := range pending {
+		for _, tx := range txs {
+			V, R, S := tx.Signature()
+			order := &tradingstate.OrderItem{
+				Nonce:           big.NewInt(int64(tx.Nonce())),
+				Quantity:        tx.Quantity(),
+				Price:           tx.Price(),
+				ExchangeAddress: tx.ExchangeAddress(),
+				UserAddress:     tx.UserAddress(),
+				BaseToken:       tx.BaseToken(),
+				QuoteToken:      tx.QuoteToken(),
+				Status:          tx.Status(),
+				Side:            tx.Side(),
+				Type:            tx.Type(),
+				Hash:            tx.OrderHash(),
+				OrderID:         tx.OrderID(),
+				Signature: &tradingstate.Signature{
+					V: byte(V.Uint64()),
+					R: common.BigToHash(R),
+					S: common.BigToHash(S),
+				},
+				PairName: tx.PairName(),
+			}
+			pendingOrders = append(pendingOrders, order)
+		}
+	}
+
+	for _, txs := range queued {
+		for _, tx := range txs {
+			V, R, S := tx.Signature()
+			order := &tradingstate.OrderItem{
+				Nonce:           big.NewInt(int64(tx.Nonce())),
+				Quantity:        tx.Quantity(),
+				Price:           tx.Price(),
+				ExchangeAddress: tx.ExchangeAddress(),
+				UserAddress:     tx.UserAddress(),
+				BaseToken:       tx.BaseToken(),
+				QuoteToken:      tx.QuoteToken(),
+				Status:          tx.Status(),
+				Side:            tx.Side(),
+				Type:            tx.Type(),
+				Hash:            tx.OrderHash(),
+				OrderID:         tx.OrderID(),
+				Signature: &tradingstate.Signature{
+					V: byte(V.Uint64()),
+					R: common.BigToHash(R),
+					S: common.BigToHash(S),
+				},
+				PairName: tx.PairName(),
+			}
+			queuedOrders = append(pendingOrders, order)
+		}
+	}
+
+	return map[string]interface{}{
+		"pending": pendingOrders,
+		"queued":  queuedOrders,
+	}
+}
+
+// GetOrderStats return pending, queued length
+func (s *PublicTomoXTransactionPoolAPI) GetOrderStats(ctx context.Context) interface{} {
+	pending, queued := s.b.OrderStats()
+	return map[string]interface{}{
+		"pending": pending,
+		"queued":  queued,
+	}
+}
+
 // OrderMsg struct
 type OrderMsg struct {
 	AccountNonce    uint64         `json:"nonce"    gencodec:"required"`

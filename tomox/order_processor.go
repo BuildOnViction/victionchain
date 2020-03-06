@@ -1,12 +1,14 @@
 package tomox
 
 import (
-	"github.com/tomochain/tomochain/consensus"
 	"math/big"
 	"strconv"
 	"time"
 
+	"github.com/tomochain/tomochain/consensus"
+
 	"fmt"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/log"
@@ -34,13 +36,15 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 	nonce := tradingStateDB.GetNonce(order.UserAddress.Hash())
 	log.Debug("ApplyOrder", "addr", order.UserAddress, "statenonce", nonce, "ordernonce", order.Nonce)
 	if big.NewInt(int64(nonce)).Cmp(order.Nonce) == -1 {
+		log.Debug("ApplyOrder ErrNonceTooHigh", "nonce", order.Nonce)
 		return nil, nil, ErrNonceTooHigh
 	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
+		log.Debug("ApplyOrder ErrNonceTooLow", "nonce", order.Nonce)
 		return nil, nil, ErrNonceTooLow
 	}
 	// increase nonce
-	tradingStateDB.SetNonce(order.UserAddress.Hash(), nonce + 1)
-
+	log.Debug("ApplyOrder setnonce", "nonce", nonce+1, "addr", order.UserAddress.Hex(), "status", order.Status, "oldnonce", nonce)
+	tradingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 	tomoxSnap := tradingStateDB.Snapshot()
 	dbSnap := statedb.Snapshot()
 	defer func() {
@@ -83,7 +87,7 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 		log.Debug("Process limit order", "side", order.Side, "quantity", order.Quantity, "price", order.Price)
 		trades, rejects, err = tomox.processLimitOrder(coinbase, chain, statedb, tradingStateDB, orderBook, order)
 		if err != nil {
-			log.Debug("Reject limit order", "err", err,  "order", tradingstate.ToJSON(order))
+			log.Debug("Reject limit order", "err", err, "order", tradingstate.ToJSON(order))
 			trades = []map[string]string{}
 			rejects = append(rejects, order)
 		}
@@ -603,7 +607,7 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 	// originOrder: full order information getting from order trie
 	originOrder := tradingStateDB.GetOrder(orderBook, common.BigToHash(new(big.Int).SetUint64(order.OrderID)))
 	if originOrder == tradingstate.EmptyOrder {
-		return fmt.Errorf("order not found. OrderId: %v. Base: %s. Quote: %s", order.OrderID, order.BaseToken, order.QuoteToken), false
+		return fmt.Errorf("order not found. OrderId: %v. Base: %s. Quote: %s", order.OrderID, order.BaseToken.Hex(), order.QuoteToken.Hex()), false
 	}
 	var tokenBalance *big.Int
 	switch originOrder.Side {
