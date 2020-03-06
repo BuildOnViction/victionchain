@@ -19,10 +19,11 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/consensus/posv"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/tomochain/tomochain/consensus/posv"
 
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
@@ -48,11 +49,12 @@ var (
 	ErrInvalidLendingDuration    = errors.New("invalid lending duration")
 	ErrInvalidLendingHash        = errors.New("invalid lending hash")
 	ErrInvalidCancelledLending   = errors.New("invalid cancel lending id")
+	ErrInvalidLendingTradeID     = errors.New("invalid lending trade ID")
 )
 
 var (
-	LendingTypeLimit    = "LO"
-	LendingTypeMarket   = "MO"
+	LendingTypeLimit  = "LO"
+	LendingTypeMarket = "MO"
 )
 
 // LendingPoolConfig are the configuration parameters of the order transaction pool.
@@ -407,109 +409,134 @@ func (pool *LendingPool) GetSender(tx *types.LendingTransaction) (common.Address
 	}
 	return from, nil
 }
-
-func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
+func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
 	lendingSide := tx.Side()
 	lendingType := tx.Type()
-	lendingStatus := tx.Status()
 	interest := tx.Interest()
 	quantity := tx.Quantity()
+	if quantity == nil || quantity.Sign() <= 0 {
+		return ErrInvalidLendingQuantity
+	}
+	if lendingType != LendingTypeMarket {
+		if interest <= 0 {
+			return ErrInvalidLendingInterest
+		}
+	}
 
+	if lendingSide != lendingstate.Investing && lendingSide != lendingstate.Borrowing {
+		return ErrInvalidLendingSide
+	}
+	if lendingType != LendingTypeLimit && lendingType != LendingTypeMarket {
+		return ErrInvalidLendingType
+	}
+	if valid, _ := lendingstate.IsValidPair(cloneStateDb, tx.RelayerAddress(), tx.LendingToken(), tx.Term()); valid == false {
+		return fmt.Errorf("invalid pair. Relayer: %s. LendingToken: %s. Term: %d", tx.RelayerAddress().Hex(), tx.LendingToken().Hex(), tx.Term())
+	}
+
+	if lendingType == LendingTypeLimit {
+		posvEngine, ok := pool.chain.Engine().(*posv.Posv)
+		if !ok {
+			return ErrNotPoSV
+		}
+		tomoXServ := posvEngine.GetTomoXService()
+		lendingServ := posvEngine.GetLendingService()
+		if tomoXServ == nil {
+			return fmt.Errorf("tomox not found in order validation")
+		}
+		lendingTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.LendingToken())
+		if err != nil {
+			return fmt.Errorf("validateOrder: failed to get lendingTokenDecimal. err: %v", err)
+		}
+		collateralTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.CollateralToken())
+		if err != nil {
+			return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
+		}
+		tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock())
+		if err != nil {
+			return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
+		}
+		cloneTradingStateDb := tradingStateDb.Copy()
+		// collateralPrice: price of collateral by LendingToken
+		// Eg: LendingToken: USD, CollateralToken: BTC
+		// collateralPrice = BTC/USD (eg: 8000 USD)
+		// lendTokenTOMOPrice: price of lendingToken in TOMO quote
+
+		lendTokenTOMOPrice, collateralPrice, err := lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
+		if err != nil {
+			return err
+		}
+		if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() <= 0 || collateralPrice == nil || collateralPrice.Sign() <= 0 {
+			log.Debug("ValidateLending: ErrInvalidCollateralPrice", "lendTokenTOMOPrice", lendTokenTOMOPrice, "collateralPrice", collateralPrice)
+			return lendingstate.ErrInvalidCollateralPrice
+		}
+		if err := lendingstate.VerifyBalance(cloneStateDb,
+			cloneLendingStateDb,
+			tx.Side(),
+			tx.Status(),
+			tx.UserAddress(),
+			tx.RelayerAddress(),
+			tx.LendingToken(),
+			tx.CollateralToken(),
+			tx.Quantity(),
+			lendingTokenDecimal,
+			collateralTokenDecimal,
+			lendTokenTOMOPrice,
+			collateralPrice,
+			tx.Term(),
+			tx.LendingId(),
+			tx.LendingTradeId(),
+		); err != nil {
+			return fmt.Errorf("VerifyBalance failed ! OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToken: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
+		}
+	}
+	return nil
+}
+func (pool *LendingPool) validateCancelledLending(tx *types.LendingTransaction) error {
+	if tx.LendingId() == 0 {
+		return ErrInvalidCancelledLending
+	}
+	return nil
+}
+func (pool *LendingPool) validatePaymentLending(tx *types.LendingTransaction) error {
+	if tx.LendingTradeId() == 0 {
+		return ErrInvalidLendingTradeID
+	}
+	return nil
+}
+func (pool *LendingPool) validateDepositLending(tx *types.LendingTransaction) error {
+	if tx.LendingTradeId() == 0 {
+		return ErrInvalidLendingTradeID
+	}
+	if tx.Quantity() == nil || tx.Quantity().Sign() <= 0 {
+		return ErrInvalidLendingQuantity
+	}
+	return nil
+}
+
+func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
+	cloneStateDb := pool.currentRootState.Copy()
+	cloneLendingStateDb := pool.currentLendingState.Copy()
 	from, _ := types.LendingSender(pool.signer, tx)
 	if from != tx.UserAddress() {
 		return ErrInvalidLendingUserAddress
 	}
-
-	cloneStateDb := pool.currentRootState.Copy()
-	cloneLendingStateDb := pool.currentLendingState.Copy()
-
-	if valid, ok := lendingstate.ValidInputLendingStatus[lendingStatus]; !ok && !valid {
-		return ErrInvalidLendingStatus
-	}
-	if !tx.IsCancelledLending() {
-		if quantity == nil || quantity.Sign() <= 0 {
-			return ErrInvalidLendingQuantity
-		}
-		if lendingType != LendingTypeMarket {
-			if interest <= 0 {
-				return ErrInvalidLendingInterest
-			}
-		}
-
-		if lendingSide != lendingstate.Investing && lendingSide != lendingstate.Borrowing {
-			return ErrInvalidLendingSide
-		}
-		if lendingType != LendingTypeLimit && lendingType != LendingTypeMarket {
-			return ErrInvalidLendingType
-		}
-		if valid, _ := lendingstate.IsValidPair(cloneStateDb, tx.RelayerAddress(), tx.LendingToken(), tx.Term()); valid == false {
-			return fmt.Errorf("invalid pair. Relayer: %s. LendingToken: %s. Term: %d", tx.RelayerAddress().Hex(), tx.LendingToken().Hex(), tx.Term())
-		}
-
-		if lendingType == LendingTypeLimit {
-			posvEngine, ok := pool.chain.Engine().(*posv.Posv)
-			if !ok {
-				return ErrNotPoSV
-			}
-			tomoXServ := posvEngine.GetTomoXService()
-			lendingServ := posvEngine.GetLendingService()
-			if tomoXServ == nil {
-				return fmt.Errorf("tomox not found in order validation")
-			}
-			lendingTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.LendingToken())
-			if err != nil {
-				return fmt.Errorf("validateOrder: failed to get lendingTokenDecimal. err: %v", err)
-			}
-			collateralTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.CollateralToken())
-			if err != nil {
-				return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
-			}
-			tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock())
-			if err != nil {
-				return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
-			}
-			cloneTradingStateDb := tradingStateDb.Copy()
-			// collateralPrice: price of collateral by LendingToken
-			// Eg: LendingToken: USD, CollateralToken: BTC
-			// collateralPrice = BTC/USD (eg: 8000 USD)
-			// lendTokenTOMOPrice: price of lendingToken in TOMO quote
-
-			lendTokenTOMOPrice, collateralPrice, err := lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
-			if err != nil {
-				return err
-			}
-			if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() <= 0 || collateralPrice == nil || collateralPrice.Sign() <= 0 {
-				log.Debug("ValidateLending: ErrInvalidCollateralPrice", "lendTokenTOMOPrice", lendTokenTOMOPrice, "collateralPrice", collateralPrice)
-				return lendingstate.ErrInvalidCollateralPrice
-			}
-			if err := lendingstate.VerifyBalance(cloneStateDb,
-				cloneLendingStateDb,
-				tx.Side(),
-				tx.Status(),
-				tx.UserAddress(),
-				tx.RelayerAddress(),
-				tx.LendingToken(),
-				tx.CollateralToken(),
-				tx.Quantity(),
-				lendingTokenDecimal,
-				collateralTokenDecimal,
-				lendTokenTOMOPrice,
-				collateralPrice,
-				tx.Term(),
-				tx.LendingId(),
-				tx.LendingTradeId(),
-			); err != nil {
-				return fmt.Errorf("VerifyBalance failed ! OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToken: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
-			}
-		}
-
-	}
-
 	if !lendingstate.IsValidRelayer(cloneStateDb, tx.RelayerAddress()) {
 		return fmt.Errorf("invalid lending relayer. ExchangeAddress: %s", tx.RelayerAddress().Hex())
 	}
+	if tx.IsCreatedLending() {
+		return pool.validateNewLending(cloneStateDb, cloneLendingStateDb, tx)
+	}
+	if tx.IsCancelledLending() {
+		return pool.validateCancelledLending(tx)
+	}
+	if tx.IsDepositeLending() {
+		return pool.validateDepositLending(tx)
+	}
+	if tx.IsPaymentLending() {
+		return pool.validatePaymentLending(tx)
+	}
 
-	return nil
+	return ErrInvalidLendingStatus
 }
 
 // validateTx checks whether a transaction is valid according to the consensus
@@ -680,7 +707,7 @@ func (pool *LendingPool) promoteTx(addr common.Address, hash common.Hash, tx *ty
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *LendingPool) AddLocal(tx *types.LendingTransaction) error {
-	log.Debug("Lending add local tx", "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.LendingHash().Hex(), "status", tx.Status(), "lendingid", tx.LendingId())
+	log.Debug("Lending add local tx", "relayeraddress", tx.RelayerAddress().Hex(), "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.LendingHash().Hex(), "status", tx.Status(), "lendingid", tx.LendingId())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
