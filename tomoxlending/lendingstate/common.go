@@ -78,7 +78,8 @@ type MatchingResult struct {
 
 type FinalizedResult struct {
 	Liquidated []common.Hash
-	Closed     []common.Hash
+	AutoRepay  []common.Hash
+	AutoTopUp  []common.Hash
 	TxHash     common.Hash
 	Timestamp  int64
 }
@@ -193,15 +194,19 @@ func WeiToEther(amount *big.Int) *big.Int {
 
 func EncodeFinalizedResult(finalizedTrades map[common.Hash]*LendingTrade) ([]byte, error) {
 	liquidatedTrades := []common.Hash{}
-	closedTrades := []common.Hash{}
+	autoRepayTrades := []common.Hash{}
+	autoTopUpTrades := []common.Hash{}
+
 	for hash, trade := range finalizedTrades {
 		switch trade.Status {
 		case TradeStatusLiquidated:
 			liquidatedTrades = append(liquidatedTrades, hash)
 			break
 		case TradeStatusClosed:
-			closedTrades = append(closedTrades, hash)
+			autoRepayTrades = append(autoRepayTrades, hash)
 			break
+		case TradeStatusOpen:
+			autoTopUpTrades = append(autoTopUpTrades, hash)
 		default:
 			log.Debug("unknown status of finalizedTrade", "status", trade.Status)
 			break
@@ -210,7 +215,7 @@ func EncodeFinalizedResult(finalizedTrades map[common.Hash]*LendingTrade) ([]byt
 	}
 	result := FinalizedResult{
 		Liquidated: liquidatedTrades,
-		Closed:     closedTrades,
+		AutoRepay:  autoRepayTrades,
 		Timestamp:  time.Now().UnixNano(),
 	}
 	data, err := json.Marshal(result)
