@@ -892,11 +892,11 @@ func (l *Lending) AutoTopUp(statedb *state.StateDB, tradingState *tradingstate.T
 		return nil, fmt.Errorf("lending trade still not liquid. current price: %v  , liquidation price : %v  ", currentPrice, lendingTrade.LiquidationPrice)
 	}
 	// newLiquidationPrice = currentPrice * 90%
-	newLiquidationPrice:=new(big.Int).Mul(currentPrice, common.RateTopUp)
-	newLiquidationPrice = newLiquidationPrice.Div(newLiquidationPrice, common.BaseTopUp)
+	newLiquidationPrice := new(big.Int).Mul(currentPrice, common.RateTopUp)
+	newLiquidationPrice = new(big.Int).Div(newLiquidationPrice, common.BaseTopUp)
 	// newLockedAmount = CollateralLockedAmount *  LiquidationPrice / newLiquidationPrice
 	newLockedAmount := new(big.Int).Mul(lendingTrade.CollateralLockedAmount, lendingTrade.LiquidationPrice)
-	newLockedAmount = newLockedAmount.Div(newLockedAmount, newLiquidationPrice)
+	newLockedAmount = new(big.Int).Div(newLockedAmount, newLiquidationPrice)
 
 	requiredDepositAmount := new(big.Int).Sub(newLockedAmount, lendingTrade.CollateralLockedAmount)
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)

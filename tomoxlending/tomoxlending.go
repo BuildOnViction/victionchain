@@ -27,7 +27,6 @@ const (
 	ProtocolVersion    = uint64(1)
 	ProtocolVersionStr = "1.0"
 	defaultCacheLimit  = 1024
-	AutoTopUpGap       = 90 // After making autoTopUp, liquidationPrice = 90% currentPrice
 )
 
 var (
