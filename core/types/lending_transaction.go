@@ -43,8 +43,8 @@ const (
 	LendingStatusCancelled     = "CANCELLED"
 	LendingTypeMo              = "MO"
 	LendingTypeLo              = "LO"
-	LendingStatusPayment       = "PAYMENT"
-	LendingStatusDeposit       = "DEPOSIT"
+	LendingStatusRePay         = "REPAY"
+	LendingStatusTopup         = "TOPUP"
 )
 
 // LendingTransaction lending transaction
@@ -97,17 +97,17 @@ func (tx *LendingTransaction) IsCancelledLending() bool {
 	return false
 }
 
-// IsPaymentLending check if tx is repay lending transaction
-func (tx *LendingTransaction) IsPaymentLending() bool {
-	if tx.Status() == LendingStatusPayment {
+// IsRePaymentLending check if tx is repay lending transaction
+func (tx *LendingTransaction) IsRePaymentLending() bool {
+	if tx.Status() == LendingStatusRePay {
 		return true
 	}
 	return false
 }
 
-// IsDepositeLending check if tx is repay lending transaction
-func (tx *LendingTransaction) IsDepositeLending() bool {
-	if tx.Status() == LendingStatusDeposit {
+// IsTopupLending check if tx is repay lending transaction
+func (tx *LendingTransaction) IsTopupLending() bool {
+	if tx.Status() == LendingStatusTopup {
 		return true
 	}
 	return false

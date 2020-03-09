@@ -497,13 +497,13 @@ func (pool *LendingPool) validateCancelledLending(tx *types.LendingTransaction) 
 	}
 	return nil
 }
-func (pool *LendingPool) validatePaymentLending(tx *types.LendingTransaction) error {
+func (pool *LendingPool) validateRepayLending(tx *types.LendingTransaction) error {
 	if tx.LendingTradeId() == 0 {
 		return ErrInvalidLendingTradeID
 	}
 	return nil
 }
-func (pool *LendingPool) validateDepositLending(tx *types.LendingTransaction) error {
+func (pool *LendingPool) validateTopupLending(tx *types.LendingTransaction) error {
 	if tx.LendingTradeId() == 0 {
 		return ErrInvalidLendingTradeID
 	}
@@ -529,11 +529,11 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 	if tx.IsCancelledLending() {
 		return pool.validateCancelledLending(tx)
 	}
-	if tx.IsDepositeLending() {
-		return pool.validateDepositLending(tx)
+	if tx.IsTopupLending() {
+		return pool.validateTopupLending(tx)
 	}
-	if tx.IsPaymentLending() {
-		return pool.validatePaymentLending(tx)
+	if tx.IsRePaymentLending() {
+		return pool.validateRepayLending(tx)
 	}
 
 	return ErrInvalidLendingStatus
@@ -707,7 +707,7 @@ func (pool *LendingPool) promoteTx(addr common.Address, hash common.Hash, tx *ty
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *LendingPool) AddLocal(tx *types.LendingTransaction) error {
-	log.Debug("Lending add local tx", "relayeraddress", tx.RelayerAddress().Hex(), "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.LendingHash().Hex(), "status", tx.Status(), "lendingid", tx.LendingId())
+	log.Debug("Lending add local tx", "relayeraddress", tx.RelayerAddress().Hex(), "addr", tx.UserAddress(), "nonce", tx.Nonce(), "ohash", tx.LendingHash().Hex(), "status", tx.Status(), "lendingid", tx.LendingId(), "lendingtradeid", tx.LendingTradeId())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 

@@ -177,10 +177,10 @@ func (lendingsign LendingTxSigner) Hash(tx *LendingTransaction) common.Hash {
 	if tx.IsCreatedLending() {
 		return lendingsign.LendingCreateHash(tx)
 	}
-	if tx.IsDepositeLending() {
+	if tx.IsTopupLending() {
 		return lendingsign.LendingDipositHash(tx)
 	}
-	if tx.IsPaymentLending() {
+	if tx.IsRePaymentLending() {
 		return lendingsign.LendingPaymentHash(tx)
 	}
 	return common.Hash{}
