@@ -638,7 +638,7 @@ func (self *TradingStateDB) GetHighestLiquidationPriceData(orderBook common.Hash
 	}
 	highestPriceHash, liquidationState := orderbookState.getHighestLiquidationPrice(self.db)
 	highestPrice := new(big.Int).SetBytes(highestPriceHash[:])
-	if liquidationState != nil && highestPrice.Sign() > 0 && highestPrice.Cmp(price) >= 0 {
+	if liquidationState != nil && highestPrice.Sign() > 0 && price.Cmp(highestPrice) < 0 {
 		priceLiquidationData := liquidationState.getAllLiquidationData(self.db)
 		for lendingBook, data := range priceLiquidationData {
 			if len(data) == 0 {

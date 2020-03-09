@@ -51,7 +51,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	case lendingstate.TopUp:
-		err, reject, newLendingTrade := l.ProcessDeposit(lendingStateDB, statedb, tradingStateDb, order)
+		err, reject, newLendingTrade := l.ProcessTopUp(lendingStateDB, statedb, tradingStateDb, order)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -64,7 +64,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		return trades, rejects, nil
 	case lendingstate.Repay:
 		lendingTradeId := order.LendingTradeId
-		lendingTrade, err := l.ProcessPayment(createdBlockTime, lendingStateDB, statedb, tradingStateDb, lendingOrderBook, lendingTradeId)
+		lendingTrade, err := l.ProcessRepay(createdBlockTime, lendingStateDB, statedb, tradingStateDb, lendingOrderBook, lendingTradeId)
 		if err != nil {
 			log.Debug("Can not process payment", "err", err)
 			rejects = append(rejects, order)
@@ -704,46 +704,25 @@ func (l *Lending) ProcessCancelOrder(lendingStateDB *lendingstate.LendingStateDB
 	return nil, false
 }
 
-func (l *Lending) ProcessDeposit(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem) (error, bool, *lendingstate.LendingTrade) {
+func (l *Lending) ProcessTopUp(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem) (error, bool, *lendingstate.LendingTrade) {
 	lendingTradeId := common.Uint64ToHash(order.LendingTradeId)
 	lendingBook := lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term)
-
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeId)
 	if lendingTrade == lendingstate.EmptyLendingTrade {
 		return fmt.Errorf("process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId.Hex()), true, nil
 	}
 	if order.UserAddress != lendingTrade.Borrower {
-		return fmt.Errorf("ProcessDeposit: invalid userAddress . UserAddress: %s . Borrower: %s", order.UserAddress.Hex(), lendingTrade.Borrower.Hex()), true, nil
+		return fmt.Errorf("ProcessTopUp: invalid userAddress . UserAddress: %s . Borrower: %s", order.UserAddress.Hex(), lendingTrade.Borrower.Hex()), true, nil
 	}
 	if order.Quantity.Sign() <= 0 || lendingTrade.TradeId != lendingTradeId.Big().Uint64() {
 		log.Debug("invalid order deposit", "Quantity", order.Quantity, "lendingTradeId", lendingTradeId.Hex())
 		return nil, true, nil
 	}
-	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
-	if tokenBalance.Cmp(order.Quantity) < 0 {
-		log.Debug("not enough balance deposit", "Quantity", order.Quantity, "tokenBalance", tokenBalance)
-		return nil, true, nil
-	}
-	tradingStateDb.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTrade.TradeId)
-
-	lendingstate.SubTokenBalance(lendingTrade.Borrower, order.Quantity, lendingTrade.CollateralToken, statedb)
-	lendingstate.AddTokenBalance(common.HexToAddress(common.LendingLockAddress), order.Quantity, lendingTrade.CollateralToken, statedb)
-	oldLockedAmount := lendingTrade.CollateralLockedAmount
-	newLockedAmount := new(big.Int).Add(order.Quantity, oldLockedAmount)
-	newLiquidationPrice := new(big.Int).Mul(lendingTrade.LiquidationPrice, oldLockedAmount)
-	newLiquidationPrice = new(big.Int).Div(newLiquidationPrice, newLockedAmount)
-	lendingStateDB.UpdateLiquidationPrice(lendingBook, lendingTrade.TradeId, newLiquidationPrice)
-	lendingStateDB.UpdateCollateralLockedAmount(lendingBook, lendingTrade.TradeId, newLockedAmount)
-	tradingStateDb.InsertLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), newLiquidationPrice, lendingBook, lendingTrade.TradeId)
-	newLendingTrade := lendingTrade
-	newLendingTrade.LiquidationPrice = newLiquidationPrice
-	newLendingTrade.CollateralLockedAmount = newLockedAmount
-	log.Debug("ProcessDeposit successfully", "price", newLiquidationPrice, "lockAmount", newLockedAmount)
-	return nil, false, &newLendingTrade
+	return l.ProcessTopUpLendingTrade(lendingStateDB, statedb, tradingStateDb, lendingTradeId, lendingBook, order.Quantity)
 }
 
 // return hash: hash of lendingTrade
-func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (trade *lendingstate.LendingTrade, err error) {
+func (l *Lending) ProcessRepay(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (trade *lendingstate.LendingTrade, err error) {
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
 	if lendingTrade == lendingstate.EmptyLendingTrade {
@@ -758,7 +737,7 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 	baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
 	paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(baseInterestDecimal, interestRate))
 	paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
-	log.Debug("ProcessPayment", "rate", interestRate ,"totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "token", lendingTrade.LendingToken.Hex())
+	log.Debug("ProcessRepay", "rate", interestRate, "totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "token", lendingTrade.LendingToken.Hex())
 	if tokenBalance.Cmp(paymentBalance) < 0 {
 		if lendingTrade.LiquidationTime > time {
 			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
@@ -775,15 +754,15 @@ func (l *Lending) ProcessPayment(time uint64, lendingStateDB *lendingstate.Lendi
 
 		err = lendingStateDB.RemoveLiquidationTime(lendingBook, lendingTradeId, lendingTrade.LiquidationTime)
 		if err != nil {
-			log.Debug("ProcessPayment RemoveLiquidationTime", "err", err, "lendingHash", lendingTrade.Hash, "trade", lendingstate.ToJSON(lendingTrade))
+			log.Debug("ProcessRepay RemoveLiquidationTime", "err", err, "lendingHash", lendingTrade.Hash, "trade", lendingstate.ToJSON(lendingTrade))
 		}
 		err = tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
 		if err != nil {
-			log.Debug("ProcessPayment RemoveLiquidationPrice", "err", err)
+			log.Debug("ProcessRepay RemoveLiquidationPrice", "err", err)
 		}
 		lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
 		if err != nil {
-			log.Debug("ProcessPayment CancelLendingTrade", "err", err)
+			log.Debug("ProcessRepay CancelLendingTrade", "err", err)
 		}
 		lendingTrade.Status = lendingstate.TradeStatusClosed
 	}
@@ -904,7 +883,55 @@ func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *sta
 	return lendTokenTOMOPrice, collateralPrice, nil
 }
 
-func (l *Lending) AutoTopUp (trade *lendingstate.LendingTrade, currentPrice *big.Int) (*lendingstate.LendingTrade, error) {
-	//TODO: lock more collateral to make sure LiquidationPrice = currentPrice * AutoTopUpGap / 100
-	return nil, nil
+func (l *Lending) AutoTopUp(statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB, lendingBook, lendingTradeId common.Hash, currentPrice *big.Int) (*lendingstate.LendingTrade, error) {
+	lendingTrade := lendingState.GetLendingTrade(lendingBook, lendingTradeId)
+	if lendingTrade == lendingstate.EmptyLendingTrade {
+		return nil, fmt.Errorf("process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId.Hex())
+	}
+	if currentPrice.Cmp(lendingTrade.LiquidationPrice) >= 0 {
+		return nil, fmt.Errorf("lending trade still not liquid. current price: %v  , liquidation price : %v  ", currentPrice, lendingTrade.LiquidationPrice)
+	}
+	// newLiquidationPrice = currentPrice * 90%
+	newLiquidationPrice:=new(big.Int).Mul(currentPrice, common.RateTopUp)
+	newLiquidationPrice = newLiquidationPrice.Div(newLiquidationPrice, common.BaseTopUp)
+	// newLockedAmount = CollateralLockedAmount *  LiquidationPrice / newLiquidationPrice
+	newLockedAmount := new(big.Int).Mul(lendingTrade.CollateralLockedAmount, lendingTrade.LiquidationPrice)
+	newLockedAmount = newLockedAmount.Div(newLockedAmount, newLiquidationPrice)
+
+	requiredDepositAmount := new(big.Int).Sub(newLockedAmount, lendingTrade.CollateralLockedAmount)
+	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
+	if tokenBalance.Cmp(requiredDepositAmount) < 0 {
+		log.Debug("not enough balance Auto Top Up ", "requiredDepositAmount", requiredDepositAmount, "tokenBalance", tokenBalance)
+		return nil, fmt.Errorf("lending trade still not liquid. current price: %v  , liquidation price : %v  ", currentPrice, lendingTrade.LiquidationPrice)
+	}
+	err, _, newTrade := l.ProcessTopUpLendingTrade(lendingState, statedb, tradingState, lendingTradeId, lendingBook, requiredDepositAmount)
+	return newTrade, err
+}
+
+func (l *Lending) ProcessTopUpLendingTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, lendingTradeId common.Hash, lendingBook common.Hash, quantity *big.Int) (error, bool, *lendingstate.LendingTrade) {
+	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeId)
+	if lendingTrade == lendingstate.EmptyLendingTrade {
+		return fmt.Errorf("process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId.Hex()), true, nil
+	}
+	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
+	if tokenBalance.Cmp(quantity) < 0 {
+		log.Debug("not enough balance deposit", "Quantity", quantity, "tokenBalance", tokenBalance)
+		return nil, true, nil
+	}
+	tradingStateDb.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTrade.TradeId)
+
+	lendingstate.SubTokenBalance(lendingTrade.Borrower, quantity, lendingTrade.CollateralToken, statedb)
+	lendingstate.AddTokenBalance(common.HexToAddress(common.LendingLockAddress), quantity, lendingTrade.CollateralToken, statedb)
+	oldLockedAmount := lendingTrade.CollateralLockedAmount
+	newLockedAmount := new(big.Int).Add(quantity, oldLockedAmount)
+	newLiquidationPrice := new(big.Int).Mul(lendingTrade.LiquidationPrice, oldLockedAmount)
+	newLiquidationPrice = new(big.Int).Div(newLiquidationPrice, newLockedAmount)
+	lendingStateDB.UpdateLiquidationPrice(lendingBook, lendingTrade.TradeId, newLiquidationPrice)
+	lendingStateDB.UpdateCollateralLockedAmount(lendingBook, lendingTrade.TradeId, newLockedAmount)
+	tradingStateDb.InsertLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), newLiquidationPrice, lendingBook, lendingTrade.TradeId)
+	newLendingTrade := lendingTrade
+	newLendingTrade.LiquidationPrice = newLiquidationPrice
+	newLendingTrade.CollateralLockedAmount = newLockedAmount
+	log.Debug("ProcessTopUp successfully", "price", newLiquidationPrice, "lockAmount", newLockedAmount)
+	return nil, false, &newLendingTrade
 }

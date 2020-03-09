@@ -729,12 +729,12 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 			return map[common.Hash]*lendingstate.LendingTrade{}, err
 		}
 		highestPrice, liquidationData := tradingState.GetHighestLiquidationPriceData(orderbook, liquidationPrice)
-		for highestPrice.Sign() > 0 && highestPrice.Cmp(liquidationPrice) >= 0 {
+		for highestPrice.Sign() > 0 && liquidationPrice.Cmp(highestPrice) < 0 {
 			for lendingBook, tradingIds := range liquidationData {
 				for _, tradingIdHash := range tradingIds {
 					trade := lendingState.GetLendingTrade(lendingBook, tradingIdHash)
 					if trade.AutoTopUp {
-						if newTrade, err := l.AutoTopUp(&trade, liquidationPrice); err == nil {
+						if newTrade, err := l.AutoTopUp(statedb, tradingState, lendingState, lendingBook, tradingIdHash, liquidationPrice); err == nil {
 							// if this action complete successfully, do not liquidate this trade in this epoch
 							log.Debug("AutoTopUp", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
 							finalizedTrades[newTrade.Hash] = newTrade
@@ -762,8 +762,8 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		log.Debug("ProcessLiquidationData time", "tradeIds", len(tradingIds))
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
 			for _, tradingId := range tradingIds {
-				log.Debug("ProcessPayment", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
-				trade, err := l.ProcessPayment(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
+				log.Debug("ProcessRepay", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
+				trade, err := l.ProcessRepay(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
 					return map[common.Hash]*lendingstate.LendingTrade{}, err
