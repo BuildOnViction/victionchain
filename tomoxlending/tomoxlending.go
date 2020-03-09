@@ -493,6 +493,7 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 					CollateralToken: oldTrade.CollateralToken,
 					FilledAmount:    nil,
 					Status:          lendingstate.TopUp,
+					AutoTopUp:       true,
 					Relayer:         oldTrade.BorrowingRelayer,
 					Term:            oldTrade.Term,
 					UserAddress:     oldTrade.Borrower,
@@ -543,12 +544,12 @@ func (l *Lending) UpdateLendingTrade(trades map[common.Hash]*lendingstate.Lendin
 			trade.TxHash = txhash
 			trade.UpdatedAt = txTime
 
-			newTrade := trades[trade.Hash]
-			trade.CollateralLockedAmount = newTrade.CollateralLockedAmount
-			trade.Status = newTrade.Status
-			trade.LiquidationPrice = newTrade.LiquidationPrice
+			newAutoTopUpTrade := trades[trade.Hash]
+			trade.CollateralLockedAmount = newAutoTopUpTrade.CollateralLockedAmount
+			trade.Status = newAutoTopUpTrade.Status
+			trade.LiquidationPrice = newAutoTopUpTrade.LiquidationPrice
 
-			if err := db.PutObject(trade.Hash, newTrade); err != nil {
+			if err := db.PutObject(trade.Hash, trade); err != nil {
 				return err
 			}
 		}

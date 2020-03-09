@@ -216,6 +216,7 @@ func EncodeFinalizedResult(finalizedTrades map[common.Hash]*LendingTrade) ([]byt
 	result := FinalizedResult{
 		Liquidated: liquidatedTrades,
 		AutoRepay:  autoRepayTrades,
+		AutoTopUp : autoTopUpTrades,
 		Timestamp:  time.Now().UnixNano(),
 	}
 	data, err := json.Marshal(result)
