@@ -43,6 +43,8 @@ const (
 	LendingStatusCancelled     = "CANCELLED"
 	LendingTypeMo              = "MO"
 	LendingTypeLo              = "LO"
+	LendingStatusRePay         = "REPAY"
+	LendingStatusTopup         = "TOPUP"
 )
 
 // LendingTransaction lending transaction
@@ -79,9 +81,33 @@ type lendingtxdata struct {
 	Hash common.Hash `json:"hash"`
 }
 
+// IsCreatedLending check if tx is cancelled transaction
+func (tx *LendingTransaction) IsCreatedLending() bool {
+	if tx.Status() == LendingStatusNew {
+		return true
+	}
+	return false
+}
+
 // IsCancelledLending check if tx is cancelled transaction
 func (tx *LendingTransaction) IsCancelledLending() bool {
 	if tx.Status() == LendingStatusCancelled {
+		return true
+	}
+	return false
+}
+
+// IsRePaymentLending check if tx is repay lending transaction
+func (tx *LendingTransaction) IsRePaymentLending() bool {
+	if tx.Status() == LendingStatusRePay {
+		return true
+	}
+	return false
+}
+
+// IsTopupLending check if tx is repay lending transaction
+func (tx *LendingTransaction) IsTopupLending() bool {
+	if tx.Status() == LendingStatusTopup {
 		return true
 	}
 	return false

@@ -125,19 +125,46 @@ func (lendingsign LendingTxSigner) LendingCreateHash(tx *LendingTransaction) com
 	sha.Write([]byte(tx.Status()))
 	sha.Write([]byte(tx.Type()))
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
-	sha.Write(common.BigToHash(big.NewInt(int64(tx.LendingTradeId()))).Bytes())
 	return common.BytesToHash(sha.Sum(nil))
 }
 
 // LendingCancelHash hash of cancelled lending transaction
 func (lendingsign LendingTxSigner) LendingCancelHash(tx *LendingTransaction) common.Hash {
 	sha := sha3.NewKeccak256()
-	sha.Write(tx.LendingHash().Bytes())
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
-	sha.Write(tx.UserAddress().Bytes())
-	sha.Write(common.BigToHash(big.NewInt(int64(tx.LendingId()))).Bytes())
 	sha.Write([]byte(tx.Status()))
 	sha.Write(tx.RelayerAddress().Bytes())
+	sha.Write(tx.UserAddress().Bytes())
+	sha.Write(tx.LendingToken().Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.Term()))).Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.LendingId()))).Bytes())
+	return common.BytesToHash(sha.Sum(nil))
+}
+
+// LendingPaymentHash hash of cancelled lending transaction
+func (lendingsign LendingTxSigner) LendingPaymentHash(tx *LendingTransaction) common.Hash {
+	sha := sha3.NewKeccak256()
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
+	sha.Write([]byte(tx.Status()))
+	sha.Write(tx.RelayerAddress().Bytes())
+	sha.Write(tx.UserAddress().Bytes())
+	sha.Write(tx.LendingToken().Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.Term()))).Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.LendingTradeId()))).Bytes())
+	return common.BytesToHash(sha.Sum(nil))
+}
+
+// LendingDipositHash hash of cancelled lending transaction
+func (lendingsign LendingTxSigner) LendingDipositHash(tx *LendingTransaction) common.Hash {
+	sha := sha3.NewKeccak256()
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
+	sha.Write([]byte(tx.Status()))
+	sha.Write(tx.RelayerAddress().Bytes())
+	sha.Write(tx.UserAddress().Bytes())
+	sha.Write(tx.LendingToken().Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.Term()))).Bytes())
+	sha.Write(common.BigToHash(big.NewInt(int64(tx.LendingTradeId()))).Bytes())
+	sha.Write(common.BigToHash(tx.Quantity()).Bytes())
 	return common.BytesToHash(sha.Sum(nil))
 }
 
@@ -147,7 +174,16 @@ func (lendingsign LendingTxSigner) Hash(tx *LendingTransaction) common.Hash {
 	if tx.IsCancelledLending() {
 		return lendingsign.LendingCancelHash(tx)
 	}
-	return lendingsign.LendingCreateHash(tx)
+	if tx.IsCreatedLending() {
+		return lendingsign.LendingCreateHash(tx)
+	}
+	if tx.IsTopupLending() {
+		return lendingsign.LendingDipositHash(tx)
+	}
+	if tx.IsRePaymentLending() {
+		return lendingsign.LendingPaymentHash(tx)
+	}
+	return common.Hash{}
 }
 
 // Sender get signer from
