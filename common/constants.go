@@ -43,13 +43,15 @@ var RelayerCancelFee = big.NewInt(100000000000000)    // 0.0001
 var TomoXBaseCancelFee = big.NewInt(10000)            // 1/10000
 var RelayerLendingFee = big.NewInt(10000000000000000) // 0.01
 var LendingCancelFee = big.NewInt(1000000)            // 1/1000000
-var BaseLendingInterest = big.NewInt(100000000) // 1e8
+var BaseLendingInterest = big.NewInt(100000000)       // 1e8
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
 var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
 var TRC21GasPriceBefore = big.NewInt(2500)
 var TRC21GasPrice = big.NewInt(250000000)
+var RateTopUp = big.NewInt(90) // 90%
+var BaseTopUp = big.NewInt(100)
 var Blacklist = map[Address]bool{
 	HexToAddress("0x5248bfb72fd4f234e062d3e9bb76f08643004fcd"): true,
 	HexToAddress("0x5ac26105b35ea8935be382863a70281ec7a985e9"): true,

@@ -54,6 +54,7 @@ type LendingItem struct {
 	Type            string         `bson:"type" json:"type"` // LIMIT/MARKET
 	LendingToken    common.Address `bson:"lendingToken" json:"lendingToken"`
 	CollateralToken common.Address `bson:"collateralToken" json:"collateralToken"`
+	AutoTopUp       bool           `bson:"autoTopUp" json:"autoTopUp"`
 	FilledAmount    *big.Int       `bson:"filledAmount" json:"filledAmount"`
 	Status          string         `bson:"status" json:"status"`
 	Relayer         common.Address `bson:"relayer" json:"relayer"`
@@ -77,6 +78,7 @@ type LendingItemBSON struct {
 	Type            string           `bson:"type" json:"type"` // LIMIT/MARKET
 	LendingToken    string           `bson:"lendingToken" json:"lendingToken"`
 	CollateralToken string           `bson:"collateralToken" json:"collateralToken"`
+	AutoTopUp       bool             `bson:"autoTopUp" json:"autoTopUp"`
 	FilledAmount    string           `bson:"filledAmount" json:"filledAmount"`
 	Status          string           `bson:"status" json:"status"`
 	Relayer         string           `bson:"relayer" json:"relayer"`
@@ -101,6 +103,7 @@ func (l *LendingItem) GetBSON() (interface{}, error) {
 		Type:            l.Type,
 		LendingToken:    l.LendingToken.Hex(),
 		CollateralToken: l.CollateralToken.Hex(),
+		AutoTopUp:       l.AutoTopUp,
 		Status:          l.Status,
 		Relayer:         l.Relayer.Hex(),
 		Term:            strconv.FormatUint(l.Term, 10),
@@ -145,6 +148,7 @@ func (l *LendingItem) SetBSON(raw bson.Raw) error {
 	l.Type = decoded.Type
 	l.LendingToken = common.HexToAddress(decoded.LendingToken)
 	l.CollateralToken = common.HexToAddress(decoded.CollateralToken)
+	l.AutoTopUp = decoded.AutoTopUp
 	l.FilledAmount = ToBigInt(decoded.FilledAmount)
 	l.Status = decoded.Status
 	l.Relayer = common.HexToAddress(decoded.Relayer)
@@ -296,7 +300,7 @@ func (l *LendingItem) VerifyLendingSignature() error {
 
 	//(nonce uint64, quantity *big.Int, interest, duration uint64, relayerAddress, userAddress, lendingToken, collateralToken common.Address, status, side, typeLending string, hash common.Hash, id uint64
 	tx := types.NewLendingTransaction(l.Nonce.Uint64(), l.Quantity, l.Interest.Uint64(), l.Term, l.Relayer, l.UserAddress,
-		l.LendingToken, l.CollateralToken, l.Status, l.Side, l.Type, l.Hash, l.LendingId, l.LendingTradeId, l.ExtraData)
+		l.LendingToken, l.CollateralToken, l.AutoTopUp, l.Status, l.Side, l.Type, l.Hash, l.LendingId, l.LendingTradeId, l.ExtraData)
 	tx.ImportSignature(V, R, S)
 	from, _ := types.LendingSender(types.LendingTxSigner{}, tx)
 	if from != tx.UserAddress() {
@@ -388,7 +392,7 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 			// user should send: 10 * common.BaseLendingInterest
 			// decimal = common.BaseLendingInterest * 100
 			baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
-			
+
 			paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(baseInterestDecimal, interestRate))
 			paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
 			if tokenBalance.Cmp(paymentBalance) < 0 {
