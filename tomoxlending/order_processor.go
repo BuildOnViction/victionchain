@@ -889,7 +889,7 @@ func (l *Lending) AutoTopUp(statedb *state.StateDB, tradingState *tradingstate.T
 		return nil, fmt.Errorf("process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId.Hex())
 	}
 	if currentPrice.Cmp(lendingTrade.LiquidationPrice) >= 0 {
-		return nil, fmt.Errorf("lending trade still not liquid. current price: %v  , liquidation price : %v  ", currentPrice, lendingTrade.LiquidationPrice)
+		return nil, fmt.Errorf("CurrentPrice is still higher than or equal to LiquidationPrice. current price: %v  , liquidation price : %v  ", currentPrice, lendingTrade.LiquidationPrice)
 	}
 	// newLiquidationPrice = currentPrice * 90%
 	newLiquidationPrice := new(big.Int).Mul(currentPrice, common.RateTopUp)
@@ -901,8 +901,7 @@ func (l *Lending) AutoTopUp(statedb *state.StateDB, tradingState *tradingstate.T
 	requiredDepositAmount := new(big.Int).Sub(newLockedAmount, lendingTrade.CollateralLockedAmount)
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
 	if tokenBalance.Cmp(requiredDepositAmount) < 0 {
-		log.Debug("not enough balance Auto Top Up ", "requiredDepositAmount", requiredDepositAmount, "tokenBalance", tokenBalance)
-		return nil, fmt.Errorf("lending trade still not liquid. current price: %v  , liquidation price : %v  ", currentPrice, lendingTrade.LiquidationPrice)
+		return nil, fmt.Errorf("not enough balance to AutoTopUp. requiredDepositAmount: %v . tokenBalance: %v . Token: %s", requiredDepositAmount, tokenBalance, lendingTrade.CollateralToken.Hex())
 	}
 	err, _, newTrade := l.ProcessTopUpLendingTrade(lendingState, statedb, tradingState, lendingTradeId, lendingBook, requiredDepositAmount)
 	return newTrade, err
