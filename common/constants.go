@@ -42,8 +42,12 @@ var RelayerCancelFee = big.NewInt(100000000000000) // 0.0001
 var TomoXBaseCancelFee = big.NewInt(10000)         // 1/10000
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
+var RelayerRegistrationSMC        = "0x0342d186212b04E69eA682b3bed8e232b6b3361a"
+var RelayerRegistrationSMCTestnet = "0xe7c16037992bEcAFaeeE779Dacaf8991637953F3"
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
 var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
+var TomoXListingSMC = HexToAddress("0x80430A33EaB86890a346bCf64F86CFeAC73287f3")
+var TomoXListingSMCTestNet = HexToAddress("0x80430A33EaB86890a346bCf64F86CFeAC73287f3")
 var TRC21GasPriceBefore = big.NewInt(2500)
 var TRC21GasPrice = big.NewInt(250000000)
 var Blacklist = map[Address]bool{
