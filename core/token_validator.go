@@ -16,7 +16,6 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	ethereum "github.com/tomochain/tomochain"
 	"github.com/tomochain/tomochain/accounts/abi"
@@ -52,7 +51,7 @@ func (m callmsg) Data() []byte              { return m.CallMsg.Data }
 func (m callmsg) BalanceTokenFee() *big.Int { return m.CallMsg.BalanceTokenFee }
 
 type SimulatedBackend interface {
-	CallContractWithState(ctx context.Context, call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error)
+	CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error)
 }
 
 // GetTokenAbi return token abi
@@ -124,32 +123,38 @@ func ValidateTomoXApplyTransaction(chain consensus.ChainContext, copyState *stat
 	if err != nil {
 		return fmt.Errorf("ValidateTomoZApplyTransaction: cannot parse ABI. Err: %v", err)
 	}
-	randBalance := new(big.Int).SetInt64(int64(rand.Intn(1000000000)))
-	addr := common.HexToAddress("0x0000000000000000000000000000000000000123")
-	SetRandomBalance(copyState, tokenAddr, addr, randBalance)
-	result, err := RunContract(chain, copyState, tokenAddr, contractABI, balanceOfFunction, addr)
-	if err != nil || result == nil {
-		return fmt.Errorf("cannot get balance at slot %v . Token: %s . Err: %v", state.SlotTRC21Token["balances"], tokenAddr.Hex(), err)
-	}
-	balance, ok := result.(*big.Int)
-	if !ok {
-		return fmt.Errorf("invalid balance at slot %v . Token: %s . GotBalance: %v . ResultType: %T", state.SlotTRC21Token["balances"], tokenAddr.Hex(), result, result)
-	}
-
-	if balance.Cmp(randBalance) != 0 {
-		log.Debug("ValidateTomoXApplyTransaction", "balance_set_at_slot_0", randBalance, "balance_get_from_abi", balance)
-		return fmt.Errorf("invalid balance slot. Token: %s", tokenAddr.Hex())
+	if err := ValidateBalanceSlot(chain, copyState, tokenAddr, contractABI); err != nil {
+		return err
 	}
 	return nil
 }
 
 // make sure that balance of token is at slot 0
 // make sure that minFee of token is at slot 1
-func ValidateTomoZApplyTransaction(chain blockChain, copyState *state.StateDB, tokenAddr common.Address) error {
+func ValidateTomoZApplyTransaction(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address) error {
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)
 	if err != nil {
 		return fmt.Errorf("ValidateTomoZApplyTransaction: cannot parse ABI. Err: %v", err)
 	}
+	// verify balance slot
+	if err := ValidateBalanceSlot(chain, copyState, tokenAddr, contractABI); err != nil {
+		return err
+	}
+
+	// validate minFee slot
+	if err := ValidateMinFeeSlot(chain, copyState, tokenAddr, contractABI); err != nil {
+		return err
+	}
+	return nil
+}
+
+func SetRandomBalance(copyState *state.StateDB, tokenAddr, addr common.Address, randomValue *big.Int) {
+	slotBalanceTrc21 := state.SlotTRC21Token["balances"]
+	balanceKey := state.GetLocMappingAtKey(addr.Hash(), slotBalanceTrc21)
+	copyState.SetState(tokenAddr, common.BigToHash(balanceKey), common.BytesToHash(randomValue.Bytes()))
+}
+
+func ValidateBalanceSlot(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address, contractABI *abi.ABI) error {
 	randBalance := new(big.Int).SetInt64(int64(rand.Intn(1000000000)))
 	addr := common.HexToAddress("0x0000000000000000000000000000000000000123")
 	SetRandomBalance(copyState, tokenAddr, addr, randBalance)
@@ -166,13 +171,15 @@ func ValidateTomoZApplyTransaction(chain blockChain, copyState *state.StateDB, t
 		log.Debug("ValidateTomoZApplyTransaction", "balance_set_at_slot_0", randBalance, "balance_get_from_abi", balance)
 		return fmt.Errorf("invalid balance slot. Token: %s", tokenAddr.Hex())
 	}
+	return nil
+}
 
-	// validate minFee slot
+func ValidateMinFeeSlot(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address, contractABI *abi.ABI) error {
 	randomValue := new(big.Int).SetInt64(int64(rand.Intn(1000000000)))
 	slotMinFeeTrc21 := state.SlotTRC21Token["minFee"]
 	copyState.SetState(tokenAddr, common.BigToHash(new(big.Int).SetUint64(slotMinFeeTrc21)), common.BytesToHash(randomValue.Bytes()))
 
-	result, err = RunContract(chain, copyState, tokenAddr, contractABI, minFeeFunction)
+	result, err := RunContract(chain, copyState, tokenAddr, contractABI, minFeeFunction)
 	if err != nil || result == nil {
 		return fmt.Errorf("cannot get minFee at slot %v . Token: %s. Err: %v", state.SlotTRC21Token["minFee"], tokenAddr.Hex(), err)
 	}
@@ -185,10 +192,4 @@ func ValidateTomoZApplyTransaction(chain blockChain, copyState *state.StateDB, t
 		return fmt.Errorf("invalid minFee slot. Token: %s", tokenAddr.Hex())
 	}
 	return nil
-}
-
-func SetRandomBalance(copyState *state.StateDB, tokenAddr, addr common.Address, randomValue *big.Int) {
-	slotBalanceTrc21 := state.SlotTRC21Token["balances"]
-	balanceKey := state.GetLocMappingAtKey(addr.Hash(), slotBalanceTrc21)
-	copyState.SetState(tokenAddr, common.BigToHash(balanceKey), common.BytesToHash(randomValue.Bytes()))
 }
