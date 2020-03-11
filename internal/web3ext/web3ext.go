@@ -641,8 +641,8 @@ web3._extend({
 			params: 0
 		}),
 		new web3._extend.Method({
-            name: 'GetFeeByEpoch',
-            call: 'tomoX_GetFeeByEpoch',
+            name: 'getFeeByEpoch',
+            call: 'tomox_getFeeByEpoch',
             params: 1,
             inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]
         }),
@@ -723,18 +723,18 @@ web3._extend({
             params: 2
 		}),
 		new web3._extend.Method({
-            name: 'getLiquidationPriceTrie',
-            call: 'tomox_getLiquidationPriceTrie',
+            name: 'getLiquidationPriceTree',
+            call: 'tomox_getLiquidationPriceTree',
             params: 2
 		}),
 		new web3._extend.Method({
-            name: 'getInvestingTrie',
-            call: 'tomox_getInvestingTrie',
+            name: 'getInvestingTree',
+            call: 'tomox_getInvestingTree',
             params: 2
 		}),
 		new web3._extend.Method({
-            name: 'getBorrowingTrie',
-            call: 'tomox_getBorrowingTrie',
+            name: 'getBorrowingTree',
+            call: 'tomox_getBorrowingTree',
             params: 2
 		}),
 		new web3._extend.Method({
@@ -743,18 +743,18 @@ web3._extend({
             params: 2
 		}),
 		new web3._extend.Method({
-            name: 'getLendingOrderTrie',
-            call: 'tomox_getLendingOrderTrie',
+            name: 'getLendingOrderTree',
+            call: 'tomox_getLendingOrderTree',
             params: 2
 		}),
 		new web3._extend.Method({
-            name: 'getLendingTradeTrie',
-            call: 'tomox_getLendingTradeTrie',
+            name: 'getLendingTradeTree',
+            call: 'tomox_getLendingTradeTree',
             params: 2
 		}),
 		new web3._extend.Method({
-            name: 'getLiquidationTimeTrie',
-            call: 'tomox_getLiquidationTimeTrie',
+            name: 'getLiquidationTimeTree',
+            call: 'tomox_getLiquidationTimeTree',
             params: 2
 		}),
 		new web3._extend.Method({
@@ -762,6 +762,36 @@ web3._extend({
             call: 'tomox_getLendingOrderCount',
             params: 1
         }),
+		new web3._extend.Method({
+            name: 'getBestInvesting',
+            call: 'tomox_getBestInvesting',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBestBorrowing',
+            call: 'tomox_getBestBorrowing',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBids',
+            call: 'tomox_getBids',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getAsks',
+            call: 'tomox_getAsks',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getInvests',
+            call: 'tomox_getInvests',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getBorrows',
+            call: 'tomox_getBorrows',
+            params: 2
+		}),
 	]
 });
 `
@@ -805,7 +835,7 @@ web3._extend({
             inputFormatter: [web3._extend.formatters.inputAddressFormatter]
 		}),
 		new web3._extend.Method({
-            name: 'GetFeeByEpoch',
+            name: 'getFeeByEpoch',
             call: 'tomoxlending_GetFeeByEpoch',
             params: 1,
             inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]

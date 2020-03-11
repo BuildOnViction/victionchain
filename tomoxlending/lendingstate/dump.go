@@ -125,6 +125,92 @@ func (self *LendingStateDB) DumpBorrowingTrie(orderBook common.Hash) (map[*big.I
 	return result, nil
 }
 
+func (self *LendingStateDB) GetInvestings(orderBook common.Hash) (map[*big.Int]*big.Int, error) {
+	exhangeObject := self.getLendingExchange(orderBook)
+	if exhangeObject == nil {
+		return nil, fmt.Errorf("Order book not found orderBook : %v ", orderBook.Hex())
+	}
+	mapResult := map[*big.Int]*big.Int{}
+	it := trie.NewIterator(exhangeObject.getInvestingTrie(self.db).NodeIterator(nil))
+	for it.Next() {
+		interestHash := common.BytesToHash(it.Key)
+		if common.EmptyHash(interestHash) {
+			continue
+		}
+		interest := new(big.Int).SetBytes(interestHash.Bytes())
+		if _, exist := exhangeObject.investingStates[interestHash]; exist {
+			continue
+		} else {
+			var data itemList
+			if err := rlp.DecodeBytes(it.Value, &data); err != nil {
+				return nil, fmt.Errorf("Fail when decode order iist orderBook : %v ,interest :%v ", orderBook.Hex(), interest)
+			}
+			stateOrderList := newItemListState(orderBook, interestHash, data, nil)
+			mapResult[interest] = stateOrderList.data.Volume
+		}
+	}
+	for interestHash, itemList := range exhangeObject.investingStates {
+		if itemList.Volume().Sign() > 0 {
+			mapResult[new(big.Int).SetBytes(interestHash.Bytes())] = itemList.data.Volume
+		}
+	}
+	listInterest := []*big.Int{}
+	for interest, _ := range mapResult {
+		listInterest = append(listInterest, interest)
+	}
+	sort.Slice(listInterest, func(i, j int) bool {
+		return listInterest[i].Cmp(listInterest[j]) < 0
+	})
+	result := map[*big.Int]*big.Int{}
+	for _, interest := range listInterest {
+		result[interest] = mapResult[interest]
+	}
+	return result, nil
+}
+
+func (self *LendingStateDB) GetBorrowings(orderBook common.Hash) (map[*big.Int]*big.Int, error) {
+	exhangeObject := self.getLendingExchange(orderBook)
+	if exhangeObject == nil {
+		return nil, fmt.Errorf("Order book not found orderBook : %v ", orderBook.Hex())
+	}
+	mapResult := map[*big.Int]*big.Int{}
+	it := trie.NewIterator(exhangeObject.getBorrowingTrie(self.db).NodeIterator(nil))
+	for it.Next() {
+		interestHash := common.BytesToHash(it.Key)
+		if common.EmptyHash(interestHash) {
+			continue
+		}
+		interest := new(big.Int).SetBytes(interestHash.Bytes())
+		if _, exist := exhangeObject.borrowingStates[interestHash]; exist {
+			continue
+		} else {
+			var data itemList
+			if err := rlp.DecodeBytes(it.Value, &data); err != nil {
+				return nil, fmt.Errorf("Fail when decode order iist orderBook : %v ,interest :%v ", orderBook.Hex(), interest)
+			}
+			stateOrderList := newItemListState(orderBook, interestHash, data, nil)
+			mapResult[interest] = stateOrderList.data.Volume
+		}
+	}
+	for interestHash, itemList := range exhangeObject.borrowingStates {
+		if itemList.Volume().Sign() > 0 {
+			mapResult[new(big.Int).SetBytes(interestHash.Bytes())] = itemList.data.Volume
+		}
+	}
+	listInterest := []*big.Int{}
+	for interest, _ := range mapResult {
+		listInterest = append(listInterest, interest)
+	}
+	sort.Slice(listInterest, func(i, j int) bool {
+		return listInterest[i].Cmp(listInterest[j]) < 0
+	})
+	result := map[*big.Int]*big.Int{}
+	for _, interest := range listInterest {
+		result[interest] = mapResult[interest]
+	}
+	return result, nil
+}
+
 func (self *itemListState) DumpItemList(db Database) DumpOrderList {
 	mapResult := DumpOrderList{Volume: self.Volume(), Orders: map[*big.Int]*big.Int{}}
 	orderListIt := trie.NewIterator(self.getTrie(db).NodeIterator(nil))
