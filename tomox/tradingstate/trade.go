@@ -33,7 +33,7 @@ type Trade struct {
 	TakerOrderHash common.Hash    `json:"takerOrderHash" bson:"takerOrderHash"`
 	MakerExchange  common.Address `json:"makerExchange" bson:"makerExchange"`
 	TakerExchange  common.Address `json:"takerExchange" bson:"takerExchange"`
-	Hash           common.Hash    `json:"orderBookHash" bson:"orderBookHash"`
+	Hash           common.Hash    `json:"hash" bson:"hash"`
 	TxHash         common.Hash    `json:"txHash" bson:"txHash"`
 	PairName       string         `json:"pairName" bson:"pairName"`
 	PricePoint     *big.Int       `json:"pricepoint" bson:"pricepoint"`
@@ -57,7 +57,7 @@ type TradeBSON struct {
 	TakerOrderHash string    `json:"takerOrderHash" bson:"takerOrderHash"`
 	MakerExchange  string    `json:"makerExchange" bson:"makerExchange"`
 	TakerExchange  string    `json:"takerExchange" bson:"takerExchange"`
-	Hash           string    `json:"orderBookHash" bson:"orderBookHash"`
+	Hash           string    `json:"hash" bson:"hash"`
 	TxHash         string    `json:"txHash" bson:"txHash"`
 	PairName       string    `json:"pairName" bson:"pairName"`
 	Amount         string    `json:"amount" bson:"amount"`
