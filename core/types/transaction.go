@@ -383,6 +383,60 @@ func (tx *Transaction) IsVotingTransaction() (bool, *common.Address) {
 	return b, nil
 }
 
+func (tx *Transaction) IsTomoXApplyTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+
+	addr := common.TomoXListingSMC
+	if common.IsTestnet {
+		addr = common.TomoXListingSMCTestNet
+	}
+	if tx.To().String() != addr.String() {
+		return false
+	}
+
+	method := common.ToHex(tx.Data()[0:4])
+
+	if method != common.TomoXApplyMethod {
+		return false
+	}
+
+	// 4 bytes for function name
+	// 32 bytes for 1 parameter
+	if len(tx.Data()) != (32 + 4) {
+		return false
+	}
+	return true
+}
+
+func (tx *Transaction) IsTomoZApplyTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+
+	addr := common.TRC21IssuerSMC
+	if common.IsTestnet {
+		addr = common.TRC21IssuerSMCTestNet
+	}
+	if tx.To().String() != addr.String() {
+		return false
+	}
+
+	method := common.ToHex(tx.Data()[0:4])
+	if method != common.TomoZApplyMethod {
+		return false
+	}
+
+	// 4 bytes for function name
+	// 32 bytes for 1 parameter
+	if len(tx.Data()) != (32 + 4) {
+		return false
+	}
+
+	return true
+}
+
 func (tx *Transaction) String() string {
 	var from, to string
 	if tx.data.V != nil {

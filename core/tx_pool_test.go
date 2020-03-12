@@ -19,6 +19,7 @@ package core
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/tomochain/tomochain/consensus"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -48,6 +49,22 @@ type testBlockChain struct {
 	statedb       *state.StateDB
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
+}
+
+func (bc *testBlockChain) Engine() consensus.Engine {
+	return nil
+}
+
+func (bc *testBlockChain) GetHeader(common.Hash, uint64) *types.Header {
+	return nil
+}
+
+func (bc *testBlockChain) CurrentHeader() *types.Header {
+	return nil
+}
+
+func (bc *testBlockChain) Config() *params.ChainConfig {
+	return nil
 }
 
 func (bc *testBlockChain) CurrentBlock() *types.Block {
