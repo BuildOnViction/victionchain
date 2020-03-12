@@ -139,12 +139,6 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 				S: common.BigToHash(S),
 			},
 		}
-		// make sure order is valid before running matching engine
-		if err := order.VerifyLendingItem(statedb); err != nil {
-			log.Error("tomoxlending processOrderPending: invalid order", "err", err)
-			continue
-		}
-
 		cancel := false
 		if order.Status == lendingstate.LendingStatusCancelled {
 			cancel = true
