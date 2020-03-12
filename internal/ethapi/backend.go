@@ -19,6 +19,7 @@ package ethapi
 
 import (
 	"context"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"math/big"
 
 	"github.com/tomochain/tomochain/tomox"
@@ -49,6 +50,7 @@ type Backend interface {
 	EventMux() *event.TypeMux
 	AccountManager() *accounts.Manager
 	TomoxService() *tomox.TomoX
+	LendingService() *tomoxlending.Lending
 
 	// BlockChain API
 	SetHead(number uint64)
@@ -76,6 +78,7 @@ type Backend interface {
 	SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error
 	OrderTxPoolContent() (map[common.Address]types.OrderTransactions, map[common.Address]types.OrderTransactions)
 	OrderStats() (pending int, queued int)
+	SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block

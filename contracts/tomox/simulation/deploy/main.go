@@ -25,11 +25,10 @@ func main() {
 		fmt.Println(err, client)
 	}
 	nonce, _ := client.NonceAt(context.Background(), simulation.MainAddr, nil)
-	fmt.Println(nonce)
 	auth := bind.NewKeyedTransactor(simulation.MainKey)
 	auth.Value = big.NewInt(0)      // in wei
 	auth.GasLimit = uint64(4000000) // in units
-	auth.GasPrice = big.NewInt(210000000000000)
+	auth.GasPrice = big.NewInt(250000000000000)
 
 	// init trc21 issuer
 	auth.Nonce = big.NewInt(int64(nonce))
@@ -37,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal("DeployTRC21Issuer", err)
 	}
-	trc21Issuer.TransactOpts.GasPrice = big.NewInt(210000000000000)
+	trc21Issuer.TransactOpts.GasPrice = big.NewInt(250000000000000)
 
 	fmt.Println("===> trc21 issuer address", trc21IssuerAddr.Hex())
 	fmt.Println("wait 10s to execute init smart contract : TRC Issuer")
@@ -49,7 +48,7 @@ func main() {
 	if err != nil {
 		log.Fatal("DeployTOMOXListing", err)
 	}
-	tomoxListing.TransactOpts.GasPrice = big.NewInt(210000000000000)
+	tomoxListing.TransactOpts.GasPrice = big.NewInt(250000000000000)
 
 	fmt.Println("===> tomox listing address", tomoxListtingAddr.Hex())
 	fmt.Println("wait 10s to execute init smart contract : tomox listing ")
@@ -61,13 +60,24 @@ func main() {
 	if err != nil {
 		log.Fatal("DeployRelayerRegistration", err)
 	}
-	relayerRegistration.TransactOpts.GasPrice = big.NewInt(210000000000000)
+	relayerRegistration.TransactOpts.GasPrice = big.NewInt(250000000000000)
 
 	fmt.Println("===> relayer registration address", relayerRegistrationAddr.Hex())
-	fmt.Println("wait 10s to execute init smart contract : relayer registration ")
+	fmt.Println("wait 2s to execute init smart contract : relayer registration ")
 	time.Sleep(2 * time.Second)
 
-	currentNonce := nonce + 3
+	auth.Nonce = big.NewInt(int64(nonce + 3))
+	lendingRelayerRegistrationAddr, lendingRelayerRegistration, err := tomox.DeployLendingRelayerRegistration(auth, client, relayerRegistrationAddr)
+	if err != nil {
+		log.Fatal("DeployLendingRelayerRegistration", err)
+	}
+	lendingRelayerRegistration.TransactOpts.GasPrice = big.NewInt(250000000000000)
+
+	fmt.Println("===> lending relayer registration address", lendingRelayerRegistrationAddr.Hex())
+	fmt.Println("wait 2s to execute init smart contract : lending relayer registration ")
+	time.Sleep(2 * time.Second)
+
+	currentNonce := nonce + 4
 	tokenList := initTRC21(auth, client, currentNonce, simulation.TokenNameList)
 
 	currentNonce = currentNonce + uint64(len(simulation.TokenNameList)) // init smartcontract
@@ -89,7 +99,7 @@ func main() {
 	}
 	relayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
 	relayerRegistration.TransactOpts.Value = simulation.MinDeposit
-	relayerRegistration.TransactOpts.GasPrice = big.NewInt(210000000000000)
+	relayerRegistration.TransactOpts.GasPrice = big.NewInt(250000000000000)
 
 	fromTokens := []common.Address{}
 	toTokens := []common.Address{}
@@ -154,7 +164,111 @@ func main() {
 	if err != nil {
 		log.Fatal("relayerRegistration Register ", err)
 	}
-	fmt.Println("wait 10s to apply token to list tomox")
+	fmt.Println("wait 2s to apply token to list tomox")
+	time.Sleep(2 * time.Second)
+
+	// Lending apply
+	nonce = nonce + 1
+	lendingRelayerRegistration, err = tomox.NewLendingRelayerRegistration(ownerRelayer, lendingRelayerRegistrationAddr, client)
+	if err != nil {
+		log.Fatal("NewRelayerRegistration", err)
+	}
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	lendingRelayerRegistration.TransactOpts.Value = big.NewInt(0)
+	lendingRelayerRegistration.TransactOpts.GasPrice = big.NewInt(250000000000000)
+	lendingRelayerRegistration.TransactOpts.GasLimit = uint64(4000000)
+
+	baseTokens := []common.Address{}
+	terms := []*big.Int{}
+	collaterals := []common.Address{}
+
+	// USD 1 minute for testing
+	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
+	terms = append(terms, big.NewInt(60))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// USD 1 days
+	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
+	terms = append(terms, big.NewInt(86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// USD 7 days
+	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
+	terms = append(terms, big.NewInt(7*86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// USD 30 days
+	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
+	terms = append(terms, big.NewInt(30*86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	_, err = lendingRelayerRegistration.Update(simulation.RelayerCoinbaseAddr, simulation.LendingTradeFee, baseTokens, terms, collaterals)
+	if err != nil {
+		log.Fatal("lendingRelayerRegistration Update", err)
+	}
+
+	// BTC Collateral
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddCollateral(tokenList[0]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate)
+	if err != nil {
+		log.Fatal("Lending add collateral", err)
+	}
+
+	// ETH Collateral
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddCollateral(tokenList[1]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate)
+	if err != nil {
+		log.Fatal("Lending add collateral", err)
+	}
+
+	// TOMO Collateral
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddCollateral(simulation.TOMONative, simulation.CollateralDepositRate, simulation.CollateralLiquidationRate)
+	if err != nil {
+		log.Fatal("Lending add collateral", err)
+	}
+
+	// USD lending base
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddBaseToken(tokenList[9]["address"].(common.Address))
+	if err != nil {
+		log.Fatal("Lending add base token", err)
+	}
+
+	// add term 1 minute for testing
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(60))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(7 * 86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(30 * 86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	fmt.Println("wait 2s to setup lending contract")
 	time.Sleep(2 * time.Second)
 }
 

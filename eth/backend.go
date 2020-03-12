@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/tomochain/tomochain/tomoxlending"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/core/state"
@@ -81,6 +83,7 @@ type Ethereum struct {
 	// Handlers
 	txPool          *core.TxPool
 	orderPool       *core.OrderPool
+	lendingPool     *core.LendingPool
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
@@ -104,8 +107,9 @@ type Ethereum struct {
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	lock  sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
-	TomoX *tomox.TomoX
+	lock    sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	TomoX   *tomox.TomoX
+	Lending *tomoxlending.Lending
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -115,7 +119,7 @@ func (s *Ethereum) AddLesServer(ls LesServer) {
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Ethereum, error) {
+func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendingServ *tomoxlending.Lending) (*Ethereum, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
 	}
@@ -153,6 +157,9 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 	if tomoXServ != nil {
 		eth.TomoX = tomoXServ
 	}
+	if lendingServ != nil {
+		eth.Lending = lendingServ
+	}
 	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
@@ -168,11 +175,14 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 	)
 	if eth.chainConfig.Posv != nil {
 		c := eth.engine.(*posv.Posv)
-		c.GetTomoXService = func() posv.TomoXService {
+		c.GetTomoXService = func() posv.TradingService {
 			return eth.TomoX
 		}
+		c.GetLendingService = func() posv.LendingService {
+			return eth.Lending
+		}
 	}
-	eth.blockchain, err = core.NewBlockChainEx(chainDb, tomoXServ.GetDB(), cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	eth.blockchain, err = core.NewBlockChainEx(chainDb, tomoXServ.GetLevelDB(), cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +199,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 	eth.orderPool = core.NewOrderPool(eth.chainConfig, eth.blockchain)
+	eth.lendingPool = core.NewLendingPool(eth.chainConfig, eth.blockchain)
 	if common.RollbackHash != common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000") {
 		curBlock := eth.blockchain.CurrentBlock()
 		prevBlock := eth.blockchain.GetBlockByHash(common.RollbackHash)
@@ -208,7 +219,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX) (*Eth
 		}
 	}
 
-	if eth.protocolManager, err = NewProtocolManagerEx(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.orderPool, eth.engine, eth.blockchain, chainDb); err != nil {
+	if eth.protocolManager, err = NewProtocolManagerEx(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.orderPool, eth.lendingPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine, ctx.GetConfig().AnnounceTxs)
@@ -940,4 +951,13 @@ func (s *Ethereum) GetTomoX() *tomox.TomoX {
 
 func (s *Ethereum) OrderPool() *core.OrderPool {
 	return s.orderPool
+}
+
+func (s *Ethereum) GetTomoXLending() *tomoxlending.Lending {
+	return s.Lending
+}
+
+// LendingPool geth eth lending pool
+func (s *Ethereum) LendingPool() *core.LendingPool {
+	return s.lendingPool
 }

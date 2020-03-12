@@ -28,6 +28,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/naoina/toml"
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/eth"
@@ -37,7 +38,6 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tomox"
 	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
-	"github.com/naoina/toml"
 )
 
 var (
@@ -202,7 +202,6 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 
 	utils.SetShhConfig(ctx, stack, &cfg.Shh)
 	utils.SetTomoXConfig(ctx, &cfg.TomoX)
-
 	return stack, cfg
 }
 
@@ -235,7 +234,6 @@ func makeFullNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Register TomoX's OrderBook service if requested.
 	// enable in default
 	utils.RegisterTomoXService(stack, &cfg.TomoX)
-
 	utils.RegisterEthService(stack, &cfg.Eth)
 
 	// Whisper must be explicitly enabled by specifying at least 1 whisper flag or in dev mode

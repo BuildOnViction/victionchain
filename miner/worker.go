@@ -20,7 +20,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"math/big"
 	"os"
@@ -28,7 +30,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/tomochain/tomochain/common"
@@ -80,13 +82,14 @@ type Work struct {
 	config *params.ChainConfig
 	signer types.Signer
 
-	state       *state.StateDB // apply state changes here
-	parentState *state.StateDB
-	tomoxState  *tomox_state.TomoXStateDB
-	ancestors   mapset.Set // ancestor set (used for checking uncle parent validity)
-	family      mapset.Set // family set (used for checking uncle invalidity)
-	uncles      mapset.Set // uncle set
-	tcount      int        // tx count in cycle
+	state        *state.StateDB // apply state changes here
+	parentState  *state.StateDB
+	tradingState *tradingstate.TradingStateDB
+	lendingState *lendingstate.LendingStateDB
+	ancestors    mapset.Set // ancestor set (used for checking uncle parent validity)
+	family       mapset.Set // family set (used for checking uncle invalidity)
+	uncles       mapset.Set // uncle set
+	tcount       int        // tx count in cycle
 
 	Block *types.Block // the new block
 
@@ -355,7 +358,7 @@ func (self *worker) wait() {
 				log.BlockHash = block.Hash()
 			}
 			self.currentMu.Lock()
-			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state, work.tomoxState)
+			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state, work.tradingState, work.lendingState)
 			self.currentMu.Unlock()
 			if err != nil {
 				log.Error("Failed writing block to chain", "err", err)
@@ -451,27 +454,35 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	if err != nil {
 		return err
 	}
-	var tomoxState *tomox_state.TomoXStateDB
+	var tomoxState *tradingstate.TradingStateDB
+	var lendingState *lendingstate.LendingStateDB
 	if self.config.Posv != nil {
 		tomoX := self.eth.GetTomoX()
-		tomoxState, err = tomoX.GetTomoxState(parent)
+		tomoxState, err = tomoX.GetTradingState(parent)
 		if err != nil {
-			log.Error("Failed to create mining context", "err", err)
+			log.Error("Failed to get tomox state ", "number", parent.Number(), "err", err)
+			return err
+		}
+		lending := self.eth.GetTomoXLending()
+		lendingState, err = lending.GetLendingState(parent)
+		if err != nil {
+			log.Error("Failed to get lending state ", "number", parent.Number(), "err", err)
 			return err
 		}
 	}
 
 	work := &Work{
-		config:      self.config,
-		signer:      types.NewEIP155Signer(self.config.ChainId),
-		state:       state,
-		parentState: state.Copy(),
-		tomoxState:  tomoxState,
-		ancestors:   mapset.NewSet(),
-		family:      mapset.NewSet(),
-		uncles:      mapset.NewSet(),
-		header:      header,
-		createdAt:   time.Now(),
+		config:       self.config,
+		signer:       types.NewEIP155Signer(self.config.ChainId),
+		state:        state,
+		parentState:  state.Copy(),
+		tradingState: tomoxState,
+		lendingState: lendingState,
+		ancestors:    mapset.NewSet(),
+		family:       mapset.NewSet(),
+		uncles:       mapset.NewSet(),
+		header:       header,
+		createdAt:    time.Now(),
 	}
 
 	if self.config.Posv == nil {
@@ -612,11 +623,16 @@ func (self *worker) commitNewWork() {
 	}
 	// won't grasp txs at checkpoint
 	var (
-		txs                 *types.TransactionsByPriceAndNonce
-		specialTxs          types.Transactions
-		matchingTransaction *types.Transaction
-		txMatches           []tomox_state.TxDataMatch
-		matchingResults     map[common.Hash]tomox_state.MatchingResult
+		txs                              *types.TransactionsByPriceAndNonce
+		specialTxs                       types.Transactions
+		tradingTransaction               *types.Transaction
+		lendingTransaction               *types.Transaction
+		tradingTxMatches                 []tradingstate.TxDataMatch
+		tradingMatchingResults           map[common.Hash]tradingstate.MatchingResult
+		lendingMatchingResults           map[common.Hash]lendingstate.MatchingResult
+		lendingInput                     []*lendingstate.LendingItem
+		finalizedTrades                  map[common.Hash]*lendingstate.LendingTrade
+		lendingFinalizedTradeTransaction *types.Transaction
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -633,49 +649,131 @@ func (self *worker) commitNewWork() {
 			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
 			return
 		}
-		if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 && self.chain.Config().IsTIPTomoX(header.Number) {
+		if self.config.Posv != nil && self.chain.Config().IsTIPTomoX(header.Number) {
 			tomoX := self.eth.GetTomoX()
+			tomoXLending := self.eth.GetTomoXLending()
 			if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
-				log.Debug("Start processing order pending")
-				orderPending, _ := self.eth.OrderPool().Pending()
-				log.Debug("Start processing order pending", "len", len(orderPending))
-				txMatches, matchingResults = tomoX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.tomoxState)
-				log.Debug("transaction matches found", "txMatches", len(txMatches))
-			}
-			txMatchBatch := &tomox_state.TxMatchBatch{
-				Data:      txMatches,
-				Timestamp: time.Now().UnixNano(),
-				TxHash:    common.Hash{},
-			}
-			txMatchBytes, err := tomox_state.EncodeTxMatchesBatch(*txMatchBatch)
-			if err != nil {
-				log.Error("Fail to marshal txMatch", "error", err)
-				return
-			}
-			nonce := work.state.GetNonce(self.coinbase)
-			tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
-			txM, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
-			if err != nil {
-				log.Error("Fail to create tx matches", "error", err)
-				return
-			} else {
-				matchingTransaction = txM
-				if tomoX != nil && tomoX.IsSDKNode() {
-					self.chain.AddMatchingResult(matchingTransaction.Hash(), matchingResults)
+				if header.Number.Uint64()%self.config.Posv.Epoch == 0 {
+					err := tomoX.UpdateMediumPriceBeforeEpoch(header.Number.Uint64()/self.config.Posv.Epoch, work.tradingState, work.state)
+					if err != nil {
+						log.Error("Fail when update medium price last epoch", "error", err)
+						return
+					}
+				}
+				// won't grasp tx at checkpoint
+				//https://github.com/tomochain/tomochain-v1/pull/416
+				if header.Number.Uint64()%self.config.Posv.Epoch != 0 {
+					log.Debug("Start processing order pending")
+					tradingOrderPending, _ := self.eth.OrderPool().Pending()
+					log.Debug("Start processing order pending", "len", len(tradingOrderPending))
+					tradingTxMatches, tradingMatchingResults = tomoX.ProcessOrderPending(self.coinbase, self.chain, tradingOrderPending, work.state, work.tradingState)
+					log.Debug("trading transaction matches found", "tradingTxMatches", len(tradingTxMatches))
+
+					lendingOrderPending, _ := self.eth.LendingPool().Pending()
+					lendingInput, lendingMatchingResults = tomoXLending.ProcessOrderPending(header.Time.Uint64(), self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
+					log.Debug("lending transaction matches found", "lendingInput", len(lendingInput), "lendingMatchingResults", len(lendingMatchingResults))
+					if header.Number.Uint64() % self.config.Posv.Epoch == common.LiquidateLendingTradeBlock {
+						finalizedTrades, err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
+						if err != nil {
+							log.Error("Fail when process lending liquidation data ", "error", err)
+							return
+						}
+					}
+				}
+				if len(tradingTxMatches) > 0 {
+					txMatchBatch := &tradingstate.TxMatchBatch{
+						Data:      tradingTxMatches,
+						Timestamp: time.Now().UnixNano(),
+						TxHash:    common.Hash{},
+					}
+					txMatchBytes, err := tradingstate.EncodeTxMatchesBatch(*txMatchBatch)
+					if err != nil {
+						log.Error("Fail to marshal txMatch", "error", err)
+						return
+					}
+					nonce := work.state.GetNonce(self.coinbase)
+					tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
+					txM, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
+					if err != nil {
+						log.Error("Fail to create tx matches", "error", err)
+						return
+					} else {
+						tradingTransaction = txM
+						if tomoX.IsSDKNode() {
+							self.chain.AddMatchingResult(tradingTransaction.Hash(), tradingMatchingResults)
+						}
+					}
+				}
+				if len(lendingInput) > 0 {
+					// lending transaction
+					lendingBatch := &lendingstate.TxLendingBatch{
+						Data:      lendingInput,
+						Timestamp: time.Now().UnixNano(),
+						TxHash:    common.Hash{},
+					}
+					lendingDataBytes, err := lendingstate.EncodeTxLendingBatch(*lendingBatch)
+					if err != nil {
+						log.Error("Fail to marshal lendingData", "error", err)
+						return
+					}
+					nonce := work.state.GetNonce(self.coinbase)
+					lendingTx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXLendingAddress), big.NewInt(0), txMatchGasLimit, big.NewInt(0), lendingDataBytes)
+					signedLendingTx, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, lendingTx, self.config.ChainId)
+					if err != nil {
+						log.Error("Fail to create lending tx", "error", err)
+						return
+					} else {
+						lendingTransaction = signedLendingTx
+						if tomoX.IsSDKNode() {
+							self.chain.AddLendingResult(lendingTransaction.Hash(), lendingMatchingResults)
+						}
+					}
+				}
+
+				if len(finalizedTrades) > 0 {
+					log.Debug("M1 finalized trades")
+					finalizedTradeData, err := lendingstate.EncodeFinalizedResult(finalizedTrades)
+					if err != nil {
+						log.Error("Fail to marshal lendingData", "error", err)
+						return
+					}
+					nonce := work.state.GetNonce(self.coinbase)
+					finalizedTx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXLendingFinalizedTradeAddress), big.NewInt(0), txMatchGasLimit, big.NewInt(0), finalizedTradeData)
+					signedFinalizedTx, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, finalizedTx, self.config.ChainId)
+					if err != nil {
+						log.Error("Fail to create lending tx", "error", err)
+						return
+					} else {
+						lendingFinalizedTradeTransaction = signedFinalizedTx
+						if tomoX.IsSDKNode() {
+							self.chain.AddFinalizedTrades(lendingFinalizedTradeTransaction.Hash(), finalizedTrades)
+						}
+					}
 				}
 			}
-			// force adding matching transaction to this block
-			specialTxs = append(specialTxs, matchingTransaction)
 		}
-		TomoxStateRoot := work.tomoxState.IntermediateRoot()
-		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TomoXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), TomoxStateRoot.Bytes())
+
+		// force adding trading, lending transaction to this block
+		if tradingTransaction != nil {
+			specialTxs = append(specialTxs, tradingTransaction)
+		}
+		if lendingTransaction != nil {
+			specialTxs = append(specialTxs, lendingTransaction)
+		}
+		if lendingFinalizedTradeTransaction != nil {
+			specialTxs = append(specialTxs, lendingFinalizedTradeTransaction)
+		}
+
+		TomoxStateRoot := work.tradingState.IntermediateRoot()
+		LendingStateRoot := work.lendingState.IntermediateRoot()
+		txData := append(TomoxStateRoot.Bytes(), LendingStateRoot.Bytes()...)
+		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TradingStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txData)
 		txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
 		if err != nil {
 			log.Error("Fail to create tx state root", "error", err)
 			return
 		}
 		specialTxs = append(specialTxs, txStateRoot)
-
 	}
 	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
 	// compute uncles for the new block.

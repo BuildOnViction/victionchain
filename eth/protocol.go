@@ -57,6 +57,7 @@ const (
 	BlockBodiesMsg     = 0x06
 	NewBlockMsg        = 0x07
 	OrderTxMsg         = 0x08
+	LendingTxMsg       = 0x09
 	// Protocol messages belonging to eth/63
 	GetNodeDataMsg = 0x0d
 	NodeDataMsg    = 0x0e
@@ -119,6 +120,19 @@ type orderPool interface {
 	// SubscribeTxPreEvent should return an event subscription of
 	// TxPreEvent and send events to the given channel.
 	SubscribeTxPreEvent(chan<- core.OrderTxPreEvent) event.Subscription
+}
+
+type lendingPool interface {
+	// AddRemotes should add the given transactions to the pool.
+	AddRemotes([]*types.LendingTransaction) []error
+
+	// Pending should return pending transactions.
+	// The slice should be modifiable by the caller.
+	Pending() (map[common.Address]types.LendingTransactions, error)
+
+	// SubscribeTxPreEvent should return an event subscription of
+	// TxPreEvent and send events to the given channel.
+	SubscribeTxPreEvent(chan<- core.LendingTxPreEvent) event.Subscription
 }
 
 // statusData is the network packet for the status message.

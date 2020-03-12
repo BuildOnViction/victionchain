@@ -33,8 +33,14 @@ import (
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
 
 var (
-	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
-	errNoSigner   = errors.New("missing signing methods")
+	ErrInvalidSig               = errors.New("invalid transaction v, r, s values")
+	errNoSigner                 = errors.New("missing signing methods")
+	skipNonceDestinationAddress = map[string]bool{
+		common.TomoXAddr:                         true,
+		common.TradingStateAddr:                  true,
+		common.TomoXLendingAddress:               true,
+		common.TomoXLendingFinalizedTradeAddress: true,
+	}
 )
 
 // deriveSigner makes a *best* guess about which signer to use.
@@ -301,7 +307,7 @@ func (tx *Transaction) IsSpecialTransaction() bool {
 	return tx.To().String() == common.RandomizeSMC || tx.To().String() == common.BlockSigners
 }
 
-func (tx *Transaction) IsMatchingTransaction() bool {
+func (tx *Transaction) IsTradingTransaction() bool {
 	if tx.To() == nil {
 		return false
 	}
@@ -313,11 +319,33 @@ func (tx *Transaction) IsMatchingTransaction() bool {
 	return true
 }
 
+func (tx *Transaction) IsLendingTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+
+	if tx.To().String() != common.TomoXLendingAddress {
+		return false
+	}
+	return true
+}
+
+func (tx *Transaction) IsLendingFinalizedTradeTransaction() bool {
+	if tx.To() == nil {
+		return false
+	}
+
+	if tx.To().String() != common.TomoXLendingFinalizedTradeAddress {
+		return false
+	}
+	return true
+}
+
 func (tx *Transaction) IsSkipNonceTransaction() bool {
 	if tx.To() == nil {
 		return false
 	}
-	if tx.To().String() == common.TomoXAddr || tx.To().String() == common.TomoXStateAddr {
+	if skip := skipNonceDestinationAddress[tx.To().String()]; skip {
 		return true
 	}
 	return false

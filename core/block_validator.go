@@ -19,7 +19,8 @@ package core
 import (
 	"fmt"
 	"github.com/tomochain/tomochain/consensus/posv"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -105,7 +106,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.Block, statedb *stat
 	return nil
 }
 
-func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStatedb *tomox_state.TomoXStateDB, txMatchBatch tomox_state.TxMatchBatch, coinbase common.Address) error {
+func (v *BlockValidator) ValidateTradingOrder(statedb *state.StateDB, tomoxStatedb *tradingstate.TradingStateDB, txMatchBatch tradingstate.TxMatchBatch, coinbase common.Address) error {
 	posvEngine, ok := v.bc.Engine().(*posv.Posv)
 	if posvEngine == nil || !ok {
 		return ErrNotPoSV
@@ -115,7 +116,7 @@ func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStat
 		return fmt.Errorf("tomox not found")
 	}
 	log.Debug("verify matching transaction found a TxMatches Batch", "numTxMatches", len(txMatchBatch.Data))
-	matchingResult := map[common.Hash]tomox_state.MatchingResult{}
+	tradingResult := map[common.Hash]tradingstate.MatchingResult{}
 	for _, txMatch := range txMatchBatch.Data {
 		// verify orderItem
 		order, err := txMatch.DecodeOrder()
@@ -128,17 +129,55 @@ func (v *BlockValidator) ValidateMatchingOrder(statedb *state.StateDB, tomoxStat
 			return fmt.Errorf("invalid order . Error: %v", err)
 		}
 		// process Matching Engine
-		newTrades, newRejectedOrders, err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tomox_state.GetOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		newTrades, newRejectedOrders, err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tradingstate.GetTradingOrderBookHash(order.BaseToken, order.QuoteToken), order)
 		if err != nil {
 			return err
 		}
-		matchingResult[order.Hash] = tomox_state.MatchingResult{
+		tradingResult[order.Hash] = tradingstate.MatchingResult{
 			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}
 	}
 	if tomoXService.IsSDKNode() {
-		v.bc.AddMatchingResult(txMatchBatch.TxHash, matchingResult)
+		v.bc.AddMatchingResult(txMatchBatch.TxHash, tradingResult)
+	}
+	return nil
+}
+
+func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingStateDb *lendingstate.LendingStateDB, tomoxStatedb *tradingstate.TradingStateDB, batch lendingstate.TxLendingBatch, coinbase common.Address, blockTime uint64) error {
+	posvEngine, ok := v.bc.Engine().(*posv.Posv)
+	if posvEngine == nil || !ok {
+		return ErrNotPoSV
+	}
+	tomoXService := posvEngine.GetTomoXService()
+	if tomoXService == nil {
+		return fmt.Errorf("tomox not found")
+	}
+	lendingService := posvEngine.GetLendingService()
+	if lendingService == nil {
+		return fmt.Errorf("lendingService not found")
+	}
+	log.Debug("verify lendingItem ", "numItems", len(batch.Data))
+	lendingResult := map[common.Hash]lendingstate.MatchingResult{}
+	for _, l := range batch.Data {
+		// verify lendingItem
+
+		log.Debug("process lending tx", "lendingItem", lendingstate.ToJSON(l))
+		if err := l.VerifyLendingItem(statedb); err != nil {
+			return fmt.Errorf("invalid lendingItem . Error: %v", err)
+		}
+		// process Matching Engine
+		newTrades, newRejectedOrders, err := lendingService.ApplyOrder(blockTime, coinbase, v.bc, statedb, lendingStateDb, tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
+		if err != nil {
+			return err
+		}
+		lendingResult[l.Hash] = lendingstate.MatchingResult{
+			Trades:  newTrades,
+			Rejects: newRejectedOrders,
+		}
+	}
+	if tomoXService.IsSDKNode() {
+		v.bc.AddLendingResult(batch.TxHash, lendingResult)
 	}
 	return nil
 }
@@ -174,17 +213,47 @@ func CalcGasLimit(parent *types.Block) uint64 {
 	return limit
 }
 
-func ExtractMatchingTransactions(transactions types.Transactions) ([]tomox_state.TxMatchBatch, error) {
-	txMatchBatchData := []tomox_state.TxMatchBatch{}
+func ExtractTradingTransactions(transactions types.Transactions) ([]tradingstate.TxMatchBatch, error) {
+	txMatchBatchData := []tradingstate.TxMatchBatch{}
 	for _, tx := range transactions {
-		if tx.IsMatchingTransaction() {
-			txMatchBatch, err := tomox_state.DecodeTxMatchesBatch(tx.Data())
+		if tx.IsTradingTransaction() {
+			txMatchBatch, err := tradingstate.DecodeTxMatchesBatch(tx.Data())
 			if err != nil {
-				return []tomox_state.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
+				return []tradingstate.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
 			}
 			txMatchBatch.TxHash = tx.Hash()
 			txMatchBatchData = append(txMatchBatchData, txMatchBatch)
 		}
 	}
 	return txMatchBatchData, nil
+}
+
+func ExtractLendingTransactions(transactions types.Transactions) ([]lendingstate.TxLendingBatch, error) {
+	batchData := []lendingstate.TxLendingBatch{}
+	for _, tx := range transactions {
+		if tx.IsLendingTransaction() {
+			txMatchBatch, err := lendingstate.DecodeTxLendingBatch(tx.Data())
+			if err != nil {
+				return []lendingstate.TxLendingBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode lendingTransaction. Error: %s", err)
+			}
+			txMatchBatch.TxHash = tx.Hash()
+			batchData = append(batchData, txMatchBatch)
+		}
+	}
+	return batchData, nil
+}
+
+func ExtractLendingFinalizedTradeTransactions(transactions types.Transactions) (lendingstate.FinalizedResult, error) {
+	for _, tx := range transactions {
+		if tx.IsLendingFinalizedTradeTransaction() {
+			finalizedTrades, err := lendingstate.DecodeFinalizedResult(tx.Data())
+			if err != nil {
+				return lendingstate.FinalizedResult{}, fmt.Errorf("transaction is corrupted. Failed to decode LendingClosedTradeTransaction. Error: %s", err)
+			}
+			finalizedTrades.TxHash = tx.Hash()
+			// each block has only one tx of this type
+			return finalizedTrades, nil
+		}
+	}
+	return lendingstate.FinalizedResult{}, nil
 }

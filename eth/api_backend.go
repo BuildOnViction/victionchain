@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -169,6 +170,11 @@ func (b *EthApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 // SendOrderTx send order via backend
 func (b *EthApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
 	return b.eth.orderPool.AddLocal(signedTx)
+}
+
+// SendLendingTx send order via backend
+func (b *EthApiBackend) SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error {
+	return b.eth.lendingPool.AddLocal(signedTx)
 }
 
 func (b *EthApiBackend) GetPoolTransactions() (types.Transactions, error) {
@@ -421,7 +427,7 @@ func (b *EthApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bo
 func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 	tomoxService := b.eth.GetTomoX()
 	if tomoxService != nil {
-		tomoxState, err := tomoxService.GetTomoxState(b.CurrentBlock())
+		tomoxState, err := tomoxService.GetTradingState(b.CurrentBlock())
 		if err != nil {
 			return 0, err
 		}
@@ -432,4 +438,8 @@ func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 
 func (b *EthApiBackend) TomoxService() *tomox.TomoX {
 	return b.eth.TomoX
+}
+
+func (b *EthApiBackend) LendingService() *tomoxlending.Lending {
+	return b.eth.Lending
 }

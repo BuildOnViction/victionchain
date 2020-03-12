@@ -19,6 +19,7 @@ package miner
 
 import (
 	"fmt"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"sync/atomic"
 
 	"github.com/tomochain/tomochain/accounts"
@@ -43,6 +44,8 @@ type Backend interface {
 	ChainDb() ethdb.Database
 	GetTomoX() *tomox.TomoX
 	OrderPool() *core.OrderPool
+	LendingPool() *core.LendingPool
+	GetTomoXLending() *tomoxlending.Lending
 }
 
 // Miner creates blocks and searches for proof-of-work values.

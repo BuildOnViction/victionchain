@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -113,6 +114,9 @@ func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	return b.eth.txPool.Add(ctx, signedTx)
 }
 func (b *LesApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
+	return nil
+}
+func (b *LesApiBackend) SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error {
 	return nil
 }
 
@@ -273,5 +277,9 @@ func (b *LesApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 }
 
 func (b *LesApiBackend) TomoxService() *tomox.TomoX {
+	return nil
+}
+
+func (b *LesApiBackend) LendingService() *tomoxlending.Lending {
 	return nil
 }
