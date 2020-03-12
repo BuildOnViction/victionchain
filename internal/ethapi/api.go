@@ -2006,6 +2006,11 @@ type PriceVolume struct {
 	Volume *big.Int `json:"volume,omitempty"`
 }
 
+type InterestVolume struct {
+	Interest *big.Int `json:"interest,omitempty"`
+	Volume   *big.Int `json:"volume,omitempty"`
+}
+
 // SendOrder will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTomoXTransactionPoolAPI) SendOrder(ctx context.Context, msg OrderMsg) (common.Hash, error) {
@@ -2178,7 +2183,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetTradingOrderBookInfo(ctx context.Cont
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetLiquidationPriceTrie(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tradingstate.DumpLendingBook, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetLiquidationPriceTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tradingstate.DumpLendingBook, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -2198,7 +2203,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetLiquidationPriceTrie(ctx context.Cont
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetInvestingTrie(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.DumpOrderList, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetInvestingTree(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -2218,7 +2223,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetInvestingTrie(ctx context.Context, le
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetBorrowingTrie(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.DumpOrderList, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetBorrowingTree(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -2258,7 +2263,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderBookInfo(tx context.Conte
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderTrie(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.LendingItem, error) {
+func (s *PublicTomoXTransactionPoolAPI) getLendingOrderTree(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.LendingItem, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -2278,7 +2283,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderTrie(ctx context.Context,
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetLendingTradeTrie(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.LendingTrade, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetLendingTradeTree(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.LendingTrade, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -2298,7 +2303,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingTradeTrie(ctx context.Context,
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetLiquidationTimeTrie(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.DumpOrderList, error) {
+func (s *PublicTomoXTransactionPoolAPI) GetLiquidationTimeTree(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]lendingstate.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
@@ -2333,6 +2338,122 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderCount(ctx context.Context
 	}
 	nonce := lendingState.GetNonce(addr.Hash())
 	return (*hexutil.Uint64)(&nonce), err
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBestInvesting(ctx context.Context, lendingToken common.Address, term uint64) (InterestVolume, error) {
+	result := InterestVolume{}
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return result, errors.New("Current block not found")
+	}
+	lendingService := s.b.LendingService()
+	if lendingService == nil {
+		return result, errors.New("TomoX Lending service not found")
+	}
+	lendingState, err := lendingService.GetLendingState(block)
+	if err != nil {
+		return result, err
+	}
+	result.Interest, result.Volume = lendingState.GetBestInvestingRate(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBestBorrowing(ctx context.Context, lendingToken common.Address, term uint64) (InterestVolume, error) {
+	result := InterestVolume{}
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return result, errors.New("Current block not found")
+	}
+	lendingService := s.b.LendingService()
+	if lendingService == nil {
+		return result, errors.New("TomoX Lending service not found")
+	}
+	lendingState, err := lendingService.GetLendingState(block)
+	if err != nil {
+		return result, err
+	}
+	result.Interest, result.Volume = lendingState.GetBestBorrowRate(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBids(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]*big.Int, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTradingState(block)
+	if err != nil {
+		return nil, err
+	}
+	result, err := tomoxState.GetBids(tradingstate.GetTradingOrderBookHash(baseToken, quoteToken))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetAsks(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]*big.Int, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTradingState(block)
+	if err != nil {
+		return nil, err
+	}
+	result, err := tomoxState.GetAsks(tradingstate.GetTradingOrderBookHash(baseToken, quoteToken))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetInvests(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]*big.Int, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	lendingService := s.b.LendingService()
+	if lendingService == nil {
+		return nil, errors.New("TomoX Lending service not found")
+	}
+	lendingState, err := lendingService.GetLendingState(block)
+	if err != nil {
+		return nil, err
+	}
+	result, err := lendingState.GetInvestings(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetBorrows(ctx context.Context, lendingToken common.Address, term uint64) (map[*big.Int]*big.Int, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	lendingService := s.b.LendingService()
+	if lendingService == nil {
+		return nil, errors.New("TomoX Lending service not found")
+	}
+	lendingState, err := lendingService.GetLendingState(block)
+	if err != nil {
+		return nil, err
+	}
+	result, err := lendingState.GetBorrowings(lendingstate.GetLendingOrderBookHash(lendingToken, term))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // Sign calculates an ECDSA signature for:
