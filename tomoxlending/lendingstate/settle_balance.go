@@ -149,16 +149,20 @@ func GetSettleBalance(takerSide string,
 
 // apr: annual percentage rate
 // this function returns actual interest rate base on borrowing time and apr
+// I = APR *(T + T1) / 2 / 365
+// T: term
+// T1: borrowingTime
 func CalculateInterestRate(finalizeTime, liquidationTime, term uint64, apr uint64) *big.Int {
 	startBorrowingTime := liquidationTime - term
 	borrowingTime := finalizeTime - startBorrowingTime
-	// if borrower finalize the loan in the first half, pay interest for half of term
-	// otherwise, pay interest for full term
-	if borrowingTime <= term /2 {
-		borrowingTime = term /2
-	} else {
-		borrowingTime = term
-	}
-	interestRate := new(big.Int).Div(new(big.Int).Mul(new(big.Int).SetUint64(borrowingTime), new(big.Int).SetUint64(apr)), new(big.Int).SetUint64(common.OneYear))
+
+	// the time interval which borrower have to pay interest
+	// (T + T1) / 2
+	timeToPayInterest := new(big.Int).Add(new(big.Int).SetUint64(term), new(big.Int).SetUint64(borrowingTime))
+	timeToPayInterest = new(big.Int).Div(timeToPayInterest, new(big.Int).SetUint64(2))
+
+	interestRate := new(big.Int).SetUint64(apr)
+	interestRate = new(big.Int).Mul(interestRate, timeToPayInterest)
+	interestRate = new(big.Int).Div(interestRate, new(big.Int).SetUint64(common.OneYear))
 	return interestRate
 }

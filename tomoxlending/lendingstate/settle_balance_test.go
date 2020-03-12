@@ -9,7 +9,7 @@ import (
 
 func TestCalculateInterestRate(t *testing.T) {
 	type args struct {
-		finalizeTime    uint64
+		repayTime       uint64
 		liquidationTime uint64
 		term            uint64
 		apr             uint64
@@ -20,28 +20,32 @@ func TestCalculateInterestRate(t *testing.T) {
 		want *big.Int
 	}{
 		// apr = 10% per year
-		// finalize after one day
+		// term 365 days
+		// repay after one day
 		// have to pay interest for a half of year
-		// interestRate = (365/2) * 10 * interestDecimal / 365 = 10 * 1e8 / 365 = 5 * 1e8
+		// I = APR *(T + T1) / 2 / 365 = 10% * (365 + 1) / 2 /365 = 5,01369863 %
+		// 1e8 is decimal of interestRate
 		{
-			"early finalize in the first half",
+			"term 365 days: early repay",
 			args{
-				finalizeTime:    86400,
+				repayTime:       86400,
 				liquidationTime: common.OneYear,
 				term:            common.OneYear,
 				apr:             10 * 1e8,
 			},
-			new(big.Int).SetUint64(500000000),
+			new(big.Int).SetUint64(501369863),
 		},
 
 		// apr = 10% per year (365 days)
 		// term: 365 days
-		// finalize at the end
+		// repay at the end
 		// pay full interestRate 10%
+		// I = APR *(T + T1) / 2 / 365 = 10% * (365 + 365) / 2 /365 = 10 %
+		// 1e8 is decimal of interestRate
 		{
-			"finalize at the end, term : 365 days",
+			"term 365 days: repay at the end",
 			args{
-				finalizeTime:    common.OneYear,
+				repayTime:       common.OneYear,
 				liquidationTime: common.OneYear,
 				term:            common.OneYear,
 				apr:             10 * 1e8,
@@ -49,30 +53,33 @@ func TestCalculateInterestRate(t *testing.T) {
 			new(big.Int).SetUint64(10 * 1e8),
 		},
 
-		// apr = 10% per year (365 days)
-		// term: 30 days
-		// finalize after 15 days
-		// pay a half of interestRate 10% for 15 days / 365 days
+		// apr = 10% per year
+		// term 30 days
+		// repay after one day
+		// have to pay interest for a half of year
+		// I = APR *(T + T1) / 2 / 365 = 10% * (30 + 1) / 2 /365 = 0,424657534 %
+		// 1e8 is decimal of interestRate
 		{
-			"term: 30 days, finalize after 15 days",
+			"term 30 days: early repay",
 			args{
-				finalizeTime:    15 * 86400,
+				repayTime:       86400,
 				liquidationTime: 30 * 86400,
 				term:            30 * 86400,
 				apr:             10 * 1e8,
 			},
-			new(big.Int).SetUint64(41095890),
+			new(big.Int).SetUint64(42465753),
 		},
 
 		// apr = 10% per year (365 days)
 		// term: 30 days
-		// finalize at the end
-		// pay full interestRate 10% for 30 days / 365 days
-		// interestRate = 10% * 30 /365 = 0,821917808 %
+		// repay at the end
+		// pay full interestRate 10%
+		// I = APR *(T + T1) / 2 / 365 = 10% * (30 + 30) / 2 /365 = 0,821917808 %
+		// 1e8 is decimal of interestRate
 		{
-			"finalize at the end, term: 30 days",
+			"term 30 days: repay at the end",
 			args{
-				finalizeTime:    30 * 86400,
+				repayTime:       30 * 86400,
 				liquidationTime: 30 * 86400,
 				term:            30 * 86400,
 				apr:             10 * 1e8,
@@ -82,7 +89,7 @@ func TestCalculateInterestRate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CalculateInterestRate(tt.args.finalizeTime, tt.args.liquidationTime, tt.args.term, tt.args.apr); !reflect.DeepEqual(got, tt.want) {
+			if got := CalculateInterestRate(tt.args.repayTime, tt.args.liquidationTime, tt.args.term, tt.args.apr); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CalculateInterestRate() = %v, want %v", got, tt.want)
 			}
 		})
