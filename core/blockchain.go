@@ -1560,18 +1560,21 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 
 				// liquidate / finalize open lendingTrades
-				finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
-				finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
-				if err != nil {
-					return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
-				}
-				if isSDKNode {
-					finalizedTx := lendingstate.FinalizedResult{}
-					if finalizedTx, err = ExtractLendingFinalizedTradeTransactions(block.Transactions()); err != nil {
-						return i, events, coalescedLogs, err
+				if block.Number().Uint64() % bc.chainConfig.Posv.Epoch == common.LiquidateLendingTradeBlock {
+					finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
+					finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+					if err != nil {
+						return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 					}
-					bc.AddFinalizedTrades(finalizedTx.TxHash, finalizedTrades)
+					if isSDKNode {
+						finalizedTx := lendingstate.FinalizedResult{}
+						if finalizedTx, err = ExtractLendingFinalizedTradeTransactions(block.Transactions()); err != nil {
+							return i, events, coalescedLogs, err
+						}
+						bc.AddFinalizedTrades(finalizedTx.TxHash, finalizedTrades)
+					}
 				}
+
 
 				//check
 				if true {
@@ -1839,17 +1842,19 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				}
 
 				// liquidate / finalize open lendingTrades
-				finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
-				finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
-				if err != nil {
-					return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
-				}
-				if isSDKNode {
-					finalizedTx := lendingstate.FinalizedResult{}
-					if finalizedTx, err = ExtractLendingFinalizedTradeTransactions(block.Transactions()); err != nil {
-						return nil, err
+				if block.Number().Uint64() % bc.chainConfig.Posv.Epoch == common.LiquidateLendingTradeBlock {
+					finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
+					finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tomoxState, lendingState)
+					if err != nil {
+						return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 					}
-					bc.AddFinalizedTrades(finalizedTx.TxHash, finalizedTrades)
+					if isSDKNode {
+						finalizedTx := lendingstate.FinalizedResult{}
+						if finalizedTx, err = ExtractLendingFinalizedTradeTransactions(block.Transactions()); err != nil {
+							return nil, err
+						}
+						bc.AddFinalizedTrades(finalizedTx.TxHash, finalizedTrades)
+					}
 				}
 			}
 
@@ -2639,18 +2644,20 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 	}
 
 	// update finalizedTrades
-	finalizedTx, err := ExtractLendingFinalizedTradeTransactions(block.Transactions())
-	if err != nil {
-		log.Crit("failed to extract finalizedTrades transaction", "err", err)
-	}
-	finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
-	finalizedData, ok := bc.finalizedTrade.Get(finalizedTx.TxHash)
-	if ok && finalizedData != nil {
-		finalizedTrades = finalizedData.(map[common.Hash]*lendingstate.LendingTrade)
-	}
-	if len(finalizedTrades) > 0 {
-		if err := lendingService.UpdateLiquidatedTrade(finalizedTx, finalizedTrades); err != nil {
-			log.Crit("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
+	if block.Number().Uint64() % bc.chainConfig.Posv.Epoch == common.LiquidateLendingTradeBlock {
+		finalizedTx, err := ExtractLendingFinalizedTradeTransactions(block.Transactions())
+		if err != nil {
+			log.Crit("failed to extract finalizedTrades transaction", "err", err)
+		}
+		finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
+		finalizedData, ok := bc.finalizedTrade.Get(finalizedTx.TxHash)
+		if ok && finalizedData != nil {
+			finalizedTrades = finalizedData.(map[common.Hash]*lendingstate.LendingTrade)
+		}
+		if len(finalizedTrades) > 0 {
+			if err := lendingService.UpdateLiquidatedTrade(finalizedTx, finalizedTrades); err != nil {
+				log.Crit("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
+			}
 		}
 	}
 }
