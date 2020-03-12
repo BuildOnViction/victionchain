@@ -2456,6 +2456,40 @@ func (s *PublicTomoXTransactionPoolAPI) GetBorrows(ctx context.Context, lendingT
 	return result, nil
 }
 
+// GetLendingTxMatchByHash returns lendingItems which have been processed at tx of the given txhash
+func (s *PublicTomoXTransactionPoolAPI) GetLendingTxMatchByHash(ctx context.Context, hash common.Hash) ([]*lendingstate.LendingItem, error) {
+	var tx *types.Transaction
+	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
+		if tx = s.b.GetPoolTransaction(hash); tx == nil {
+			return []*lendingstate.LendingItem{}, nil
+		}
+	}
+
+	batch, err := lendingstate.DecodeTxLendingBatch(tx.Data())
+	if err != nil {
+		return []*lendingstate.LendingItem{}, err
+	}
+	return batch.Data, nil
+}
+
+// GetLiquidatedTradesByTxHash returns trades which closed by TomoX protocol at the tx of the give hash
+func (s *PublicTomoXTransactionPoolAPI) GetLiquidatedTradesByTxHash(ctx context.Context, hash common.Hash) (lendingstate.FinalizedResult, error) {
+	var tx *types.Transaction
+	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
+		if tx = s.b.GetPoolTransaction(hash); tx == nil {
+			return lendingstate.FinalizedResult{}, nil
+		}
+	}
+
+	finalizedResult, err := lendingstate.DecodeFinalizedResult(tx.Data())
+	if err != nil {
+		return lendingstate.FinalizedResult{}, err
+	}
+	finalizedResult.TxHash = hash
+	return finalizedResult, nil
+}
+
+
 // Sign calculates an ECDSA signature for:
 // keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
 //

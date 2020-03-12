@@ -792,6 +792,16 @@ web3._extend({
             call: 'tomox_getBorrows',
             params: 2
 		}),
+		new web3._extend.Method({
+            name: 'getLendingTxMatchByHash',
+            call: 'tomox_getLendingTxMatchByHash',
+            params: 1
+		}),
+		new web3._extend.Method({
+            name: 'getLiquidatedTradesByTxHash',
+            call: 'tomox_getLiquidatedTradesByTxHash',
+            params: 1
+		}),
 	]
 });
 `
