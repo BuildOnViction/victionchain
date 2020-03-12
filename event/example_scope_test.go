@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/tomochain/tomochain/event"
+	"github.com/chancoin-core/chancoin-gold/event"
 )
 
 // This example demonstrates how SubscriptionScope can be used to control the lifetime of

@@ -20,7 +20,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/params"
 )
 
 type (

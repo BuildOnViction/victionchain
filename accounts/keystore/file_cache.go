@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/log"
 	mapset "github.com/deckarep/golang-set"
 )
 

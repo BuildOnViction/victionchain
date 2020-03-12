@@ -2,11 +2,11 @@ package core
 
 import (
 	"context"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/ethclient"
-	"github.com/tomochain/tomochain/rpc"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/ethclient"
+	"github.com/chancoin-core/chancoin-gold/rpc"
 	"log"
 	"math/big"
 	"strconv"
@@ -48,7 +48,7 @@ func getNonce(t *testing.T, userAddress common.Address) (uint64, error) {
 
 		return 0, err
 	}
-	err = rpcClient.Call(&result, "tomox_getOrderCount", userAddress)
+	err = rpcClient.Call(&result, "chancoinx_getOrderCount", userAddress)
 	if err != nil {
 		return 0, err
 	}
@@ -78,7 +78,7 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
-		PairName:        "BTC/TOMO",
+		PairName:        "BTC/CHANCOIN",
 	}
 	nonce, _ := getNonce(t, msg.UserAddress)
 	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
@@ -93,7 +93,7 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 	}
 }
 
-func testSendOrderTOMOUSD(t *testing.T, amount, price *big.Int, side string, status string, orderID uint64) {
+func testSendOrderCHANCOINUSD(t *testing.T, amount, price *big.Int, side string, status string, orderID uint64) {
 
 	client, err := ethclient.Dial("http://127.0.0.1:8501")
 	if err != nil {
@@ -114,7 +114,7 @@ func testSendOrderTOMOUSD(t *testing.T, amount, price *big.Int, side string, sta
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
-		PairName:        "TOMO/USD",
+		PairName:        "CHANCOIN/USD",
 	}
 	nonce, _ := getNonce(t, msg.UserAddress)
 	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
@@ -209,9 +209,9 @@ func TestSendSellOrder(t *testing.T) {
 	testSendOrder(t, new(big.Int).SetUint64(1000000000000000000), new(big.Int).SetUint64(100000000000000000), "SELL", "NEW", 0)
 }
 func TestFilled(t *testing.T) {
-	//BTC/TOMO
+	//BTC/CHANCOIN
 	price := new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000))
-	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000)), price, "BUY", "NEW", 0)
+	testSendOrderCHANCOINUSD(t, new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000)), price, "BUY", "NEW", 0)
 	//ETH/BTC
 	price = new(big.Int).Mul(big.NewInt(10000000000000000), big.NewInt(20000))
 	testSendOrderBTCUSD(t, new(big.Int).SetUint64(1000000000), price, "BUY", "NEW", 0)

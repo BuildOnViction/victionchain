@@ -19,10 +19,10 @@ package les
 import (
 	"context"
 
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/light"
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/core"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
+	"github.com/chancoin-core/chancoin-gold/light"
+	"github.com/chancoin-core/chancoin-gold/log"
 )
 
 // LesOdr implements light.OdrBackend

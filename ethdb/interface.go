@@ -16,7 +16,7 @@
 
 package ethdb
 
-import "github.com/tomochain/tomochain/common"
+import "github.com/chancoin-core/chancoin-gold/common"
 
 // Code using batches should try to add this much data to the batch.
 // The value was determined empirically.
@@ -37,8 +37,8 @@ type Database interface {
 	NewBatch() Batch
 }
 
-// TomoxDatabase interface
-type TomoxDatabase interface {
+// ChancoinxDatabase interface
+type ChancoinxDatabase interface {
 	GetObject(hash common.Hash, val interface{}) (interface{}, error)
 }
 

@@ -7,12 +7,12 @@ import (
 	"math/big"
 	"strings"
 
-	ethereum "github.com/tomochain/tomochain"
-	"github.com/tomochain/tomochain/accounts/abi"
-	"github.com/tomochain/tomochain/accounts/abi/bind"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/event"
+	ethereum "github.com/chancoin-core/chancoin-gold"
+	"github.com/chancoin-core/chancoin-gold/accounts/abi"
+	"github.com/chancoin-core/chancoin-gold/accounts/abi/bind"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/event"
 )
 
 // BlockSignerABI is the input ABI used to generate the binding from.

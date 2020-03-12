@@ -19,7 +19,7 @@ package ethapi
 import (
 	"sync"
 
-	"github.com/tomochain/tomochain/common"
+	"github.com/chancoin-core/chancoin-gold/common"
 )
 
 type AddrLocker struct {

@@ -24,22 +24,22 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/core"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/params"
 
 	"context"
 	"math/big"
 
-	"github.com/tomochain/tomochain/accounts/abi/bind"
-	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
-	blockSignerContract "github.com/tomochain/tomochain/contracts/blocksigner"
-	multiSignWalletContract "github.com/tomochain/tomochain/contracts/multisigwallet"
-	randomizeContract "github.com/tomochain/tomochain/contracts/randomize"
-	validatorContract "github.com/tomochain/tomochain/contracts/validator"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/rlp"
+	"github.com/chancoin-core/chancoin-gold/accounts/abi/bind"
+	"github.com/chancoin-core/chancoin-gold/accounts/abi/bind/backends"
+	blockSignerContract "github.com/chancoin-core/chancoin-gold/contracts/blocksigner"
+	multiSignWalletContract "github.com/chancoin-core/chancoin-gold/contracts/multisigwallet"
+	randomizeContract "github.com/chancoin-core/chancoin-gold/contracts/randomize"
+	validatorContract "github.com/chancoin-core/chancoin-gold/contracts/validator"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/rlp"
 )
 
 // makeGenesis creates a new genesis struct based on some user input.
@@ -312,7 +312,7 @@ func (w *wizard) makeGenesis() {
 		}
 
 		fmt.Println()
-		fmt.Println("What is swap wallet address for fund 55m tomo?")
+		fmt.Println("What is swap wallet address for fund 55m chancoin?")
 		swapAddr := *w.readAddress()
 		baseBalance := big.NewInt(0) // 55m
 		baseBalance.Add(baseBalance, big.NewInt(55*1000*1000))

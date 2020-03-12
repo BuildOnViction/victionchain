@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/log"
 )
 
 // CreateIPCListener creates an listener, on Unix platforms this is a unix socket, on

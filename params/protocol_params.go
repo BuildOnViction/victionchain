@@ -19,14 +19,14 @@ package params
 import "math/big"
 
 var (
-	TargetGasLimit uint64 = TomoGenesisGasLimit // The artificial target
+	TargetGasLimit uint64 = ChancoinGenesisGasLimit // The artificial target
 )
 
 const (
 	GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
 	GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
-	TomoGenesisGasLimit  uint64 = 84000000
+	ChancoinGenesisGasLimit  uint64 = 84000000
 
 	MaximumExtraDataSize  uint64 = 32    // Maximum size extra data may be after Genesis.
 	ExpByteGas            uint64 = 10    // Times ceil(log256(exponent)) for the EXP instruction.

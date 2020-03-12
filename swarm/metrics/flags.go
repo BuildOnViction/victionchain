@@ -19,10 +19,10 @@ package metrics
 import (
 	"time"
 
-	"github.com/tomochain/tomochain/cmd/utils"
-	"github.com/tomochain/tomochain/log"
-	gethmetrics "github.com/tomochain/tomochain/metrics"
-	"github.com/tomochain/tomochain/metrics/influxdb"
+	"github.com/chancoin-core/chancoin-gold/cmd/utils"
+	"github.com/chancoin-core/chancoin-gold/log"
+	gethmetrics "github.com/chancoin-core/chancoin-gold/metrics"
+	"github.com/chancoin-core/chancoin-gold/metrics/influxdb"
 	"gopkg.in/urfave/cli.v1"
 )
 

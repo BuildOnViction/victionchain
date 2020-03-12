@@ -21,8 +21,8 @@ package geth
 import (
 	"errors"
 
-	ethereum "github.com/tomochain/tomochain"
-	"github.com/tomochain/tomochain/common"
+	ethereum "github.com/chancoin-core/chancoin-gold"
+	"github.com/chancoin-core/chancoin-gold/common"
 )
 
 // Subscription represents an event subscription where events are

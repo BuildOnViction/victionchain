@@ -19,7 +19,7 @@ package p2p
 import (
 	"fmt"
 
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/chancoin-core/chancoin-gold/p2p/discover"
 )
 
 // Protocol represents a P2P subprotocol implementation.

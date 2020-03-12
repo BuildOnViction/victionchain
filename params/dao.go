@@ -19,7 +19,7 @@ package params
 import (
 	"math/big"
 
-	"github.com/tomochain/tomochain/common"
+	"github.com/chancoin-core/chancoin-gold/common"
 )
 
 // DAOForkBlockExtra is the block header extra-data field to set for the DAO fork

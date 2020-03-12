@@ -23,8 +23,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tomochain/tomochain/common/math"
-	"github.com/tomochain/tomochain/core/vm"
+	"github.com/chancoin-core/chancoin-gold/common/math"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
 )
 
 // Compiler contains information about the parsed source

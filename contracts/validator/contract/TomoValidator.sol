@@ -2,7 +2,7 @@ pragma solidity ^0.4.21;
 
 import "./libs/SafeMath.sol";
 
-contract TomoValidator {
+contract ChancoinValidator {
     using SafeMath for uint256;
 
     event Vote(address _voter, address _candidate, uint256 _cap);
@@ -37,7 +37,7 @@ contract TomoValidator {
     uint256 public voterWithdrawDelay;
 
     modifier onlyValidCandidateCap {
-        // anyone can deposit X TOMO to become a candidate
+        // anyone can deposit X CHANCOIN to become a candidate
         require(msg.value >= minCandidateCap);
         _;
     }
@@ -83,7 +83,7 @@ contract TomoValidator {
         _;
     }
 
-    function TomoValidator (
+    function ChancoinValidator (
         address[] _candidates,
         uint256[] _caps,
         address _firstOwner,

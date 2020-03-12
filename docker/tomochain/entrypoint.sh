@@ -22,7 +22,7 @@ KEYSTORE_DIR="keystore"
 genesisPath=""
 params=""
 accountsCount=$(
-  tomo account list --datadir $DATA_DIR  --keystore $KEYSTORE_DIR \
+  chancoin account list --datadir $DATA_DIR  --keystore $KEYSTORE_DIR \
   2> /dev/null \
   | wc -l
 )
@@ -56,7 +56,7 @@ if [[ ! -z $NETWORK_ID ]]; then
       ;;
     89 )
       genesisPath="testnet.json"
-      params="$params --tomo-testnet --gcmode archive --rpcapi db,eth,net,web3,debug"
+      params="$params --chancoin-testnet --gcmode archive --rpcapi db,eth,net,web3,debug"
       ;;
     90 )
       genesisPath="devnet.json"
@@ -74,9 +74,9 @@ if [[ ! -z $GENESIS_PATH ]]; then
 fi
 
 # data dir
-if [[ ! -d $DATA_DIR/tomo ]]; then
+if [[ ! -d $DATA_DIR/chancoin ]]; then
   echo "No blockchain data, creating genesis block."
-  tomo init $genesisPath --datadir $DATA_DIR 2> /dev/null
+  chancoin init $genesisPath --datadir $DATA_DIR 2> /dev/null
 fi
 
 # identity
@@ -101,21 +101,21 @@ if [[ $accountsCount -le 0 ]]; then
   if [[ ! -z $PRIVATE_KEY ]]; then
     echo "Creating account from private key"
     echo "$PRIVATE_KEY" > ./private_key
-    tomo  account import ./private_key \
+    chancoin  account import ./private_key \
       --datadir $DATA_DIR \
       --keystore $KEYSTORE_DIR \
       --password ./password
     rm ./private_key
   else
     echo "Creating new account"
-    tomo account new \
+    chancoin account new \
       --datadir $DATA_DIR \
       --keystore $KEYSTORE_DIR \
       --password ./password
   fi
 fi
 account=$(
-  tomo account list --datadir $DATA_DIR  --keystore $KEYSTORE_DIR \
+  chancoin account list --datadir $DATA_DIR  --keystore $KEYSTORE_DIR \
   2> /dev/null \
   | head -n 1 \
   | cut -d"{" -f 2 | cut -d"}" -f 1
@@ -171,7 +171,7 @@ echo "dump: $IDENTITY $account $BOOTNODES"
 
 set -x
 
-exec tomo $params \
+exec chancoin $params \
   --verbosity $VERBOSITY \
   --datadir $DATA_DIR \
   --keystore $KEYSTORE_DIR \

@@ -6,7 +6,7 @@ import (
 	uurl "net/url"
 	"time"
 
-	"github.com/tomochain/tomochain/metrics"
+	"github.com/chancoin-core/chancoin-gold/metrics"
 	"github.com/influxdata/influxdb/client"
 )
 

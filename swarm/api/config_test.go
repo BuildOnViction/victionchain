@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/crypto"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/crypto"
 )
 
 func TestConfig(t *testing.T) {

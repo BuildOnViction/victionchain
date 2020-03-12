@@ -26,29 +26,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/chancoin-core/chancoin-gold/chancoinx/chancoinx_state"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/tomochain/tomochain/accounts"
-	"github.com/tomochain/tomochain/accounts/abi/bind"
-	"github.com/tomochain/tomochain/accounts/keystore"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/common/hexutil"
-	"github.com/tomochain/tomochain/common/math"
-	"github.com/tomochain/tomochain/consensus/ethash"
-	"github.com/tomochain/tomochain/consensus/posv"
-	contractValidator "github.com/tomochain/tomochain/contracts/validator/contract"
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/core/vm"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/rlp"
-	"github.com/tomochain/tomochain/rpc"
+	"github.com/chancoin-core/chancoin-gold/accounts"
+	"github.com/chancoin-core/chancoin-gold/accounts/abi/bind"
+	"github.com/chancoin-core/chancoin-gold/accounts/keystore"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/common/hexutil"
+	"github.com/chancoin-core/chancoin-gold/common/math"
+	"github.com/chancoin-core/chancoin-gold/consensus/ethash"
+	"github.com/chancoin-core/chancoin-gold/consensus/posv"
+	contractValidator "github.com/chancoin-core/chancoin-gold/contracts/validator/contract"
+	"github.com/chancoin-core/chancoin-gold/core"
+	"github.com/chancoin-core/chancoin-gold/core/state"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/p2p"
+	"github.com/chancoin-core/chancoin-gold/params"
+	"github.com/chancoin-core/chancoin-gold/rlp"
+	"github.com/chancoin-core/chancoin-gold/rpc"
 )
 
 const (
@@ -439,7 +439,7 @@ func signHash(data []byte) []byte {
 //
 // The key used to calculate the signature is decrypted with the given password.
 //
-// https://github.com/tomochain/tomochain/wiki/Management-APIs#personal_sign
+// https://github.com/chancoin-core/chancoin-gold/wiki/Management-APIs#personal_sign
 func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: addr}
@@ -466,7 +466,7 @@ func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr c
 // Note, the signature must conform to the secp256k1 curve R, S and V values, where
 // the V value must be be 27 or 28 for legacy reasons.
 //
-// https://github.com/tomochain/tomochain/wiki/Management-APIs#personal_ecRecover
+// https://github.com/chancoin-core/chancoin-gold/wiki/Management-APIs#personal_ecRecover
 func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
 	if len(sig) != 65 {
 		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
@@ -983,7 +983,7 @@ func (s *PublicBlockChainAPI) getCandidatesFromSmartContract() ([]posv.Masternod
 	}
 
 	addr := common.HexToAddress(common.MasternodeVotingSMC)
-	validator, err := contractValidator.NewTomoValidator(addr, client)
+	validator, err := contractValidator.NewChancoinValidator(addr, client)
 	if err != nil {
 		return []posv.Masternode{}, err
 	}
@@ -1503,7 +1503,7 @@ type PublicTransactionPoolAPI struct {
 }
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
-type PublicTomoXTransactionPoolAPI struct {
+type PublicChancoinXTransactionPoolAPI struct {
 	b         Backend
 	nonceLock *AddrLocker
 }
@@ -1514,8 +1514,8 @@ func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTransa
 }
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
-func NewPublicTomoXTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTomoXTransactionPoolAPI {
-	return &PublicTomoXTransactionPoolAPI{b, nonceLock}
+func NewPublicChancoinXTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicChancoinXTransactionPoolAPI {
+	return &PublicChancoinXTransactionPoolAPI{b, nonceLock}
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -1823,7 +1823,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 
 // SendOrderRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
-func (s *PublicTomoXTransactionPoolAPI) SendOrderRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+func (s *PublicChancoinXTransactionPoolAPI) SendOrderRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.OrderTransaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
@@ -1832,23 +1832,23 @@ func (s *PublicTomoXTransactionPoolAPI) SendOrderRawTransaction(ctx context.Cont
 }
 
 // GetOrderTxMatchByHash returns the bytes of the transaction for the given hash.
-func (s *PublicTomoXTransactionPoolAPI) GetOrderTxMatchByHash(ctx context.Context, hash common.Hash) ([]*tomox_state.OrderItem, error) {
+func (s *PublicChancoinXTransactionPoolAPI) GetOrderTxMatchByHash(ctx context.Context, hash common.Hash) ([]*chancoinx_state.OrderItem, error) {
 	var tx *types.Transaction
-	orders := []*tomox_state.OrderItem{}
+	orders := []*chancoinx_state.OrderItem{}
 	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
 		if tx = s.b.GetPoolTransaction(hash); tx == nil {
-			return []*tomox_state.OrderItem{}, nil
+			return []*chancoinx_state.OrderItem{}, nil
 		}
 	}
 
-	batch, err := tomox_state.DecodeTxMatchesBatch(tx.Data())
+	batch, err := chancoinx_state.DecodeTxMatchesBatch(tx.Data())
 	if err != nil {
-		return []*tomox_state.OrderItem{}, err
+		return []*chancoinx_state.OrderItem{}, err
 	}
 	for _, txMatch := range batch.Data {
 		order, err := txMatch.DecodeOrder()
 		if err != nil {
-			return []*tomox_state.OrderItem{}, err
+			return []*chancoinx_state.OrderItem{}, err
 		}
 		orders = append(orders, order)
 	}
@@ -1857,15 +1857,15 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderTxMatchByHash(ctx context.Contex
 }
 
 // GetOrderPoolContent return pending, queued content
-func (s *PublicTomoXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context) interface{} {
-	pendingOrders := []*tomox_state.OrderItem{}
-	queuedOrders := []*tomox_state.OrderItem{}
+func (s *PublicChancoinXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context) interface{} {
+	pendingOrders := []*chancoinx_state.OrderItem{}
+	queuedOrders := []*chancoinx_state.OrderItem{}
 	pending, queued := s.b.OrderTxPoolContent()
 
 	for _, txs := range pending {
 		for _, tx := range txs {
 			V, R, S := tx.Signature()
-			order := &tomox_state.OrderItem{
+			order := &chancoinx_state.OrderItem{
 				Nonce:           big.NewInt(int64(tx.Nonce())),
 				Quantity:        tx.Quantity(),
 				Price:           tx.Price(),
@@ -1878,7 +1878,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context)
 				Type:            tx.Type(),
 				Hash:            tx.OrderHash(),
 				OrderID:         tx.OrderID(),
-				Signature: &tomox_state.Signature{
+				Signature: &chancoinx_state.Signature{
 					V: byte(V.Uint64()),
 					R: common.BigToHash(R),
 					S: common.BigToHash(S),
@@ -1892,7 +1892,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context)
 	for _, txs := range queued {
 		for _, tx := range txs {
 			V, R, S := tx.Signature()
-			order := &tomox_state.OrderItem{
+			order := &chancoinx_state.OrderItem{
 				Nonce:           big.NewInt(int64(tx.Nonce())),
 				Quantity:        tx.Quantity(),
 				Price:           tx.Price(),
@@ -1905,7 +1905,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context)
 				Type:            tx.Type(),
 				Hash:            tx.OrderHash(),
 				OrderID:         tx.OrderID(),
-				Signature: &tomox_state.Signature{
+				Signature: &chancoinx_state.Signature{
 					V: byte(V.Uint64()),
 					R: common.BigToHash(R),
 					S: common.BigToHash(S),
@@ -1923,7 +1923,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context)
 }
 
 // GetOrderStats return pending, queued length
-func (s *PublicTomoXTransactionPoolAPI) GetOrderStats(ctx context.Context) interface{} {
+func (s *PublicChancoinXTransactionPoolAPI) GetOrderStats(ctx context.Context) interface{} {
 	pending, queued := s.b.OrderStats()
 	return map[string]interface{}{
 		"pending": pending,
@@ -1960,14 +1960,14 @@ type PriceVolume struct {
 
 // SendOrder will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
-func (s *PublicTomoXTransactionPoolAPI) SendOrder(ctx context.Context, msg OrderMsg) (common.Hash, error) {
+func (s *PublicChancoinXTransactionPoolAPI) SendOrder(ctx context.Context, msg OrderMsg) (common.Hash, error) {
 	tx := types.NewOrderTransaction(msg.AccountNonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, msg.Hash, msg.OrderID)
 	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
 	return submitOrderTransaction(ctx, s.b, tx)
 }
 
 // GetOrderCount returns the number of transactions the given address has sent for the given block number
-func (s *PublicTomoXTransactionPoolAPI) GetOrderCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
+func (s *PublicChancoinXTransactionPoolAPI) GetOrderCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
 
 	nonce, err := s.b.GetOrderNonce(addr.Hash())
 	if err != nil {
@@ -1976,126 +1976,126 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderCount(ctx context.Context, addr 
 	return (*hexutil.Uint64)(&nonce), err
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToken, quoteToken common.Address) (PriceVolume, error) {
+func (s *PublicChancoinXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToken, quoteToken common.Address) (PriceVolume, error) {
 
 	result := PriceVolume{}
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return result, errors.New("Current block not found")
 	}
-	tomoxService := s.b.TomoxService()
-	if tomoxService == nil {
-		return result, errors.New("TomoX service not found")
+	chancoinxService := s.b.ChancoinxService()
+	if chancoinxService == nil {
+		return result, errors.New("ChancoinX service not found")
 	}
 
-	tomoxState, err := tomoxService.GetTomoxState(block)
+	chancoinxState, err := chancoinxService.GetChancoinxState(block)
 	if err != nil {
 		return result, err
 	}
-	result.Price, result.Volume = tomoxState.GetBestBidPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	result.Price, result.Volume = chancoinxState.GetBestBidPrice(chancoinx_state.GetOrderBookHash(baseToken, quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Bid tree not found")
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToken, quoteToken common.Address) (PriceVolume, error) {
+func (s *PublicChancoinXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToken, quoteToken common.Address) (PriceVolume, error) {
 	result := PriceVolume{}
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return result, errors.New("Current block not found")
 	}
-	tomoxService := s.b.TomoxService()
-	if tomoxService == nil {
-		return result, errors.New("TomoX service not found")
+	chancoinxService := s.b.ChancoinxService()
+	if chancoinxService == nil {
+		return result, errors.New("ChancoinX service not found")
 	}
 
-	tomoxState, err := tomoxService.GetTomoxState(block)
+	chancoinxState, err := chancoinxService.GetChancoinxState(block)
 	if err != nil {
 		return result, err
 	}
-	result.Price, result.Volume = tomoxState.GetBestAskPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	result.Price, result.Volume = chancoinxState.GetBestAskPrice(chancoinx_state.GetOrderBookHash(baseToken, quoteToken))
 	if result.Price.Sign() == 0 {
 		return result, errors.New("Ask tree not found")
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+func (s *PublicChancoinXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]chancoinx_state.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
 	}
-	tomoxService := s.b.TomoxService()
-	if tomoxService == nil {
-		return nil, errors.New("TomoX service not found")
+	chancoinxService := s.b.ChancoinxService()
+	if chancoinxService == nil {
+		return nil, errors.New("ChancoinX service not found")
 	}
-	tomoxState, err := tomoxService.GetTomoxState(block)
+	chancoinxState, err := chancoinxService.GetChancoinxState(block)
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpBidTrie(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	result, err := chancoinxState.DumpBidTrie(chancoinx_state.GetOrderBookHash(baseToken, quoteToken))
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetPrice(ctx context.Context, baseToken, quoteToken common.Address) (*big.Int, error) {
+func (s *PublicChancoinXTransactionPoolAPI) GetPrice(ctx context.Context, baseToken, quoteToken common.Address) (*big.Int, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
 	}
-	tomoxService := s.b.TomoxService()
-	if tomoxService == nil {
-		return nil, errors.New("TomoX service not found")
+	chancoinxService := s.b.ChancoinxService()
+	if chancoinxService == nil {
+		return nil, errors.New("ChancoinX service not found")
 	}
-	tomoxState, err := tomoxService.GetTomoxState(block)
+	chancoinxState, err := chancoinxService.GetChancoinxState(block)
 	if err != nil {
 		return nil, err
 	}
-	price := tomoxState.GetPrice(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	price := chancoinxState.GetPrice(chancoinx_state.GetOrderBookHash(baseToken, quoteToken))
 	if price == nil || price.Sign() == 0 {
 		return common.Big0, errors.New("Order book's price not found")
 	}
 	return price, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tomox_state.DumpOrderList, error) {
+func (s *PublicChancoinXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]chancoinx_state.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
 	}
-	tomoxService := s.b.TomoxService()
-	if tomoxService == nil {
-		return nil, errors.New("TomoX service not found")
+	chancoinxService := s.b.ChancoinxService()
+	if chancoinxService == nil {
+		return nil, errors.New("ChancoinX service not found")
 	}
-	tomoxState, err := tomoxService.GetTomoxState(block)
+	chancoinxState, err := chancoinxService.GetChancoinxState(block)
 	if err != nil {
 		return nil, err
 	}
-	result, err := tomoxState.DumpAskTrie(tomox_state.GetOrderBookHash(baseToken, quoteToken))
+	result, err := chancoinxState.DumpAskTrie(chancoinx_state.GetOrderBookHash(baseToken, quoteToken))
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseToken, quoteToken common.Address, orderId uint64) (interface{}, error) {
+func (s *PublicChancoinXTransactionPoolAPI) GetOrderById(ctx context.Context, baseToken, quoteToken common.Address, orderId uint64) (interface{}, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
 		return nil, errors.New("Current block not found")
 	}
-	tomoxService := s.b.TomoxService()
-	if tomoxService == nil {
-		return nil, errors.New("TomoX service not found")
+	chancoinxService := s.b.ChancoinxService()
+	if chancoinxService == nil {
+		return nil, errors.New("ChancoinX service not found")
 	}
-	tomoxState, err := tomoxService.GetTomoxState(block)
+	chancoinxState, err := chancoinxService.GetChancoinxState(block)
 	if err != nil {
 		return nil, err
 	}
 	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderId))
-	orderitem := tomoxState.GetOrder(tomox_state.GetOrderBookHash(baseToken, quoteToken), orderIdHash)
+	orderitem := chancoinxState.GetOrder(chancoinx_state.GetOrderBookHash(baseToken, quoteToken), orderIdHash)
 	if orderitem.Quantity == nil || orderitem.Quantity.Sign() == 0 {
 		return nil, errors.New("Order not found")
 	}

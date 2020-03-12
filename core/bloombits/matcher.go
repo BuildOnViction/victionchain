@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tomochain/tomochain/common/bitutil"
-	"github.com/tomochain/tomochain/crypto"
+	"github.com/chancoin-core/chancoin-gold/common/bitutil"
+	"github.com/chancoin-core/chancoin-gold/crypto"
 )
 
 // bloomIndexes represents the bit indexes inside the bloom filter that belong

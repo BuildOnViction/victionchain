@@ -30,8 +30,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tomochain/tomochain/cmd/utils"
-	swarm "github.com/tomochain/tomochain/swarm/api/client"
+	"github.com/chancoin-core/chancoin-gold/cmd/utils"
+	swarm "github.com/chancoin-core/chancoin-gold/swarm/api/client"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -22,8 +22,8 @@ package node
 import (
 	"reflect"
 
-	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/rpc"
+	"github.com/chancoin-core/chancoin-gold/p2p"
+	"github.com/chancoin-core/chancoin-gold/rpc"
 )
 
 // NoopService is a trivial implementation of the Service interface.

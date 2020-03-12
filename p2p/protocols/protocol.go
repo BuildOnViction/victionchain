@@ -34,7 +34,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/tomochain/tomochain/p2p"
+	"github.com/chancoin-core/chancoin-gold/p2p"
 )
 
 // error codes used by this  protocol scheme

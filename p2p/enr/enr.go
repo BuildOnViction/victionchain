@@ -35,9 +35,9 @@ import (
 	"io"
 	"sort"
 
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/crypto/sha3"
-	"github.com/tomochain/tomochain/rlp"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/crypto/sha3"
+	"github.com/chancoin-core/chancoin-gold/rlp"
 )
 
 const SizeLimit = 300 // maximum encoded size of a node record in bytes

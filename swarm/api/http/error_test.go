@@ -25,7 +25,7 @@ import (
 
 	"golang.org/x/net/html"
 
-	"github.com/tomochain/tomochain/swarm/testutil"
+	"github.com/chancoin-core/chancoin-gold/swarm/testutil"
 )
 
 func TestError(t *testing.T) {

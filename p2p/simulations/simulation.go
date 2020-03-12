@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/chancoin-core/chancoin-gold/p2p/discover"
 )
 
 // Simulation provides a framework for running actions in a simulated network

@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/tomochain/tomochain/core/vm"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
 )
 
 // Iterator for disassembled EVM instructions

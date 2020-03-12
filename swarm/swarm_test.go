@@ -19,7 +19,7 @@ package swarm
 import (
 	"testing"
 
-	"github.com/tomochain/tomochain/common"
+	"github.com/chancoin-core/chancoin-gold/common"
 )
 
 func TestParseEnsAPIAddress(t *testing.T) {

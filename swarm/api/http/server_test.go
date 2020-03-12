@@ -26,11 +26,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/swarm/api"
-	swarm "github.com/tomochain/tomochain/swarm/api/client"
-	"github.com/tomochain/tomochain/swarm/storage"
-	"github.com/tomochain/tomochain/swarm/testutil"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/swarm/api"
+	swarm "github.com/chancoin-core/chancoin-gold/swarm/api/client"
+	"github.com/chancoin-core/chancoin-gold/swarm/storage"
+	"github.com/chancoin-core/chancoin-gold/swarm/testutil"
 )
 
 func TestBzzGetPath(t *testing.T) {

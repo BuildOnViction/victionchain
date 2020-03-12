@@ -19,7 +19,7 @@ package event_test
 import (
 	"fmt"
 
-	"github.com/tomochain/tomochain/event"
+	"github.com/chancoin-core/chancoin-gold/event"
 )
 
 func ExampleNewSubscription() {

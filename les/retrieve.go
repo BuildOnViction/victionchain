@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/common/mclock"
+	"github.com/chancoin-core/chancoin-gold/common/mclock"
 )
 
 var (
