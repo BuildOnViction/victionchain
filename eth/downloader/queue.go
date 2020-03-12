@@ -25,10 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/metrics"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/metrics"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

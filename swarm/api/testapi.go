@@ -17,7 +17,7 @@
 package api
 
 import (
-	"github.com/tomochain/tomochain/swarm/network"
+	"github.com/chancoin-core/chancoin-gold/swarm/network"
 )
 
 type Control struct {

@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/tomochain/tomochain/core/asm"
+	"github.com/chancoin-core/chancoin-gold/core/asm"
 	cli "gopkg.in/urfave/cli.v1"
 )
 

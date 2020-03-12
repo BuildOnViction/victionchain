@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/ethdb"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

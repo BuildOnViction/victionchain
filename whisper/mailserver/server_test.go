@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/crypto"
-	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	whisper "github.com/chancoin-core/chancoin-gold/whisper/whisperv6"
 )
 
 const powRequirement = 0.00001

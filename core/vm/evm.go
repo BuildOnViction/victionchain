@@ -21,9 +21,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/params"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already

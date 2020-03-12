@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
-	"github.com/tomochain/tomochain/common"
+	"github.com/chancoin-core/chancoin-gold/common"
 )
 
 // Iterator is a key-value trie iterator that traverses a Trie.

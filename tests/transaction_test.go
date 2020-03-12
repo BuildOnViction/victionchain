@@ -20,7 +20,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/params"
 )
 
 func TestTransaction(t *testing.T) {

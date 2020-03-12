@@ -33,10 +33,10 @@ import (
 	"unsafe"
 
 	mmap "github.com/edsrzf/mmap-go"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/metrics"
-	"github.com/tomochain/tomochain/rpc"
+	"github.com/chancoin-core/chancoin-gold/consensus"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/metrics"
+	"github.com/chancoin-core/chancoin-gold/rpc"
 	"github.com/hashicorp/golang-lru/simplelru"
 )
 

@@ -24,8 +24,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/p2p"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/p2p"
 )
 
 // Tests that datadirs can be successfully created, be them manually configured

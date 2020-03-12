@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tomochain/tomochain/cmd/utils"
-	"github.com/tomochain/tomochain/swarm/storage"
+	"github.com/chancoin-core/chancoin-gold/cmd/utils"
+	"github.com/chancoin-core/chancoin-gold/swarm/storage"
 	"gopkg.in/urfave/cli.v1"
 )
 

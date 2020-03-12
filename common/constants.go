@@ -29,17 +29,17 @@ var TIP2019Block = big.NewInt(1050000)
 var TIPSigning = big.NewInt(3000000)
 var TIPRandomize = big.NewInt(3464000)
 var BlackListHFNumber = uint64(9349100)
-var TIPTomoX = big.NewInt(0)
-var TIPTomoXTestnet = big.NewInt(11303000)
+var TIPChancoinX = big.NewInt(0)
+var TIPChancoinXTestnet = big.NewInt(11303000)
 var IsTestnet bool = false
 var StoreRewardFolder string
 var RollbackHash Hash
 var BasePrice = big.NewInt(1000000000000000000) // 1
-var RelayerLockedFund = big.NewInt(20000)       // 20000 TOMO
+var RelayerLockedFund = big.NewInt(20000)       // 20000 CHANCOIN
 var RelayerFee = big.NewInt(1000000000000000)   // 0.001
-var TomoXBaseFee = big.NewInt(10000)
+var ChancoinXBaseFee = big.NewInt(10000)
 var RelayerCancelFee = big.NewInt(100000000000000) // 0.0001
-var TomoXBaseCancelFee = big.NewInt(10000)         // 1/10000
+var ChancoinXBaseCancelFee = big.NewInt(10000)         // 1/10000
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")

@@ -21,18 +21,18 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/tomochain/tomochain/accounts"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/eth/downloader"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/event"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/tomox"
+	"github.com/chancoin-core/chancoin-gold/accounts"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/consensus"
+	"github.com/chancoin-core/chancoin-gold/core"
+	"github.com/chancoin-core/chancoin-gold/core/state"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/eth/downloader"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
+	"github.com/chancoin-core/chancoin-gold/event"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/params"
+	"github.com/chancoin-core/chancoin-gold/chancoinx"
 )
 
 // Backend wraps all methods required for mining.
@@ -41,7 +41,7 @@ type Backend interface {
 	BlockChain() *core.BlockChain
 	TxPool() *core.TxPool
 	ChainDb() ethdb.Database
-	GetTomoX() *tomox.TomoX
+	GetChancoinX() *chancoinx.ChancoinX
 	OrderPool() *core.OrderPool
 }
 

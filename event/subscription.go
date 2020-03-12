@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/common/mclock"
+	"github.com/chancoin-core/chancoin-gold/common/mclock"
 )
 
 // Subscription represents a stream of events. The carrier of the events is typically a

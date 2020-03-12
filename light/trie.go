@@ -21,12 +21,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/trie"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/core/state"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
+	"github.com/chancoin-core/chancoin-gold/trie"
 )
 
 func NewState(ctx context.Context, head *types.Header, odr OdrBackend) *state.StateDB {

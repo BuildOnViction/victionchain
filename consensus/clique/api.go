@@ -17,10 +17,10 @@
 package clique
 
 import (
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/rpc"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/consensus"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/rpc"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting

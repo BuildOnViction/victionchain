@@ -24,7 +24,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/log"
 )
 
 type brokenLimitedReader struct {

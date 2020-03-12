@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/tomochain/tomochain/accounts"
+	"github.com/chancoin-core/chancoin-gold/accounts"
 
 	"math/big"
 	"os"
@@ -28,22 +28,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/chancoin-core/chancoin-gold/chancoinx/chancoinx_state"
 
 	mapset "github.com/deckarep/golang-set"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/consensus/misc"
-	"github.com/tomochain/tomochain/consensus/posv"
-	"github.com/tomochain/tomochain/contracts"
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/core/vm"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/event"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/consensus"
+	"github.com/chancoin-core/chancoin-gold/consensus/misc"
+	"github.com/chancoin-core/chancoin-gold/consensus/posv"
+	"github.com/chancoin-core/chancoin-gold/contracts"
+	"github.com/chancoin-core/chancoin-gold/core"
+	"github.com/chancoin-core/chancoin-gold/core/state"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
+	"github.com/chancoin-core/chancoin-gold/event"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/params"
 )
 
 const (
@@ -82,7 +82,7 @@ type Work struct {
 
 	state       *state.StateDB // apply state changes here
 	parentState *state.StateDB
-	tomoxState  *tomox_state.TomoXStateDB
+	chancoinxState  *chancoinx_state.ChancoinXStateDB
 	ancestors   mapset.Set // ancestor set (used for checking uncle parent validity)
 	family      mapset.Set // family set (used for checking uncle invalidity)
 	uncles      mapset.Set // uncle set
@@ -355,7 +355,7 @@ func (self *worker) wait() {
 				log.BlockHash = block.Hash()
 			}
 			self.currentMu.Lock()
-			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state, work.tomoxState)
+			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state, work.chancoinxState)
 			self.currentMu.Unlock()
 			if err != nil {
 				log.Error("Failed writing block to chain", "err", err)
@@ -451,10 +451,10 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	if err != nil {
 		return err
 	}
-	var tomoxState *tomox_state.TomoXStateDB
+	var chancoinxState *chancoinx_state.ChancoinXStateDB
 	if self.config.Posv != nil {
-		tomoX := self.eth.GetTomoX()
-		tomoxState, err = tomoX.GetTomoxState(parent)
+		chancoinX := self.eth.GetChancoinX()
+		chancoinxState, err = chancoinX.GetChancoinxState(parent)
 		if err != nil {
 			log.Error("Failed to create mining context", "err", err)
 			return err
@@ -466,7 +466,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 		signer:      types.NewEIP155Signer(self.config.ChainId),
 		state:       state,
 		parentState: state.Copy(),
-		tomoxState:  tomoxState,
+		chancoinxState:  chancoinxState,
 		ancestors:   mapset.NewSet(),
 		family:      mapset.NewSet(),
 		uncles:      mapset.NewSet(),
@@ -615,8 +615,8 @@ func (self *worker) commitNewWork() {
 		txs                 *types.TransactionsByPriceAndNonce
 		specialTxs          types.Transactions
 		matchingTransaction *types.Transaction
-		txMatches           []tomox_state.TxDataMatch
-		matchingResults     map[common.Hash]tomox_state.MatchingResult
+		txMatches           []chancoinx_state.TxDataMatch
+		matchingResults     map[common.Hash]chancoinx_state.MatchingResult
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -633,42 +633,42 @@ func (self *worker) commitNewWork() {
 			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
 			return
 		}
-		if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 && self.chain.Config().IsTIPTomoX(header.Number) {
-			tomoX := self.eth.GetTomoX()
-			if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
+		if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 && self.chain.Config().IsTIPChancoinX(header.Number) {
+			chancoinX := self.eth.GetChancoinX()
+			if chancoinX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
 				log.Debug("Start processing order pending")
 				orderPending, _ := self.eth.OrderPool().Pending()
 				log.Debug("Start processing order pending", "len", len(orderPending))
-				txMatches, matchingResults = tomoX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.tomoxState)
+				txMatches, matchingResults = chancoinX.ProcessOrderPending(self.coinbase, self.chain, orderPending, work.state, work.chancoinxState)
 				log.Debug("transaction matches found", "txMatches", len(txMatches))
 			}
-			txMatchBatch := &tomox_state.TxMatchBatch{
+			txMatchBatch := &chancoinx_state.TxMatchBatch{
 				Data:      txMatches,
 				Timestamp: time.Now().UnixNano(),
 				TxHash:    common.Hash{},
 			}
-			txMatchBytes, err := tomox_state.EncodeTxMatchesBatch(*txMatchBatch)
+			txMatchBytes, err := chancoinx_state.EncodeTxMatchesBatch(*txMatchBatch)
 			if err != nil {
 				log.Error("Fail to marshal txMatch", "error", err)
 				return
 			}
 			nonce := work.state.GetNonce(self.coinbase)
-			tx := types.NewTransaction(nonce, common.HexToAddress(common.TomoXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
+			tx := types.NewTransaction(nonce, common.HexToAddress(common.ChancoinXAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txMatchBytes)
 			txM, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
 			if err != nil {
 				log.Error("Fail to create tx matches", "error", err)
 				return
 			} else {
 				matchingTransaction = txM
-				if tomoX != nil && tomoX.IsSDKNode() {
+				if chancoinX != nil && chancoinX.IsSDKNode() {
 					self.chain.AddMatchingResult(matchingTransaction.Hash(), matchingResults)
 				}
 			}
 			// force adding matching transaction to this block
 			specialTxs = append(specialTxs, matchingTransaction)
 		}
-		TomoxStateRoot := work.tomoxState.IntermediateRoot()
-		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TomoXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), TomoxStateRoot.Bytes())
+		ChancoinxStateRoot := work.chancoinxState.IntermediateRoot()
+		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.ChancoinXStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), ChancoinxStateRoot.Bytes())
 		txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
 		if err != nil {
 			log.Error("Fail to create tx state root", "error", err)

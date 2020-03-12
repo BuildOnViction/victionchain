@@ -1,7 +1,7 @@
 package eth
 
 import (
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/params"
 	"math/big"
 	"testing"
 )

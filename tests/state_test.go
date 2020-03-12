@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/tomochain/tomochain/core/vm"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
 )
 
 func TestState(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/tomochain/tomochain/common"
+	"github.com/chancoin-core/chancoin-gold/common"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.

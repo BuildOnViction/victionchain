@@ -20,7 +20,7 @@ import (
 	"html/template"
 	"path"
 
-	"github.com/tomochain/tomochain/swarm/api"
+	"github.com/chancoin-core/chancoin-gold/swarm/api"
 )
 
 type htmlListData struct {

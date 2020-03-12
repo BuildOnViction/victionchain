@@ -20,17 +20,17 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/log"
 )
 
 /*
 http roundtripper to register for bzz url scheme
-see https://github.com/tomochain/tomochain/issues/2040
+see https://github.com/chancoin-core/chancoin-gold/issues/2040
 Usage:
 
 import (
- "github.com/tomochain/tomochain/common/httpclient"
- "github.com/tomochain/tomochain/swarm/api/http"
+ "github.com/chancoin-core/chancoin-gold/common/httpclient"
+ "github.com/chancoin-core/chancoin-gold/swarm/api/http"
 )
 client := httpclient.New()
 // for (private) swarm proxy running locally

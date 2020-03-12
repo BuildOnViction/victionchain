@@ -23,13 +23,13 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/tomochain/tomochain/consensus/ethash"
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/vm"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/trie"
+	"github.com/chancoin-core/chancoin-gold/consensus/ethash"
+	"github.com/chancoin-core/chancoin-gold/core"
+	"github.com/chancoin-core/chancoin-gold/core/state"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
+	"github.com/chancoin-core/chancoin-gold/params"
+	"github.com/chancoin-core/chancoin-gold/trie"
 )
 
 func TestNodeIterator(t *testing.T) {

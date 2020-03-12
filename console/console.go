@@ -28,9 +28,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/tomochain/tomochain/internal/jsre"
-	"github.com/tomochain/tomochain/internal/web3ext"
-	"github.com/tomochain/tomochain/rpc"
+	"github.com/chancoin-core/chancoin-gold/internal/jsre"
+	"github.com/chancoin-core/chancoin-gold/internal/web3ext"
+	"github.com/chancoin-core/chancoin-gold/rpc"
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"
@@ -272,8 +272,8 @@ func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, str
 // Welcome show summary of current Geth instance and some metadata about the
 // console's available modules.
 func (c *Console) Welcome() {
-	// Print some generic Tomo metadata
-	fmt.Fprintf(c.printer, "Welcome to the Tomo JavaScript console!\n\n")
+	// Print some generic Chancoin metadata
+	fmt.Fprintf(c.printer, "Welcome to the Chancoin JavaScript console!\n\n")
 	c.jsre.Run(`
 		console.log("instance: " + web3.version.node);
 		console.log("coinbase: " + eth.coinbase);

@@ -19,8 +19,8 @@
 package whisperv6
 
 import (
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/common/hexutil"
 )
 
 // TopicType represents a cryptographically secure, probabilistic partial

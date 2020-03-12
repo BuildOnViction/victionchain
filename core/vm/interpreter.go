@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/tomochain/tomochain/common/math"
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/common/math"
+	"github.com/chancoin-core/chancoin-gold/params"
 )
 
 // Config are the configuration options for the Interpreter

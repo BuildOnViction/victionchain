@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/params"
 )
 
 const (

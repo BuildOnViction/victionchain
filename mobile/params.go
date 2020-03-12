@@ -21,9 +21,9 @@ package geth
 import (
 	"encoding/json"
 
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/p2p/discv5"
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/core"
+	"github.com/chancoin-core/chancoin-gold/p2p/discv5"
+	"github.com/chancoin-core/chancoin-gold/params"
 )
 
 // MainnetGenesis returns the JSON spec to use for the main Ethereum network. It

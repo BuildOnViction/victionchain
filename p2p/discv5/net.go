@@ -24,13 +24,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/common/mclock"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/crypto/sha3"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/p2p/netutil"
-	"github.com/tomochain/tomochain/rlp"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/common/mclock"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/crypto/sha3"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/p2p/netutil"
+	"github.com/chancoin-core/chancoin-gold/rlp"
 )
 
 var (

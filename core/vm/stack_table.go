@@ -19,7 +19,7 @@ package vm
 import (
 	"fmt"
 
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/params"
 )
 
 func makeStackFunc(pop, push int) stackValidationFunc {

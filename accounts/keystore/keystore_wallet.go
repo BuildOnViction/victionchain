@@ -19,9 +19,9 @@ package keystore
 import (
 	"math/big"
 
-	ethereum "github.com/tomochain/tomochain"
-	"github.com/tomochain/tomochain/accounts"
-	"github.com/tomochain/tomochain/core/types"
+	ethereum "github.com/chancoin-core/chancoin-gold"
+	"github.com/chancoin-core/chancoin-gold/accounts"
+	"github.com/chancoin-core/chancoin-gold/core/types"
 )
 
 // keystoreWallet implements the accounts.Wallet interface for the original

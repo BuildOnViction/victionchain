@@ -24,16 +24,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/consensus/posv"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/chancoin-core/chancoin-gold/consensus"
+	"github.com/chancoin-core/chancoin-gold/consensus/posv"
+	"github.com/chancoin-core/chancoin-gold/chancoinx/chancoinx_state"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/event"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/params"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/core/state"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/event"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -78,11 +78,11 @@ type OrderPoolConfig struct {
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 }
 
-// blockChain_tomox add order state
-type blockChainTomox interface {
+// blockChain_chancoinx add order state
+type blockChainChancoinx interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
-	OrderStateAt(block *types.Block) (*tomox_state.TomoXStateDB, error)
+	OrderStateAt(block *types.Block) (*chancoinx_state.ChancoinXStateDB, error)
 	StateAt(root common.Hash) (*state.StateDB, error)
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 	Engine() consensus.Engine
@@ -129,7 +129,7 @@ func (config *OrderPoolConfig) sanitize() OrderPoolConfig {
 type OrderPool struct {
 	config      OrderPoolConfig
 	chainconfig *params.ChainConfig
-	chain       blockChainTomox
+	chain       blockChainChancoinx
 
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
@@ -139,8 +139,8 @@ type OrderPool struct {
 	mu           sync.RWMutex
 
 	currentRootState  *state.StateDB
-	currentOrderState *tomox_state.TomoXStateDB      // Current order state in the blockchain head
-	pendingState      *tomox_state.TomoXManagedState // Pending state tracking virtual nonces
+	currentOrderState *chancoinx_state.ChancoinXStateDB      // Current order state in the blockchain head
+	pendingState      *chancoinx_state.ChancoinXManagedState // Pending state tracking virtual nonces
 
 	locals  *orderAccountSet // Set of local transaction to exempt from eviction rules
 	journal *ordertxJournal  // Journal of local transaction to back up to disk
@@ -156,7 +156,7 @@ type OrderPool struct {
 
 // NewOrderPool creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func NewOrderPool(chainconfig *params.ChainConfig, chain blockChainTomox) *OrderPool {
+func NewOrderPool(chainconfig *params.ChainConfig, chain blockChainChancoinx) *OrderPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config := (&DefaultOrderPoolConfig).sanitize()
 	log.Debug("NewOrderPool start...", "current block", chain.CurrentBlock().Header().Number)
@@ -277,7 +277,7 @@ func (pool *OrderPool) loop() {
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
 func (pool *OrderPool) reset(oldHead, newblock *types.Block) {
-	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) {
+	if !pool.chainconfig.IsTIPChancoinX(pool.chain.CurrentBlock().Number()) {
 		return
 	}
 	// If we're reorging an old state, reinject all dropped transactions
@@ -294,7 +294,7 @@ func (pool *OrderPool) reset(oldHead, newblock *types.Block) {
 		return
 	}
 	pool.currentOrderState = orderstate
-	pool.pendingState = tomox_state.ManageState(orderstate)
+	pool.pendingState = chancoinx_state.ManageState(orderstate)
 
 	state, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
@@ -345,7 +345,7 @@ func (pool *OrderPool) SubscribeTxPreEvent(ch chan<- OrderTxPreEvent) event.Subs
 }
 
 // State returns the virtual managed state of the transaction pool.
-func (pool *OrderPool) State() *tomox_state.TomoXManagedState {
+func (pool *OrderPool) State() *chancoinx_state.ChancoinXManagedState {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -439,7 +439,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 	quantity := tx.Quantity()
 
 	cloneStateDb := pool.currentRootState.Copy()
-	cloneTomoXStateDb := pool.currentOrderState.Copy()
+	cloneChancoinXStateDb := pool.currentOrderState.Copy()
 
 	if !tx.IsCancelledOrder() {
 		if quantity == nil || quantity.Cmp(big.NewInt(0)) <= 0 {
@@ -457,7 +457,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		if orderType != OrderTypeLimit && orderType != OrderTypeMarket {
 			return ErrInvalidOrderType
 		}
-		if err := tomox_state.VerifyPair(cloneStateDb, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
+		if err := chancoinx_state.VerifyPair(cloneStateDb, tx.ExchangeAddress(), tx.BaseToken(), tx.QuoteToken()); err != nil {
 			return err
 		}
 
@@ -466,19 +466,19 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 			if !ok {
 				return ErrNotPoSV
 			}
-			tomoXServ := posvEngine.GetTomoXService()
-			if tomoXServ == nil {
-				return fmt.Errorf("tomox not found in order validation")
+			chancoinXServ := posvEngine.GetChancoinXService()
+			if chancoinXServ == nil {
+				return fmt.Errorf("chancoinx not found in order validation")
 			}
-			baseDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.BaseToken())
+			baseDecimal, err := chancoinXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.BaseToken())
 			if err != nil {
 				return fmt.Errorf("validateOrder: failed to get baseDecimal. err: %v", err)
 			}
-			quoteDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.QuoteToken())
+			quoteDecimal, err := chancoinXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.QuoteToken())
 			if err != nil {
 				return fmt.Errorf("validateOrder: failed to get quoteDecimal. err: %v", err)
 			}
-			if err := tomox_state.VerifyBalance(cloneStateDb, cloneTomoXStateDb, tx, baseDecimal, quoteDecimal); err != nil {
+			if err := chancoinx_state.VerifyBalance(cloneStateDb, cloneChancoinXStateDb, tx, baseDecimal, quoteDecimal); err != nil {
 				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. PairName: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.PairName(), err)
 			}
 		}
@@ -503,8 +503,8 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		if tx.OrderID() == 0 {
 			return ErrInvalidCancelledOrder
 		}
-		// originOrder := cloneTomoXStateDb.GetOrder(tomox_state.GetOrderBookHash(tx.BaseToken(), tx.QuoteToken()), common.BigToHash(new(big.Int).SetUint64(tx.OrderID())))
-		// if originOrder == tomox_state.EmptyOrder {
+		// originOrder := cloneChancoinXStateDb.GetOrder(chancoinx_state.GetOrderBookHash(tx.BaseToken(), tx.QuoteToken()), common.BigToHash(new(big.Int).SetUint64(tx.OrderID())))
+		// if originOrder == chancoinx_state.EmptyOrder {
 		// 	log.Debug("Order not found ", "OrderId", tx.OrderID(), "BaseToken", tx.BaseToken().Hex(), "QuoteToken", tx.QuoteToken().Hex())
 		// 	return ErrInvalidCancelledOrder
 		// }
@@ -515,7 +515,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		return ErrInvalidOrderUserAddress
 	}
 
-	if !tomox_state.IsValidRelayer(cloneStateDb, tx.ExchangeAddress()) {
+	if !chancoinx_state.IsValidRelayer(cloneStateDb, tx.ExchangeAddress()) {
 		return fmt.Errorf("invalid relayer. ExchangeAddress: %s", tx.ExchangeAddress().Hex())
 	}
 
@@ -722,7 +722,7 @@ func (pool *OrderPool) AddRemotes(txs []*types.OrderTransaction) []error {
 
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *OrderPool) addTx(tx *types.OrderTransaction, local bool) error {
-	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) {
+	if !pool.chainconfig.IsTIPChancoinX(pool.chain.CurrentBlock().Number()) {
 		return nil
 	}
 	tx.CacheHash()

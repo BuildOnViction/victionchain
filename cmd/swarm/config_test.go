@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/tomochain/rpc"
-	"github.com/tomochain/tomochain/swarm"
-	"github.com/tomochain/tomochain/swarm/api"
+	"github.com/chancoin-core/chancoin-gold/rpc"
+	"github.com/chancoin-core/chancoin-gold/swarm"
+	"github.com/chancoin-core/chancoin-gold/swarm/api"
 
 	"github.com/docker/docker/pkg/reexec"
 )

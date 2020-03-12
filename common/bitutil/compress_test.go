@@ -21,7 +21,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/chancoin-core/chancoin-gold/common/hexutil"
 )
 
 // Tests that data bitset encoding and decoding works and is bijective.

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/tomochain/tomochain/metrics"
+	"github.com/chancoin-core/chancoin-gold/metrics"
 )
 
 type exp struct {

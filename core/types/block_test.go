@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"bytes"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/rlp"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/rlp"
 	"reflect"
 )
 

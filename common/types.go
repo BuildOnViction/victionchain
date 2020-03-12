@@ -23,8 +23,8 @@ import (
 	"math/rand"
 	"reflect"
 
-	"github.com/tomochain/tomochain/common/hexutil"
-	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/chancoin-core/chancoin-gold/common/hexutil"
+	"github.com/chancoin-core/chancoin-gold/crypto/sha3"
 )
 
 const (
@@ -35,9 +35,9 @@ const (
 	RandomizeSMC        = "0x0000000000000000000000000000000000000090"
 	FoudationAddr       = "0x0000000000000000000000000000000000000068"
 	TeamAddr            = "0x0000000000000000000000000000000000000099"
-	TomoXAddr           = "0x0000000000000000000000000000000000000091"
-	TomoXStateAddr      = "0x0000000000000000000000000000000000000092"
-	TomoNativeAddress   = "0x0000000000000000000000000000000000000001"
+	ChancoinXAddr           = "0x0000000000000000000000000000000000000091"
+	ChancoinXStateAddr      = "0x0000000000000000000000000000000000000092"
+	ChancoinNativeAddress   = "0x0000000000000000000000000000000000000001"
 	VoteMethod          = "0x6dd7d8ea"
 	UnvoteMethod        = "0x02aa9be2"
 	ProposeMethod       = "0x01267951"

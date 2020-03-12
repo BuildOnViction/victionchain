@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/tomochain/tomochain/p2p/discover"
-	"github.com/tomochain/tomochain/p2p/netutil"
+	"github.com/chancoin-core/chancoin-gold/p2p/discover"
+	"github.com/chancoin-core/chancoin-gold/p2p/netutil"
 )
 
 func init() {

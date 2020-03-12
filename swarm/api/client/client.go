@@ -33,7 +33,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tomochain/tomochain/swarm/api"
+	"github.com/chancoin-core/chancoin-gold/swarm/api"
 )
 
 var (

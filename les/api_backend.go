@@ -24,25 +24,25 @@ import (
 	"math/big"
 	"path/filepath"
 
-	"github.com/tomochain/tomochain/tomox"
+	"github.com/chancoin-core/chancoin-gold/chancoinx"
 
-	"github.com/tomochain/tomochain/accounts"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/common/math"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/core/bloombits"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/core/vm"
-	"github.com/tomochain/tomochain/eth/downloader"
-	"github.com/tomochain/tomochain/eth/gasprice"
-	"github.com/tomochain/tomochain/ethclient"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/event"
-	"github.com/tomochain/tomochain/light"
-	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/rpc"
+	"github.com/chancoin-core/chancoin-gold/accounts"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/common/math"
+	"github.com/chancoin-core/chancoin-gold/consensus"
+	"github.com/chancoin-core/chancoin-gold/core"
+	"github.com/chancoin-core/chancoin-gold/core/bloombits"
+	"github.com/chancoin-core/chancoin-gold/core/state"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
+	"github.com/chancoin-core/chancoin-gold/eth/downloader"
+	"github.com/chancoin-core/chancoin-gold/eth/gasprice"
+	"github.com/chancoin-core/chancoin-gold/ethclient"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
+	"github.com/chancoin-core/chancoin-gold/event"
+	"github.com/chancoin-core/chancoin-gold/light"
+	"github.com/chancoin-core/chancoin-gold/params"
+	"github.com/chancoin-core/chancoin-gold/rpc"
 )
 
 type LesApiBackend struct {
@@ -269,9 +269,9 @@ func (b *LesApiBackend) AreTwoBlockSamePath(bh1 common.Hash, bh2 common.Hash) bo
 
 // GetOrderNonce get order nonce
 func (b *LesApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
-	return 0, errors.New("cannot find tomox service")
+	return 0, errors.New("cannot find chancoinx service")
 }
 
-func (b *LesApiBackend) TomoxService() *tomox.TomoX {
+func (b *LesApiBackend) ChancoinxService() *chancoinx.ChancoinX {
 	return nil
 }

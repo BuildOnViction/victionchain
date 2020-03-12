@@ -28,27 +28,27 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tomochain/tomochain/accounts/abi/bind"
-	"github.com/tomochain/tomochain/tomox/tomox_state"
+	"github.com/chancoin-core/chancoin-gold/accounts/abi/bind"
+	"github.com/chancoin-core/chancoin-gold/chancoinx/chancoinx_state"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/common/mclock"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/consensus/posv"
-	contractValidator "github.com/tomochain/tomochain/contracts/validator/contract"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/core/vm"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/ethclient"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/event"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/metrics"
-	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/rlp"
-	"github.com/tomochain/tomochain/trie"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/common/mclock"
+	"github.com/chancoin-core/chancoin-gold/consensus"
+	"github.com/chancoin-core/chancoin-gold/consensus/posv"
+	contractValidator "github.com/chancoin-core/chancoin-gold/contracts/validator/contract"
+	"github.com/chancoin-core/chancoin-gold/core/state"
+	"github.com/chancoin-core/chancoin-gold/core/types"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/ethclient"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
+	"github.com/chancoin-core/chancoin-gold/event"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/metrics"
+	"github.com/chancoin-core/chancoin-gold/params"
+	"github.com/chancoin-core/chancoin-gold/rlp"
+	"github.com/chancoin-core/chancoin-gold/trie"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -84,7 +84,7 @@ type ResultProcessBlock struct {
 	logs       []*types.Log
 	receipts   []*types.Receipt
 	state      *state.StateDB
-	tomoxState *tomox_state.TomoXStateDB
+	chancoinxState *chancoinx_state.ChancoinXStateDB
 	proctime   time.Duration
 	usedGas    uint64
 }
@@ -108,7 +108,7 @@ type BlockChain struct {
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
 	db      ethdb.Database // Low level persistent database to store final content in
-	tomoxDb ethdb.TomoxDatabase
+	chancoinxDb ethdb.ChancoinxDatabase
 	triegc  *prque.Prque  // Priority queue mapping block numbers to tries to gc
 	gcproc  time.Duration // Accumulates canonical block processing for trie dumping
 
@@ -181,9 +181,9 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	preparingBlock, _ := lru.New(blockCacheLimit)
 	downloadingBlock, _ := lru.New(blockCacheLimit)
 
-	// for tomox
-	resultTrade, _ := lru.New(tomox_state.OrderCacheLimit)
-	rejectedOrders, _ := lru.New(tomox_state.OrderCacheLimit)
+	// for chancoinx
+	resultTrade, _ := lru.New(chancoinx_state.OrderCacheLimit)
+	rejectedOrders, _ := lru.New(chancoinx_state.OrderCacheLimit)
 
 	bc := &BlockChain{
 		chainConfig:      chainConfig,
@@ -240,13 +240,13 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 }
 
 // NewBlockChainEx extend old blockchain, add order state db
-func NewBlockChainEx(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+func NewBlockChainEx(db ethdb.Database, chancoinxDb ethdb.ChancoinxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
 	blockchain, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
 	if blockchain != nil {
-		blockchain.addTomoxDb(tomoxDb)
+		blockchain.addChancoinxDb(chancoinxDb)
 	}
 	return blockchain, nil
 }
@@ -255,8 +255,8 @@ func (bc *BlockChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&bc.procInterrupt) == 1
 }
 
-func (bc *BlockChain) addTomoxDb(tomoxDb ethdb.TomoxDatabase) {
-	bc.tomoxDb = tomoxDb
+func (bc *BlockChain) addChancoinxDb(chancoinxDb ethdb.ChancoinxDatabase) {
+	bc.chancoinxDb = chancoinxDb
 }
 
 // loadLastState loads the last known chain state from the database. This method
@@ -284,15 +284,15 @@ func (bc *BlockChain) loadLastState() error {
 	} else {
 		engine, ok := bc.Engine().(*posv.Posv)
 		if ok {
-			tomoXService := engine.GetTomoXService()
-			if bc.Config().IsTIPTomoX(currentBlock.Number()) && tomoXService != nil {
-				tomoxRoot, err := tomoXService.GetTomoxStateRoot(currentBlock)
+			chancoinXService := engine.GetChancoinXService()
+			if bc.Config().IsTIPChancoinX(currentBlock.Number()) && chancoinXService != nil {
+				chancoinxRoot, err := chancoinXService.GetChancoinxStateRoot(currentBlock)
 				if err != nil {
 					repair = true
 				} else {
 
-					if tomoXService.GetStateCache() != nil {
-						_, err = tomox_state.New(tomoxRoot, tomoXService.GetStateCache())
+					if chancoinXService.GetStateCache() != nil {
+						_, err = chancoinx_state.New(chancoinxRoot, chancoinXService.GetStateCache())
 						if err != nil {
 							repair = true
 						}
@@ -474,21 +474,21 @@ func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 }
 
 // OrderStateAt returns a new mutable state based on a particular point in time.
-func (bc *BlockChain) OrderStateAt(block *types.Block) (*tomox_state.TomoXStateDB, error) {
+func (bc *BlockChain) OrderStateAt(block *types.Block) (*chancoinx_state.ChancoinXStateDB, error) {
 	engine, ok := bc.Engine().(*posv.Posv)
 	if ok {
-		tomoXService := engine.GetTomoXService()
-		if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+		chancoinXService := engine.GetChancoinXService()
+		if bc.Config().IsTIPChancoinX(block.Number()) && chancoinXService != nil {
 			log.Debug("OrderStateAt", "blocknumber", block.Header().Number)
-			tomoxState, err := tomoXService.GetTomoxState(block)
+			chancoinxState, err := chancoinXService.GetChancoinxState(block)
 			if err == nil {
-				return tomoxState, nil
+				return chancoinxState, nil
 			} else {
 				return nil, err
 			}
 		}
 	}
-	return nil, errors.New("Get tomox state fail")
+	return nil, errors.New("Get chancoinx state fail")
 
 }
 
@@ -537,11 +537,11 @@ func (bc *BlockChain) repair(head **types.Block) error {
 			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
 			engine, ok := bc.Engine().(*posv.Posv)
 			if ok {
-				tomoXService := engine.GetTomoXService()
-				if bc.Config().IsTIPTomoX((*head).Number()) && tomoXService != nil {
-					tomoxRoot, err := tomoXService.GetTomoxStateRoot(*head)
+				chancoinXService := engine.GetChancoinXService()
+				if bc.Config().IsTIPChancoinX((*head).Number()) && chancoinXService != nil {
+					chancoinxRoot, err := chancoinXService.GetChancoinxStateRoot(*head)
 					if err == nil {
-						_, err = tomox_state.New(tomoxRoot, tomoXService.GetStateCache())
+						_, err = chancoinx_state.New(chancoinxRoot, chancoinXService.GetStateCache())
 						if err == nil {
 							return nil
 						}
@@ -802,12 +802,12 @@ func (bc *BlockChain) Stop() {
 	//  - HEAD-1:   So we don't do large reorgs if our HEAD becomes an uncle
 	//  - HEAD-127: So we have a hard limit on the number of blocks reexecuted
 	if !bc.cacheConfig.Disabled {
-		var tomoxTriedb *trie.Database
+		var chancoinxTriedb *trie.Database
 		engine, _ := bc.Engine().(*posv.Posv)
 		triedb := bc.stateCache.TrieDB()
-		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil {
-			if tomoXService := engine.GetTomoXService(); tomoXService != nil && tomoXService.GetStateCache() != nil {
-				tomoxTriedb = tomoXService.GetStateCache().TrieDB()
+		if bc.Config().IsTIPChancoinX(bc.CurrentBlock().Number()) && engine != nil {
+			if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil && chancoinXService.GetStateCache() != nil {
+				chancoinxTriedb = chancoinXService.GetStateCache().TrieDB()
 			}
 		}
 		for _, offset := range []uint64{0, 1, triesInMemory - 1} {
@@ -818,11 +818,11 @@ func (bc *BlockChain) Stop() {
 				if err := triedb.Commit(recent.Root(), true); err != nil {
 					log.Error("Failed to commit recent state trie", "err", err)
 				}
-				if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil {
-					if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-						tomoxRoot, _ := tomoXService.GetTomoxStateRoot(recent)
-						if !common.EmptyHash(tomoxRoot) && tomoxTriedb != nil {
-							if err := tomoxTriedb.Commit(tomoxRoot, true); err != nil {
+				if bc.Config().IsTIPChancoinX(bc.CurrentBlock().Number()) && engine != nil {
+					if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil {
+						chancoinxRoot, _ := chancoinXService.GetChancoinxStateRoot(recent)
+						if !common.EmptyHash(chancoinxRoot) && chancoinxTriedb != nil {
+							if err := chancoinxTriedb.Commit(chancoinxRoot, true); err != nil {
 								log.Error("Failed to commit recent state trie", "err", err)
 							}
 						}
@@ -833,10 +833,10 @@ func (bc *BlockChain) Stop() {
 		for !bc.triegc.Empty() {
 			triedb.Dereference(bc.triegc.PopItem().(common.Hash), common.Hash{})
 		}
-		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil && tomoxTriedb != nil {
-			if tomoXService := engine.GetTomoXService(); tomoXService != nil && tomoXService.GetTriegc() != nil {
-				for !tomoXService.GetTriegc().Empty() {
-					tomoxTriedb.Dereference(tomoXService.GetTriegc().PopItem().(common.Hash), common.Hash{})
+		if bc.Config().IsTIPChancoinX(bc.CurrentBlock().Number()) && engine != nil && chancoinxTriedb != nil {
+			if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil && chancoinXService.GetTriegc() != nil {
+				for !chancoinXService.GetTriegc().Empty() {
+					chancoinxTriedb.Dereference(chancoinXService.GetTriegc().PopItem().(common.Hash), common.Hash{})
 				}
 			}
 		}
@@ -1048,7 +1048,7 @@ func (bc *BlockChain) WriteBlockWithoutState(block *types.Block, td *big.Int) (e
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB, tomoxState *tomox_state.TomoXStateDB) (status WriteStatus, err error) {
+func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB, chancoinxState *chancoinx_state.ChancoinXStateDB) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -1078,18 +1078,18 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	if err != nil {
 		return NonStatTy, err
 	}
-	tomoxRoot := common.Hash{}
-	if tomoxState != nil {
-		tomoxRoot, err = tomoxState.Commit()
+	chancoinxRoot := common.Hash{}
+	if chancoinxState != nil {
+		chancoinxRoot, err = chancoinxState.Commit()
 		if err != nil {
 			return NonStatTy, err
 		}
 	}
 	engine, _ := bc.Engine().(*posv.Posv)
-	var tomoxTrieDb *trie.Database
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-			tomoxTrieDb = tomoXService.GetStateCache().TrieDB()
+	var chancoinxTrieDb *trie.Database
+	if bc.Config().IsTIPChancoinX(block.Number()) && engine != nil {
+		if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil {
+			chancoinxTrieDb = chancoinXService.GetStateCache().TrieDB()
 		}
 	}
 	triedb := bc.stateCache.TrieDB()
@@ -1099,8 +1099,8 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		if err := triedb.Commit(root, false); err != nil {
 			return NonStatTy, err
 		}
-		if tomoxTrieDb != nil {
-			if err := tomoxTrieDb.Commit(tomoxRoot, false); err != nil {
+		if chancoinxTrieDb != nil {
+			if err := chancoinxTrieDb.Commit(chancoinxRoot, false); err != nil {
 				return NonStatTy, err
 			}
 		}
@@ -1108,22 +1108,22 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
-		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-			if tomoxTrieDb != nil {
-				tomoxTrieDb.Reference(tomoxRoot, common.Hash{})
+		if bc.Config().IsTIPChancoinX(block.Number()) && engine != nil {
+			if chancoinxTrieDb != nil {
+				chancoinxTrieDb.Reference(chancoinxRoot, common.Hash{})
 			}
-			if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-				tomoXService.GetTriegc().Push(tomoxRoot, -float32(block.NumberU64()))
+			if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil {
+				chancoinXService.GetTriegc().Push(chancoinxRoot, -float32(block.NumberU64()))
 			}
 		}
 		if current := block.NumberU64(); current > triesInMemory {
 			// Find the next state trie we need to commit
 			header := bc.GetHeaderByNumber(current - triesInMemory)
 			chosen := header.Number.Uint64()
-			oldTomoXRoot := common.Hash{}
-			if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-				if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-					oldTomoXRoot, _ = tomoXService.GetTomoxStateRoot(bc.GetBlock(header.Hash(), current-triesInMemory))
+			oldChancoinXRoot := common.Hash{}
+			if bc.Config().IsTIPChancoinX(block.Number()) && engine != nil {
+				if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil {
+					oldChancoinXRoot, _ = chancoinXService.GetChancoinxStateRoot(bc.GetBlock(header.Hash(), current-triesInMemory))
 				}
 			}
 			// Only write to disk if we exceeded our memory allowance *and* also have at
@@ -1148,8 +1148,8 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 					triedb.Commit(header.Root, true)
 					lastWrite = chosen
 					bc.gcproc = 0
-					if bc.Config().IsTIPTomoX(block.Number()) && tomoxTrieDb != nil {
-						tomoxTrieDb.Commit(oldTomoXRoot, true)
+					if bc.Config().IsTIPChancoinX(block.Number()) && chancoinxTrieDb != nil {
+						chancoinxTrieDb.Commit(oldChancoinXRoot, true)
 					}
 				}
 			}
@@ -1162,15 +1162,15 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 				}
 				triedb.Dereference(root.(common.Hash), common.Hash{})
 			}
-			if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-				if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-					for !tomoXService.GetTriegc().Empty() {
-						tomoRoot, number := tomoXService.GetTriegc().Pop()
+			if bc.Config().IsTIPChancoinX(block.Number()) && engine != nil {
+				if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil {
+					for !chancoinXService.GetTriegc().Empty() {
+						chancoinRoot, number := chancoinXService.GetTriegc().Pop()
 						if uint64(-number) > chosen {
-							tomoXService.GetTriegc().Push(tomoRoot, number)
+							chancoinXService.GetTriegc().Push(chancoinRoot, number)
 							break
 						}
-						tomoxTrieDb.Dereference(tomoRoot.(common.Hash), common.Hash{})
+						chancoinxTrieDb.Dereference(chancoinRoot.(common.Hash), common.Hash{})
 					}
 				}
 			}
@@ -1383,39 +1383,39 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			return i, events, coalescedLogs, err
 		}
 		// clear the previous dry-run cache
-		var tomoxState *tomox_state.TomoXStateDB
-		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-			if tomoXService := engine.GetTomoXService(); tomoXService != nil {
+		var chancoinxState *chancoinx_state.ChancoinXStateDB
+		if bc.Config().IsTIPChancoinX(block.Number()) && engine != nil {
+			if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil {
 				txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return i, events, coalescedLogs, err
 				}
-				tomoxState, err = tomoXService.GetTomoxState(parent)
+				chancoinxState, err = chancoinXService.GetChancoinxState(parent)
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return i, events, coalescedLogs, err
 				}
 				for _, txMatchBatch := range txMatchBatchData {
 					log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-					err := bc.Validator().ValidateMatchingOrder(statedb, tomoxState, txMatchBatch, author)
+					err := bc.Validator().ValidateMatchingOrder(statedb, chancoinxState, txMatchBatch, author)
 					if err != nil {
 						bc.reportBlock(block, nil, err)
 						return i, events, coalescedLogs, err
 					}
 				}
 				if len(txMatchBatchData) > 0 {
-					gotRoot := tomoxState.IntermediateRoot()
-					expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
+					gotRoot := chancoinxState.IntermediateRoot()
+					expectRoot, _ := chancoinXService.GetChancoinxStateRoot(block)
 					if gotRoot != expectRoot {
-						err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+						err = fmt.Errorf("invalid chancoinx merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
 						bc.reportBlock(block, nil, err)
 						return i, events, coalescedLogs, err
 					}
 				}
-				parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
-				nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
-				log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+				parentChancoinXRoot, _ := chancoinXService.GetChancoinxStateRoot(parent)
+				nextChancoinxRoot, _ := chancoinXService.GetChancoinxStateRoot(block)
+				log.Debug("ChancoinX State Root", "number", block.NumberU64(), "parent", parentChancoinXRoot.Hex(), "nextChancoinxRoot", nextChancoinxRoot.Hex())
 			}
 		}
 		feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
@@ -1433,7 +1433,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		proctime := time.Since(bstart)
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteBlockWithState(block, receipts, statedb, tomoxState)
+		status, err := bc.WriteBlockWithState(block, receipts, statedb, chancoinxState)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
@@ -1466,7 +1466,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
 			bc.UpdateBlocksHashCache(block)
-			if bc.chainConfig.IsTIPTomoX(block.Number()) {
+			if bc.chainConfig.IsTIPChancoinX(block.Number()) {
 				bc.logExchangeData(block)
 			}
 		case SideStatTy:
@@ -1614,10 +1614,10 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		bc.reportBlock(block, nil, err)
 		return nil, err
 	}
-	var tomoxState *tomox_state.TomoXStateDB
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-		if tomoXService := engine.GetTomoXService(); tomoXService != nil {
-			tomoxState, err = tomoXService.GetTomoxState(parent)
+	var chancoinxState *chancoinx_state.ChancoinXStateDB
+	if bc.Config().IsTIPChancoinX(block.Number()) && engine != nil {
+		if chancoinXService := engine.GetChancoinXService(); chancoinXService != nil {
+			chancoinxState, err = chancoinXService.GetChancoinxState(parent)
 			if err != nil {
 				bc.reportBlock(block, nil, err)
 				return nil, err
@@ -1629,24 +1629,24 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			}
 			for _, txMatchBatch := range txMatchBatchData {
 				log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-				err := bc.Validator().ValidateMatchingOrder(statedb, tomoxState, txMatchBatch, author)
+				err := bc.Validator().ValidateMatchingOrder(statedb, chancoinxState, txMatchBatch, author)
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return nil, err
 				}
 			}
 			if len(txMatchBatchData) > 0 {
-				gotRoot := tomoxState.IntermediateRoot()
-				expectRoot, _ := tomoXService.GetTomoxStateRoot(block)
+				gotRoot := chancoinxState.IntermediateRoot()
+				expectRoot, _ := chancoinXService.GetChancoinxStateRoot(block)
 				if gotRoot != expectRoot {
-					err = fmt.Errorf("invalid tomox merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
+					err = fmt.Errorf("invalid chancoinx merke trie got : %s , expect : %s ", gotRoot.Hex(), expectRoot.Hex())
 					bc.reportBlock(block, nil, err)
 					return nil, err
 				}
 			}
-			parentTomoXRoot, _ := tomoXService.GetTomoxStateRoot(parent)
-			nextTomoxRoot, _ := tomoXService.GetTomoxStateRoot(block)
-			log.Debug("TomoX State Root", "number", block.NumberU64(), "parent", parentTomoXRoot.Hex(), "nextTomoxRoot", nextTomoxRoot.Hex())
+			parentChancoinXRoot, _ := chancoinXService.GetChancoinxStateRoot(parent)
+			nextChancoinxRoot, _ := chancoinXService.GetChancoinxStateRoot(block)
+			log.Debug("ChancoinX State Root", "number", block.NumberU64(), "parent", parentChancoinXRoot.Hex(), "nextChancoinxRoot", nextChancoinxRoot.Hex())
 		}
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
@@ -1668,7 +1668,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	proctime := time.Since(bstart)
 	log.Debug("Calculate new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)), "process", process)
-	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, tomoxState: tomoxState, proctime: proctime, usedGas: usedGas}, nil
+	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, chancoinxState: chancoinxState, proctime: proctime, usedGas: usedGas}, nil
 }
 
 // UpdateBlocksHashCache update BlocksHashCache by block number
@@ -1718,7 +1718,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	if bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return events, coalescedLogs, nil
 	}
-	status, err := bc.WriteBlockWithState(block, result.receipts, result.state, result.tomoxState)
+	status, err := bc.WriteBlockWithState(block, result.receipts, result.state, result.chancoinxState)
 
 	if err != nil {
 		return events, coalescedLogs, err
@@ -1750,7 +1750,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		// Only count canonical blocks for GC processing time
 		bc.gcproc += result.proctime
 		bc.UpdateBlocksHashCache(block)
-		if bc.chainConfig.IsTIPTomoX(block.Number()) {
+		if bc.chainConfig.IsTIPChancoinX(block.Number()) {
 			bc.logExchangeData(block)
 		}
 	case SideStatTy:
@@ -1943,7 +1943,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 			}
 		}()
 	}
-	if bc.chainConfig.IsTIPTomoX(commonBlock.Number()) {
+	if bc.chainConfig.IsTIPChancoinX(commonBlock.Number()) {
 		bc.reorgTxMatches(deletedTxs, newChain)
 	}
 	return nil
@@ -2186,7 +2186,7 @@ func (bc *BlockChain) UpdateM1() error {
 		return err
 	}
 	addr := common.HexToAddress(common.MasternodeVotingSMC)
-	validator, err := contractValidator.NewTomoValidator(addr, client)
+	validator, err := contractValidator.NewChancoinValidator(addr, client)
 	if err != nil {
 		return err
 	}
@@ -2248,8 +2248,8 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 	if !ok || engine == nil {
 		return
 	}
-	tomoXService := engine.GetTomoXService()
-	if tomoXService == nil || !tomoXService.IsSDKNode() {
+	chancoinXService := engine.GetChancoinXService()
+	if chancoinXService == nil || !chancoinXService.IsSDKNode() {
 		return
 	}
 	txMatchBatchData, err := ExtractMatchingTransactions(block.Transactions())
@@ -2276,9 +2276,9 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 		dirtyOrderCount := uint64(0)
 		for _, txMatch := range txMatchBatch.Data {
 			var (
-				takerOrderInTx *tomox_state.OrderItem
+				takerOrderInTx *chancoinx_state.OrderItem
 				trades         []map[string]string
-				rejectedOrders []*tomox_state.OrderItem
+				rejectedOrders []*chancoinx_state.OrderItem
 			)
 
 			if takerOrderInTx, err = txMatch.DecodeOrder(); err != nil {
@@ -2295,7 +2295,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			// getRejectedOrder from cache
 			rejected, ok := bc.rejectedOrders.Get(cacheKey)
 			if ok && rejected != nil {
-				rejectedOrders = rejected.([]*tomox_state.OrderItem)
+				rejectedOrders = rejected.([]*chancoinx_state.OrderItem)
 			}
 
 			// the smallest time unit in mongodb is millisecond
@@ -2303,7 +2303,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
 			milliSecond := txMatchBatch.Timestamp / 1e6
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
-			if err := tomoXService.SyncDataToSDKNode(takerOrderInTx, txMatchBatch.TxHash, txMatchTime, currentState, trades, rejectedOrders, &dirtyOrderCount); err != nil {
+			if err := chancoinXService.SyncDataToSDKNode(takerOrderInTx, txMatchBatch.TxHash, txMatchTime, currentState, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Crit("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
 			}
@@ -2316,8 +2316,8 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	if !ok || engine == nil {
 		return
 	}
-	tomoXService := engine.GetTomoXService()
-	if tomoXService == nil || !tomoXService.IsSDKNode() {
+	chancoinXService := engine.GetChancoinXService()
+	if chancoinXService == nil || !chancoinXService.IsSDKNode() {
 		return
 	}
 	start := time.Now()
@@ -2329,7 +2329,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	for _, deletedTx := range deletedTxs {
 		if deletedTx.IsMatchingTransaction() {
 			log.Debug("Rollback reorg txMatch", "txhash", deletedTx.Hash())
-			tomoXService.RollbackReorgTxMatch(deletedTx.Hash())
+			chancoinXService.RollbackReorgTxMatch(deletedTx.Hash())
 		}
 	}
 
@@ -2339,7 +2339,7 @@ func (bc *BlockChain) reorgTxMatches(deletedTxs types.Transactions, newChain typ
 	}
 }
 
-func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]tomox_state.MatchingResult) {
+func (bc *BlockChain) AddMatchingResult(txHash common.Hash, matchingResults map[common.Hash]chancoinx_state.MatchingResult) {
 	for hash, result := range matchingResults {
 		cacheKey := crypto.Keccak256Hash(txHash.Bytes(), hash.Bytes())
 		bc.resultTrade.Add(cacheKey, result.Trades)

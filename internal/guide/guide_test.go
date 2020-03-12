@@ -30,8 +30,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/tomochain/accounts/keystore"
-	"github.com/tomochain/tomochain/core/types"
+	"github.com/chancoin-core/chancoin-gold/accounts/keystore"
+	"github.com/chancoin-core/chancoin-gold/core/types"
 )
 
 // Tests that the account management snippets work correctly.

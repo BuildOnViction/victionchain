@@ -28,13 +28,13 @@ import (
 
 	cli "gopkg.in/urfave/cli.v1"
 
-	"github.com/tomochain/tomochain/cmd/utils"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/node"
+	"github.com/chancoin-core/chancoin-gold/cmd/utils"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/node"
 	"github.com/naoina/toml"
 
-	bzzapi "github.com/tomochain/tomochain/swarm/api"
+	bzzapi "github.com/chancoin-core/chancoin-gold/swarm/api"
 )
 
 var (
@@ -70,7 +70,7 @@ const (
 	SWARM_ENV_ENS_ADDR        = "SWARM_ENS_ADDR"
 	SWARM_ENV_CORS            = "SWARM_CORS"
 	SWARM_ENV_BOOTNODES       = "SWARM_BOOTNODES"
-	TOMO_ENV_DATADIR          = "TOMO_DATADIR"
+	CHANCOIN_ENV_DATADIR          = "CHANCOIN_DATADIR"
 )
 
 // These settings ensure that TOML keys use the same names as Go struct fields.
@@ -84,7 +84,7 @@ var tomlSettings = toml.Config{
 	MissingField: func(rt reflect.Type, field string) error {
 		link := ""
 		if unicode.IsUpper(rune(rt.Name()[0])) && rt.PkgPath() != "main" {
-			link = fmt.Sprintf(", check github.com/tomochain/tomochain/swarm/api/config.go for available fields")
+			link = fmt.Sprintf(", check github.com/chancoin-core/chancoin-gold/swarm/api/config.go for available fields")
 		}
 		return fmt.Errorf("field '%s' is not defined in %s%s", field, rt.String(), link)
 	},
@@ -116,7 +116,7 @@ func initSwarmNode(config *bzzapi.Config, stack *node.Node, ctx *cli.Context) {
 	//at this point, all vars should be set in the Config
 	//get the account for the provided swarm account
 	prvkey := getAccount(config.BzzAccount, ctx, stack)
-	//set the resolved config path (tomo --datadir)
+	//set the resolved config path (chancoin --datadir)
 	config.Path = stack.InstanceDir()
 	//finally, initialize the configuration
 	config.Init(prvkey)
@@ -243,7 +243,7 @@ func envVarsOverride(currentConfig *bzzapi.Config) (config *bzzapi.Config) {
 		}
 	}
 
-	if datadir := os.Getenv(TOMO_ENV_DATADIR); datadir != "" {
+	if datadir := os.Getenv(CHANCOIN_ENV_DATADIR); datadir != "" {
 		currentConfig.Path = datadir
 	}
 

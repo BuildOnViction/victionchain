@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tomochain/tomochain/core/asm"
+	"github.com/chancoin-core/chancoin-gold/core/asm"
 )
 
 func Compile(fn string, src []byte, debug bool) (string, error) {

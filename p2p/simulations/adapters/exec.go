@@ -36,11 +36,11 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/node"
-	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
-	"github.com/tomochain/tomochain/rpc"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/node"
+	"github.com/chancoin-core/chancoin-gold/p2p"
+	"github.com/chancoin-core/chancoin-gold/p2p/discover"
+	"github.com/chancoin-core/chancoin-gold/rpc"
 	"golang.org/x/net/websocket"
 )
 

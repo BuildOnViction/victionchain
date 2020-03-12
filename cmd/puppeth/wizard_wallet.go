@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/log"
 )
 
 // deployWallet creates a new web wallet based on some user input.

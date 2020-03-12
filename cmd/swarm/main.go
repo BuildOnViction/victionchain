@@ -28,22 +28,22 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/tomochain/tomochain/accounts"
-	"github.com/tomochain/tomochain/accounts/keystore"
-	"github.com/tomochain/tomochain/cmd/utils"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/console"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/ethclient"
-	"github.com/tomochain/tomochain/internal/debug"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/node"
-	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
-	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/swarm"
-	bzzapi "github.com/tomochain/tomochain/swarm/api"
-	swarmmetrics "github.com/tomochain/tomochain/swarm/metrics"
+	"github.com/chancoin-core/chancoin-gold/accounts"
+	"github.com/chancoin-core/chancoin-gold/accounts/keystore"
+	"github.com/chancoin-core/chancoin-gold/cmd/utils"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/console"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/ethclient"
+	"github.com/chancoin-core/chancoin-gold/internal/debug"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/node"
+	"github.com/chancoin-core/chancoin-gold/p2p"
+	"github.com/chancoin-core/chancoin-gold/p2p/discover"
+	"github.com/chancoin-core/chancoin-gold/params"
+	"github.com/chancoin-core/chancoin-gold/swarm"
+	bzzapi "github.com/chancoin-core/chancoin-gold/swarm/api"
+	swarmmetrics "github.com/chancoin-core/chancoin-gold/swarm/metrics"
 
 	"gopkg.in/urfave/cli.v1"
 )
@@ -405,9 +405,9 @@ func bzzd(ctx *cli.Context) error {
 	}
 
 	cfg := defaultNodeConfig
-	//tomo only supports --datadir via command line
+	//chancoin only supports --datadir via command line
 	//in order to be consistent within swarm, if we pass --datadir via environment variable
-	//or via config file, we get the same directory for tomo and swarm
+	//or via config file, we get the same directory for chancoin and swarm
 	if _, err := os.Stat(bzzconfig.Path); err == nil {
 		cfg.DataDir = bzzconfig.Path
 	}

@@ -19,7 +19,7 @@ package bloombits
 import (
 	"errors"
 
-	"github.com/tomochain/tomochain/core/types"
+	"github.com/chancoin-core/chancoin-gold/core/types"
 )
 
 // errSectionOutOfBounds is returned if the user tried to add more bloom filters

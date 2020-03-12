@@ -19,7 +19,7 @@ package state
 import (
 	"math/big"
 
-	"github.com/tomochain/tomochain/common"
+	"github.com/chancoin-core/chancoin-gold/common"
 )
 
 type journalEntry interface {

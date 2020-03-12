@@ -21,11 +21,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/tomochain/tomochain/contracts/chequebook"
-	"github.com/tomochain/tomochain/p2p/discover"
-	"github.com/tomochain/tomochain/swarm/network/kademlia"
-	"github.com/tomochain/tomochain/swarm/services/swap"
-	"github.com/tomochain/tomochain/swarm/storage"
+	"github.com/chancoin-core/chancoin-gold/contracts/chequebook"
+	"github.com/chancoin-core/chancoin-gold/p2p/discover"
+	"github.com/chancoin-core/chancoin-gold/swarm/network/kademlia"
+	"github.com/chancoin-core/chancoin-gold/swarm/services/swap"
+	"github.com/chancoin-core/chancoin-gold/swarm/storage"
 )
 
 /*

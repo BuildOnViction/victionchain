@@ -29,7 +29,7 @@ var Modules = map[string]string{
 	"personal":   Personal_JS,
 	"rpc":        RPC_JS,
 	"shh":        Shh_JS,
-	"tomox":      TomoX_JS,
+	"chancoinx":      ChancoinX_JS,
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
 }
@@ -624,85 +624,85 @@ web3._extend({
 });
 `
 
-const TomoX_JS = `
+const ChancoinX_JS = `
 web3._extend({
-	property: 'tomox',
+	property: 'chancoinx',
 	methods: [
 		new web3._extend.Method({
 			name: 'version',
-			call: 'tomox_version',
+			call: 'chancoinx_version',
 			params: 0,
 			outputFormatter: web3._extend.utils.toDecimal
 		}),
 		new web3._extend.Method({
 			name: 'info',
-			call: 'tomox_info',
+			call: 'chancoinx_info',
 			params: 0
 		}),
 		new web3._extend.Method({
             name: 'GetFeeByEpoch',
-            call: 'tomoX_GetFeeByEpoch',
+            call: 'chancoinX_GetFeeByEpoch',
             params: 1,
             inputFormatter: [null, web3._extend.formatters.inputAddressFormatter]
         }),
 		new web3._extend.Method({
             name: 'sendOrderRawTransaction',
-            call: 'tomox_sendOrderRawTransaction',
+            call: 'chancoinx_sendOrderRawTransaction',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'sendOrderTransaction',
-            call: 'tomox_sendOrder',
+            call: 'chancoinx_sendOrder',
             params: 1
 		}),
 		new web3._extend.Method({
             name: 'getOrderTxMatchByHash',
-            call: 'tomox_getOrderTxMatchByHash',
+            call: 'chancoinx_getOrderTxMatchByHash',
             params: 1
 		}),
 		new web3._extend.Method({
             name: 'getOrderPoolContent',
-            call: 'tomox_getOrderPoolContent',
+            call: 'chancoinx_getOrderPoolContent',
             params: 0
 		}),
 		new web3._extend.Method({
             name: 'getOrderStats',
-            call: 'tomox_getOrderStats',
+            call: 'chancoinx_getOrderStats',
             params: 0
 		}),
 		new web3._extend.Method({
             name: 'getOrderCount',
-            call: 'tomox_getOrderCount',
+            call: 'chancoinx_getOrderCount',
             params: 1
         }),
 		new web3._extend.Method({
             name: 'getBestBid',
-            call: 'tomox_getBestBid',
+            call: 'chancoinx_getBestBid',
             params: 2
 		}),
 		new web3._extend.Method({
             name: 'getBestAsk',
-            call: 'tomox_getBestAsk',
+            call: 'chancoinx_getBestAsk',
             params: 2
 		}),
 		new web3._extend.Method({
             name: 'getBidTree',
-            call: 'tomox_getBidTree',
+            call: 'chancoinx_getBidTree',
             params: 2
 		}),
 		new web3._extend.Method({
             name: 'getAskTree',
-            call: 'tomox_getAskTree',
+            call: 'chancoinx_getAskTree',
             params: 2
 		}),
 		new web3._extend.Method({
             name: 'getOrderById',
-            call: 'tomox_getOrderById',
+            call: 'chancoinx_getOrderById',
             params: 3
 		}),
 		new web3._extend.Method({
             name: 'getPrice',
-            call: 'tomox_getPrice',
+            call: 'chancoinx_getPrice',
             params: 2
 		}),
 	]
@@ -719,7 +719,7 @@ web3._extend({
 
    var sendOrderTransaction = new Method({
        name: 'sendOrder',
-       call: 'tomox_sendOrder',
+       call: 'chancoinx_sendOrder',
        params: 1,
        inputFormatter: [null]
    });

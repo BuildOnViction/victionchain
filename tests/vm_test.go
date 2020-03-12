@@ -19,7 +19,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/tomochain/tomochain/core/vm"
+	"github.com/chancoin-core/chancoin-gold/core/vm"
 )
 
 func TestVM(t *testing.T) {

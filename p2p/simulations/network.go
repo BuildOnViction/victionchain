@@ -24,11 +24,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/event"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
-	"github.com/tomochain/tomochain/p2p/simulations/adapters"
+	"github.com/chancoin-core/chancoin-gold/event"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/p2p"
+	"github.com/chancoin-core/chancoin-gold/p2p/discover"
+	"github.com/chancoin-core/chancoin-gold/p2p/simulations/adapters"
 )
 
 var dialBanTimeout = 200 * time.Millisecond

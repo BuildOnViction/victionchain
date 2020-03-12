@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/tomochain/tomochain/accounts/abi/bind"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/contracts/trc21issuer"
-	"github.com/tomochain/tomochain/contracts/trc21issuer/simulation"
-	"github.com/tomochain/tomochain/ethclient"
+	"github.com/chancoin-core/chancoin-gold/accounts/abi/bind"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/contracts/trc21issuer"
+	"github.com/chancoin-core/chancoin-gold/contracts/trc21issuer/simulation"
+	"github.com/chancoin-core/chancoin-gold/ethclient"
 	"log"
 	"math/big"
 	"time"
@@ -41,7 +41,7 @@ func main() {
 	auth.Nonce = big.NewInt(int64(nonce + 1))
 
 	// init trc20
-	trc21TokenAddr, trc21Token, err := trc21issuer.DeployTRC21(auth, client, "TEST", "TOMO", 18, simulation.Cap, simulation.Fee)
+	trc21TokenAddr, trc21Token, err := trc21issuer.DeployTRC21(auth, client, "TEST", "CHANCOIN", 18, simulation.Cap, simulation.Fee)
 	if err != nil {
 		log.Fatal(err)
 	}

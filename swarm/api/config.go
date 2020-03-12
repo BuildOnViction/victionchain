@@ -22,14 +22,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/contracts/ens"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/node"
-	"github.com/tomochain/tomochain/swarm/network"
-	"github.com/tomochain/tomochain/swarm/services/swap"
-	"github.com/tomochain/tomochain/swarm/storage"
+	"github.com/chancoin-core/chancoin-gold/common"
+	"github.com/chancoin-core/chancoin-gold/contracts/ens"
+	"github.com/chancoin-core/chancoin-gold/crypto"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/node"
+	"github.com/chancoin-core/chancoin-gold/swarm/network"
+	"github.com/chancoin-core/chancoin-gold/swarm/services/swap"
+	"github.com/chancoin-core/chancoin-gold/swarm/storage"
 )
 
 const (

@@ -37,13 +37,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/tomochain/tomochain/contracts/chequebook"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/metrics"
-	"github.com/tomochain/tomochain/p2p"
-	bzzswap "github.com/tomochain/tomochain/swarm/services/swap"
-	"github.com/tomochain/tomochain/swarm/services/swap/swap"
-	"github.com/tomochain/tomochain/swarm/storage"
+	"github.com/chancoin-core/chancoin-gold/contracts/chequebook"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/metrics"
+	"github.com/chancoin-core/chancoin-gold/p2p"
+	bzzswap "github.com/chancoin-core/chancoin-gold/swarm/services/swap"
+	"github.com/chancoin-core/chancoin-gold/swarm/services/swap/swap"
+	"github.com/chancoin-core/chancoin-gold/swarm/storage"
 )
 
 //metrics variables

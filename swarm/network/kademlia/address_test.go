@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/tomochain/tomochain/common"
+	"github.com/chancoin-core/chancoin-gold/common"
 )
 
 func (Address) Generate(rand *rand.Rand, size int) reflect.Value {

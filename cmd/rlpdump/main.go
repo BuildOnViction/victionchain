@@ -26,7 +26,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tomochain/tomochain/rlp"
+	"github.com/chancoin-core/chancoin-gold/rlp"
 )
 
 var (

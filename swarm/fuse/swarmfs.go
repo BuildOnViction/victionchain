@@ -17,7 +17,7 @@
 package fuse
 
 import (
-	"github.com/tomochain/tomochain/swarm/api"
+	"github.com/chancoin-core/chancoin-gold/swarm/api"
 	"sync"
 	"time"
 )

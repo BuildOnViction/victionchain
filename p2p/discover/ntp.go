@@ -25,7 +25,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/log"
 )
 
 const (

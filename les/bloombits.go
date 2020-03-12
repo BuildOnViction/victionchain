@@ -19,8 +19,8 @@ package les
 import (
 	"time"
 
-	"github.com/tomochain/tomochain/common/bitutil"
-	"github.com/tomochain/tomochain/light"
+	"github.com/chancoin-core/chancoin-gold/common/bitutil"
+	"github.com/chancoin-core/chancoin-gold/light"
 )
 
 const (

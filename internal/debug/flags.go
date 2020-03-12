@@ -24,10 +24,10 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/log/term"
-	"github.com/tomochain/tomochain/metrics"
-	"github.com/tomochain/tomochain/metrics/exp"
+	"github.com/chancoin-core/chancoin-gold/log"
+	"github.com/chancoin-core/chancoin-gold/log/term"
+	"github.com/chancoin-core/chancoin-gold/metrics"
+	"github.com/chancoin-core/chancoin-gold/metrics/exp"
 	colorable "github.com/mattn/go-colorable"
 	"gopkg.in/urfave/cli.v1"
 )

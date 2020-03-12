@@ -25,7 +25,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tomochain/tomochain/ethdb"
+	"github.com/chancoin-core/chancoin-gold/ethdb"
 )
 
 func newTestLDB() (*ethdb.LDBDatabase, func()) {

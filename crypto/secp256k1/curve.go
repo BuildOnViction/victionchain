@@ -36,7 +36,7 @@ import (
 	"math/big"
 	"unsafe"
 
-	"github.com/tomochain/tomochain/common/math"
+	"github.com/chancoin-core/chancoin-gold/common/math"
 )
 
 /*

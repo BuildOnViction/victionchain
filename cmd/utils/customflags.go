@@ -27,7 +27,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/tomochain/tomochain/common/math"
+	"github.com/chancoin-core/chancoin-gold/common/math"
 	"gopkg.in/urfave/cli.v1"
 )
 

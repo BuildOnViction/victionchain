@@ -17,8 +17,8 @@
 package les
 
 import (
-	"github.com/tomochain/tomochain/metrics"
-	"github.com/tomochain/tomochain/p2p"
+	"github.com/chancoin-core/chancoin-gold/metrics"
+	"github.com/chancoin-core/chancoin-gold/p2p"
 )
 
 var (

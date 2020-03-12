@@ -22,9 +22,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/tomochain/tomochain/swarm/api"
-	httpapi "github.com/tomochain/tomochain/swarm/api/http"
-	"github.com/tomochain/tomochain/swarm/storage"
+	"github.com/chancoin-core/chancoin-gold/swarm/api"
+	httpapi "github.com/chancoin-core/chancoin-gold/swarm/api/http"
+	"github.com/chancoin-core/chancoin-gold/swarm/storage"
 )
 
 func NewTestSwarmServer(t *testing.T) *TestSwarmServer {

@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/log"
 	"golang.org/x/net/websocket"
 	mapset "github.com/deckarep/golang-set"
 )

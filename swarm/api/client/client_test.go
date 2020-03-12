@@ -25,8 +25,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/tomochain/tomochain/swarm/api"
-	"github.com/tomochain/tomochain/swarm/testutil"
+	"github.com/chancoin-core/chancoin-gold/swarm/api"
+	"github.com/chancoin-core/chancoin-gold/swarm/testutil"
 )
 
 // TestClientUploadDownloadRaw test uploading and downloading raw data to swarm

@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/tomochain/tomochain/accounts/keystore"
-	"github.com/tomochain/tomochain/log"
+	"github.com/chancoin-core/chancoin-gold/accounts/keystore"
+	"github.com/chancoin-core/chancoin-gold/log"
 )
 
 // deployFaucet queries the user for various input on deploying a faucet, after
