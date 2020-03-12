@@ -2603,8 +2603,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 	}
 	batches, err := ExtractLendingTransactions(block.Transactions())
 	if err != nil {
-		log.Error("failed to extract lending transaction", "err", err)
-		return
+		log.Crit("failed to extract lending transaction", "err", err)
 	}
 	start := time.Now()
 	defer func() {
