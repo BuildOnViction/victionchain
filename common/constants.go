@@ -24,6 +24,7 @@ const (
 	MinimunMinerBlockPerEpoch  = 1
 	IgnoreSignerCheckBlock     = uint64(14458500)
 	OneYear                    = uint64(365 * 86400)
+	LiquidateLendingTradeBlock = uint64(100)
 )
 
 var TIP2019Block = big.NewInt(1050000)

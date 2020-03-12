@@ -672,10 +672,12 @@ func (self *worker) commitNewWork() {
 					lendingOrderPending, _ := self.eth.LendingPool().Pending()
 					lendingInput, lendingMatchingResults = tomoXLending.ProcessOrderPending(header.Time.Uint64(), self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
 					log.Debug("lending transaction matches found", "lendingInput", len(lendingInput), "lendingMatchingResults", len(lendingMatchingResults))
-					finalizedTrades, err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
-					if err != nil {
-						log.Error("Fail when process lending liquidation data ", "error", err)
-						return
+					if header.Number.Uint64() % self.config.Posv.Epoch == common.LiquidateLendingTradeBlock {
+						finalizedTrades, err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
+						if err != nil {
+							log.Error("Fail when process lending liquidation data ", "error", err)
+							return
+						}
 					}
 				}
 				if len(tradingTxMatches) > 0 {
