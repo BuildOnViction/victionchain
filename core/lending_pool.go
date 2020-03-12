@@ -491,8 +491,13 @@ func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLe
 	}
 	return nil
 }
-func (pool *LendingPool) validateCancelledLending(tx *types.LendingTransaction) error {
+func (pool *LendingPool) validateCancelledLending(cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
 	if tx.LendingId() == 0 {
+		return ErrInvalidCancelledLending
+	}
+	item := cloneLendingStateDb.GetLendingOrder(lendingstate.GetLendingOrderBookHash(tx.LendingToken(), tx.Term()), common.Uint64ToHash(tx.LendingId()))
+	if item == lendingstate.EmptyLendingOrder {
+		log.Debug("LendingOrder not found ", "LendingId", tx.LendingId(), "LendToken", tx.LendingToken().Hex(), "CollateralToken", tx.CollateralToken().Hex(), "Term", tx.Term())
 		return ErrInvalidCancelledLending
 	}
 	return nil
@@ -527,7 +532,7 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 		return pool.validateNewLending(cloneStateDb, cloneLendingStateDb, tx)
 	}
 	if tx.IsCancelledLending() {
-		return pool.validateCancelledLending(tx)
+		return pool.validateCancelledLending(cloneLendingStateDb, tx)
 	}
 	if tx.IsTopupLending() {
 		return pool.validateTopupLending(tx)
