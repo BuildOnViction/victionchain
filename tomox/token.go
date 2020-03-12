@@ -1,7 +1,6 @@
 package tomox
 
 import (
-	"context"
 	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"strings"
@@ -443,7 +442,7 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, coinbase 
 	}
 	backend := (*backends.SimulatedBackend)(nil)
 	msg := ethereum.CallMsg{To: &contractAddr, Data: input, From: coinbase}
-	result, err := backend.CallContractWithState(context.Background(), msg, chain, statedb)
+	result, err := backend.CallContractWithState(msg, chain, statedb)
 	if err != nil {
 		return nil, err
 	}

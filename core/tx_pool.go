@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/tomochain/tomochain/consensus"
 	"math"
 	"math/big"
 	"sort"
@@ -127,8 +128,19 @@ type blockChain interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAt(root common.Hash) (*state.StateDB, error)
-
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
+
+	// Engine retrieves the chain's consensus engine.
+	Engine() consensus.Engine
+
+	// GetHeader returns the hash corresponding to their hash.
+	GetHeader(common.Hash, uint64) *types.Header
+
+	// CurrentHeader retrieves the current header from the local chain.
+	CurrentHeader() *types.Header
+
+	// Config retrieves the blockchain's chain configuration.
+	Config() *params.ChainConfig
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -662,6 +674,15 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrMinDeploySMC
 	}
 
+	if tx.IsTomoZApplyTransaction() {
+		copyState := pool.currentState.Copy()
+		return ValidateTomoZApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:]))
+	}
+
+	if tx.IsTomoXApplyTransaction() {
+		copyState := pool.currentState.Copy()
+		return ValidateTomoXApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:]))
+	}
 	return nil
 }
 

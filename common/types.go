@@ -46,14 +46,13 @@ const (
 	ProposeMethod                     = "0x01267951"
 	ResignMethod                      = "0xae6e43f5"
 	SignMethod                        = "0xe341eaa4"
+	TomoXApplyMethod                  = "0xc6b32f34"
+	TomoZApplyMethod                  = "0xc6b32f34"
 )
 
 var (
-	hashT                         = reflect.TypeOf(Hash{})
-	addressT                      = reflect.TypeOf(Address{})
-	RelayerRegistrationSMC        = "0x0342d186212b04E69eA682b3bed8e232b6b3361a"
-	RelayerRegistrationSMCTestnet = "0xe7c16037992bEcAFaeeE779Dacaf8991637953F3"
-	LendingRegistrationSMC        = "0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"
+	hashT    = reflect.TypeOf(Hash{})
+	addressT = reflect.TypeOf(Address{})
 )
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
