@@ -38,28 +38,34 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 	} else if big.NewInt(int64(nonce)).Cmp(order.Nonce) == 1 {
 		return nil, nil, ErrNonceTooLow
 	}
+
+	log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
+	lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
+
+	lendingSnap := lendingStateDB.Snapshot()
+	tradingSnap := tradingStateDb.Snapshot()
+	dbSnap := statedb.Snapshot()
+	// revert if process order fail
+	defer func() {
+		if err != nil {
+			lendingStateDB.RevertToSnapshot(lendingSnap)
+			tradingStateDb.RevertToSnapshot(tradingSnap)
+			statedb.RevertToSnapshot(dbSnap)
+		}
+	}()
+
 	switch order.Status {
 	case lendingstate.LendingStatusCancelled:
 		err, reject := l.ProcessCancelOrder(lendingStateDB, statedb, tradingStateDb, chain, coinbase, lendingOrderBook, order)
-		if err != nil {
-			return nil, nil, err
-		}
-		if reject {
+		if err != nil || reject {
 			rejects = append(rejects, order)
 		}
-		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	case lendingstate.TopUp:
 		err, reject, newLendingTrade := l.ProcessTopUp(lendingStateDB, statedb, tradingStateDb, order)
-		if err != nil {
-			return nil, nil, err
-		}
-		if reject {
+		if err != nil || reject {
 			rejects = append(rejects, order)
 		}
-		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		trades = append(trades, newLendingTrade)
 		return trades, rejects, nil
 	case lendingstate.Repay:
@@ -69,8 +75,6 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 			log.Debug("Can not process payment", "err", err)
 			rejects = append(rejects, order)
 		}
-		log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		trades = append(trades, lendingTrade)
 		return trades, rejects, nil
 	default:
@@ -79,14 +83,12 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		if order.Interest.Sign() == 0 || common.BigToHash(order.Interest).Big().Cmp(order.Interest) != 0 {
 			log.Debug("Reject order Interest invalid", "Interest", order.Interest)
 			rejects = append(rejects, order)
-			lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 			return trades, rejects, nil
 		}
 	}
 	if order.Quantity.Sign() == 0 || common.BigToHash(order.Quantity).Big().Cmp(order.Quantity) != 0 {
 		log.Debug("Reject order quantity invalid", "quantity", order.Quantity)
 		rejects = append(rejects, order)
-		lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 		return trades, rejects, nil
 	}
 	orderType := order.Type
@@ -95,18 +97,17 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		log.Debug("Process maket order", "side", order.Side, "quantity", order.Quantity, "Interest", order.Interest)
 		trades, rejects, err = l.processMarketOrder(createdBlockTime, coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 		if err != nil {
-			return nil, nil, err
+			trades = []*lendingstate.LendingTrade{}
+			rejects = append(rejects, order)
 		}
 	} else {
 		log.Debug("Process limit order", "side", order.Side, "quantity", order.Quantity, "Interest", order.Interest)
 		trades, rejects, err = l.processLimitOrder(createdBlockTime, coinbase, chain, statedb, lendingStateDB, tradingStateDb, lendingOrderBook, order)
 		if err != nil {
-			return nil, nil, err
+			trades = []*lendingstate.LendingTrade{}
+			rejects = append(rejects, order)
 		}
 	}
-
-	log.Debug("Exchange add user nonce:", "address", order.UserAddress, "status", order.Status, "nonce", nonce+1)
-	lendingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 	return trades, rejects, nil
 }
 
