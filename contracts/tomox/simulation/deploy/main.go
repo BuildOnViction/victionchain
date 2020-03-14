@@ -210,7 +210,7 @@ func main() {
 	// BTC Collateral
 	nonce = nonce + 1
 	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddCollateral(tokenList[0]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate)
+	_, err = lendingRelayerRegistration.AddCollateral(tokenList[0]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
 	if err != nil {
 		log.Fatal("Lending add collateral", err)
 	}
@@ -218,7 +218,7 @@ func main() {
 	// ETH Collateral
 	nonce = nonce + 1
 	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddCollateral(tokenList[1]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate)
+	_, err = lendingRelayerRegistration.AddCollateral(tokenList[1]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
 	if err != nil {
 		log.Fatal("Lending add collateral", err)
 	}
@@ -226,7 +226,15 @@ func main() {
 	// TOMO Collateral
 	nonce = nonce + 1
 	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddCollateral(simulation.TOMONative, simulation.CollateralDepositRate, simulation.CollateralLiquidationRate)
+	_, err = lendingRelayerRegistration.AddCollateral(simulation.TOMONative, simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
+	if err != nil {
+		log.Fatal("Lending add collateral", err)
+	}
+
+	// XRP ILO Collateral
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddILOCollateral(tokenList[2]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(1000000000000000000))
 	if err != nil {
 		log.Fatal("Lending add collateral", err)
 	}
