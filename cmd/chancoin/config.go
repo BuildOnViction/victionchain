@@ -157,7 +157,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, chancoinConfig) {
 	if ctx.GlobalBool(utils.ChancoinTestnetFlag.Name) {
 		common.IsTestnet = true
 		common.TRC21IssuerSMC = common.TRC21IssuerSMCTestNet
-		cfg.Eth.NetworkId = 89
+		cfg.Eth.NetworkId = 133701
 		common.RelayerRegistrationSMC = common.RelayerRegistrationSMCTestnet
 		common.TIPTRC21Fee = common.TIPChancoinXTestnet
 	}

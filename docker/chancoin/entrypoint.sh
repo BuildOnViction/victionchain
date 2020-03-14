@@ -51,14 +51,14 @@ done
 # networkid
 if [[ ! -z $NETWORK_ID ]]; then
   case $NETWORK_ID in
-    88 )
+    133700 )
       genesisPath="mainnet.json"
       ;;
-    89 )
+    133701 )
       genesisPath="testnet.json"
       params="$params --chancoin-testnet --gcmode archive --rpcapi db,eth,net,web3,debug"
       ;;
-    90 )
+    133702 )
       genesisPath="devnet.json"
       ;;
     * )
