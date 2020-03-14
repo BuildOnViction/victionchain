@@ -231,6 +231,14 @@ func main() {
 		log.Fatal("Lending add collateral", err)
 	}
 
+	// XRP ILO Collateral
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddILOCollateral(tokenList[2]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(1000000000000000000))
+	if err != nil {
+		log.Fatal("Lending add collateral", err)
+	}
+
 	// USD lending base
 	nonce = nonce + 1
 	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
