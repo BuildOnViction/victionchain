@@ -194,6 +194,9 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	if tx.To() != nil && tx.To().String() == common.TradingStateAddr && config.IsTIPTomoX(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
+	if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress && config.IsTIPTomoX(header.Number) {
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	}
 	if tx.IsTradingTransaction() && config.IsTIPTomoX(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}

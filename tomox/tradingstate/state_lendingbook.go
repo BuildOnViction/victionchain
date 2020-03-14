@@ -17,6 +17,7 @@
 package tradingstate
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
@@ -103,7 +104,9 @@ func (self *stateLendingBook) Exist(db Database, lendingId common.Hash) bool {
 		}
 		amount.SetBytes(content)
 	}
-	self.cachedStorage[lendingId] = amount
+	if (amount != common.Hash{}) {
+		self.cachedStorage[lendingId] = amount
+	}
 	return true
 }
 
@@ -118,7 +121,7 @@ func (self *stateLendingBook) getAllTradeIds(db Database) []common.Hash {
 	}
 	orderListIt := trie.NewIterator(lendingBookTrie.NodeIterator(nil))
 	for orderListIt.Next() {
-		id := common.BytesToHash(orderListIt.Value)
+		id := common.BytesToHash(orderListIt.Key)
 		if _, exist := self.cachedStorage[id]; exist {
 			continue
 		}
@@ -156,7 +159,8 @@ func (self *stateLendingBook) updateTrie(db Database) Trie {
 			self.setError(tr.TryDelete(key[:]))
 			continue
 		}
-		self.setError(tr.TryUpdate(key[:], value[:]))
+		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+		self.setError(tr.TryUpdate(key[:], v))
 	}
 	return tr
 }

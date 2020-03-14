@@ -266,6 +266,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 					quantityToTrade = lendingstate.Zero
 					rejects = append(rejects, &oldestOrder)
 					err = lendingStateDB.CancelLendingOrder(lendingOrderBook, &oldestOrder)
+					log.Debug("Reject order maker", "lending id ", oldestOrder.LendingId, "err", err)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -277,6 +278,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				} else { // reject maker
 					rejects = append(rejects, &oldestOrder)
 					err = lendingStateDB.CancelLendingOrder(lendingOrderBook, &oldestOrder)
+					log.Debug("Reject order maker", "lending id ", oldestOrder.LendingId, "err", err)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -286,6 +288,7 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 				if rejectMaker { // reject maker
 					rejects = append(rejects, &oldestOrder)
 					err = lendingStateDB.CancelLendingOrder(lendingOrderBook, &oldestOrder)
+					log.Debug("Reject order maker", "lending id ", oldestOrder.LendingId, "err", err)
 					if err != nil {
 						return nil, nil, nil, err
 					}
@@ -448,7 +451,7 @@ func (l *Lending) getLendQuantity(
 			err = DoSettleBalance(coinbase, takerOrder, makerOrder, settleBalanceResult, statedb)
 		}
 		if err != nil {
-			return lendingstate.Zero, lendingstate.Zero, rejectMaker, nil, err
+			return quantity, lendingstate.Zero, rejectMaker, nil, err
 		}
 		return quantity, settleBalanceResult.CollateralLockedAmount, rejectMaker, settleBalanceResult, nil
 	}

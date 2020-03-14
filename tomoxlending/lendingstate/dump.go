@@ -222,7 +222,8 @@ func (self *itemListState) DumpItemList(db Database) DumpOrderList {
 		if _, exist := self.cachedStorage[keyHash]; exist {
 			continue
 		} else {
-			mapResult.Orders[new(big.Int).SetBytes(keyHash.Bytes())] = new(big.Int).SetBytes(orderListIt.Value)
+			_, content, _, _ := rlp.Split(orderListIt.Value)
+			mapResult.Orders[new(big.Int).SetBytes(keyHash.Bytes())] = new(big.Int).SetBytes(content)
 		}
 	}
 	for key, value := range self.cachedStorage {
@@ -270,7 +271,8 @@ func (self *liquidationTimeState) DumpItemList(db Database) DumpOrderList {
 		if _, exist := self.cachedStorage[keyHash]; exist {
 			continue
 		} else {
-			mapResult.Orders[new(big.Int).SetBytes(keyHash.Bytes())] = new(big.Int).SetBytes(orderListIt.Value)
+			_, content, _, _ := rlp.Split(orderListIt.Value)
+			mapResult.Orders[new(big.Int).SetBytes(keyHash.Bytes())] = new(big.Int).SetBytes(content)
 		}
 	}
 	for key, value := range self.cachedStorage {

@@ -264,28 +264,29 @@ func TestFilled(t *testing.T) {
 	//BTCUSDPrice := new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000))
 	//testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000)), BTCUSDPrice, "BUY", "NEW", 0)
 	//ETH/BTC
+
 	BTCUSDPrice := new(big.Int).Mul(big.NewInt(10000000000000000), big.NewInt(1000000)) // 10000
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderBTCUSD(t, _1E18, BTCUSDPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderBTCUSD(t, _1E18, BTCUSDPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderBTCUSD(t, new(big.Int).Mul(big.NewInt(2), _1E18), BTCUSDPrice, "SELL", "NEW", 0)
 
 	TOMOBTCPrice := new(big.Int).Mul(big.NewInt(10000000000000), big.NewInt(6)) // 0.00006
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOBTC(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOBTCPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOBTC(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOBTCPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOBTC(t, new(big.Int).Mul(big.NewInt(1200000), _1E18), TOMOBTCPrice, "SELL", "NEW", 0)
 
 	TOMOUSDPrice := new(big.Int).Mul(big.NewInt(10000000000000), big.NewInt(60000)) // 0.6
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1200000), _1E18), TOMOUSDPrice, "SELL", "NEW", 0)
 
 }
