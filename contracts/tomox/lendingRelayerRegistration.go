@@ -26,8 +26,8 @@ func NewLendingRelayerRegistration(transactOpts *bind.TransactOpts, contractAddr
 	}, nil
 }
 
-func DeployLendingRelayerRegistration(transactOpts *bind.TransactOpts, contractBackend bind.ContractBackend, relayerAddr common.Address) (common.Address, *LendingRelayerRegistration, error) {
-	contractAddr, _, _, err := contract.DeployLending(transactOpts, contractBackend, relayerAddr)
+func DeployLendingRelayerRegistration(transactOpts *bind.TransactOpts, contractBackend bind.ContractBackend, relayerAddr common.Address, tomoxListtingAddr common.Address) (common.Address, *LendingRelayerRegistration, error) {
+	contractAddr, _, _, err := contract.DeployLending(transactOpts, contractBackend, relayerAddr, tomoxListtingAddr)
 	if err != nil {
 		return contractAddr, nil, err
 	}
