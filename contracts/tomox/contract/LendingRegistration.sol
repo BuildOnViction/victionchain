@@ -133,10 +133,6 @@ contract Lending {
         if (!indexOf(ILO_COLLATERALS, token)) {
             ILO_COLLATERALS.push(token);
         }
-
-        if (!indexOf(ILO_COLLATERALS, token)) {
-            ILO_COLLATERALS.push(token);
-        }
     }
     
     // lending tokens
