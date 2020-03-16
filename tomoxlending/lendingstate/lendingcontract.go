@@ -35,7 +35,9 @@ func IsValidRelayer(statedb *state.StateDB, coinbase common.Address) bool {
 	locRelayerState := GetLocMappingAtKey(coinbase.Hash(), LendingRelayerListSlot)
 
 	if v := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), common.BytesToHash(locRelayerState.Bytes())); v != (common.Hash{}) {
-		return true
+		if !IsResignedRelayer(coinbase, statedb) {
+			return true
+		}
 	}
 	return false
 }
