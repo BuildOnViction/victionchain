@@ -60,7 +60,6 @@ func getLendingNonce(t *testing.T, userAddress common.Address) (uint64, error) {
 	return uint64(n), nil
 }
 
-
 func (l *LendingMsg) computeHash() common.Hash {
 	sha := sha3.NewKeccak256()
 	if l.Status == lendingstate.LendingStatusCancelled {
@@ -147,25 +146,21 @@ func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string
 func TestSendLending(t *testing.T) {
 	// 10%
 	interestRate := 10 * common.BaseLendingInterest.Uint64()
-	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, true,0, 0, common.Hash{}, "")
+	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, true, 0, 0, common.Hash{}, "")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, true,0, 0,  common.Hash{},"")
+	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, true, 0, 0, common.Hash{}, "")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, true,0, 0,  common.Hash{},"")
+	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000000000000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, true, 0, 0, common.Hash{}, "")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusNew, true,0, 0,  common.Hash{},"")
+	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000000000000)), interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, true, 0, 0, common.Hash{}, "")
 	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, true,0, 1, common.Hash{}, "")
-	time.Sleep(2 * time.Second)
-	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, true,0, 0, common.Hash{}, "")
 }
 
 func TestCancelLending(t *testing.T) {
 	// 10%
 	interestRate := 10 * common.BaseLendingInterest.Uint64()
-	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, true,0, 0, common.Hash{}, "")
+	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Borrowing, lendingstate.LendingStatusNew, true, 0, 0, common.Hash{}, "")
 	time.Sleep(2 * time.Second)
 	//TODO: run the above testcase first, then updating lendingId, Hash
-	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusCancelled, true,1, 0, common.HexToHash("0x3da4e24b9c0f60e04cdb4c4494de37203c6e1a354907cbd6d9bbbe2e52aecaab"), "")
+	testSendLending(t, new(big.Int).Mul(_1E8, big.NewInt(1000)), interestRate, lendingstate.Investing, lendingstate.LendingStatusCancelled, true, 1, 0, common.HexToHash("0x3da4e24b9c0f60e04cdb4c4494de37203c6e1a354907cbd6d9bbbe2e52aecaab"), "")
 }
-

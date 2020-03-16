@@ -17,6 +17,7 @@
 package lendingstate
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
@@ -101,7 +102,9 @@ func (self *liquidationTimeState) Exist(db Database, tradeId common.Hash) bool {
 		}
 		amount.SetBytes(content)
 	}
-	self.cachedStorage[tradeId] = amount
+	if (amount != common.Hash{}) {
+		self.cachedStorage[tradeId] = amount
+	}
 	return true
 }
 
@@ -116,7 +119,7 @@ func (self *liquidationTimeState) getAllTradeIds(db Database) []common.Hash {
 	}
 	orderListIt := trie.NewIterator(lendingBookTrie.NodeIterator(nil))
 	for orderListIt.Next() {
-		id := common.BytesToHash(orderListIt.Value)
+		id := common.BytesToHash(orderListIt.Key)
 		if _, exist := self.cachedStorage[id]; exist {
 			continue
 		}
@@ -136,9 +139,9 @@ func (self *liquidationTimeState) removeTradeId(db Database, tradeId common.Hash
 	self.setTradeId(tradeId, EmptyHash)
 }
 
-func (self *liquidationTimeState) setTradeId(lendingId common.Hash, value common.Hash) {
-	self.cachedStorage[lendingId] = value
-	self.dirtyStorage[lendingId] = value
+func (self *liquidationTimeState) setTradeId(tradeId common.Hash, value common.Hash) {
+	self.cachedStorage[tradeId] = value
+	self.dirtyStorage[tradeId] = value
 
 	if self.onDirty != nil {
 		self.onDirty(self.lendingBook)
@@ -154,7 +157,8 @@ func (self *liquidationTimeState) updateTrie(db Database) Trie {
 			self.setError(tr.TryDelete(key[:]))
 			continue
 		}
-		self.setError(tr.TryUpdate(key[:], value[:]))
+		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+		self.setError(tr.TryUpdate(key[:], v))
 	}
 	return tr
 }
