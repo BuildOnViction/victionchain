@@ -67,7 +67,7 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	auth.Nonce = big.NewInt(int64(nonce + 3))
-	lendingRelayerRegistrationAddr, lendingRelayerRegistration, err := tomox.DeployLendingRelayerRegistration(auth, client, relayerRegistrationAddr)
+	lendingRelayerRegistrationAddr, lendingRelayerRegistration, err := tomox.DeployLendingRelayerRegistration(auth, client, relayerRegistrationAddr, tomoxListtingAddr)
 	if err != nil {
 		log.Fatal("DeployLendingRelayerRegistration", err)
 	}
@@ -87,7 +87,80 @@ func main() {
 	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
 	applyTomoXListing(tomoxListing, tokenList, currentNonce)
 
-	currentNonce = currentNonce + uint64(len(simulation.TokenNameList))
+	// BTC Collateral
+	nonce = currentNonce + uint64(len(simulation.TokenNameList))
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddCollateral(tokenList[0]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
+	if err != nil {
+		log.Fatal("Lending add collateral", err)
+	}
+
+	// ETH Collateral
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddCollateral(tokenList[1]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
+	if err != nil {
+		log.Fatal("Lending add collateral", err)
+	}
+
+	// TOMO Collateral
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddCollateral(simulation.TOMONative, simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
+
+	if err != nil {
+		log.Fatal("Lending add collateral", err)
+	}
+
+	// XRP ILO Collateral
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddILOCollateral(tokenList[2]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(1000000000000000000))
+	if err != nil {
+		log.Fatal("Lending add ILO collateral", err)
+	}
+
+	// USD lending base
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddBaseToken(tokenList[9]["address"].(common.Address))
+	if err != nil {
+		log.Fatal("Lending add base token", err)
+	}
+
+	// add term 1 minute for testing
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(60))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(7 * 86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(30 * 86400))
+	if err != nil {
+		log.Fatal("Lending add terms", err)
+	}
+
+	fmt.Println("wait 2s to setup lending contract")
+	time.Sleep(2 * time.Second)
+
+	currentNonce = nonce + 1
 	airdrop(auth, client, tokenList, simulation.TeamAddresses, currentNonce)
 
 	// relayer registration
@@ -187,10 +260,18 @@ func main() {
 	terms = append(terms, big.NewInt(60))
 	collaterals = append(collaterals, common.HexToAddress("0x0"))
 
+	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
+	terms = append(terms, big.NewInt(60))
+	collaterals = append(collaterals, tokenList[2]["address"].(common.Address))
+
 	// USD 1 days
 	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
 	terms = append(terms, big.NewInt(86400))
 	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
+	terms = append(terms, big.NewInt(86400))
+	collaterals = append(collaterals, tokenList[2]["address"].(common.Address))
 
 	// USD 7 days
 	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
@@ -207,76 +288,7 @@ func main() {
 		log.Fatal("lendingRelayerRegistration Update", err)
 	}
 
-	// BTC Collateral
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddCollateral(tokenList[0]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
-	if err != nil {
-		log.Fatal("Lending add collateral", err)
-	}
-
-	// ETH Collateral
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddCollateral(tokenList[1]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
-	if err != nil {
-		log.Fatal("Lending add collateral", err)
-	}
-
-	// TOMO Collateral
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddCollateral(simulation.TOMONative, simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(0))
-	if err != nil {
-		log.Fatal("Lending add collateral", err)
-	}
-
-	// XRP ILO Collateral
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddILOCollateral(tokenList[2]["address"].(common.Address), simulation.CollateralDepositRate, simulation.CollateralLiquidationRate, big.NewInt(1000000000000000000))
-	if err != nil {
-		log.Fatal("Lending add collateral", err)
-	}
-
-	// USD lending base
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddBaseToken(tokenList[9]["address"].(common.Address))
-	if err != nil {
-		log.Fatal("Lending add base token", err)
-	}
-
-	// add term 1 minute for testing
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(60))
-	if err != nil {
-		log.Fatal("Lending add terms", err)
-	}
-
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(86400))
-	if err != nil {
-		log.Fatal("Lending add terms", err)
-	}
-
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(7 * 86400))
-	if err != nil {
-		log.Fatal("Lending add terms", err)
-	}
-
-	nonce = nonce + 1
-	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
-	_, err = lendingRelayerRegistration.AddTerm(big.NewInt(30 * 86400))
-	if err != nil {
-		log.Fatal("Lending add terms", err)
-	}
-
-	fmt.Println("wait 2s to setup lending contract")
+	fmt.Println("wait 2s to update lending contract")
 	time.Sleep(2 * time.Second)
 }
 

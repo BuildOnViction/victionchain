@@ -36,17 +36,17 @@ contract Lending {
     
     address[] public BASES;
     
-    uint256[] TERMS;
+    uint256[] public TERMS;
 
-    address[] public ALL_COLLATERALS;
+    address[] public ILO_COLLATERALS;
 
-    AbstractRegistration public relayer;
+    AbstractRegistration public Relayer;
 
     address public CONTRACT_OWNER;
 
     address constant private tomoNative = 0x0000000000000000000000000000000000000001;
 
-    AbstractTOMOXListing private TomoXListing;
+    AbstractTOMOXListing public TomoXListing;
 
     modifier contractOwnerOnly() {
         require(msg.sender == CONTRACT_OWNER, "Contract Owner Only.");
@@ -71,8 +71,9 @@ contract Lending {
         return false;
     }
     
-    constructor (address r) public {
-        relayer = AbstractRegistration(r);
+    constructor (address r, address t) public {
+        Relayer = AbstractRegistration(r);
+        TomoXListing = AbstractTOMOXListing(t);
         CONTRACT_OWNER = msg.sender;
     }
     
@@ -92,7 +93,6 @@ contract Lending {
 
         if (!indexOf(COLLATERALS, token)) {
             COLLATERALS.push(token);
-            ALL_COLLATERALS.push(token);
         }
     }
 
@@ -130,8 +130,8 @@ contract Lending {
             _price: price
         });
 
-        if (!indexOf(ALL_COLLATERALS, token)) {
-            ALL_COLLATERALS.push(token);
+        if (!indexOf(ILO_COLLATERALS, token)) {
+            ILO_COLLATERALS.push(token);
         }
     }
     
@@ -154,9 +154,9 @@ contract Lending {
     }
     
     function update(address coinbase, uint16 tradeFee, address[] memory baseTokens, uint256[] memory terms, address[] memory collaterals) public {
-        (, address owner,,,,) = relayer.getRelayerByCoinbase(coinbase);
+        (, address owner,,,,) = Relayer.getRelayerByCoinbase(coinbase);
         require(owner == msg.sender, "Relayer owner required");
-        require(relayer.RESIGN_REQUESTS(coinbase) == 0, "Relayer required to close");
+        require(Relayer.RESIGN_REQUESTS(coinbase) == 0, "Relayer required to close");
         require(tradeFee >= 1 && tradeFee < 1000, "Invalid trade Fee"); // 0.01% -> 10%
         require(baseTokens.length == terms.length, "Not valid number of terms");
         require(baseTokens.length == collaterals.length, "Not valid number of collaterals");
@@ -176,7 +176,9 @@ contract Lending {
 
         // validate collaterals
         for (i = 0; i < collaterals.length; i++) {
-            require(indexOf(ALL_COLLATERALS, collaterals[i]), "Not valid number of collaterals");
+            if (collaterals[i] != address(0)) {
+                require(indexOf(ILO_COLLATERALS, collaterals[i]), "Invalid collateral");
+            }
         }
         
         LENDINGRELAYER_LIST[coinbase] = LendingRelayer({
