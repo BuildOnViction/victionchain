@@ -54,6 +54,11 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		}
 	}()
 
+	if err := order.VerifyLendingItem(statedb); err != nil {
+		rejects = append(rejects, order)
+		return trades, rejects, nil
+	}
+
 	switch order.Status {
 	case lendingstate.LendingStatusCancelled:
 		err, reject := l.ProcessCancelOrder(lendingStateDB, statedb, tradingStateDb, chain, coinbase, lendingOrderBook, order)
