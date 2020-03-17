@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 	"sync"
 	"time"
@@ -447,10 +448,6 @@ func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLe
 		if err != nil {
 			return fmt.Errorf("validateOrder: failed to get lendingTokenDecimal. err: %v", err)
 		}
-		collateralTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.CollateralToken())
-		if err != nil {
-			return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
-		}
 		tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock())
 		if err != nil {
 			return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
@@ -460,14 +457,20 @@ func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLe
 		// Eg: LendingToken: USD, CollateralToken: BTC
 		// collateralPrice = BTC/USD (eg: 8000 USD)
 		// lendTokenTOMOPrice: price of lendingToken in TOMO quote
-
-		lendTokenTOMOPrice, collateralPrice, err := lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
-		if err != nil {
-			return err
-		}
-		if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() <= 0 || collateralPrice == nil || collateralPrice.Sign() <= 0 {
-			log.Debug("ValidateLending: ErrInvalidCollateralPrice", "lendTokenTOMOPrice", lendTokenTOMOPrice, "collateralPrice", collateralPrice)
-			return lendingstate.ErrInvalidCollateralPrice
+		var lendTokenTOMOPrice, collateralPrice, collateralTokenDecimal *big.Int
+		if tx.Side() == lendingstate.Borrowing {
+			collateralTokenDecimal, err = tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.CollateralToken())
+			if err != nil {
+				return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
+			}
+			lendTokenTOMOPrice, collateralPrice, err = lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
+			if err != nil {
+				return err
+			}
+			if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() <= 0 || collateralPrice == nil || collateralPrice.Sign() <= 0 {
+				log.Debug("ValidateLending: ErrInvalidCollateralPrice", "lendTokenTOMOPrice", lendTokenTOMOPrice, "collateralPrice", collateralPrice)
+				return lendingstate.ErrInvalidCollateralPrice
+			}
 		}
 		if err := lendingstate.VerifyBalance(cloneStateDb,
 			cloneLendingStateDb,
