@@ -5,7 +5,6 @@
 package tomoxDAO
 
 import (
-	"github.com/globalsign/mgo"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 )
@@ -27,11 +26,11 @@ type TomoXDAO interface {
 	DeleteItemByTxHash(txhash common.Hash, val interface{})
 
 		// basic tomox
-		InitBulk() *mgo.Session
+		InitBulk()
 		CommitBulk() error
 
 		// tomox lending
-		InitLendingBulk() *mgo.Session
+		InitLendingBulk()
 		CommitLendingBulk() error
 
 	// leveldb methods
