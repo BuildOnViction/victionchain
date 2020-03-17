@@ -277,8 +277,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		err                                 error
 	)
 	db := tomox.GetMongoDB()
-	sc := db.InitBulk()
-	defer sc.Close()
+	db.InitBulk()
 	// 1. put processed takerOrderInTx to db
 	lastState := tradingstate.OrderHistoryItem{}
 	val, err := db.GetObject(takerOrderInTx.Hash, &tradingstate.OrderItem{})
@@ -550,8 +549,7 @@ func (tomox *TomoX) UpdateOrderCache(baseToken, quoteToken common.Address, order
 
 func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) error {
 	db := tomox.GetMongoDB()
-	sc := db.InitBulk()
-	defer sc.Close()
+	db.InitBulk()
 
 	items := db.GetListItemByTxHash(txhash, &tradingstate.OrderItem{})
 	if items != nil {

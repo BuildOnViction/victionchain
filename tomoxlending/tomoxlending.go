@@ -208,8 +208,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		err                                             error
 	)
 	db := l.GetMongoDB()
-	sc := db.InitLendingBulk()
-	defer sc.Close()
+	db.InitLendingBulk()
 	// 1. put processed takerLendingItem to database
 	lastState := lendingstate.LendingItemHistoryItem{}
 	// Typically, takerItem has never existed in database
@@ -424,8 +423,8 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 
 func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, trades map[common.Hash]*lendingstate.LendingTrade) error {
 	db := l.GetMongoDB()
-	sc := db.InitLendingBulk()
-	defer sc.Close()
+	db.InitLendingBulk()
+
 
 	txhash := result.TxHash
 	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
@@ -622,8 +621,7 @@ func (l *Lending) UpdateLendingTradeCache(hash common.Hash, txhash common.Hash, 
 
 func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 	db := l.GetMongoDB()
-	sc := db.InitLendingBulk()
-	defer sc.Close()
+	db.InitLendingBulk()
 
 	// rollback lendingItem
 	items := db.GetListItemByTxHash(txhash, &lendingstate.LendingItem{})

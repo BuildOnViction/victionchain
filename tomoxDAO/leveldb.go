@@ -3,7 +3,6 @@ package tomoxDAO
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/globalsign/mgo"
 	"github.com/tomochain/tomochain/common"
 	"sync"
 
@@ -118,16 +117,14 @@ func (db *BatchDatabase) GetListItemByHashes(hashes []string, val interface{}) i
 	return []interface{}{}
 }
 
-func (db *BatchDatabase) InitBulk() *mgo.Session {
-	return nil
+func (db *BatchDatabase) InitBulk() {
 }
 
 func (db *BatchDatabase) CommitBulk() error {
 	return nil
 }
 
-func (db *BatchDatabase) InitLendingBulk() *mgo.Session {
-	return nil
+func (db *BatchDatabase) InitLendingBulk() {
 }
 
 func (db *BatchDatabase) CommitLendingBulk() error {

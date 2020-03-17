@@ -303,21 +303,19 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash, val interface{}) error {
 	return nil
 }
 
-func (db *MongoDatabase) InitBulk() *mgo.Session {
-	sc := db.Session.Copy()
+func (db *MongoDatabase) InitBulk() {
+	sc := db.Session
 	db.orderBulk = sc.DB(db.dbName).C(ordersCollection).Bulk()
 	db.tradeBulk = sc.DB(db.dbName).C(tradesCollection).Bulk()
 	db.epochPriceBulk = sc.DB(db.dbName).C(epochPriceCollection).Bulk()
-	return sc
 }
 
-func (db *MongoDatabase) InitLendingBulk() *mgo.Session {
-	sc := db.Session.Copy()
+func (db *MongoDatabase) InitLendingBulk() {
+	sc := db.Session
 	db.lendingItemBulk = sc.DB(db.dbName).C(lendingItemsCollection).Bulk()
 	db.lendingTradeBulk = sc.DB(db.dbName).C(lendingTradesCollection).Bulk()
 	db.topUpBulk = sc.DB(db.dbName).C(lendingTopUpCollection).Bulk()
 	db.repayBulk = sc.DB(db.dbName).C(lendingRepayCollection).Bulk()
-	return sc
 }
 
 func (db *MongoDatabase) CommitBulk() error {

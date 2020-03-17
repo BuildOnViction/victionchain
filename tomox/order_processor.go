@@ -715,8 +715,7 @@ func (tomox *TomoX) UpdateMediumPriceBeforeEpoch(epochNumber uint64, tradingStat
 // orderbook hash genereted from baseToken, quoteToken at tomochain/tomox/tradingstate/common.go:214
 func (tomox *TomoX) LogEpochPrice(epochNumber uint64, epochPriceResult map[common.Hash]*big.Int) error {
 	db := tomox.GetMongoDB()
-	sc := db.InitBulk()
-	defer sc.Close()
+	db.InitBulk()
 
 	for orderbook, price := range epochPriceResult {
 		if price.Sign() <= 0 {
