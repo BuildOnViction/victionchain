@@ -125,6 +125,9 @@ func (v *BlockValidator) ValidateTradingOrder(statedb *state.StateDB, tomoxState
 		}
 
 		log.Debug("process tx match", "order", order)
+		if err := order.VerifyOrder(statedb); err != nil {
+			return fmt.Errorf("invalid order . Error: %v", err)
+		}
 		// process Matching Engine
 		newTrades, newRejectedOrders, err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tradingstate.GetTradingOrderBookHash(order.BaseToken, order.QuoteToken), order)
 		if err != nil {
@@ -160,6 +163,9 @@ func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingSta
 		// verify lendingItem
 
 		log.Debug("process lending tx", "lendingItem", lendingstate.ToJSON(l))
+		if err := l.VerifyLendingItem(statedb); err != nil {
+			return fmt.Errorf("invalid lendingItem . Error: %v", err)
+		}
 		// process Matching Engine
 		newTrades, newRejectedOrders, err := lendingService.ApplyOrder(blockTime, coinbase, v.bc, statedb, lendingStateDb, tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
 		if err != nil {
