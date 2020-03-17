@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 )
 
@@ -35,6 +37,20 @@ func IsValidRelayer(statedb *state.StateDB, coinbase common.Address) bool {
 	locRelayerState := GetLocMappingAtKey(coinbase.Hash(), LendingRelayerListSlot)
 
 	if v := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), common.BytesToHash(locRelayerState.Bytes())); v != (common.Hash{}) {
+		if tradingstate.IsResignedRelayer(coinbase, statedb) {
+			return false
+		}
+		slot := tradingstate.RelayerMappingSlot["RELAYER_LIST"]
+		locRelayerStateTrading := GetLocMappingAtKey(coinbase.Hash(), slot)
+
+		locBigDeposit := new(big.Int).SetUint64(uint64(0)).Add(locRelayerStateTrading, tradingstate.RelayerStructMappingSlot["_deposit"])
+		locHashDeposit := common.BigToHash(locBigDeposit)
+		balance := statedb.GetState(common.HexToAddress(common.RelayerRegistrationSMC), locHashDeposit).Big()
+		expectedFund := new(big.Int).Mul(common.BasePrice, common.RelayerLockedFund)
+		if balance.Cmp(expectedFund) <= 0 {
+			log.Debug("Relayer is not in relayer list", "relayer", coinbase.String(), "balance", balance, "expected", expectedFund)
+			return false
+		}
 		return true
 	}
 	return false
