@@ -515,7 +515,17 @@ func (tomox *TomoX) GetTradingState(block *types.Block) (*tradingstate.TradingSt
 func (tomox *TomoX) GetStateCache() tradingstate.Database {
 	return tomox.StateCache
 }
-
+func (tomox *TomoX) HasTradingState(block *types.Block) bool {
+	root, err := tomox.GetTradingStateRoot(block)
+	if err != nil {
+		return false
+	}
+	_, err = tomox.StateCache.OpenTrie(root)
+	if err !=nil{
+		return false
+	}
+	return true
+}
 func (tomox *TomoX) GetTriegc() *prque.Prque {
 	return tomox.Triegc
 }
