@@ -62,6 +62,7 @@ type LendingStateDB struct {
 func New(root common.Hash, db Database) (*LendingStateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
+		log.Error("Error when init new lending state trie ", "root", root.Hex(), "err", err)
 		return nil, err
 	}
 	return &LendingStateDB{

@@ -573,6 +573,18 @@ func (l *Lending) GetStateCache() lendingstate.Database {
 	return l.StateCache
 }
 
+func (l *Lending) HasLendingState(block *types.Block) bool {
+	root, err := l.GetLendingStateRoot(block)
+	if err != nil {
+		return false
+	}
+	_, err = l.StateCache.OpenTrie(root)
+	if err !=nil{
+		return false
+	}
+	return true
+}
+
 func (l *Lending) GetTriegc() *prque.Prque {
 	return l.Triegc
 }

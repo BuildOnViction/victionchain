@@ -67,6 +67,7 @@ type TradingStateDB struct {
 func New(root common.Hash, db Database) (*TradingStateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
+		log.Error("Error when init new trading state trie ", "root", root.Hex(), "err", err)
 		return nil, err
 	}
 	return &TradingStateDB{
