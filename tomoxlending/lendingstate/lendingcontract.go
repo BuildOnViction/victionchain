@@ -15,7 +15,7 @@ var (
 	DefaultCollateralSlot     = uint64(2)
 	SupportedBaseSlot         = uint64(3)
 	SupportedTermSlot         = uint64(4)
-	AllCollateralSlot         = uint64(5)
+	ILOCollateralSlot         = uint64(5)
 	LendingRelayerStructSlots = map[string]*big.Int{
 		"fee":         big.NewInt(0),
 		"bases":       big.NewInt(1),
@@ -219,10 +219,20 @@ func GetSupportedBaseToken(statedb *state.StateDB) []common.Address {
 // @return: list of address of collateral token
 func GetAllCollateral(statedb *state.StateDB) []common.Address {
 	collaterals := []common.Address{}
-	locAllCollateral := state.GetLocSimpleVariable(AllCollateralSlot)
-	length := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locAllCollateral).Big().Uint64()
+	locILOCollateral := state.GetLocSimpleVariable(ILOCollateralSlot)
+	length := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locILOCollateral).Big().Uint64()
 	for i := uint64(0); i < length; i++ {
-		loc := state.GetLocDynamicArrAtElement(locAllCollateral, i, 1)
+		loc := state.GetLocDynamicArrAtElement(locILOCollateral, i, 1)
+		addr := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), loc).Bytes())
+		if addr != (common.Address{}) {
+			collaterals = append(collaterals, addr)
+		}
+	}
+
+	locDefaultCollateralHash := state.GetLocSimpleVariable(DefaultCollateralSlot)
+	length = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDefaultCollateralHash).Big().Uint64()
+	for i := uint64(0); i < length; i++ {
+		loc := state.GetLocDynamicArrAtElement(locDefaultCollateralHash, i, 1)
 		addr := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), loc).Bytes())
 		if addr != (common.Address{}) {
 			collaterals = append(collaterals, addr)
