@@ -111,10 +111,13 @@ func (lendingsign LendingTxSigner) LendingCreateHash(tx *LendingTransaction) com
 	log.Debug("LendingCreateHash", "relayer", tx.RelayerAddress().Hex(), "useraddress", tx.UserAddress().Hex(),
 		"collateral", tx.CollateralToken().Hex(), "lending", tx.LendingToken().Hex(), "quantity", tx.Quantity(), "term", tx.Term(),
 		"interest", tx.Interest(), "side", tx.Side, "status", tx.Status(), "type", tx.Type(), "nonce", tx.Nonce())
+	borrowing := tx.Side() == LendingSideBorrow
 	sha := sha3.NewKeccak256()
 	sha.Write(tx.RelayerAddress().Bytes())
 	sha.Write(tx.UserAddress().Bytes())
-	sha.Write(tx.CollateralToken().Bytes())
+	if borrowing {
+		sha.Write(tx.CollateralToken().Bytes())
+	}
 	sha.Write(tx.LendingToken().Bytes())
 	sha.Write(common.BigToHash(tx.Quantity()).Bytes())
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Term()))).Bytes())
@@ -125,7 +128,7 @@ func (lendingsign LendingTxSigner) LendingCreateHash(tx *LendingTransaction) com
 	sha.Write([]byte(tx.Status()))
 	sha.Write([]byte(tx.Type()))
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
-	if tx.Side() == LendingSideBorrow {
+	if borrowing {
 		autoTopUp := int64(0)
 		if tx.AutoTopUp() {
 			autoTopUp = int64(1)
@@ -148,8 +151,8 @@ func (lendingsign LendingTxSigner) LendingCancelHash(tx *LendingTransaction) com
 	return common.BytesToHash(sha.Sum(nil))
 }
 
-// LendingPaymentHash hash of cancelled lending transaction
-func (lendingsign LendingTxSigner) LendingPaymentHash(tx *LendingTransaction) common.Hash {
+// LendingRepayHash hash of cancelled lending transaction
+func (lendingsign LendingTxSigner) LendingRepayHash(tx *LendingTransaction) common.Hash {
 	sha := sha3.NewKeccak256()
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
 	sha.Write([]byte(tx.Status()))
@@ -161,8 +164,8 @@ func (lendingsign LendingTxSigner) LendingPaymentHash(tx *LendingTransaction) co
 	return common.BytesToHash(sha.Sum(nil))
 }
 
-// LendingDipositHash hash of cancelled lending transaction
-func (lendingsign LendingTxSigner) LendingDipositHash(tx *LendingTransaction) common.Hash {
+// LendingTopUpHash hash of cancelled lending transaction
+func (lendingsign LendingTxSigner) LendingTopUpHash(tx *LendingTransaction) common.Hash {
 	sha := sha3.NewKeccak256()
 	sha.Write(common.BigToHash(big.NewInt(int64(tx.Nonce()))).Bytes())
 	sha.Write([]byte(tx.Status()))
@@ -185,10 +188,10 @@ func (lendingsign LendingTxSigner) Hash(tx *LendingTransaction) common.Hash {
 		return lendingsign.LendingCreateHash(tx)
 	}
 	if tx.IsTopupLending() {
-		return lendingsign.LendingDipositHash(tx)
+		return lendingsign.LendingTopUpHash(tx)
 	}
 	if tx.IsRePaymentLending() {
-		return lendingsign.LendingPaymentHash(tx)
+		return lendingsign.LendingRepayHash(tx)
 	}
 	return common.Hash{}
 }

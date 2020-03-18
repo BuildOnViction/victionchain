@@ -61,6 +61,7 @@ func getLendingNonce(t *testing.T, userAddress common.Address) (uint64, error) {
 }
 
 func (l *LendingMsg) computeHash() common.Hash {
+	borrowing := l.Side == lendingstate.Borrowing
 	sha := sha3.NewKeccak256()
 	if l.Status == lendingstate.LendingStatusCancelled {
 		sha := sha3.NewKeccak256()
@@ -70,10 +71,12 @@ func (l *LendingMsg) computeHash() common.Hash {
 		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingId))).Bytes())
 		sha.Write([]byte(l.Status))
 		sha.Write(l.RelayerAddress.Bytes())
-	} else {
+	} else if l.Status == lendingstate.LendingStatusNew {
 		sha.Write(l.RelayerAddress.Bytes())
 		sha.Write(l.UserAddress.Bytes())
-		sha.Write(l.CollateralToken.Bytes())
+		if borrowing {
+			sha.Write(l.CollateralToken.Bytes())
+		}
 		sha.Write(l.LendingToken.Bytes())
 		sha.Write(common.BigToHash(l.Quantity).Bytes())
 		sha.Write(common.BigToHash(big.NewInt(int64(l.Term))).Bytes())
@@ -85,7 +88,7 @@ func (l *LendingMsg) computeHash() common.Hash {
 		sha.Write([]byte(l.Type))
 		sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
 		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingTradeId))).Bytes())
-		if l.Status == types.LendingSideBorrow {
+		if borrowing {
 			autoTopUp := int64(0)
 			if l.AutoTopUp {
 				autoTopUp = int64(1)
@@ -107,7 +110,6 @@ func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string
 		log.Print(err)
 	}
 	nonce, err := getLendingNonce(t, crypto.PubkeyToAddress(privateKey.PublicKey))
-	fmt.Println("nonce", nonce, "err", err)
 	msg := &LendingMsg{
 		AccountNonce:    nonce,
 		Quantity:        amount,
@@ -136,6 +138,7 @@ func testSendLending(t *testing.T, amount *big.Int, interest uint64, side string
 	if err != nil {
 		log.Print(err)
 	}
+	fmt.Println("nonce", nonce, "side", msg.Side, "quantity", new(big.Int).Div(msg.Quantity, _1E8), "Interest", new(big.Int).Div(new(big.Int).SetUint64(msg.Interest), _1E8), "%")
 
 	err = client.SendLendingTransaction(context.Background(), signedTx)
 	if err != nil {
