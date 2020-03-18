@@ -713,6 +713,28 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 	}
 
 	finalizedTrades = map[common.Hash]*lendingstate.LendingTrade{}
+
+	// liquidate trades by time
+	for lendingBook, _ := range allLendingBooks {
+		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
+		log.Debug("ProcessLiquidationData time", "tradeIds", len(tradingIds))
+		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
+			for _, tradingId := range tradingIds {
+				log.Debug("ProcessRepay", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
+				trade, err := l.ProcessRepay(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
+				if err != nil {
+					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
+					return map[common.Hash]*lendingstate.LendingTrade{}, err
+				}
+				if trade != nil && trade.Hash != (common.Hash{}) {
+					finalizedTrades[trade.Hash] = trade
+				}
+			}
+			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
+		}
+	}
+
+	// liquidate trades by collateralPrice
 	for _, lendingPair := range allPairs {
 		orderbook := tradingstate.GetTradingOrderBookHash(lendingPair.CollateralToken, lendingPair.LendingToken)
 		_, liquidationPrice, err := l.GetCollateralPrices(chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
@@ -749,24 +771,6 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		}
 	}
 
-	for lendingBook, _ := range allLendingBooks {
-		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
-		log.Debug("ProcessLiquidationData time", "tradeIds", len(tradingIds))
-		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
-			for _, tradingId := range tradingIds {
-				log.Debug("ProcessRepay", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
-				trade, err := l.ProcessRepay(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
-				if err != nil {
-					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
-					return map[common.Hash]*lendingstate.LendingTrade{}, err
-				}
-				if trade != nil && trade.Hash != (common.Hash{}) {
-					finalizedTrades[trade.Hash] = trade
-				}
-			}
-			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
-		}
-	}
 	log.Debug("ProcessLiquidationData", "len", len(finalizedTrades))
 	return finalizedTrades, nil
 }
