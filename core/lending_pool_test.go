@@ -218,6 +218,7 @@ func TestSendLending(t *testing.T) {
 }
 
 func TestCancelLending(t *testing.T) {
+	//t.SkipNow() //TODO: remove it to run this test
 	key := ""
 	privateKey, err := crypto.HexToECDSA(key)
 	if err != nil {
