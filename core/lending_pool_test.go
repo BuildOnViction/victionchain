@@ -114,7 +114,6 @@ func testSendLending(key string, nonce uint64, lendToken, collateralToken common
 		Quantity:        amount,
 		RelayerAddress:  common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
 		UserAddress:     crypto.PubkeyToAddress(privateKey.PublicKey),
-		CollateralToken: collateralToken,
 		LendingToken:    lendToken,
 		Status:          status,
 		Side:            side,
@@ -125,6 +124,9 @@ func testSendLending(key string, nonce uint64, lendToken, collateralToken common
 		LendingId:       lendingId,
 		LendingTradeId:  tradeId,
 		ExtraData:       extraData,
+	}
+	if msg.Side == lendingstate.Borrowing {
+		msg.CollateralToken = collateralToken
 	}
 	if cancelledHash != (common.Hash{}) {
 		msg.Hash = cancelledHash
@@ -146,8 +148,8 @@ func testSendLending(key string, nonce uint64, lendToken, collateralToken common
 }
 
 func TestSendLending(t *testing.T) {
-	//t.SkipNow() //TODO: remove it to run this test
-	key := "65ec4d4dfbcac594a14c36baa462d6f73cd86134840f6cf7b80a1e1cd33473e2"
+	t.SkipNow() //TODO: remove it to run this test
+	key := ""
 	privateKey, err := crypto.HexToECDSA(key)
 	if err != nil {
 		log.Print(err)
@@ -218,7 +220,7 @@ func TestSendLending(t *testing.T) {
 }
 
 func TestCancelLending(t *testing.T) {
-	//t.SkipNow() //TODO: remove it to run this test
+	t.SkipNow() //TODO: remove it to run this test
 	key := ""
 	privateKey, err := crypto.HexToECDSA(key)
 	if err != nil {

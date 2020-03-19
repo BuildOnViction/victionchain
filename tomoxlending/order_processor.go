@@ -377,8 +377,8 @@ func (l *Lending) processOrderList(createdBlockTime uint64, coinbase common.Addr
 			lendingStateDB.InsertLiquidationTime(lendingOrderBook, new(big.Int).SetUint64(liquidationTime), tradingId)
 			log.Debug("SetTradeNonce", "lendingOrderBook", lendingOrderBook.Hex(), "nonce", tradingId+1)
 			lendingStateDB.SetTradeNonce(lendingOrderBook, tradingId)
-			log.Debug("InsertLiquidationPrice", "TradingOrderBookHash", tradingstate.GetTradingOrderBookHash(order.CollateralToken, order.LendingToken).Hex(), "tradingId", tradingId, "lendingOrderBook", lendingOrderBook.Hex(), "liquidationPrice", liquidationPrice)
-			tradingStateDb.InsertLiquidationPrice(tradingstate.GetTradingOrderBookHash(order.CollateralToken, order.LendingToken), liquidationPrice, lendingOrderBook, tradingId)
+			log.Debug("InsertLiquidationPrice", "TradingOrderBookHash", tradingstate.GetTradingOrderBookHash(collateralToken, order.LendingToken).Hex(), "tradingId", tradingId, "lendingOrderBook", lendingOrderBook.Hex(), "liquidationPrice", liquidationPrice)
+			tradingStateDb.InsertLiquidationPrice(tradingstate.GetTradingOrderBookHash(collateralToken, order.LendingToken), liquidationPrice, lendingOrderBook, tradingId)
 			trades = append(trades, &lendingTrade)
 		}
 		if rejectMaker {
@@ -411,9 +411,13 @@ func (l *Lending) getLendQuantity(
 	if err != nil || LendingTokenDecimal.Sign() == 0 {
 		return lendingstate.Zero, lendingstate.Zero, false, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.LendingToken.String(), err)
 	}
-	collateralTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, makerOrder.CollateralToken)
+	collateralToken := makerOrder.CollateralToken
+	if takerOrder.Side == lendingstate.Borrowing {
+		collateralToken = takerOrder.CollateralToken
+	}
+	collateralTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, collateralToken)
 	if err != nil || collateralTokenDecimal.Sign() == 0 {
-		return lendingstate.Zero, lendingstate.Zero, false, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.CollateralToken.String(), err)
+		return lendingstate.Zero, lendingstate.Zero, false, nil, fmt.Errorf("fail to get tokenDecimal. Token: %v . Err: %v", collateralToken.String(), err)
 	}
 	if takerOrder.Relayer.String() == makerOrder.Relayer.String() {
 		if err := lendingstate.CheckRelayerFee(takerOrder.Relayer, new(big.Int).Mul(common.RelayerLendingFee, big.NewInt(2)), statedb); err != nil {
@@ -431,24 +435,22 @@ func (l *Lending) getLendQuantity(
 		}
 	}
 	var takerBalance, makerBalance *big.Int
-	var lendToken, collateralToken common.Address
+	var lendToken common.Address
 	switch takerOrder.Side {
 	case lendingstate.Borrowing:
 		takerBalance = lendingstate.GetTokenBalance(takerOrder.UserAddress, takerOrder.CollateralToken, statedb)
 		makerBalance = lendingstate.GetTokenBalance(makerOrder.UserAddress, takerOrder.LendingToken, statedb)
 		lendToken = takerOrder.LendingToken
-		collateralToken = takerOrder.CollateralToken
 	case lendingstate.Investing:
 		takerBalance = lendingstate.GetTokenBalance(takerOrder.UserAddress, makerOrder.LendingToken, statedb)
 		makerBalance = lendingstate.GetTokenBalance(makerOrder.UserAddress, makerOrder.CollateralToken, statedb)
 		lendToken = makerOrder.LendingToken
-		collateralToken = makerOrder.CollateralToken
 	default:
 		takerBalance = big.NewInt(0)
 		makerBalance = big.NewInt(0)
 	}
 	quantity, rejectMaker := GetLendQuantity(takerOrder.Side, collateralTokenDecimal, depositRate, collateralPrice, takerBalance, makerBalance, quantityToTrade)
-	log.Debug("GetLendQuantity", "side", takerOrder.Side, "takerBalance", takerBalance, "makerBalance", makerBalance, "LendingToken", makerOrder.LendingToken, "CollateralToken", makerOrder.CollateralToken, "quantity", quantity, "rejectMaker", rejectMaker)
+	log.Debug("GetLendQuantity", "side", takerOrder.Side, "takerBalance", takerBalance, "makerBalance", makerBalance, "LendingToken", makerOrder.LendingToken, "CollateralToken", collateralToken, "quantity", quantity, "rejectMaker", rejectMaker)
 	if quantity.Sign() > 0 {
 		// Apply Match Order
 		settleBalanceResult, err := lendingstate.GetSettleBalance(takerOrder.Side, lendTokenTOMOPrice, collateralPrice, depositRate, borrowFee, lendToken, collateralToken, LendingTokenDecimal, collateralTokenDecimal, quantity)
