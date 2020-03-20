@@ -390,7 +390,9 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		}
 	}
 
-	// update status for Market orders
+	// for Market orders
+	// filledAmount > 0 : FILLED
+	// otherwise: REJECTED
 	if updatedTakerOrder.Type == tradingstate.Market {
 		if updatedTakerOrder.FilledAmount.Cmp(big.NewInt(0)) > 0 {
 			updatedTakerOrder.Status = tradingstate.OrderStatusFilled
@@ -456,8 +458,13 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 					UpdatedAt:    updatedTakerOrder.UpdatedAt,
 				}
 				tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.Hash, txHash, orderHistoryRecord)
-
-				updatedTakerOrder.Status = tradingstate.OrderStatusRejected
+				// if whole order is rejected, status = REJECTED
+				// otherwise, status = FILLED
+				if updatedTakerOrder.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+					updatedTakerOrder.Status = tradingstate.OrderStatusFilled
+				} else {
+					updatedTakerOrder.Status = tradingstate.OrderStatusRejected
+				}
 				updatedTakerOrder.TxHash = txHash
 				updatedTakerOrder.UpdatedAt = txMatchTime
 				if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
@@ -485,7 +492,13 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 				if ok && dirtyFilledAmount != nil {
 					order.FilledAmount = new(big.Int).Add(order.FilledAmount, dirtyFilledAmount)
 				}
-				order.Status = tradingstate.OrderStatusRejected
+				// if whole order is rejected, status = REJECTED
+				// otherwise, status = FILLED
+				if order.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+					order.Status = tradingstate.OrderStatusFilled
+				} else {
+					order.Status = tradingstate.OrderStatusRejected
+				}
 				order.TxHash = txHash
 				order.UpdatedAt = txMatchTime
 				if err = db.PutObject(order.Hash, order); err != nil {

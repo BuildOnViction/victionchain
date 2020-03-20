@@ -307,7 +307,9 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		return err
 	}
 
-	// update status for Market orders
+	// for Market orders
+	// filledAmount > 0 : FILLED
+	// otherwise: REJECTED
 	if updatedTakerLendingItem.Type == lendingstate.Market && updatedTakerLendingItem.Status != lendingstate.Repay && updatedTakerLendingItem.Status != lendingstate.TopUp {
 		if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
 			updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
@@ -376,8 +378,13 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 					UpdatedAt:    updatedTakerLendingItem.UpdatedAt,
 				}
 				l.UpdateLendingItemCache(updatedTakerLendingItem.LendingToken, updatedTakerLendingItem.CollateralToken, updatedTakerLendingItem.Hash, txHash, historyRecord)
-
-				updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
+				// if whole order is rejected, status = REJECTED
+				// otherwise, status = FILLED
+				if updatedTakerLendingItem.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+					updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
+				} else {
+					updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
+				}
 				updatedTakerLendingItem.TxHash = txHash
 				updatedTakerLendingItem.UpdatedAt = txMatchTime
 				if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
@@ -405,7 +412,13 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 				if ok && dirtyFilledAmount != nil {
 					r.FilledAmount = new(big.Int).Add(r.FilledAmount, dirtyFilledAmount)
 				}
-				r.Status = lendingstate.LendingStatusReject
+				// if whole order is rejected, status = REJECTED
+				// otherwise, status = FILLED
+				if r.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+					r.Status = lendingstate.LendingStatusFilled
+				} else {
+					r.Status = lendingstate.LendingStatusReject
+				}
 				r.TxHash = txHash
 				r.UpdatedAt = txMatchTime
 				if err = db.PutObject(r.Hash, r); err != nil {
