@@ -36,15 +36,15 @@ var TIPTomoXTestnet = big.NewInt(11303000)
 var IsTestnet bool = false
 var StoreRewardFolder string
 var RollbackHash Hash
-var BasePrice = big.NewInt(1000000000000000000) // 1
-var RelayerLockedFund = big.NewInt(20000)       // 20000 TOMO
-var RelayerFee = big.NewInt(1000000000000000)   // 0.001
-var TomoXBaseFee = big.NewInt(10000)
-var RelayerCancelFee = big.NewInt(100000000000000)    // 0.0001
-var TomoXBaseCancelFee = big.NewInt(10000)            // 1/10000
-var RelayerLendingFee = big.NewInt(10000000000000000) // 0.01
-var LendingCancelFee = big.NewInt(1000000)            // 1/1000000
-var BaseLendingInterest = big.NewInt(100000000)       // 1e8
+var BasePrice = big.NewInt(1000000000000000000)                         // 1
+var RelayerLockedFund = big.NewInt(20000)                               // 20000 TOMO
+var RelayerFee = big.NewInt(1000000000000000)                           // 0.001
+var TomoXBaseFee = big.NewInt(10000)                                    // 1 / TomoXBaseFee
+var RelayerCancelFee = big.NewInt(100000000000000)                      // 0.0001
+var TomoXBaseCancelFee = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (TomoXBaseFee *10)
+var RelayerLendingFee = big.NewInt(10000000000000000)                   // 0.01
+var RelayerLendingCancelFee = big.NewInt(1000000000000000)              // 0.001
+var BaseLendingInterest = big.NewInt(100000000)                         // 1e8
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var RelayerRegistrationSMC = "0x0342d186212b04E69eA682b3bed8e232b6b3361a"
