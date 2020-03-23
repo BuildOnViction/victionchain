@@ -329,7 +329,7 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 			item := lendingStateDb.GetLendingOrder(lendingBook, common.BigToHash(new(big.Int).SetUint64(lendingId)))
 			cancelFee := big.NewInt(0)
 			cancelFee = new(big.Int).Mul(item.Quantity, borrowingFeeRate)
-			cancelFee = new(big.Int).Div(cancelFee, common.LendingCancelFee)
+			cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
 
 			actualBalance := GetTokenBalance(userAddress, lendingToken, statedb)
 			if actualBalance.Cmp(cancelFee) < 0 {

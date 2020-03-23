@@ -88,8 +88,8 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 		Price:           price,
 		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
 		UserAddress:     crypto.PubkeyToAddress(privateKey.PublicKey),
-		BaseToken:       BTCAddress,
-		QuoteToken:      common.HexToAddress(common.TomoNativeAddress),
+		BaseToken:       common.HexToAddress(common.TomoNativeAddress),
+		QuoteToken:      BTCAddress,
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
@@ -298,9 +298,10 @@ func TestNoMatch(t *testing.T) {
 }
 
 func TestCancelOrder(t *testing.T) {
-	//testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "NEW", 0)
-	//time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "CANCELLED", 3)
-	//time.Sleep(5 * time.Second)
+	TOMOBTCPrice := new(big.Int).Mul(big.NewInt(10000000000000), big.NewInt(6)) // 0.00006
+	testSendOrder(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOBTCPrice, "BUY", "NEW", 0)
+	time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOBTCPrice, "BUY", "CANCELLED", 3)
+	time.Sleep(5 * time.Second)
 	//testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "SELL", "NEW", 0)
 }
