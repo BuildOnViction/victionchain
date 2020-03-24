@@ -2489,7 +2489,6 @@ func (s *PublicTomoXTransactionPoolAPI) GetLiquidatedTradesByTxHash(ctx context.
 	return finalizedResult, nil
 }
 
-
 // Sign calculates an ECDSA signature for:
 // keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
 //
@@ -2740,8 +2739,9 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 	for _, node := range masternodes {
 		mapMN[node] = true
 	}
+	signer := types.MakeSigner(b.ChainConfig(), new(big.Int).SetUint64(blockNumber))
 	if engine, ok := b.GetEngine().(*posv.Posv); ok {
-		limitNumber := blockNumber - blockNumber%b.ChainConfig().Posv.Epoch + 2*b.ChainConfig().Posv.Epoch - 1
+		limitNumber := blockNumber + common.LimitTimeFinality
 		currentNumber := b.CurrentBlock().NumberU64()
 		if limitNumber > currentNumber {
 			limitNumber = currentNumber
@@ -2752,10 +2752,10 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 				return addrs, err
 			}
 			blockData, err := b.BlockByNumber(nil, rpc.BlockNumber(i))
-			signTxs := engine.CacheSigner(header.Hash(),blockData.Transactions())
+			signTxs := engine.CacheSigner(header.Hash(), blockData.Transactions())
 			for _, signtx := range signTxs {
 				blkHash := common.BytesToHash(signtx.Data()[len(signtx.Data())-32:])
-				from := *signtx.From()
+				from, _ := types.Sender(signer, signtx)
 				if blkHash == blockHash && mapMN[from] {
 					addrs = append(addrs, from)
 					delete(mapMN, from)
