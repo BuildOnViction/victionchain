@@ -2751,22 +2751,8 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 			if err != nil {
 				return addrs, err
 			}
-			signData, ok := engine.BlockSigners.Get(header.Hash())
-			var signTxs []*types.Transaction = nil
-			if !ok {
-				blockData, err := b.BlockByNumber(nil, rpc.BlockNumber(i))
-				if err != nil {
-					return addrs, err
-				}
-				signTxs = []*types.Transaction{}
-				for _, tx := range blockData.Transactions() {
-					if tx.IsSigningTransaction() {
-						signTxs = append(signTxs, tx)
-					}
-				}
-			} else {
-				signTxs = signData.([]*types.Transaction)
-			}
+			blockData, err := b.BlockByNumber(nil, rpc.BlockNumber(i))
+			signTxs := engine.CacheSigner(header.Hash(),blockData.Transactions())
 			for _, signtx := range signTxs {
 				blkHash := common.BytesToHash(signtx.Data()[len(signtx.Data())-32:])
 				from := *signtx.From()
