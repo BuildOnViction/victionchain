@@ -896,9 +896,10 @@ func (l *Lending) GetCollateralPrices(chain consensus.ChainContext, statedb *sta
 			if err != nil {
 				return nil, nil, err
 			}
-			collateralPrice = collateralPrice.Mul(collateralPrice, lendingTokenDecimal)
-			collateralPrice = new(big.Int).Div(collateralTOMOPrice, lendTokenTOMOPrice)
-			log.Debug("GetCollateralPrices: Calculate collateral/LendToken price from collateral/TOMO, lendToken/TOMO", "collateralPrice", collateralPrice)
+			collateralPrice = new(big.Int).Mul(collateralTOMOPrice, lendingTokenDecimal)
+			collateralPrice = new(big.Int).Div(collateralPrice, lendTokenTOMOPrice)
+			log.Debug("GetCollateralPrices: Calculate collateral/LendToken price from collateral/TOMO, lendToken/TOMO", "collateralPrice", collateralPrice,
+				"collateralTOMOPrice", collateralTOMOPrice, "lendingTokenDecimal", lendingTokenDecimal, "lendTokenTOMOPrice", lendTokenTOMOPrice)
 		}
 	}
 
