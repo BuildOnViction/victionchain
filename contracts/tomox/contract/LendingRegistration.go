@@ -13,123 +13,123 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 )
 
-// AbstractRegistrationABI is the input ABI used to generate the binding from.
-const AbstractRegistrationABI = "[{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"RESIGN_REQUESTS\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"getRelayerByCoinbase\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"},{\"name\":\"\",\"type\":\"address\"},{\"name\":\"\",\"type\":\"uint256\"},{\"name\":\"\",\"type\":\"uint16\"},{\"name\":\"\",\"type\":\"address[]\"},{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]"
+// LAbstractRegistrationABI is the input ABI used to generate the binding from.
+const LAbstractRegistrationABI = "[{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"RESIGN_REQUESTS\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"getRelayerByCoinbase\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"},{\"name\":\"\",\"type\":\"address\"},{\"name\":\"\",\"type\":\"uint256\"},{\"name\":\"\",\"type\":\"uint16\"},{\"name\":\"\",\"type\":\"address[]\"},{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]"
 
-// AbstractRegistrationBin is the compiled bytecode used for deploying new contracts.
-const AbstractRegistrationBin = `0x`
+// LAbstractRegistrationBin is the compiled bytecode used for deploying new contracts.
+const LAbstractRegistrationBin = `0x`
 
-// DeployAbstractRegistration deploys a new Ethereum contract, binding an instance of AbstractRegistration to it.
-func DeployAbstractRegistration(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *AbstractRegistration, error) {
-	parsed, err := abi.JSON(strings.NewReader(AbstractRegistrationABI))
+// DeployLAbstractRegistration deploys a new Ethereum contract, binding an instance of LAbstractRegistration to it.
+func DeployLAbstractRegistration(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *LAbstractRegistration, error) {
+	parsed, err := abi.JSON(strings.NewReader(LAbstractRegistrationABI))
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	address, tx, contract, err := bind.DeployContract(auth, parsed, common.FromHex(AbstractRegistrationBin), backend)
+	address, tx, contract, err := bind.DeployContract(auth, parsed, common.FromHex(LAbstractRegistrationBin), backend)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &AbstractRegistration{AbstractRegistrationCaller: AbstractRegistrationCaller{contract: contract}, AbstractRegistrationTransactor: AbstractRegistrationTransactor{contract: contract}, AbstractRegistrationFilterer: AbstractRegistrationFilterer{contract: contract}}, nil
+	return address, tx, &LAbstractRegistration{LAbstractRegistrationCaller: LAbstractRegistrationCaller{contract: contract}, LAbstractRegistrationTransactor: LAbstractRegistrationTransactor{contract: contract}, LAbstractRegistrationFilterer: LAbstractRegistrationFilterer{contract: contract}}, nil
 }
 
-// AbstractRegistration is an auto generated Go binding around an Ethereum contract.
-type AbstractRegistration struct {
-	AbstractRegistrationCaller     // Read-only binding to the contract
-	AbstractRegistrationTransactor // Write-only binding to the contract
-	AbstractRegistrationFilterer   // Log filterer for contract events
+// LAbstractRegistration is an auto generated Go binding around an Ethereum contract.
+type LAbstractRegistration struct {
+	LAbstractRegistrationCaller     // Read-only binding to the contract
+	LAbstractRegistrationTransactor // Write-only binding to the contract
+	LAbstractRegistrationFilterer   // Log filterer for contract events
 }
 
-// AbstractRegistrationCaller is an auto generated read-only Go binding around an Ethereum contract.
-type AbstractRegistrationCaller struct {
+// LAbstractRegistrationCaller is an auto generated read-only Go binding around an Ethereum contract.
+type LAbstractRegistrationCaller struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// AbstractRegistrationTransactor is an auto generated write-only Go binding around an Ethereum contract.
-type AbstractRegistrationTransactor struct {
+// LAbstractRegistrationTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type LAbstractRegistrationTransactor struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// AbstractRegistrationFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
-type AbstractRegistrationFilterer struct {
+// LAbstractRegistrationFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type LAbstractRegistrationFilterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// AbstractRegistrationSession is an auto generated Go binding around an Ethereum contract,
+// LAbstractRegistrationSession is an auto generated Go binding around an Ethereum contract,
 // with pre-set call and transact options.
-type AbstractRegistrationSession struct {
-	Contract     *AbstractRegistration // Generic contract binding to set the session for
-	CallOpts     bind.CallOpts         // Call options to use throughout this session
-	TransactOpts bind.TransactOpts     // Transaction auth options to use throughout this session
+type LAbstractRegistrationSession struct {
+	Contract     *LAbstractRegistration // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts          // Call options to use throughout this session
+	TransactOpts bind.TransactOpts      // Transaction auth options to use throughout this session
 }
 
-// AbstractRegistrationCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// LAbstractRegistrationCallerSession is an auto generated read-only Go binding around an Ethereum contract,
 // with pre-set call options.
-type AbstractRegistrationCallerSession struct {
-	Contract *AbstractRegistrationCaller // Generic contract caller binding to set the session for
-	CallOpts bind.CallOpts               // Call options to use throughout this session
+type LAbstractRegistrationCallerSession struct {
+	Contract *LAbstractRegistrationCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts                // Call options to use throughout this session
 }
 
-// AbstractRegistrationTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// LAbstractRegistrationTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
 // with pre-set transact options.
-type AbstractRegistrationTransactorSession struct {
-	Contract     *AbstractRegistrationTransactor // Generic contract transactor binding to set the session for
-	TransactOpts bind.TransactOpts               // Transaction auth options to use throughout this session
+type LAbstractRegistrationTransactorSession struct {
+	Contract     *LAbstractRegistrationTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts                // Transaction auth options to use throughout this session
 }
 
-// AbstractRegistrationRaw is an auto generated low-level Go binding around an Ethereum contract.
-type AbstractRegistrationRaw struct {
-	Contract *AbstractRegistration // Generic contract binding to access the raw methods on
+// LAbstractRegistrationRaw is an auto generated low-level Go binding around an Ethereum contract.
+type LAbstractRegistrationRaw struct {
+	Contract *LAbstractRegistration // Generic contract binding to access the raw methods on
 }
 
-// AbstractRegistrationCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
-type AbstractRegistrationCallerRaw struct {
-	Contract *AbstractRegistrationCaller // Generic read-only contract binding to access the raw methods on
+// LAbstractRegistrationCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type LAbstractRegistrationCallerRaw struct {
+	Contract *LAbstractRegistrationCaller // Generic read-only contract binding to access the raw methods on
 }
 
-// AbstractRegistrationTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
-type AbstractRegistrationTransactorRaw struct {
-	Contract *AbstractRegistrationTransactor // Generic write-only contract binding to access the raw methods on
+// LAbstractRegistrationTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type LAbstractRegistrationTransactorRaw struct {
+	Contract *LAbstractRegistrationTransactor // Generic write-only contract binding to access the raw methods on
 }
 
-// NewAbstractRegistration creates a new instance of AbstractRegistration, bound to a specific deployed contract.
-func NewAbstractRegistration(address common.Address, backend bind.ContractBackend) (*AbstractRegistration, error) {
-	contract, err := bindAbstractRegistration(address, backend, backend, backend)
+// NewLAbstractRegistration creates a new instance of LAbstractRegistration, bound to a specific deployed contract.
+func NewLAbstractRegistration(address common.Address, backend bind.ContractBackend) (*LAbstractRegistration, error) {
+	contract, err := bindLAbstractRegistration(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &AbstractRegistration{AbstractRegistrationCaller: AbstractRegistrationCaller{contract: contract}, AbstractRegistrationTransactor: AbstractRegistrationTransactor{contract: contract}, AbstractRegistrationFilterer: AbstractRegistrationFilterer{contract: contract}}, nil
+	return &LAbstractRegistration{LAbstractRegistrationCaller: LAbstractRegistrationCaller{contract: contract}, LAbstractRegistrationTransactor: LAbstractRegistrationTransactor{contract: contract}, LAbstractRegistrationFilterer: LAbstractRegistrationFilterer{contract: contract}}, nil
 }
 
-// NewAbstractRegistrationCaller creates a new read-only instance of AbstractRegistration, bound to a specific deployed contract.
-func NewAbstractRegistrationCaller(address common.Address, caller bind.ContractCaller) (*AbstractRegistrationCaller, error) {
-	contract, err := bindAbstractRegistration(address, caller, nil, nil)
+// NewLAbstractRegistrationCaller creates a new read-only instance of LAbstractRegistration, bound to a specific deployed contract.
+func NewLAbstractRegistrationCaller(address common.Address, caller bind.ContractCaller) (*LAbstractRegistrationCaller, error) {
+	contract, err := bindLAbstractRegistration(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &AbstractRegistrationCaller{contract: contract}, nil
+	return &LAbstractRegistrationCaller{contract: contract}, nil
 }
 
-// NewAbstractRegistrationTransactor creates a new write-only instance of AbstractRegistration, bound to a specific deployed contract.
-func NewAbstractRegistrationTransactor(address common.Address, transactor bind.ContractTransactor) (*AbstractRegistrationTransactor, error) {
-	contract, err := bindAbstractRegistration(address, nil, transactor, nil)
+// NewLAbstractRegistrationTransactor creates a new write-only instance of LAbstractRegistration, bound to a specific deployed contract.
+func NewLAbstractRegistrationTransactor(address common.Address, transactor bind.ContractTransactor) (*LAbstractRegistrationTransactor, error) {
+	contract, err := bindLAbstractRegistration(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &AbstractRegistrationTransactor{contract: contract}, nil
+	return &LAbstractRegistrationTransactor{contract: contract}, nil
 }
 
-// NewAbstractRegistrationFilterer creates a new log filterer instance of AbstractRegistration, bound to a specific deployed contract.
-func NewAbstractRegistrationFilterer(address common.Address, filterer bind.ContractFilterer) (*AbstractRegistrationFilterer, error) {
-	contract, err := bindAbstractRegistration(address, nil, nil, filterer)
+// NewLAbstractRegistrationFilterer creates a new log filterer instance of LAbstractRegistration, bound to a specific deployed contract.
+func NewLAbstractRegistrationFilterer(address common.Address, filterer bind.ContractFilterer) (*LAbstractRegistrationFilterer, error) {
+	contract, err := bindLAbstractRegistration(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &AbstractRegistrationFilterer{contract: contract}, nil
+	return &LAbstractRegistrationFilterer{contract: contract}, nil
 }
 
-// bindAbstractRegistration binds a generic wrapper to an already deployed contract.
-func bindAbstractRegistration(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(AbstractRegistrationABI))
+// bindLAbstractRegistration binds a generic wrapper to an already deployed contract.
+func bindLAbstractRegistration(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(LAbstractRegistrationABI))
 	if err != nil {
 		return nil, err
 	}
@@ -140,70 +140,70 @@ func bindAbstractRegistration(address common.Address, caller bind.ContractCaller
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_AbstractRegistration *AbstractRegistrationRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
-	return _AbstractRegistration.Contract.AbstractRegistrationCaller.contract.Call(opts, result, method, params...)
+func (_LAbstractRegistration *LAbstractRegistrationRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+	return _LAbstractRegistration.Contract.LAbstractRegistrationCaller.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_AbstractRegistration *AbstractRegistrationRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _AbstractRegistration.Contract.AbstractRegistrationTransactor.contract.Transfer(opts)
+func (_LAbstractRegistration *LAbstractRegistrationRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _LAbstractRegistration.Contract.LAbstractRegistrationTransactor.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_AbstractRegistration *AbstractRegistrationRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _AbstractRegistration.Contract.AbstractRegistrationTransactor.contract.Transact(opts, method, params...)
+func (_LAbstractRegistration *LAbstractRegistrationRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _LAbstractRegistration.Contract.LAbstractRegistrationTransactor.contract.Transact(opts, method, params...)
 }
 
 // Call invokes the (constant) contract method with params as input values and
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_AbstractRegistration *AbstractRegistrationCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
-	return _AbstractRegistration.Contract.contract.Call(opts, result, method, params...)
+func (_LAbstractRegistration *LAbstractRegistrationCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+	return _LAbstractRegistration.Contract.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_AbstractRegistration *AbstractRegistrationTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _AbstractRegistration.Contract.contract.Transfer(opts)
+func (_LAbstractRegistration *LAbstractRegistrationTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _LAbstractRegistration.Contract.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_AbstractRegistration *AbstractRegistrationTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _AbstractRegistration.Contract.contract.Transact(opts, method, params...)
+func (_LAbstractRegistration *LAbstractRegistrationTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _LAbstractRegistration.Contract.contract.Transact(opts, method, params...)
 }
 
 // RESIGNREQUESTS is a free data retrieval call binding the contract method 0x500f99f7.
 //
 // Solidity: function RESIGN_REQUESTS( address) constant returns(uint256)
-func (_AbstractRegistration *AbstractRegistrationCaller) RESIGNREQUESTS(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
+func (_LAbstractRegistration *LAbstractRegistrationCaller) RESIGNREQUESTS(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
 	)
 	out := ret0
-	err := _AbstractRegistration.contract.Call(opts, out, "RESIGN_REQUESTS", arg0)
+	err := _LAbstractRegistration.contract.Call(opts, out, "RESIGN_REQUESTS", arg0)
 	return *ret0, err
 }
 
 // RESIGNREQUESTS is a free data retrieval call binding the contract method 0x500f99f7.
 //
 // Solidity: function RESIGN_REQUESTS( address) constant returns(uint256)
-func (_AbstractRegistration *AbstractRegistrationSession) RESIGNREQUESTS(arg0 common.Address) (*big.Int, error) {
-	return _AbstractRegistration.Contract.RESIGNREQUESTS(&_AbstractRegistration.CallOpts, arg0)
+func (_LAbstractRegistration *LAbstractRegistrationSession) RESIGNREQUESTS(arg0 common.Address) (*big.Int, error) {
+	return _LAbstractRegistration.Contract.RESIGNREQUESTS(&_LAbstractRegistration.CallOpts, arg0)
 }
 
 // RESIGNREQUESTS is a free data retrieval call binding the contract method 0x500f99f7.
 //
 // Solidity: function RESIGN_REQUESTS( address) constant returns(uint256)
-func (_AbstractRegistration *AbstractRegistrationCallerSession) RESIGNREQUESTS(arg0 common.Address) (*big.Int, error) {
-	return _AbstractRegistration.Contract.RESIGNREQUESTS(&_AbstractRegistration.CallOpts, arg0)
+func (_LAbstractRegistration *LAbstractRegistrationCallerSession) RESIGNREQUESTS(arg0 common.Address) (*big.Int, error) {
+	return _LAbstractRegistration.Contract.RESIGNREQUESTS(&_LAbstractRegistration.CallOpts, arg0)
 }
 
 // GetRelayerByCoinbase is a free data retrieval call binding the contract method 0x540105c7.
 //
 // Solidity: function getRelayerByCoinbase( address) constant returns(uint256, address, uint256, uint16, address[], address[])
-func (_AbstractRegistration *AbstractRegistrationCaller) GetRelayerByCoinbase(opts *bind.CallOpts, arg0 common.Address) (*big.Int, common.Address, *big.Int, uint16, []common.Address, []common.Address, error) {
+func (_LAbstractRegistration *LAbstractRegistrationCaller) GetRelayerByCoinbase(opts *bind.CallOpts, arg0 common.Address) (*big.Int, common.Address, *big.Int, uint16, []common.Address, []common.Address, error) {
 	var (
 		ret0 = new(*big.Int)
 		ret1 = new(common.Address)
@@ -220,29 +220,403 @@ func (_AbstractRegistration *AbstractRegistrationCaller) GetRelayerByCoinbase(op
 		ret4,
 		ret5,
 	}
-	err := _AbstractRegistration.contract.Call(opts, out, "getRelayerByCoinbase", arg0)
+	err := _LAbstractRegistration.contract.Call(opts, out, "getRelayerByCoinbase", arg0)
 	return *ret0, *ret1, *ret2, *ret3, *ret4, *ret5, err
 }
 
 // GetRelayerByCoinbase is a free data retrieval call binding the contract method 0x540105c7.
 //
 // Solidity: function getRelayerByCoinbase( address) constant returns(uint256, address, uint256, uint16, address[], address[])
-func (_AbstractRegistration *AbstractRegistrationSession) GetRelayerByCoinbase(arg0 common.Address) (*big.Int, common.Address, *big.Int, uint16, []common.Address, []common.Address, error) {
-	return _AbstractRegistration.Contract.GetRelayerByCoinbase(&_AbstractRegistration.CallOpts, arg0)
+func (_LAbstractRegistration *LAbstractRegistrationSession) GetRelayerByCoinbase(arg0 common.Address) (*big.Int, common.Address, *big.Int, uint16, []common.Address, []common.Address, error) {
+	return _LAbstractRegistration.Contract.GetRelayerByCoinbase(&_LAbstractRegistration.CallOpts, arg0)
 }
 
 // GetRelayerByCoinbase is a free data retrieval call binding the contract method 0x540105c7.
 //
 // Solidity: function getRelayerByCoinbase( address) constant returns(uint256, address, uint256, uint16, address[], address[])
-func (_AbstractRegistration *AbstractRegistrationCallerSession) GetRelayerByCoinbase(arg0 common.Address) (*big.Int, common.Address, *big.Int, uint16, []common.Address, []common.Address, error) {
-	return _AbstractRegistration.Contract.GetRelayerByCoinbase(&_AbstractRegistration.CallOpts, arg0)
+func (_LAbstractRegistration *LAbstractRegistrationCallerSession) GetRelayerByCoinbase(arg0 common.Address) (*big.Int, common.Address, *big.Int, uint16, []common.Address, []common.Address, error) {
+	return _LAbstractRegistration.Contract.GetRelayerByCoinbase(&_LAbstractRegistration.CallOpts, arg0)
+}
+
+// LAbstractTOMOXListingABI is the input ABI used to generate the binding from.
+const LAbstractTOMOXListingABI = "[{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"getTokenStatus\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]"
+
+// LAbstractTOMOXListingBin is the compiled bytecode used for deploying new contracts.
+const LAbstractTOMOXListingBin = `0x`
+
+// DeployLAbstractTOMOXListing deploys a new Ethereum contract, binding an instance of LAbstractTOMOXListing to it.
+func DeployLAbstractTOMOXListing(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *LAbstractTOMOXListing, error) {
+	parsed, err := abi.JSON(strings.NewReader(LAbstractTOMOXListingABI))
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	address, tx, contract, err := bind.DeployContract(auth, parsed, common.FromHex(LAbstractTOMOXListingBin), backend)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &LAbstractTOMOXListing{LAbstractTOMOXListingCaller: LAbstractTOMOXListingCaller{contract: contract}, LAbstractTOMOXListingTransactor: LAbstractTOMOXListingTransactor{contract: contract}, LAbstractTOMOXListingFilterer: LAbstractTOMOXListingFilterer{contract: contract}}, nil
+}
+
+// LAbstractTOMOXListing is an auto generated Go binding around an Ethereum contract.
+type LAbstractTOMOXListing struct {
+	LAbstractTOMOXListingCaller     // Read-only binding to the contract
+	LAbstractTOMOXListingTransactor // Write-only binding to the contract
+	LAbstractTOMOXListingFilterer   // Log filterer for contract events
+}
+
+// LAbstractTOMOXListingCaller is an auto generated read-only Go binding around an Ethereum contract.
+type LAbstractTOMOXListingCaller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LAbstractTOMOXListingTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type LAbstractTOMOXListingTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LAbstractTOMOXListingFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type LAbstractTOMOXListingFilterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LAbstractTOMOXListingSession is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type LAbstractTOMOXListingSession struct {
+	Contract     *LAbstractTOMOXListing // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts          // Call options to use throughout this session
+	TransactOpts bind.TransactOpts      // Transaction auth options to use throughout this session
+}
+
+// LAbstractTOMOXListingCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type LAbstractTOMOXListingCallerSession struct {
+	Contract *LAbstractTOMOXListingCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts                // Call options to use throughout this session
+}
+
+// LAbstractTOMOXListingTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type LAbstractTOMOXListingTransactorSession struct {
+	Contract     *LAbstractTOMOXListingTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts                // Transaction auth options to use throughout this session
+}
+
+// LAbstractTOMOXListingRaw is an auto generated low-level Go binding around an Ethereum contract.
+type LAbstractTOMOXListingRaw struct {
+	Contract *LAbstractTOMOXListing // Generic contract binding to access the raw methods on
+}
+
+// LAbstractTOMOXListingCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type LAbstractTOMOXListingCallerRaw struct {
+	Contract *LAbstractTOMOXListingCaller // Generic read-only contract binding to access the raw methods on
+}
+
+// LAbstractTOMOXListingTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type LAbstractTOMOXListingTransactorRaw struct {
+	Contract *LAbstractTOMOXListingTransactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewLAbstractTOMOXListing creates a new instance of LAbstractTOMOXListing, bound to a specific deployed contract.
+func NewLAbstractTOMOXListing(address common.Address, backend bind.ContractBackend) (*LAbstractTOMOXListing, error) {
+	contract, err := bindLAbstractTOMOXListing(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &LAbstractTOMOXListing{LAbstractTOMOXListingCaller: LAbstractTOMOXListingCaller{contract: contract}, LAbstractTOMOXListingTransactor: LAbstractTOMOXListingTransactor{contract: contract}, LAbstractTOMOXListingFilterer: LAbstractTOMOXListingFilterer{contract: contract}}, nil
+}
+
+// NewLAbstractTOMOXListingCaller creates a new read-only instance of LAbstractTOMOXListing, bound to a specific deployed contract.
+func NewLAbstractTOMOXListingCaller(address common.Address, caller bind.ContractCaller) (*LAbstractTOMOXListingCaller, error) {
+	contract, err := bindLAbstractTOMOXListing(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &LAbstractTOMOXListingCaller{contract: contract}, nil
+}
+
+// NewLAbstractTOMOXListingTransactor creates a new write-only instance of LAbstractTOMOXListing, bound to a specific deployed contract.
+func NewLAbstractTOMOXListingTransactor(address common.Address, transactor bind.ContractTransactor) (*LAbstractTOMOXListingTransactor, error) {
+	contract, err := bindLAbstractTOMOXListing(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &LAbstractTOMOXListingTransactor{contract: contract}, nil
+}
+
+// NewLAbstractTOMOXListingFilterer creates a new log filterer instance of LAbstractTOMOXListing, bound to a specific deployed contract.
+func NewLAbstractTOMOXListingFilterer(address common.Address, filterer bind.ContractFilterer) (*LAbstractTOMOXListingFilterer, error) {
+	contract, err := bindLAbstractTOMOXListing(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &LAbstractTOMOXListingFilterer{contract: contract}, nil
+}
+
+// bindLAbstractTOMOXListing binds a generic wrapper to an already deployed contract.
+func bindLAbstractTOMOXListing(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(LAbstractTOMOXListingABI))
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+	return _LAbstractTOMOXListing.Contract.LAbstractTOMOXListingCaller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _LAbstractTOMOXListing.Contract.LAbstractTOMOXListingTransactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _LAbstractTOMOXListing.Contract.LAbstractTOMOXListingTransactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+	return _LAbstractTOMOXListing.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _LAbstractTOMOXListing.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _LAbstractTOMOXListing.Contract.contract.Transact(opts, method, params...)
+}
+
+// GetTokenStatus is a free data retrieval call binding the contract method 0xa3ff31b5.
+//
+// Solidity: function getTokenStatus( address) constant returns(bool)
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingCaller) GetTokenStatus(opts *bind.CallOpts, arg0 common.Address) (bool, error) {
+	var (
+		ret0 = new(bool)
+	)
+	out := ret0
+	err := _LAbstractTOMOXListing.contract.Call(opts, out, "getTokenStatus", arg0)
+	return *ret0, err
+}
+
+// GetTokenStatus is a free data retrieval call binding the contract method 0xa3ff31b5.
+//
+// Solidity: function getTokenStatus( address) constant returns(bool)
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingSession) GetTokenStatus(arg0 common.Address) (bool, error) {
+	return _LAbstractTOMOXListing.Contract.GetTokenStatus(&_LAbstractTOMOXListing.CallOpts, arg0)
+}
+
+// GetTokenStatus is a free data retrieval call binding the contract method 0xa3ff31b5.
+//
+// Solidity: function getTokenStatus( address) constant returns(bool)
+func (_LAbstractTOMOXListing *LAbstractTOMOXListingCallerSession) GetTokenStatus(arg0 common.Address) (bool, error) {
+	return _LAbstractTOMOXListing.Contract.GetTokenStatus(&_LAbstractTOMOXListing.CallOpts, arg0)
+}
+
+// LAbstractTokenTRC21ABI is the input ABI used to generate the binding from.
+const LAbstractTokenTRC21ABI = "[{\"constant\":true,\"inputs\":[],\"name\":\"issuer\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]"
+
+// LAbstractTokenTRC21Bin is the compiled bytecode used for deploying new contracts.
+const LAbstractTokenTRC21Bin = `0x`
+
+// DeployLAbstractTokenTRC21 deploys a new Ethereum contract, binding an instance of LAbstractTokenTRC21 to it.
+func DeployLAbstractTokenTRC21(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *LAbstractTokenTRC21, error) {
+	parsed, err := abi.JSON(strings.NewReader(LAbstractTokenTRC21ABI))
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	address, tx, contract, err := bind.DeployContract(auth, parsed, common.FromHex(LAbstractTokenTRC21Bin), backend)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &LAbstractTokenTRC21{LAbstractTokenTRC21Caller: LAbstractTokenTRC21Caller{contract: contract}, LAbstractTokenTRC21Transactor: LAbstractTokenTRC21Transactor{contract: contract}, LAbstractTokenTRC21Filterer: LAbstractTokenTRC21Filterer{contract: contract}}, nil
+}
+
+// LAbstractTokenTRC21 is an auto generated Go binding around an Ethereum contract.
+type LAbstractTokenTRC21 struct {
+	LAbstractTokenTRC21Caller     // Read-only binding to the contract
+	LAbstractTokenTRC21Transactor // Write-only binding to the contract
+	LAbstractTokenTRC21Filterer   // Log filterer for contract events
+}
+
+// LAbstractTokenTRC21Caller is an auto generated read-only Go binding around an Ethereum contract.
+type LAbstractTokenTRC21Caller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LAbstractTokenTRC21Transactor is an auto generated write-only Go binding around an Ethereum contract.
+type LAbstractTokenTRC21Transactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LAbstractTokenTRC21Filterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type LAbstractTokenTRC21Filterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LAbstractTokenTRC21Session is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type LAbstractTokenTRC21Session struct {
+	Contract     *LAbstractTokenTRC21 // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts        // Call options to use throughout this session
+	TransactOpts bind.TransactOpts    // Transaction auth options to use throughout this session
+}
+
+// LAbstractTokenTRC21CallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type LAbstractTokenTRC21CallerSession struct {
+	Contract *LAbstractTokenTRC21Caller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts              // Call options to use throughout this session
+}
+
+// LAbstractTokenTRC21TransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type LAbstractTokenTRC21TransactorSession struct {
+	Contract     *LAbstractTokenTRC21Transactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts              // Transaction auth options to use throughout this session
+}
+
+// LAbstractTokenTRC21Raw is an auto generated low-level Go binding around an Ethereum contract.
+type LAbstractTokenTRC21Raw struct {
+	Contract *LAbstractTokenTRC21 // Generic contract binding to access the raw methods on
+}
+
+// LAbstractTokenTRC21CallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type LAbstractTokenTRC21CallerRaw struct {
+	Contract *LAbstractTokenTRC21Caller // Generic read-only contract binding to access the raw methods on
+}
+
+// LAbstractTokenTRC21TransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type LAbstractTokenTRC21TransactorRaw struct {
+	Contract *LAbstractTokenTRC21Transactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewLAbstractTokenTRC21 creates a new instance of LAbstractTokenTRC21, bound to a specific deployed contract.
+func NewLAbstractTokenTRC21(address common.Address, backend bind.ContractBackend) (*LAbstractTokenTRC21, error) {
+	contract, err := bindLAbstractTokenTRC21(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &LAbstractTokenTRC21{LAbstractTokenTRC21Caller: LAbstractTokenTRC21Caller{contract: contract}, LAbstractTokenTRC21Transactor: LAbstractTokenTRC21Transactor{contract: contract}, LAbstractTokenTRC21Filterer: LAbstractTokenTRC21Filterer{contract: contract}}, nil
+}
+
+// NewLAbstractTokenTRC21Caller creates a new read-only instance of LAbstractTokenTRC21, bound to a specific deployed contract.
+func NewLAbstractTokenTRC21Caller(address common.Address, caller bind.ContractCaller) (*LAbstractTokenTRC21Caller, error) {
+	contract, err := bindLAbstractTokenTRC21(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &LAbstractTokenTRC21Caller{contract: contract}, nil
+}
+
+// NewLAbstractTokenTRC21Transactor creates a new write-only instance of LAbstractTokenTRC21, bound to a specific deployed contract.
+func NewLAbstractTokenTRC21Transactor(address common.Address, transactor bind.ContractTransactor) (*LAbstractTokenTRC21Transactor, error) {
+	contract, err := bindLAbstractTokenTRC21(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &LAbstractTokenTRC21Transactor{contract: contract}, nil
+}
+
+// NewLAbstractTokenTRC21Filterer creates a new log filterer instance of LAbstractTokenTRC21, bound to a specific deployed contract.
+func NewLAbstractTokenTRC21Filterer(address common.Address, filterer bind.ContractFilterer) (*LAbstractTokenTRC21Filterer, error) {
+	contract, err := bindLAbstractTokenTRC21(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &LAbstractTokenTRC21Filterer{contract: contract}, nil
+}
+
+// bindLAbstractTokenTRC21 binds a generic wrapper to an already deployed contract.
+func bindLAbstractTokenTRC21(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(LAbstractTokenTRC21ABI))
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21Raw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+	return _LAbstractTokenTRC21.Contract.LAbstractTokenTRC21Caller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21Raw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _LAbstractTokenTRC21.Contract.LAbstractTokenTRC21Transactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21Raw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _LAbstractTokenTRC21.Contract.LAbstractTokenTRC21Transactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21CallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+	return _LAbstractTokenTRC21.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21TransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _LAbstractTokenTRC21.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21TransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _LAbstractTokenTRC21.Contract.contract.Transact(opts, method, params...)
+}
+
+// Issuer is a free data retrieval call binding the contract method 0x1d143848.
+//
+// Solidity: function issuer() constant returns(address)
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21Caller) Issuer(opts *bind.CallOpts) (common.Address, error) {
+	var (
+		ret0 = new(common.Address)
+	)
+	out := ret0
+	err := _LAbstractTokenTRC21.contract.Call(opts, out, "issuer")
+	return *ret0, err
+}
+
+// Issuer is a free data retrieval call binding the contract method 0x1d143848.
+//
+// Solidity: function issuer() constant returns(address)
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21Session) Issuer() (common.Address, error) {
+	return _LAbstractTokenTRC21.Contract.Issuer(&_LAbstractTokenTRC21.CallOpts)
+}
+
+// Issuer is a free data retrieval call binding the contract method 0x1d143848.
+//
+// Solidity: function issuer() constant returns(address)
+func (_LAbstractTokenTRC21 *LAbstractTokenTRC21CallerSession) Issuer() (common.Address, error) {
+	return _LAbstractTokenTRC21.Contract.Issuer(&_LAbstractTokenTRC21.CallOpts)
 }
 
 // LendingABI is the input ABI used to generate the binding from.
 const LendingABI = "[{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"COLLATERALS\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"term\",\"type\":\"uint256\"}],\"name\":\"addTerm\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"LENDINGRELAYER_LIST\",\"outputs\":[{\"name\":\"_tradeFee\",\"type\":\"uint16\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"Relayer\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"TomoXListing\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"coinbase\",\"type\":\"address\"},{\"name\":\"tradeFee\",\"type\":\"uint16\"},{\"name\":\"baseTokens\",\"type\":\"address[]\"},{\"name\":\"terms\",\"type\":\"uint256[]\"},{\"name\":\"collaterals\",\"type\":\"address[]\"}],\"name\":\"update\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"token\",\"type\":\"address\"},{\"name\":\"depositRate\",\"type\":\"uint256\"},{\"name\":\"liquidationRate\",\"type\":\"uint256\"},{\"name\":\"price\",\"type\":\"uint256\"}],\"name\":\"addILOCollateral\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"TERMS\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"BASES\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"token\",\"type\":\"address\"},{\"name\":\"price\",\"type\":\"uint256\"}],\"name\":\"setCollateralPrice\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"COLLATERAL_LIST\",\"outputs\":[{\"name\":\"_depositRate\",\"type\":\"uint256\"},{\"name\":\"_liquidationRate\",\"type\":\"uint256\"},{\"name\":\"_price\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"token\",\"type\":\"address\"}],\"name\":\"addBaseToken\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"ILO_COLLATERALS\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"token\",\"type\":\"address\"},{\"name\":\"depositRate\",\"type\":\"uint256\"},{\"name\":\"liquidationRate\",\"type\":\"uint256\"},{\"name\":\"price\",\"type\":\"uint256\"}],\"name\":\"addCollateral\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"CONTRACT_OWNER\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"coinbase\",\"type\":\"address\"}],\"name\":\"getLendingRelayerByCoinbase\",\"outputs\":[{\"name\":\"\",\"type\":\"uint16\"},{\"name\":\"\",\"type\":\"address[]\"},{\"name\":\"\",\"type\":\"uint256[]\"},{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"r\",\"type\":\"address\"},{\"name\":\"t\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}]"
 
 // LendingBin is the compiled bytecode used for deploying new contracts.
-const LendingBin = `0x608060405234801561001057600080fd5b50604051604080611d0d83398101604052805160209091015160068054600160a060020a03938416600160a060020a03199182161790915560088054939092169281169290921790556007805490911633179055611c9a806100736000396000f3006080604052600436106100cc5763ffffffff60e060020a6000350416630811f05a81146100d15780630c655955146101055780630faf292c1461011f578063264949d81461015757806329a4ddec1461016c5780632ddada4c146101815780633b8748271461025e57806356327f57146102885780636d1dc42a146102b2578063757ff0e3146102ca57806382250701146102ee57806383e280d91461032d578063b8687ec41461034e578063e5eecf6814610366578063fd301c4914610390578063fe824700146103a5575b600080fd5b3480156100dd57600080fd5b506100e96004356104b3565b60408051600160a060020a039092168252519081900360200190f35b34801561011157600080fd5b5061011d6004356104db565b005b34801561012b57600080fd5b50610140600160a060020a036004351661062f565b6040805161ffff9092168252519081900360200190f35b34801561016357600080fd5b506100e9610645565b34801561017857600080fd5b506100e9610654565b34801561018d57600080fd5b50604080516020600460443581810135838102808601850190965280855261011d958335600160a060020a0316956024803561ffff1696369695606495939492019291829185019084908082843750506040805187358901803560208181028481018201909552818452989b9a998901989297509082019550935083925085019084908082843750506040805187358901803560208181028481018201909552818452989b9a9989019892975090820195509350839250850190849080828437509497506106639650505050505050565b34801561026a57600080fd5b5061011d600160a060020a0360043516602435604435606435610da2565b34801561029457600080fd5b506102a06004356110e6565b60408051918252519081900360200190f35b3480156102be57600080fd5b506100e9600435611105565b3480156102d657600080fd5b5061011d600160a060020a0360043516602435611113565b3480156102fa57600080fd5b5061030f600160a060020a0360043516611412565b60408051938452602084019290925282820152519081900360600190f35b34801561033957600080fd5b5061011d600160a060020a0360043516611432565b34801561035a57600080fd5b506100e9600435611649565b34801561037257600080fd5b5061011d600160a060020a0360043516602435604435606435611657565b34801561039c57600080fd5b506100e9611937565b3480156103b157600080fd5b506103c6600160a060020a0360043516611946565b604051808561ffff1661ffff168152602001806020018060200180602001848103845287818151815260200191508051906020019060200280838360005b8381101561041c578181015183820152602001610404565b50505050905001848103835286818151815260200191508051906020019060200280838360005b8381101561045b578181015183820152602001610443565b50505050905001848103825285818151815260200191508051906020019060200280838360005b8381101561049a578181015183820152602001610482565b5050505090500197505050505050505060405180910390f35b60028054829081106104c157fe5b600091825260209091200154600160a060020a0316905081565b600754600160a060020a0316331461053d576040805160e560020a62461bcd02815260206004820152601460248201527f436f6e7472616374204f776e6572204f6e6c792e000000000000000000000000604482015290519081900360640190fd5b603c811015610596576040805160e560020a62461bcd02815260206004820152600c60248201527f496e76616c6964207465726d0000000000000000000000000000000000000000604482015290519081900360640190fd5b6105f060048054806020026020016040519081016040528092919081815260200182805480156105e557602002820191906000526020600020905b8154815260200190600101908083116105d1575b505050505082611a8f565b151561062c57600480546001810182556000919091527f8a35acfbc15ff81a39ae7d344fd709f28e8600b4aa8c65c6b64bfe7fe36bd19b018190555b50565b60006020819052908152604090205461ffff1681565b600654600160a060020a031681565b600854600160a060020a031681565b600654604080517f540105c7000000000000000000000000000000000000000000000000000000008152600160a060020a03888116600483015291516000938493849391169163540105c791602480820192869290919082900301818387803b1580156106cf57600080fd5b505af11580156106e3573d6000803e3d6000fd5b505050506040513d6000823e601f3d908101601f1916820160405260c081101561070c57600080fd5b81516020830151604084015160608501516080860180519496939592949193928301929164010000000081111561074257600080fd5b8201602081018481111561075557600080fd5b815185602082028301116401000000008211171561077257600080fd5b5050929190602001805164010000000081111561078e57600080fd5b820160208101848111156107a157600080fd5b81518560208202830111640100000000821117156107be57600080fd5b50979b505050600160a060020a038a163314965061082d95505050505050576040805160e560020a62461bcd02815260206004820152601660248201527f52656c61796572206f776e657220726571756972656400000000000000000000604482015290519081900360640190fd5b600654604080517f500f99f7000000000000000000000000000000000000000000000000000000008152600160a060020a038b811660048301529151919092169163500f99f79160248083019260209291908290030181600087803b15801561089557600080fd5b505af11580156108a9573d6000803e3d6000fd5b505050506040513d60208110156108bf57600080fd5b505115610916576040805160e560020a62461bcd02815260206004820152601960248201527f52656c6179657220726571756972656420746f20636c6f736500000000000000604482015290519081900360640190fd5b60018761ffff161015801561093057506103e88761ffff16105b1515610986576040805160e560020a62461bcd02815260206004820152601160248201527f496e76616c696420747261646520466565000000000000000000000000000000604482015290519081900360640190fd5b84518651146109df576040805160e560020a62461bcd02815260206004820152601960248201527f4e6f742076616c6964206e756d626572206f66207465726d7300000000000000604482015290519081900360640190fd5b8351865114610a38576040805160e560020a62461bcd02815260206004820152601f60248201527f4e6f742076616c6964206e756d626572206f6620636f6c6c61746572616c7300604482015290519081900360640190fd5b5060009050805b8551811015610b2757610ac36003805480602002602001604051908101604052809291908181526020018280548015610aa157602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311610a83575b50505050508783815181101515610ab457fe5b90602001906020020151611ad8565b9150600182151514610b1f576040805160e560020a62461bcd02815260206004820152601560248201527f496e76616c6964206c656e64696e6720746f6b656e0000000000000000000000604482015290519081900360640190fd5b600101610a3f565b5060005b8451811015610c0957610ba56004805480602002602001604051908101604052809291908181526020018280548015610b8357602002820191906000526020600020905b815481526020019060010190808311610b6f575b50505050508683815181101515610b9657fe5b90602001906020020151611a8f565b9150600182151514610c01576040805160e560020a62461bcd02815260206004820152600c60248201527f496e76616c6964207465726d0000000000000000000000000000000000000000604482015290519081900360640190fd5b600101610b2b565b5060005b8351811015610cf7578351600090859083908110610c2757fe5b60209081029091010151600160a060020a031614610cef57610cab6005805480602002602001604051908101604052809291908181526020018280548015610c9857602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311610c7a575b50505050508583815181101515610ab457fe5b1515610cef576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b600101610c0d565b6040805160808101825261ffff898116825260208083018a81528385018a905260608401899052600160a060020a038d166000908152808352949094208351815461ffff191693169290921782559251805192939192610d5d9260018501920190611b27565b5060408201518051610d79916002840191602090910190611b99565b5060608201518051610d95916003840191602090910190611b27565b5050505050505050505050565b60008060648510158015610db65750606484115b1515610dfa576040805160e560020a62461bcd02815260206004820152600d6024820152600080516020611c2f833981519152604482015290519081900360640190fd5b838511610e3f576040805160e560020a62461bcd02815260206004820152600d6024820152600080516020611c2f833981519152604482015290519081900360640190fd5b6008546040805160e060020a63a3ff31b5028152600160a060020a0389811660048301529151919092169163a3ff31b59160248083019260209291908290030181600087803b158015610e9157600080fd5b505af1158015610ea5573d6000803e3d6000fd5b505050506040513d6020811015610ebb57600080fd5b50519150811515610f04576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b85905033600160a060020a031681600160a060020a0316631d1438486040518163ffffffff1660e060020a028152600401602060405180830381600087803b158015610f4f57600080fd5b505af1158015610f63573d6000803e3d6000fd5b505050506040513d6020811015610f7957600080fd5b5051600160a060020a031614610fd9576040805160e560020a62461bcd02815260206004820152601560248201527f526571756972656420746f6b656e206973737565720000000000000000000000604482015290519081900360640190fd5b604080516060810182528681526020808201878152828401878152600160a060020a038b16600090815260018085529086902094518555915191840191909155516002909201919091556005805483518184028101840190945280845261107f939283018282801561107457602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311611056575b505050505087611ad8565b15156110de57600580546001810182556000919091527f036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db001805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a0388161790555b505050505050565b60048054829081106110f457fe5b600091825260209091200154905081565b60038054829081106104c157fe5b6008546040805160e060020a63a3ff31b5028152600160a060020a03858116600483015291516000938493169163a3ff31b591602480830192602092919082900301818787803b15801561116657600080fd5b505af115801561117a573d6000803e3d6000fd5b505050506040513d602081101561119057600080fd5b5051806111a65750600160a060020a0384166001145b91508115156111ed576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b600160a060020a0384166000908152600160205260409020546064111561124c576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b6112b060028054806020026020016040519081016040528092919081815260200182805480156112a557602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311611287575b505050505085611ad8565b1561131c57600754600160a060020a03163314611317576040805160e560020a62461bcd02815260206004820152601760248201527f436f6e7472616374206f776e6572207265717569726564000000000000000000604482015290519081900360640190fd5b6113f1565b83905033600160a060020a031681600160a060020a0316631d1438486040518163ffffffff1660e060020a028152600401602060405180830381600087803b15801561136757600080fd5b505af115801561137b573d6000803e3d6000fd5b505050506040513d602081101561139157600080fd5b5051600160a060020a0316146113f1576040805160e560020a62461bcd02815260206004820152601560248201527f526571756972656420746f6b656e206973737565720000000000000000000000604482015290519081900360640190fd5b5050600160a060020a03909116600090815260016020526040902060020155565b600160208190526000918252604090912080549181015460029091015483565b600754600090600160a060020a03163314611497576040805160e560020a62461bcd02815260206004820152601460248201527f436f6e7472616374204f776e6572204f6e6c792e000000000000000000000000604482015290519081900360640190fd5b6008546040805160e060020a63a3ff31b5028152600160a060020a0385811660048301529151919092169163a3ff31b59160248083019260209291908290030181600087803b1580156114e957600080fd5b505af11580156114fd573d6000803e3d6000fd5b505050506040513d602081101561151357600080fd5b5051806115295750600160a060020a0382166001145b9050801515611582576040805160e560020a62461bcd02815260206004820152601260248201527f496e76616c6964206261736520746f6b656e0000000000000000000000000000604482015290519081900360640190fd5b6115e660038054806020026020016040519081016040528092919081815260200182805480156115db57602002820191906000526020600020905b8154600160a060020a031681526001909101906020018083116115bd575b505050505083611ad8565b151561164557600380546001810182556000919091527fc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b01805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a0384161790555b5050565b60058054829081106104c157fe5b600754600090600160a060020a031633146116bc576040805160e560020a62461bcd02815260206004820152601460248201527f436f6e7472616374204f776e6572204f6e6c792e000000000000000000000000604482015290519081900360640190fd5b606484101580156116cd5750606483115b1515611711576040805160e560020a62461bcd02815260206004820152600d6024820152600080516020611c2f833981519152604482015290519081900360640190fd5b828411611756576040805160e560020a62461bcd02815260206004820152600d6024820152600080516020611c2f833981519152604482015290519081900360640190fd5b6008546040805160e060020a63a3ff31b5028152600160a060020a0388811660048301529151919092169163a3ff31b59160248083019260209291908290030181600087803b1580156117a857600080fd5b505af11580156117bc573d6000803e3d6000fd5b505050506040513d60208110156117d257600080fd5b5051806117e85750600160a060020a0385166001145b905080151561182f576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b604080516060810182528581526020808201868152828401868152600160a060020a038a166000908152600180855290869020945185559151918401919091555160029283015581548351818302810183019094528084526118d19392918301828280156118c657602002820191906000526020600020905b8154600160a060020a031681526001909101906020018083116118a8575b505050505086611ad8565b151561193057600280546001810182556000919091527f405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace01805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a0387161790555b5050505050565b600754600160a060020a031681565b600160a060020a03811660009081526020818152604080832080546001820180548451818702810187019095528085526060958695869561ffff9095169460028101936003909101928591908301828280156119cb57602002820191906000526020600020905b8154600160a060020a031681526001909101906020018083116119ad575b5050505050925081805480602002602001604051908101604052809291908181526020018280548015611a1d57602002820191906000526020600020905b815481526020019060010190808311611a09575b5050505050915080805480602002602001604051908101604052809291908181526020018280548015611a7957602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311611a5b575b5050505050905093509350935093509193509193565b6000805b8351811015611acc57828482815181101515611aab57fe5b906020019060200201511415611ac45760019150611ad1565b600101611a93565b600091505b5092915050565b6000805b8351811015611acc5782600160a060020a03168482815181101515611afd57fe5b90602001906020020151600160a060020a03161415611b1f5760019150611ad1565b600101611adc565b828054828255906000526020600020908101928215611b89579160200282015b82811115611b89578251825473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a03909116178255602090920191600190910190611b47565b50611b95929150611be0565b5090565b828054828255906000526020600020908101928215611bd4579160200282015b82811115611bd4578251825591602001919060010190611bb9565b50611b95929150611c14565b611c1191905b80821115611b9557805473ffffffffffffffffffffffffffffffffffffffff19168155600101611be6565b90565b611c1191905b80821115611b955760008155600101611c1a5600496e76616c696420726174657300000000000000000000000000000000000000496e76616c696420636f6c6c61746572616c0000000000000000000000000000a165627a7a7230582030cc17d48d5d67d3e99d4aa2f0823615f37f12db9721b8faed2b5efd7b1097ce0029`
+const LendingBin = `0x608060405234801561001057600080fd5b50604051604080611d0d83398101604052805160209091015160068054600160a060020a03938416600160a060020a03199182161790915560088054939092169281169290921790556007805490911633179055611c9a806100736000396000f3006080604052600436106100cc5763ffffffff60e060020a6000350416630811f05a81146100d15780630c655955146101055780630faf292c1461011f578063264949d81461015757806329a4ddec1461016c5780632ddada4c146101815780633b8748271461025e57806356327f57146102885780636d1dc42a146102b2578063757ff0e3146102ca57806382250701146102ee57806383e280d91461032d578063b8687ec41461034e578063e5eecf6814610366578063fd301c4914610390578063fe824700146103a5575b600080fd5b3480156100dd57600080fd5b506100e96004356104b3565b60408051600160a060020a039092168252519081900360200190f35b34801561011157600080fd5b5061011d6004356104db565b005b34801561012b57600080fd5b50610140600160a060020a036004351661062f565b6040805161ffff9092168252519081900360200190f35b34801561016357600080fd5b506100e9610645565b34801561017857600080fd5b506100e9610654565b34801561018d57600080fd5b50604080516020600460443581810135838102808601850190965280855261011d958335600160a060020a0316956024803561ffff1696369695606495939492019291829185019084908082843750506040805187358901803560208181028481018201909552818452989b9a998901989297509082019550935083925085019084908082843750506040805187358901803560208181028481018201909552818452989b9a9989019892975090820195509350839250850190849080828437509497506106639650505050505050565b34801561026a57600080fd5b5061011d600160a060020a0360043516602435604435606435610da2565b34801561029457600080fd5b506102a06004356110e6565b60408051918252519081900360200190f35b3480156102be57600080fd5b506100e9600435611105565b3480156102d657600080fd5b5061011d600160a060020a0360043516602435611113565b3480156102fa57600080fd5b5061030f600160a060020a0360043516611412565b60408051938452602084019290925282820152519081900360600190f35b34801561033957600080fd5b5061011d600160a060020a0360043516611432565b34801561035a57600080fd5b506100e9600435611649565b34801561037257600080fd5b5061011d600160a060020a0360043516602435604435606435611657565b34801561039c57600080fd5b506100e9611937565b3480156103b157600080fd5b506103c6600160a060020a0360043516611946565b604051808561ffff1661ffff168152602001806020018060200180602001848103845287818151815260200191508051906020019060200280838360005b8381101561041c578181015183820152602001610404565b50505050905001848103835286818151815260200191508051906020019060200280838360005b8381101561045b578181015183820152602001610443565b50505050905001848103825285818151815260200191508051906020019060200280838360005b8381101561049a578181015183820152602001610482565b5050505090500197505050505050505060405180910390f35b60028054829081106104c157fe5b600091825260209091200154600160a060020a0316905081565b600754600160a060020a0316331461053d576040805160e560020a62461bcd02815260206004820152601460248201527f436f6e7472616374204f776e6572204f6e6c792e000000000000000000000000604482015290519081900360640190fd5b603c811015610596576040805160e560020a62461bcd02815260206004820152600c60248201527f496e76616c6964207465726d0000000000000000000000000000000000000000604482015290519081900360640190fd5b6105f060048054806020026020016040519081016040528092919081815260200182805480156105e557602002820191906000526020600020905b8154815260200190600101908083116105d1575b505050505082611a8f565b151561062c57600480546001810182556000919091527f8a35acfbc15ff81a39ae7d344fd709f28e8600b4aa8c65c6b64bfe7fe36bd19b018190555b50565b60006020819052908152604090205461ffff1681565b600654600160a060020a031681565b600854600160a060020a031681565b600654604080517f540105c7000000000000000000000000000000000000000000000000000000008152600160a060020a03888116600483015291516000938493849391169163540105c791602480820192869290919082900301818387803b1580156106cf57600080fd5b505af11580156106e3573d6000803e3d6000fd5b505050506040513d6000823e601f3d908101601f1916820160405260c081101561070c57600080fd5b81516020830151604084015160608501516080860180519496939592949193928301929164010000000081111561074257600080fd5b8201602081018481111561075557600080fd5b815185602082028301116401000000008211171561077257600080fd5b5050929190602001805164010000000081111561078e57600080fd5b820160208101848111156107a157600080fd5b81518560208202830111640100000000821117156107be57600080fd5b50979b505050600160a060020a038a163314965061082d95505050505050576040805160e560020a62461bcd02815260206004820152601660248201527f52656c61796572206f776e657220726571756972656400000000000000000000604482015290519081900360640190fd5b600654604080517f500f99f7000000000000000000000000000000000000000000000000000000008152600160a060020a038b811660048301529151919092169163500f99f79160248083019260209291908290030181600087803b15801561089557600080fd5b505af11580156108a9573d6000803e3d6000fd5b505050506040513d60208110156108bf57600080fd5b505115610916576040805160e560020a62461bcd02815260206004820152601960248201527f52656c6179657220726571756972656420746f20636c6f736500000000000000604482015290519081900360640190fd5b60018761ffff161015801561093057506103e88761ffff16105b1515610986576040805160e560020a62461bcd02815260206004820152601160248201527f496e76616c696420747261646520466565000000000000000000000000000000604482015290519081900360640190fd5b84518651146109df576040805160e560020a62461bcd02815260206004820152601960248201527f4e6f742076616c6964206e756d626572206f66207465726d7300000000000000604482015290519081900360640190fd5b8351865114610a38576040805160e560020a62461bcd02815260206004820152601f60248201527f4e6f742076616c6964206e756d626572206f6620636f6c6c61746572616c7300604482015290519081900360640190fd5b5060009050805b8551811015610b2757610ac36003805480602002602001604051908101604052809291908181526020018280548015610aa157602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311610a83575b50505050508783815181101515610ab457fe5b90602001906020020151611ad8565b9150600182151514610b1f576040805160e560020a62461bcd02815260206004820152601560248201527f496e76616c6964206c656e64696e6720746f6b656e0000000000000000000000604482015290519081900360640190fd5b600101610a3f565b5060005b8451811015610c0957610ba56004805480602002602001604051908101604052809291908181526020018280548015610b8357602002820191906000526020600020905b815481526020019060010190808311610b6f575b50505050508683815181101515610b9657fe5b90602001906020020151611a8f565b9150600182151514610c01576040805160e560020a62461bcd02815260206004820152600c60248201527f496e76616c6964207465726d0000000000000000000000000000000000000000604482015290519081900360640190fd5b600101610b2b565b5060005b8351811015610cf7578351600090859083908110610c2757fe5b60209081029091010151600160a060020a031614610cef57610cab6005805480602002602001604051908101604052809291908181526020018280548015610c9857602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311610c7a575b50505050508583815181101515610ab457fe5b1515610cef576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b600101610c0d565b6040805160808101825261ffff898116825260208083018a81528385018a905260608401899052600160a060020a038d166000908152808352949094208351815461ffff191693169290921782559251805192939192610d5d9260018501920190611b27565b5060408201518051610d79916002840191602090910190611b99565b5060608201518051610d95916003840191602090910190611b27565b5050505050505050505050565b60008060648510158015610db65750606484115b1515610dfa576040805160e560020a62461bcd02815260206004820152600d6024820152600080516020611c2f833981519152604482015290519081900360640190fd5b838511610e3f576040805160e560020a62461bcd02815260206004820152600d6024820152600080516020611c2f833981519152604482015290519081900360640190fd5b6008546040805160e060020a63a3ff31b5028152600160a060020a0389811660048301529151919092169163a3ff31b59160248083019260209291908290030181600087803b158015610e9157600080fd5b505af1158015610ea5573d6000803e3d6000fd5b505050506040513d6020811015610ebb57600080fd5b50519150811515610f04576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b85905033600160a060020a031681600160a060020a0316631d1438486040518163ffffffff1660e060020a028152600401602060405180830381600087803b158015610f4f57600080fd5b505af1158015610f63573d6000803e3d6000fd5b505050506040513d6020811015610f7957600080fd5b5051600160a060020a031614610fd9576040805160e560020a62461bcd02815260206004820152601560248201527f526571756972656420746f6b656e206973737565720000000000000000000000604482015290519081900360640190fd5b604080516060810182528681526020808201878152828401878152600160a060020a038b16600090815260018085529086902094518555915191840191909155516002909201919091556005805483518184028101840190945280845261107f939283018282801561107457602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311611056575b505050505087611ad8565b15156110de57600580546001810182556000919091527f036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db001805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a0388161790555b505050505050565b60048054829081106110f457fe5b600091825260209091200154905081565b60038054829081106104c157fe5b6008546040805160e060020a63a3ff31b5028152600160a060020a03858116600483015291516000938493169163a3ff31b591602480830192602092919082900301818787803b15801561116657600080fd5b505af115801561117a573d6000803e3d6000fd5b505050506040513d602081101561119057600080fd5b5051806111a65750600160a060020a0384166001145b91508115156111ed576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b600160a060020a0384166000908152600160205260409020546064111561124c576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b6112b060028054806020026020016040519081016040528092919081815260200182805480156112a557602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311611287575b505050505085611ad8565b1561131c57600754600160a060020a03163314611317576040805160e560020a62461bcd02815260206004820152601760248201527f436f6e7472616374206f776e6572207265717569726564000000000000000000604482015290519081900360640190fd5b6113f1565b83905033600160a060020a031681600160a060020a0316631d1438486040518163ffffffff1660e060020a028152600401602060405180830381600087803b15801561136757600080fd5b505af115801561137b573d6000803e3d6000fd5b505050506040513d602081101561139157600080fd5b5051600160a060020a0316146113f1576040805160e560020a62461bcd02815260206004820152601560248201527f526571756972656420746f6b656e206973737565720000000000000000000000604482015290519081900360640190fd5b5050600160a060020a03909116600090815260016020526040902060020155565b600160208190526000918252604090912080549181015460029091015483565b600754600090600160a060020a03163314611497576040805160e560020a62461bcd02815260206004820152601460248201527f436f6e7472616374204f776e6572204f6e6c792e000000000000000000000000604482015290519081900360640190fd5b6008546040805160e060020a63a3ff31b5028152600160a060020a0385811660048301529151919092169163a3ff31b59160248083019260209291908290030181600087803b1580156114e957600080fd5b505af11580156114fd573d6000803e3d6000fd5b505050506040513d602081101561151357600080fd5b5051806115295750600160a060020a0382166001145b9050801515611582576040805160e560020a62461bcd02815260206004820152601260248201527f496e76616c6964206261736520746f6b656e0000000000000000000000000000604482015290519081900360640190fd5b6115e660038054806020026020016040519081016040528092919081815260200182805480156115db57602002820191906000526020600020905b8154600160a060020a031681526001909101906020018083116115bd575b505050505083611ad8565b151561164557600380546001810182556000919091527fc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b01805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a0384161790555b5050565b60058054829081106104c157fe5b600754600090600160a060020a031633146116bc576040805160e560020a62461bcd02815260206004820152601460248201527f436f6e7472616374204f776e6572204f6e6c792e000000000000000000000000604482015290519081900360640190fd5b606484101580156116cd5750606483115b1515611711576040805160e560020a62461bcd02815260206004820152600d6024820152600080516020611c2f833981519152604482015290519081900360640190fd5b828411611756576040805160e560020a62461bcd02815260206004820152600d6024820152600080516020611c2f833981519152604482015290519081900360640190fd5b6008546040805160e060020a63a3ff31b5028152600160a060020a0388811660048301529151919092169163a3ff31b59160248083019260209291908290030181600087803b1580156117a857600080fd5b505af11580156117bc573d6000803e3d6000fd5b505050506040513d60208110156117d257600080fd5b5051806117e85750600160a060020a0385166001145b905080151561182f576040805160e560020a62461bcd0281526020600482015260126024820152600080516020611c4f833981519152604482015290519081900360640190fd5b604080516060810182528581526020808201868152828401868152600160a060020a038a166000908152600180855290869020945185559151918401919091555160029283015581548351818302810183019094528084526118d19392918301828280156118c657602002820191906000526020600020905b8154600160a060020a031681526001909101906020018083116118a8575b505050505086611ad8565b151561193057600280546001810182556000919091527f405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace01805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a0387161790555b5050505050565b600754600160a060020a031681565b600160a060020a03811660009081526020818152604080832080546001820180548451818702810187019095528085526060958695869561ffff9095169460028101936003909101928591908301828280156119cb57602002820191906000526020600020905b8154600160a060020a031681526001909101906020018083116119ad575b5050505050925081805480602002602001604051908101604052809291908181526020018280548015611a1d57602002820191906000526020600020905b815481526020019060010190808311611a09575b5050505050915080805480602002602001604051908101604052809291908181526020018280548015611a7957602002820191906000526020600020905b8154600160a060020a03168152600190910190602001808311611a5b575b5050505050905093509350935093509193509193565b6000805b8351811015611acc57828482815181101515611aab57fe5b906020019060200201511415611ac45760019150611ad1565b600101611a93565b600091505b5092915050565b6000805b8351811015611acc5782600160a060020a03168482815181101515611afd57fe5b90602001906020020151600160a060020a03161415611b1f5760019150611ad1565b600101611adc565b828054828255906000526020600020908101928215611b89579160200282015b82811115611b89578251825473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a03909116178255602090920191600190910190611b47565b50611b95929150611be0565b5090565b828054828255906000526020600020908101928215611bd4579160200282015b82811115611bd4578251825591602001919060010190611bb9565b50611b95929150611c14565b611c1191905b80821115611b9557805473ffffffffffffffffffffffffffffffffffffffff19168155600101611be6565b90565b611c1191905b80821115611b955760008155600101611c1a5600496e76616c696420726174657300000000000000000000000000000000000000496e76616c696420636f6c6c61746572616c0000000000000000000000000000a165627a7a7230582046a23348274f0da9e7341a4e9b06cf18b163e1df2616932a8b8efb3ab32addf30029`
 
 // DeployLending deploys a new Ethereum contract, binding an instance of Lending to it.
 func DeployLending(auth *bind.TransactOpts, backend bind.ContractBackend, r common.Address, t common.Address) (common.Address, *types.Transaction, *Lending, error) {

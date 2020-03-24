@@ -1,15 +1,15 @@
 pragma solidity 0.4.24;
 
-contract AbstractRegistration {
+contract LAbstractRegistration {
     mapping(address => uint) public RESIGN_REQUESTS;
     function getRelayerByCoinbase(address) public view returns (uint, address, uint256, uint16, address[] memory, address[] memory);
 }
 
-contract AbstractTOMOXListing {
+contract LAbstractTOMOXListing {
     function getTokenStatus(address) public view returns (bool);
 }
 
-contract AbstractTokenTRC21 {
+contract LAbstractTokenTRC21 {
     function issuer() public view returns (address);
 }
 
@@ -40,13 +40,13 @@ contract Lending {
 
     address[] public ILO_COLLATERALS;
 
-    AbstractRegistration public Relayer;
+    LAbstractRegistration public Relayer;
 
     address public CONTRACT_OWNER;
 
     address constant private tomoNative = 0x0000000000000000000000000000000000000001;
 
-    AbstractTOMOXListing public TomoXListing;
+    LAbstractTOMOXListing public TomoXListing;
 
     modifier contractOwnerOnly() {
         require(msg.sender == CONTRACT_OWNER, "Contract Owner Only.");
@@ -72,8 +72,8 @@ contract Lending {
     }
     
     constructor (address r, address t) public {
-        Relayer = AbstractRegistration(r);
-        TomoXListing = AbstractTOMOXListing(t);
+        Relayer = LAbstractRegistration(r);
+        TomoXListing = LAbstractTOMOXListing(t);
         CONTRACT_OWNER = msg.sender;
     }
     
@@ -107,7 +107,7 @@ contract Lending {
         if (indexOf(COLLATERALS, token)) {
             require(msg.sender == CONTRACT_OWNER, "Contract owner required");
         } else {
-            AbstractTokenTRC21 t = AbstractTokenTRC21(token);
+            LAbstractTokenTRC21 t = LAbstractTokenTRC21(token);
             require(t.issuer() == msg.sender, "Required token issuer");
         }
 
@@ -121,7 +121,7 @@ contract Lending {
         bool b = TomoXListing.getTokenStatus(token);
         require(b, "Invalid collateral");
 
-        AbstractTokenTRC21 t = AbstractTokenTRC21(token);
+        LAbstractTokenTRC21 t = LAbstractTokenTRC21(token);
         require(t.issuer() == msg.sender, "Required token issuer");
         
         COLLATERAL_LIST[token] = Collateral({
