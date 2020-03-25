@@ -141,8 +141,8 @@ web3._extend({
 	],
 	properties: [
 		new web3._extend.Property({
-			name: 'proposals',
-			getter: 'posv_proposals'
+			name: 'networkInformation',
+			getter: 'posv_networkInformation'
 		}),
 	]
 });
