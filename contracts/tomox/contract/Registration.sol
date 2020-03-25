@@ -114,6 +114,7 @@ contract RelayerRegistration {
         require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
 
         require(RELAYER_LIST[coinbase]._deposit == 0, "Coinbase already registered.");
+        require(RESIGN_REQUESTS[coinbase] == 0, "The relayer has been requested to close.");
         require(RelayerCount < MaximumRelayers, "Maximum relayers registered");
 
         // check valid tokens, token must pair with tomo(x/TOMO)
