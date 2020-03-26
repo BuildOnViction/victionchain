@@ -88,7 +88,7 @@ contract Lending {
         require(b, "Invalid collateral");
 
         uint256 blockNumber = COLLATERAL_LIST[token]._blockNumber;
-        if (COLLATERAL_LIST[token]._price != price) {
+        if (price != 0) {
             blockNumber = block.number;
         }
 
@@ -120,13 +120,8 @@ contract Lending {
             require(t.issuer() == msg.sender, "Required token issuer");
         }
 
-        uint256 blockNumber = COLLATERAL_LIST[token]._blockNumber;
-        if (COLLATERAL_LIST[token]._price != price) {
-            blockNumber = block.number;
-        }
-
         COLLATERAL_LIST[token]._price = price;
-        COLLATERAL_LIST[token]._blockNumber = blockNumber;
+        COLLATERAL_LIST[token]._blockNumber = block.number;
     }
 
     // add/update depositRate liquidationRate recall Rate price for ILO collateral
@@ -141,7 +136,7 @@ contract Lending {
         require(t.issuer() == msg.sender, "Required token issuer");
 
         uint256 blockNumber = COLLATERAL_LIST[token]._blockNumber;
-        if (COLLATERAL_LIST[token]._price != price) {
+        if (price != 0) {
             blockNumber = block.number;
         }
         
