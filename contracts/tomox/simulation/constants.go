@@ -26,6 +26,7 @@ var (
 	MinDeposit                = big.NewInt(0).Mul(big.NewInt(25000), BaseTOMO) // 25000 TOMO
 	CollateralDepositRate     = big.NewInt(150)
 	CollateralLiquidationRate = big.NewInt(110)
+	CollateralRecallRate      = big.NewInt(200)
 	TradeFee                  = uint16(10)  // trade fee decimals 10
 	LendingTradeFee           = uint16(100) // lending trade fee decimals 10
 
