@@ -20,6 +20,7 @@ import (
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/rpc"
+	"math/big"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting
@@ -27,6 +28,14 @@ import (
 type API struct {
 	chain consensus.ChainReader
 	posv  *Posv
+}
+type NetworkInformation struct {
+	NetworkId                  *big.Int
+	TomoValidatorAddress       common.Address
+	RelayerRegistrationAddress common.Address
+	TomoXListingAddress        common.Address
+	TomoZAddress               common.Address
+	LendingAddress             common.Address
 }
 
 // GetSnapshot retrieves the state snapshot at a given block.
@@ -87,14 +96,22 @@ func (api *API) GetSignersAtHash(hash common.Hash) ([]common.Address, error) {
 	return snap.GetSigners(), nil
 }
 
-// Proposals returns the current proposals the node tries to uphold and vote on.
-func (api *API) Proposals() map[common.Address]bool {
+func (api *API) NetworkInformation() NetworkInformation {
 	api.posv.lock.RLock()
 	defer api.posv.lock.RUnlock()
-
-	proposals := make(map[common.Address]bool)
-	for address, auth := range api.posv.proposals {
-		proposals[address] = auth
+	info := NetworkInformation{}
+	info.NetworkId = api.chain.Config().ChainId
+	info.TomoValidatorAddress = api.posv.signer
+	if common.IsTestnet {
+		info.LendingAddress = common.HexToAddress(common.LendingRegistrationSMC)
+		info.RelayerRegistrationAddress = common.HexToAddress(common.RelayerRegistrationSMC)
+		info.TomoXListingAddress = common.TomoXListingSMC
+		info.TomoZAddress = common.TRC21IssuerSMC
+	} else {
+		info.LendingAddress = common.HexToAddress(common.LendingRegistrationSMCTestnet)
+		info.RelayerRegistrationAddress = common.HexToAddress(common.RelayerRegistrationSMCTestnet)
+		info.TomoXListingAddress = common.TomoXListingSMCTestNet
+		info.TomoZAddress = common.TRC21IssuerSMCTestNet
 	}
-	return proposals
+	return info
 }

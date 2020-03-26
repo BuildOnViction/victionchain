@@ -208,8 +208,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		err                                             error
 	)
 	db := l.GetMongoDB()
-	sc := db.InitLendingBulk()
-	defer sc.Close()
+	db.InitLendingBulk()
 	// 1. put processed takerLendingItem to database
 	lastState := lendingstate.LendingItemHistoryItem{}
 	// Typically, takerItem has never existed in database
@@ -308,7 +307,9 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		return err
 	}
 
-	// update status for Market orders
+	// for Market orders
+	// filledAmount > 0 : FILLED
+	// otherwise: REJECTED
 	if updatedTakerLendingItem.Type == lendingstate.Market && updatedTakerLendingItem.Status != lendingstate.Repay && updatedTakerLendingItem.Status != lendingstate.TopUp {
 		if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
 			updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
@@ -377,8 +378,13 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 					UpdatedAt:    updatedTakerLendingItem.UpdatedAt,
 				}
 				l.UpdateLendingItemCache(updatedTakerLendingItem.LendingToken, updatedTakerLendingItem.CollateralToken, updatedTakerLendingItem.Hash, txHash, historyRecord)
-
-				updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
+				// if whole order is rejected, status = REJECTED
+				// otherwise, status = FILLED
+				if updatedTakerLendingItem.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+					updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
+				} else {
+					updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
+				}
 				updatedTakerLendingItem.TxHash = txHash
 				updatedTakerLendingItem.UpdatedAt = txMatchTime
 				if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
@@ -406,7 +412,13 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 				if ok && dirtyFilledAmount != nil {
 					r.FilledAmount = new(big.Int).Add(r.FilledAmount, dirtyFilledAmount)
 				}
-				r.Status = lendingstate.LendingStatusReject
+				// if whole order is rejected, status = REJECTED
+				// otherwise, status = FILLED
+				if r.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+					r.Status = lendingstate.LendingStatusFilled
+				} else {
+					r.Status = lendingstate.LendingStatusReject
+				}
 				r.TxHash = txHash
 				r.UpdatedAt = txMatchTime
 				if err = db.PutObject(r.Hash, r); err != nil {
@@ -424,8 +436,8 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 
 func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, trades map[common.Hash]*lendingstate.LendingTrade) error {
 	db := l.GetMongoDB()
-	sc := db.InitLendingBulk()
-	defer sc.Close()
+	db.InitLendingBulk()
+
 
 	txhash := result.TxHash
 	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
@@ -574,6 +586,18 @@ func (l *Lending) GetStateCache() lendingstate.Database {
 	return l.StateCache
 }
 
+func (l *Lending) HasLendingState(block *types.Block) bool {
+	root, err := l.GetLendingStateRoot(block)
+	if err != nil {
+		return false
+	}
+	_, err = l.StateCache.OpenTrie(root)
+	if err !=nil{
+		return false
+	}
+	return true
+}
+
 func (l *Lending) GetTriegc() *prque.Prque {
 	return l.Triegc
 }
@@ -622,8 +646,7 @@ func (l *Lending) UpdateLendingTradeCache(hash common.Hash, txhash common.Hash, 
 
 func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 	db := l.GetMongoDB()
-	sc := db.InitLendingBulk()
-	defer sc.Close()
+	db.InitLendingBulk()
 
 	// rollback lendingItem
 	items := db.GetListItemByTxHash(txhash, &lendingstate.LendingItem{})
@@ -715,6 +738,28 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 	}
 
 	finalizedTrades = map[common.Hash]*lendingstate.LendingTrade{}
+
+	// liquidate trades by time
+	for lendingBook, _ := range allLendingBooks {
+		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
+		log.Debug("ProcessLiquidationData time", "tradeIds", len(tradingIds))
+		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
+			for _, tradingId := range tradingIds {
+				log.Debug("ProcessRepay", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
+				trade, err := l.ProcessRepay(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
+				if err != nil {
+					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
+					return map[common.Hash]*lendingstate.LendingTrade{}, err
+				}
+				if trade != nil && trade.Hash != (common.Hash{}) {
+					finalizedTrades[trade.Hash] = trade
+				}
+			}
+			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
+		}
+	}
+
+	// liquidate trades by collateralPrice
 	for _, lendingPair := range allPairs {
 		orderbook := tradingstate.GetTradingOrderBookHash(lendingPair.CollateralToken, lendingPair.LendingToken)
 		_, liquidationPrice, err := l.GetCollateralPrices(chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
@@ -751,24 +796,6 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 		}
 	}
 
-	for lendingBook, _ := range allLendingBooks {
-		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
-		log.Debug("ProcessLiquidationData time", "tradeIds", len(tradingIds))
-		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
-			for _, tradingId := range tradingIds {
-				log.Debug("ProcessRepay", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
-				trade, err := l.ProcessRepay(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
-				if err != nil {
-					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
-					return map[common.Hash]*lendingstate.LendingTrade{}, err
-				}
-				if trade != nil && trade.Hash != (common.Hash{}) {
-					finalizedTrades[trade.Hash] = trade
-				}
-			}
-			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
-		}
-	}
 	log.Debug("ProcessLiquidationData", "len", len(finalizedTrades))
 	return finalizedTrades, nil
 }

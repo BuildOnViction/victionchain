@@ -125,7 +125,23 @@ func main() {
 	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
 	_, err = lendingRelayerRegistration.AddBaseToken(tokenList[9]["address"].(common.Address))
 	if err != nil {
-		log.Fatal("Lending add base token", err)
+		log.Fatal("Lending add base token USD", err)
+	}
+
+	// TOMO lending base
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddBaseToken(simulation.TOMONative)
+	if err != nil {
+		log.Fatal("Lending add base token TOMO", err)
+	}
+
+	// BTC lending base
+	nonce = nonce + 1
+	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
+	_, err = lendingRelayerRegistration.AddBaseToken(tokenList[0]["address"].(common.Address))
+	if err != nil {
+		log.Fatal("Lending add base token BTC", err)
 	}
 
 	// add term 1 minute for testing
@@ -280,6 +296,46 @@ func main() {
 
 	// USD 30 days
 	baseTokens = append(baseTokens, tokenList[9]["address"].(common.Address))
+	terms = append(terms, big.NewInt(30*86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// TOMO 1 min
+	baseTokens = append(baseTokens, simulation.TOMONative)
+	terms = append(terms, big.NewInt(60))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// TOMO 1 day
+	baseTokens = append(baseTokens, simulation.TOMONative)
+	terms = append(terms, big.NewInt(86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// TOMO 7 days
+	baseTokens = append(baseTokens, simulation.TOMONative)
+	terms = append(terms, big.NewInt(7*86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// TOMO 30 days
+	baseTokens = append(baseTokens, simulation.TOMONative)
+	terms = append(terms, big.NewInt(30*86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// BTC 1 min
+	baseTokens = append(baseTokens, tokenList[0]["address"].(common.Address))
+	terms = append(terms, big.NewInt(60))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// BTC 1 day
+	baseTokens = append(baseTokens, tokenList[0]["address"].(common.Address))
+	terms = append(terms, big.NewInt(86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// BTC 7 days
+	baseTokens = append(baseTokens, tokenList[0]["address"].(common.Address))
+	terms = append(terms, big.NewInt(7*86400))
+	collaterals = append(collaterals, common.HexToAddress("0x0"))
+
+	// BTC 30 days
+	baseTokens = append(baseTokens, tokenList[0]["address"].(common.Address))
 	terms = append(terms, big.NewInt(30*86400))
 	collaterals = append(collaterals, common.HexToAddress("0x0"))
 

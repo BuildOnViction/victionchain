@@ -18,16 +18,15 @@ package core
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/consensus/posv"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/consensus/posv"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -55,10 +54,10 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // validated at this point.
 func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	// Check whether the block's known, and if not, that it's linkable
-	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
+	if v.bc.HasBlockAndFullState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
 	}
-	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
+	if !v.bc.HasBlockAndFullState(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
 		}
@@ -125,9 +124,6 @@ func (v *BlockValidator) ValidateTradingOrder(statedb *state.StateDB, tomoxState
 		}
 
 		log.Debug("process tx match", "order", order)
-		if err := order.VerifyOrder(statedb); err != nil {
-			return fmt.Errorf("invalid order . Error: %v", err)
-		}
 		// process Matching Engine
 		newTrades, newRejectedOrders, err := tomoXService.ApplyOrder(coinbase, v.bc, statedb, tomoxStatedb, tradingstate.GetTradingOrderBookHash(order.BaseToken, order.QuoteToken), order)
 		if err != nil {
@@ -163,9 +159,6 @@ func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingSta
 		// verify lendingItem
 
 		log.Debug("process lending tx", "lendingItem", lendingstate.ToJSON(l))
-		if err := l.VerifyLendingItem(statedb); err != nil {
-			return fmt.Errorf("invalid lendingItem . Error: %v", err)
-		}
 		// process Matching Engine
 		newTrades, newRejectedOrders, err := lendingService.ApplyOrder(blockTime, coinbase, v.bc, statedb, lendingStateDb, tomoxStatedb, lendingstate.GetLendingOrderBookHash(l.LendingToken, l.Term), l)
 		if err != nil {

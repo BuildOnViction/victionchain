@@ -178,7 +178,7 @@ func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block
 			continue
 		}
 		// If we're above the chain head, state availability is a must
-		if !chain.HasBlockAndState(block.Hash(), block.NumberU64()) {
+		if !chain.HasBlockAndFullState(block.Hash(), block.NumberU64()) {
 			return blocks[i:]
 		}
 	}

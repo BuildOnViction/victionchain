@@ -43,7 +43,7 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 		return nil, nil, ErrNonceTooLow
 	}
 	// increase nonce
-	log.Debug("ApplyOrder setnonce", "nonce", nonce+1, "addr", order.UserAddress.Hex(), "status", order.Status, "oldnonce", nonce)
+	log.Debug("ApplyOrder set nonce", "nonce", nonce+1, "addr", order.UserAddress.Hex(), "status", order.Status, "oldnonce", nonce)
 	tradingStateDB.SetNonce(order.UserAddress.Hash(), nonce+1)
 	tomoxSnap := tradingStateDB.Snapshot()
 	dbSnap := statedb.Snapshot()
@@ -53,6 +53,11 @@ func (tomox *TomoX) ApplyOrder(coinbase common.Address, chain consensus.ChainCon
 			statedb.RevertToSnapshot(dbSnap)
 		}
 	}()
+
+	if err := order.VerifyOrder(statedb); err != nil {
+		rejects = append(rejects, order)
+		return trades, rejects, nil
+	}
 	if order.Status == tradingstate.OrderStatusCancelled {
 		err, reject := tomox.ProcessCancelOrder(tradingStateDB, statedb, chain, coinbase, orderBook, order)
 		if err != nil || reject {
@@ -710,8 +715,7 @@ func (tomox *TomoX) UpdateMediumPriceBeforeEpoch(epochNumber uint64, tradingStat
 // orderbook hash genereted from baseToken, quoteToken at tomochain/tomox/tradingstate/common.go:214
 func (tomox *TomoX) LogEpochPrice(epochNumber uint64, epochPriceResult map[common.Hash]*big.Int) error {
 	db := tomox.GetMongoDB()
-	sc := db.InitBulk()
-	defer sc.Close()
+	db.InitBulk()
 
 	for orderbook, price := range epochPriceResult {
 		if price.Sign() <= 0 {

@@ -88,8 +88,8 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 		Price:           price,
 		ExchangeAddress: common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e"),
 		UserAddress:     crypto.PubkeyToAddress(privateKey.PublicKey),
-		BaseToken:       BTCAddress,
-		QuoteToken:      common.HexToAddress(common.TomoNativeAddress),
+		BaseToken:       common.HexToAddress(common.TomoNativeAddress),
+		QuoteToken:      BTCAddress,
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
@@ -264,28 +264,29 @@ func TestFilled(t *testing.T) {
 	//BTCUSDPrice := new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000))
 	//testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000)), BTCUSDPrice, "BUY", "NEW", 0)
 	//ETH/BTC
+
 	BTCUSDPrice := new(big.Int).Mul(big.NewInt(10000000000000000), big.NewInt(1000000)) // 10000
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderBTCUSD(t, _1E18, BTCUSDPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderBTCUSD(t, _1E18, BTCUSDPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderBTCUSD(t, new(big.Int).Mul(big.NewInt(2), _1E18), BTCUSDPrice, "SELL", "NEW", 0)
 
 	TOMOBTCPrice := new(big.Int).Mul(big.NewInt(10000000000000), big.NewInt(6)) // 0.00006
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOBTC(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOBTCPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOBTC(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOBTCPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOBTC(t, new(big.Int).Mul(big.NewInt(1200000), _1E18), TOMOBTCPrice, "SELL", "NEW", 0)
 
 	TOMOUSDPrice := new(big.Int).Mul(big.NewInt(10000000000000), big.NewInt(60000)) // 0.6
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1200000), _1E18), TOMOUSDPrice, "SELL", "NEW", 0)
 
 }
@@ -297,9 +298,10 @@ func TestNoMatch(t *testing.T) {
 }
 
 func TestCancelOrder(t *testing.T) {
-	//testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "NEW", 0)
-	//time.Sleep(5 * time.Second)
-	testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "BUY", "CANCELLED", 3)
-	//time.Sleep(5 * time.Second)
+	TOMOBTCPrice := new(big.Int).Mul(big.NewInt(10000000000000), big.NewInt(6)) // 0.00006
+	testSendOrder(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOBTCPrice, "BUY", "NEW", 0)
+	time.Sleep(5 * time.Second)
+	testSendOrder(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOBTCPrice, "BUY", "CANCELLED", 3)
+	time.Sleep(5 * time.Second)
 	//testSendOrder(t, new(big.Int).SetUint64(48), new(big.Int).SetUint64(15), "SELL", "NEW", 0)
 }

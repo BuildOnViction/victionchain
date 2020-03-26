@@ -277,8 +277,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		err                                 error
 	)
 	db := tomox.GetMongoDB()
-	sc := db.InitBulk()
-	defer sc.Close()
+	db.InitBulk()
 	// 1. put processed takerOrderInTx to db
 	lastState := tradingstate.OrderHistoryItem{}
 	val, err := db.GetObject(takerOrderInTx.Hash, &tradingstate.OrderItem{})
@@ -391,7 +390,9 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		}
 	}
 
-	// update status for Market orders
+	// for Market orders
+	// filledAmount > 0 : FILLED
+	// otherwise: REJECTED
 	if updatedTakerOrder.Type == tradingstate.Market {
 		if updatedTakerOrder.FilledAmount.Cmp(big.NewInt(0)) > 0 {
 			updatedTakerOrder.Status = tradingstate.OrderStatusFilled
@@ -457,8 +458,13 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 					UpdatedAt:    updatedTakerOrder.UpdatedAt,
 				}
 				tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.Hash, txHash, orderHistoryRecord)
-
-				updatedTakerOrder.Status = tradingstate.OrderStatusRejected
+				// if whole order is rejected, status = REJECTED
+				// otherwise, status = FILLED
+				if updatedTakerOrder.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+					updatedTakerOrder.Status = tradingstate.OrderStatusFilled
+				} else {
+					updatedTakerOrder.Status = tradingstate.OrderStatusRejected
+				}
 				updatedTakerOrder.TxHash = txHash
 				updatedTakerOrder.UpdatedAt = txMatchTime
 				if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
@@ -486,7 +492,13 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 				if ok && dirtyFilledAmount != nil {
 					order.FilledAmount = new(big.Int).Add(order.FilledAmount, dirtyFilledAmount)
 				}
-				order.Status = tradingstate.OrderStatusRejected
+				// if whole order is rejected, status = REJECTED
+				// otherwise, status = FILLED
+				if order.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+					order.Status = tradingstate.OrderStatusFilled
+				} else {
+					order.Status = tradingstate.OrderStatusRejected
+				}
 				order.TxHash = txHash
 				order.UpdatedAt = txMatchTime
 				if err = db.PutObject(order.Hash, order); err != nil {
@@ -516,7 +528,17 @@ func (tomox *TomoX) GetTradingState(block *types.Block) (*tradingstate.TradingSt
 func (tomox *TomoX) GetStateCache() tradingstate.Database {
 	return tomox.StateCache
 }
-
+func (tomox *TomoX) HasTradingState(block *types.Block) bool {
+	root, err := tomox.GetTradingStateRoot(block)
+	if err != nil {
+		return false
+	}
+	_, err = tomox.StateCache.OpenTrie(root)
+	if err !=nil{
+		return false
+	}
+	return true
+}
 func (tomox *TomoX) GetTriegc() *prque.Prque {
 	return tomox.Triegc
 }
@@ -550,8 +572,7 @@ func (tomox *TomoX) UpdateOrderCache(baseToken, quoteToken common.Address, order
 
 func (tomox *TomoX) RollbackReorgTxMatch(txhash common.Hash) error {
 	db := tomox.GetMongoDB()
-	sc := db.InitBulk()
-	defer sc.Close()
+	db.InitBulk()
 
 	items := db.GetListItemByTxHash(txhash, &tradingstate.OrderItem{})
 	if items != nil {
