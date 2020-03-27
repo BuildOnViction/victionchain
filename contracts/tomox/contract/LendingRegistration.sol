@@ -26,7 +26,9 @@ contract Lending {
     struct Collateral {
         uint256 _depositRate;
         uint256 _liquidationRate;
+        uint256 _recallRate;
         uint256 _price;
+        uint256 _blockNumber;
     }
     
     mapping(address => LendingRelayer) public LENDINGRELAYER_LIST;
@@ -77,18 +79,25 @@ contract Lending {
         CONTRACT_OWNER = msg.sender;
     }
     
-    // add/update depositRate liquidationRate price for collateral
-    function addCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 price) public contractOwnerOnly {
+    // add/update depositRate liquidationRate recallRate price for collateral
+    function addCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 recallRate, uint256 price) public contractOwnerOnly {
         require(depositRate >= 100 && liquidationRate > 100, "Invalid rates");
         require(depositRate > liquidationRate , "Invalid rates");
 
         bool b = TomoXListing.getTokenStatus(token) || (token == tomoNative);
         require(b, "Invalid collateral");
 
+        uint256 blockNumber = COLLATERAL_LIST[token]._blockNumber;
+        if (price != 0) {
+            blockNumber = block.number;
+        }
+
         COLLATERAL_LIST[token] = Collateral({
             _depositRate: depositRate,
             _liquidationRate: liquidationRate,
-            _price: price
+            _recallRate: recallRate,
+            _price: price,
+            _blockNumber: blockNumber
         });
 
         if (!indexOf(COLLATERALS, token)) {
@@ -112,9 +121,11 @@ contract Lending {
         }
 
         COLLATERAL_LIST[token]._price = price;
+        COLLATERAL_LIST[token]._blockNumber = block.number;
     }
 
-    function addILOCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 price) public {
+    // add/update depositRate liquidationRate recall Rate price for ILO collateral
+    function addILOCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 recallRate, uint256 price) public {
         require(depositRate >= 100 && liquidationRate > 100, "Invalid rates");
         require(depositRate > liquidationRate , "Invalid rates");
 
@@ -123,11 +134,18 @@ contract Lending {
 
         LAbstractTokenTRC21 t = LAbstractTokenTRC21(token);
         require(t.issuer() == msg.sender, "Required token issuer");
+
+        uint256 blockNumber = COLLATERAL_LIST[token]._blockNumber;
+        if (price != 0) {
+            blockNumber = block.number;
+        }
         
         COLLATERAL_LIST[token] = Collateral({
             _depositRate: depositRate,
             _liquidationRate: liquidationRate,
-            _price: price
+            _recallRate: recallRate,
+            _price: price,
+            _blockNumber: blockNumber
         });
 
         if (!indexOf(ILO_COLLATERALS, token)) {
