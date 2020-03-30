@@ -93,6 +93,8 @@ func TestLendingItem_VerifyLendingType(t *testing.T) {
 		{"type: take profit", &LendingItem{Type: "take profit"}, true},
 		{"type: limit", &LendingItem{Type: Limit}, false},
 		{"type: market", &LendingItem{Type: Market}, false},
+                {"type: topup", &LendingItem{Type: TopUp}, false},
+                {"type: repay", &LendingItem{Type: Repay}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -119,8 +121,6 @@ func TestLendingItem_VerifyLendingStatus(t *testing.T) {
 		{"status: filled", &LendingItem{Status: LendingStatusFilled}, true},
 		{"status: cancelled", &LendingItem{Status: LendingStatusCancelled}, false},
 		{"status: rejected", &LendingItem{Status: LendingStatusReject}, true},
-		{"status: topup", &LendingItem{Status: TopUp}, false},
-		{"status: repay", &LendingItem{Status: Repay}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

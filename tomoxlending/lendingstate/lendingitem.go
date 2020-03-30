@@ -28,10 +28,15 @@ const (
 )
 
 var ValidInputLendingStatus = map[string]bool{
-	TopUp:                  true,
-	Repay:                  true,
 	LendingStatusNew:       true,
 	LendingStatusCancelled: true,
+}
+
+var ValidInputLendingType = map[string]bool{
+	Market: true,
+	Limit:  true,
+	Repay:  true,
+	TopUp:  true,
 }
 
 // Signature struct
@@ -238,7 +243,7 @@ func (l *LendingItem) VerifyLendingQuantity() error {
 }
 
 func (l *LendingItem) VerifyLendingType() error {
-	if l.Type != Market && l.Type != Limit {
+	if valid, ok := ValidInputLendingType[l.Type]; !ok && !valid {
 		return fmt.Errorf("VerifyLendingType: invalid lending type. Type: %s", l.Type)
 	}
 	return nil

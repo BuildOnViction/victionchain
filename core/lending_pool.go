@@ -540,7 +540,7 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 	if tx.IsTopupLending() {
 		return pool.validateTopupLending(tx)
 	}
-	if tx.IsRePaymentLending() {
+	if tx.IsRepayLending() {
 		return pool.validateRepayLending(tx)
 	}
 

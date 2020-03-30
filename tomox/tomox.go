@@ -278,6 +278,11 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 	)
 	db := tomox.GetMongoDB()
 	db.InitBulk()
+	if takerOrderInTx.Status == tradingstate.OrderStatusCancelled && len(rejectedOrders) > 0 {
+		// cancel order is rejected -> nothing change
+		log.Debug("Cancel order is rejected", "order", tradingstate.ToJSON(takerOrderInTx))
+		return nil
+	}
 	// 1. put processed takerOrderInTx to db
 	lastState := tradingstate.OrderHistoryItem{}
 	val, err := db.GetObject(takerOrderInTx.Hash, &tradingstate.OrderItem{})
@@ -534,7 +539,7 @@ func (tomox *TomoX) HasTradingState(block *types.Block) bool {
 		return false
 	}
 	_, err = tomox.StateCache.OpenTrie(root)
-	if err !=nil{
+	if err != nil {
 		return false
 	}
 	return true
