@@ -25,7 +25,9 @@ var (
 	CollateralStructSlots = map[string]*big.Int{
 		"depositRate":     big.NewInt(0),
 		"liquidationRate": big.NewInt(1),
-		"price":           big.NewInt(2),
+		"recallRate":      big.NewInt(2),
+		"price":           big.NewInt(3),
+		"blockNumber":     big.NewInt(4),
 	}
 )
 
@@ -169,15 +171,19 @@ func GetCollaterals(statedb *state.StateDB, coinbase common.Address, baseToken c
 // @param statedb : current state
 // @param token: address of collateral token
 // @return: depositRate, liquidationRate, price of collateral
-func GetCollateralDetail(statedb *state.StateDB, token common.Address) (depositRate *big.Int, liquidationRate *big.Int, price *big.Int) {
+func GetCollateralDetail(statedb *state.StateDB, token common.Address) (depositRate, liquidationRate, price, recallRate, blockNumber *big.Int) {
 	collateralState := GetLocMappingAtKey(token.Hash(), CollateralMapSlot)
 	locDepositRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["depositRate"])
 	locLiquidationRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["liquidationRate"])
 	locCollateralPrice := state.GetLocOfStructElement(collateralState, CollateralStructSlots["price"])
+	locRecallRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["recallRate"])
+	locBlockNumber := state.GetLocOfStructElement(collateralState, CollateralStructSlots["blockNumber"])
 	depositRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDepositRate).Big()
 	liquidationRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locLiquidationRate).Big()
 	price = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locCollateralPrice).Big()
-	return depositRate, liquidationRate, price
+	recallRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locRecallRate).Big()
+	blockNumber = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locBlockNumber).Big()
+	return depositRate, liquidationRate, price, recallRate, blockNumber
 }
 
 // @function GetSupportedTerms

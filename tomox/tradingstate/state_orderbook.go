@@ -684,6 +684,35 @@ func (self *tradingExchanges) getLowestLiquidationPrice(db Database) (common.Has
 	return price, obj
 }
 
+func (self *tradingExchanges) getAllLowerLiquidationPrice(db Database, limit common.Hash) map[common.Hash]*liquidationPriceState {
+	trie := self.getLiquidationPriceTrie(db)
+	encKeys, encValues, err := trie.TryGetAllLeftKeyAndValue(limit.Bytes())
+	result := map[common.Hash]*liquidationPriceState{}
+	if err != nil || len(encKeys) != len(encValues) {
+		log.Error("Failed get lower liquidation price trie ", "orderbook", self.orderBookHash.Hex(), "encKeys", len(encKeys), "encValues", len(encValues))
+		return result
+	}
+	if len(encKeys) == 0 || len(encValues) == 0 {
+		log.Debug("Not found get lower liquidation price trie ", "limit", limit)
+		return result
+	}
+	for i, _ := range encKeys {
+		price := common.BytesToHash(encKeys[i])
+		obj := self.liquidationPriceStates[price]
+		if obj == nil {
+			var data orderList
+			if err := rlp.DecodeBytes(encValues[i], &data); err != nil {
+				log.Error("Failed to decode state get all lower liquidation price trie", "price", price, "encValues", encValues[i], "err", err)
+				return result
+			}
+			obj = newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
+			self.liquidationPriceStates[price] = obj
+		}
+		result[price] = obj
+	}
+	return result
+}
+
 func (self *tradingExchanges) getHighestLiquidationPrice(db Database) (common.Hash, *liquidationPriceState) {
 	trie := self.getLiquidationPriceTrie(db)
 	encKey, encValue, err := trie.TryGetBestRightKeyAndValue()
@@ -703,7 +732,7 @@ func (self *tradingExchanges) getHighestLiquidationPrice(db Database) (common.Ha
 			log.Error("Failed to decode state get best ask trie", "err", err)
 			return EmptyHash, nil
 		}
-		obj := newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
+		obj = newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
 		self.liquidationPriceStates[price] = obj
 	}
 	return price, obj
