@@ -718,6 +718,16 @@ web3._extend({
             params: 2
 		}),
 		new web3._extend.Method({
+            name: 'getLastEpochPrice',
+            call: 'tomox_getLastEpochPrice',
+            params: 2
+		}),
+		new web3._extend.Method({
+            name: 'getCurrentEpochPrice',
+            call: 'tomox_getCurrentEpochPrice',
+            params: 2
+		}),
+		new web3._extend.Method({
             name: 'getTradingOrderBookInfo',
             call: 'tomox_getTradingOrderBookInfo',
             params: 2
