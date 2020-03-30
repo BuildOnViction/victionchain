@@ -168,8 +168,8 @@ func testSendLending(key string, nonce uint64, lendToken, collateralToken common
 }
 
 func TestSendLending(t *testing.T) {
-	t.SkipNow() //TODO: remove it to run this test
-	key := ""
+	//t.SkipNow() //TODO: remove it to run this test
+	key := "65ec4d4dfbcac594a14c36baa462d6f73cd86134840f6cf7b80a1e1cd33473e2"
 	privateKey, err := crypto.HexToECDSA(key)
 	if err != nil {
 		log.Print(err)

@@ -501,7 +501,7 @@ func (pool *LendingPool) validateBalance(cloneStateDb *state.StateDB, cloneLendi
 			if err != nil {
 				return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
 			}
-			lendTokenTOMOPrice, collateralPrice, err = lendingServ.GetCollateralPrices(pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
+			lendTokenTOMOPrice, collateralPrice, err = lendingServ.GetCollateralPrices(pool.chain.CurrentHeader(), pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
 			if err != nil {
 				return err
 			}

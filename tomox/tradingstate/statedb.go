@@ -613,7 +613,7 @@ func (self *TradingStateDB) GetLowestLiquidationPriceData(orderBook common.Hash,
 	}
 	lowestPriceHash, liquidationState := orderbookState.getLowestLiquidationPrice(self.db)
 	lowestPrice := new(big.Int).SetBytes(lowestPriceHash[:])
-	if liquidationState != nil && lowestPrice.Sign() > 0 && lowestPrice.Cmp(price) <= 0 {
+	if liquidationState != nil && lowestPrice.Sign() > 0 && lowestPrice.Cmp(price) < 0 {
 		priceLiquidationData := liquidationState.getAllLiquidationData(self.db)
 		for lendingBook, data := range priceLiquidationData {
 			if len(data) == 0 {

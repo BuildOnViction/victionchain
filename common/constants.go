@@ -59,6 +59,7 @@ var TRC21GasPriceBefore = big.NewInt(2500)
 var TRC21GasPrice = big.NewInt(250000000)
 var RateTopUp = big.NewInt(90) // 90%
 var BaseTopUp = big.NewInt(100)
+var BaseRecall = big.NewInt(100)
 var Blacklist = map[Address]bool{
 	HexToAddress("0x5248bfb72fd4f234e062d3e9bb76f08643004fcd"): true,
 	HexToAddress("0x5ac26105b35ea8935be382863a70281ec7a985e9"): true,

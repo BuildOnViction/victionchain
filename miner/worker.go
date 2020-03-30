@@ -670,10 +670,10 @@ func (self *worker) commitNewWork() {
 					log.Debug("trading transaction matches found", "tradingTxMatches", len(tradingTxMatches))
 
 					lendingOrderPending, _ := self.eth.LendingPool().Pending()
-					lendingInput, lendingMatchingResults = tomoXLending.ProcessOrderPending(header.Time.Uint64(), self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
+					lendingInput, lendingMatchingResults = tomoXLending.ProcessOrderPending(header, self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
 					log.Debug("lending transaction matches found", "lendingInput", len(lendingInput), "lendingMatchingResults", len(lendingMatchingResults))
-					if header.Number.Uint64() % self.config.Posv.Epoch == common.LiquidateLendingTradeBlock {
-						finalizedTrades, err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
+					if header.Number.Uint64()%self.config.Posv.Epoch == common.LiquidateLendingTradeBlock {
+						finalizedTrades, err = tomoXLending.ProcessLiquidationData(header, self.chain, work.state, work.tradingState, work.lendingState)
 						if err != nil {
 							log.Error("Fail when process lending liquidation data ", "error", err)
 							return
