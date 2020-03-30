@@ -2122,6 +2122,46 @@ func (s *PublicTomoXTransactionPoolAPI) GetPrice(ctx context.Context, baseToken,
 	return price, nil
 }
 
+func (s *PublicTomoXTransactionPoolAPI) GetLastEpochPrice(ctx context.Context, baseToken, quoteToken common.Address) (*big.Int, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTradingState(block)
+	if err != nil {
+		return nil, err
+	}
+	price := tomoxState.GetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(baseToken, quoteToken))
+	if price == nil || price.Sign() == 0 {
+		return common.Big0, errors.New("Order book's price not found")
+	}
+	return price, nil
+}
+
+func (s *PublicTomoXTransactionPoolAPI) GetCurrentEpochPrice(ctx context.Context, baseToken, quoteToken common.Address) (*big.Int, error) {
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return nil, errors.New("Current block not found")
+	}
+	tomoxService := s.b.TomoxService()
+	if tomoxService == nil {
+		return nil, errors.New("TomoX service not found")
+	}
+	tomoxState, err := tomoxService.GetTradingState(block)
+	if err != nil {
+		return nil, err
+	}
+	price, _ := tomoxState.GetMediumPriceAndTotalAmount(tradingstate.GetTradingOrderBookHash(baseToken, quoteToken))
+	if price == nil || price.Sign() == 0 {
+		return common.Big0, errors.New("Order book's price not found")
+	}
+	return price, nil
+}
+
 func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToken, quoteToken common.Address) (map[*big.Int]tradingstate.DumpOrderList, error) {
 	block := s.b.CurrentBlock()
 	if block == nil {
