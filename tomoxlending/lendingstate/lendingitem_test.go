@@ -93,8 +93,8 @@ func TestLendingItem_VerifyLendingType(t *testing.T) {
 		{"type: take profit", &LendingItem{Type: "take profit"}, true},
 		{"type: limit", &LendingItem{Type: Limit}, false},
 		{"type: market", &LendingItem{Type: Market}, false},
-                {"type: topup", &LendingItem{Type: TopUp}, false},
-                {"type: repay", &LendingItem{Type: Repay}, false},
+		{"type: topup", &LendingItem{Type: TopUp}, false},
+		{"type: repay", &LendingItem{Type: Repay}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -261,6 +261,7 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Investing,
+				Type:            Limit,
 				Status:          LendingStatusNew,
 				Quantity:        EtherToWei(big.NewInt(11000)),
 				LendingToken:    lendingToken,
@@ -273,6 +274,7 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Investing,
+				Type:            Limit,
 				Status:          LendingStatusNew,
 				Quantity:        EtherToWei(big.NewInt(10000)),
 				LendingToken:    lendingToken,
@@ -285,6 +287,7 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Investing,
+				Type:            Limit,
 				Status:          LendingStatusCancelled,
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
@@ -296,7 +299,8 @@ func TestVerifyBalance(t *testing.T) {
 		{"Invalid status",
 			&LendingItem{
 				Side:   Investing,
-				Status: TopUp,
+				Status: "wrong_status",
+				Type:   Limit,
 			},
 			true,
 		},
@@ -306,6 +310,7 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Borrowing,
+				Type:            Limit,
 				Status:          LendingStatusNew,
 				Quantity:        EtherToWei(big.NewInt(12000)),
 				LendingToken:    lendingToken,
@@ -319,6 +324,7 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Borrowing,
+				Type:            Limit,
 				Status:          LendingStatusNew,
 				Quantity:        EtherToWei(big.NewInt(10000)),
 				LendingToken:    lendingToken,
@@ -331,6 +337,7 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Borrowing,
+				Type:            Limit,
 				Status:          LendingStatusCancelled,
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
@@ -344,7 +351,8 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Borrowing,
-				Status:          TopUp,
+				Status:          LendingStatusNew,
+				Type:            TopUp,
 				Quantity:        EtherToWei(big.NewInt(1)),
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
@@ -358,7 +366,8 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Borrowing,
-				Status:          TopUp,
+				Status:          LendingStatusNew,
+				Type:            TopUp,
 				Quantity:        EtherToWei(big.NewInt(1)),
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
@@ -372,7 +381,8 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Borrowing,
-				Status:          Repay,
+				Status:          LendingStatusNew,
+				Type:            Repay,
 				Quantity:        EtherToWei(big.NewInt(1)),
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
@@ -386,7 +396,8 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Borrowing,
-				Status:          Repay,
+				Status:          LendingStatusNew,
+				Type:            Repay,
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
 				Term:            uint64(30),
@@ -400,7 +411,8 @@ func TestVerifyBalance(t *testing.T) {
 				UserAddress:     uAddr,
 				Relayer:         relayer,
 				Side:            Borrowing,
-				Status:          Repay,
+				Status:          LendingStatusNew,
+				Type:            Repay,
 				LendingToken:    lendingToken,
 				CollateralToken: collateralToken,
 				Term:            uint64(30),
@@ -426,6 +438,7 @@ func TestVerifyBalance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := VerifyBalance(statedb,
 				lendingstatedb,
+				tt.fields.Type,
 				tt.fields.Side,
 				tt.fields.Status,
 				tt.fields.UserAddress,
@@ -471,7 +484,7 @@ type LendingOrderMsg struct {
 
 func Test_CreateOrder(t *testing.T) {
 	t.SkipNow()
-	for i := 0; i< 1 ; i++ {
+	for i := 0; i < 1; i++ {
 		sendOrder(uint64(i))
 		time.Sleep(time.Microsecond)
 	}
@@ -493,7 +506,7 @@ func sendOrder(nonce uint64) {
 		CollateralToken: common.HexToAddress("0xC2fa1BA90b15E3612E0067A0020192938784D9C5"),
 		LendingToken:    common.HexToAddress("0x45c25041b8e6CBD5c963E7943007187C3673C7c9"),
 		Interest:        uint64(100),
-		Term:            uint64(30*86400),
+		Term:            uint64(30 * 86400),
 		Status:          LendingStatusNew,
 		Side:            Borrowing,
 		Type:            Limit,
