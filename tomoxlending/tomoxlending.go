@@ -209,6 +209,11 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	)
 	db := l.GetMongoDB()
 	db.InitLendingBulk()
+	if takerLendingItem.Status == lendingstate.LendingStatusCancelled && len(rejectedItems) > 0 {
+		// cancel order is rejected -> nothing change
+		log.Debug("Cancel order is rejected", "order", lendingstate.ToJSON(takerLendingItem))
+		return nil
+	}
 	// 1. put processed takerLendingItem to database
 	lastState := lendingstate.LendingItemHistoryItem{}
 	// Typically, takerItem has never existed in database
@@ -256,13 +261,14 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	tradeList := map[common.Hash]*lendingstate.LendingTrade{}
 	for _, tradeRecord := range trades {
 		// 2.a. put to trades
-		if tradeRecord.Status != lendingstate.TradeStatusOpen {
-			log.Debug("UpdateLendingTrade:", "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
+
+		if updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp {
+			// repay, topup: assign hash = trade.hash
+			updatedTakerLendingItem.Hash = tradeRecord.Hash
+			log.Debug("UpdateLendingTrade:", "type", updatedTakerLendingItem.Type, "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
 			tradeList[tradeRecord.Hash] = tradeRecord
-			//if err := l.UpdateLendingTrade([]common.Hash{tradeRecord.Hash}, tradeRecord.Status, txHash, txMatchTime); err != nil {
-			//	return err
-			//}
 			continue
+
 		}
 		if tradeRecord.CreatedAt.IsZero() {
 			tradeRecord.CreatedAt = txMatchTime
@@ -292,7 +298,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		makerDirtyFilledAmount[makerOrderHash.Hex()] = makerFilledAmount
 		makerDirtyHashes = append(makerDirtyHashes, makerOrderHash.Hex())
 
-		if updatedTakerLendingItem.Status != lendingstate.Repay && updatedTakerLendingItem.Status != lendingstate.TopUp {
+		if updatedTakerLendingItem.Type != lendingstate.Repay && updatedTakerLendingItem.Type != lendingstate.TopUp {
 			//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 			//  update filledAmount, status of takerOrder
 			updatedTakerLendingItem.FilledAmount = new(big.Int).Add(updatedTakerLendingItem.FilledAmount, filledAmount)
@@ -310,7 +316,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	// for Market orders
 	// filledAmount > 0 : FILLED
 	// otherwise: REJECTED
-	if updatedTakerLendingItem.Type == lendingstate.Market && updatedTakerLendingItem.Status != lendingstate.Repay && updatedTakerLendingItem.Status != lendingstate.TopUp {
+	if updatedTakerLendingItem.Type == lendingstate.Market {
 		if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
 			updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
 		} else {
@@ -438,7 +444,6 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 	db := l.GetMongoDB()
 	db.InitLendingBulk()
 
-
 	txhash := result.TxHash
 	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
 	if err := l.UpdateLendingTrade(trades, txhash, txTime); err != nil {
@@ -456,22 +461,23 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 				Quantity:        trade.Amount,
 				Interest:        big.NewInt(int64(trade.Interest)),
 				Side:            "",
-				Type:            "",
+				Type:            lendingstate.Repay,
 				LendingToken:    trade.LendingToken,
 				CollateralToken: trade.CollateralToken,
-				FilledAmount:    nil,
+				FilledAmount:    trade.Amount,
 				Status:          lendingstate.Repay,
 				Relayer:         trade.BorrowingRelayer,
 				Term:            trade.Term,
 				UserAddress:     trade.Borrower,
 				Signature:       nil,
-				Hash:            trade.BorrowingOrderHash,
+				Hash:            trade.Hash,
 				TxHash:          txhash,
 				Nonce:           nil,
 				CreatedAt:       txTime,
 				UpdatedAt:       txTime,
 				LendingId:       0,
 				LendingTradeId:  trade.TradeId,
+				AutoTopUp:       true,
 				ExtraData:       "auto",
 			}
 			if err := db.PutObject(repayItem.Hash, repayItem); err != nil {
@@ -490,21 +496,22 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 		if items != nil && len(items.([]*lendingstate.LendingTrade)) > 0 {
 			for _, oldTrade := range items.([]*lendingstate.LendingTrade) {
 				newTrade := trades[oldTrade.Hash]
+				topUpAmount := new(big.Int).Sub(newTrade.CollateralLockedAmount, oldTrade.CollateralLockedAmount)
 				topUpItem := &lendingstate.LendingItem{
-					Quantity:        new(big.Int).Sub(newTrade.CollateralLockedAmount, oldTrade.CollateralLockedAmount),
+					Quantity:        topUpAmount,
 					Interest:        big.NewInt(int64(oldTrade.Interest)),
 					Side:            "",
-					Type:            "",
+					Type:            lendingstate.TopUp,
 					LendingToken:    oldTrade.LendingToken,
 					CollateralToken: oldTrade.CollateralToken,
-					FilledAmount:    nil,
+					FilledAmount:    topUpAmount,
 					Status:          lendingstate.TopUp,
 					AutoTopUp:       true,
 					Relayer:         oldTrade.BorrowingRelayer,
 					Term:            oldTrade.Term,
 					UserAddress:     oldTrade.Borrower,
 					Signature:       nil,
-					Hash:            oldTrade.BorrowingOrderHash,
+					Hash:            oldTrade.Hash,
 					TxHash:          txhash,
 					Nonce:           nil,
 					CreatedAt:       txTime,
@@ -592,7 +599,7 @@ func (l *Lending) HasLendingState(block *types.Block) bool {
 		return false
 	}
 	_, err = l.StateCache.OpenTrie(root)
-	if err !=nil{
+	if err != nil {
 		return false
 	}
 	return true

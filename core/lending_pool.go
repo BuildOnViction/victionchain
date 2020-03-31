@@ -410,6 +410,7 @@ func (pool *LendingPool) GetSender(tx *types.LendingTransaction) (common.Address
 	}
 	return from, nil
 }
+
 func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
 	lendingSide := tx.Side()
 	lendingType := tx.Type()
@@ -430,11 +431,48 @@ func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLe
 	if lendingType != LendingTypeLimit && lendingType != LendingTypeMarket {
 		return ErrInvalidLendingType
 	}
-	if valid, _ := lendingstate.IsValidPair(cloneStateDb, tx.RelayerAddress(), tx.LendingToken(), tx.Term()); valid == false {
-		return fmt.Errorf("invalid pair. Relayer: %s. LendingToken: %s. Term: %d", tx.RelayerAddress().Hex(), tx.LendingToken().Hex(), tx.Term())
-	}
-
 	if lendingType == LendingTypeLimit {
+		if err := pool.validateBalance(cloneStateDb, cloneLendingStateDb, tx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (pool *LendingPool) validateCancelledLending(cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
+	if tx.LendingId() == 0 {
+		return ErrInvalidCancelledLending
+	}
+	item := cloneLendingStateDb.GetLendingOrder(lendingstate.GetLendingOrderBookHash(tx.LendingToken(), tx.Term()), common.Uint64ToHash(tx.LendingId()))
+	if item == lendingstate.EmptyLendingOrder {
+		log.Debug("LendingOrder not found ", "LendingId", tx.LendingId(), "LendToken", tx.LendingToken().Hex(), "CollateralToken", tx.CollateralToken().Hex(), "Term", tx.Term())
+		return ErrInvalidCancelledLending
+	}
+	return nil
+}
+func (pool *LendingPool) validateRepayLending(cloneStateDb *state.StateDB, cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
+	if tx.LendingTradeId() == 0 {
+		return ErrInvalidLendingTradeID
+	}
+	if err := pool.validateBalance(cloneStateDb, cloneLendingStateDb, tx); err != nil {
+		return err
+	}
+	return nil
+}
+func (pool *LendingPool) validateTopupLending(cloneStateDb *state.StateDB, cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
+	if tx.LendingTradeId() == 0 {
+		return ErrInvalidLendingTradeID
+	}
+	if tx.Quantity() == nil || tx.Quantity().Sign() <= 0 {
+		return ErrInvalidLendingQuantity
+	}
+	if err := pool.validateBalance(cloneStateDb, cloneLendingStateDb, tx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pool *LendingPool) validateBalance(cloneStateDb *state.StateDB, cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
 		posvEngine, ok := pool.chain.Engine().(*posv.Posv)
 		if !ok {
 			return ErrNotPoSV
@@ -474,6 +512,7 @@ func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLe
 		}
 		if err := lendingstate.VerifyBalance(cloneStateDb,
 			cloneLendingStateDb,
+			tx.Type(),
 			tx.Side(),
 			tx.Status(),
 			tx.UserAddress(),
@@ -491,33 +530,6 @@ func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLe
 		); err != nil {
 			return fmt.Errorf("VerifyBalance failed ! OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToken: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
 		}
-	}
-	return nil
-}
-func (pool *LendingPool) validateCancelledLending(cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
-	if tx.LendingId() == 0 {
-		return ErrInvalidCancelledLending
-	}
-	item := cloneLendingStateDb.GetLendingOrder(lendingstate.GetLendingOrderBookHash(tx.LendingToken(), tx.Term()), common.Uint64ToHash(tx.LendingId()))
-	if item == lendingstate.EmptyLendingOrder {
-		log.Debug("LendingOrder not found ", "LendingId", tx.LendingId(), "LendToken", tx.LendingToken().Hex(), "CollateralToken", tx.CollateralToken().Hex(), "Term", tx.Term())
-		return ErrInvalidCancelledLending
-	}
-	return nil
-}
-func (pool *LendingPool) validateRepayLending(tx *types.LendingTransaction) error {
-	if tx.LendingTradeId() == 0 {
-		return ErrInvalidLendingTradeID
-	}
-	return nil
-}
-func (pool *LendingPool) validateTopupLending(tx *types.LendingTransaction) error {
-	if tx.LendingTradeId() == 0 {
-		return ErrInvalidLendingTradeID
-	}
-	if tx.Quantity() == nil || tx.Quantity().Sign() <= 0 {
-		return ErrInvalidLendingQuantity
-	}
 	return nil
 }
 
@@ -531,6 +543,9 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 	if !lendingstate.IsValidRelayer(cloneStateDb, tx.RelayerAddress()) {
 		return fmt.Errorf("invalid lending relayer. ExchangeAddress: %s", tx.RelayerAddress().Hex())
 	}
+	if valid, _ := lendingstate.IsValidPair(cloneStateDb, tx.RelayerAddress(), tx.LendingToken(), tx.Term()); valid == false {
+		return fmt.Errorf("invalid pair. Relayer: %s. LendingToken: %s. Term: %d", tx.RelayerAddress().Hex(), tx.LendingToken().Hex(), tx.Term())
+	}
 	if tx.IsCreatedLending() {
 		return pool.validateNewLending(cloneStateDb, cloneLendingStateDb, tx)
 	}
@@ -538,10 +553,10 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 		return pool.validateCancelledLending(cloneLendingStateDb, tx)
 	}
 	if tx.IsTopupLending() {
-		return pool.validateTopupLending(tx)
+		return pool.validateTopupLending(cloneStateDb, cloneLendingStateDb,tx)
 	}
-	if tx.IsRePaymentLending() {
-		return pool.validateRepayLending(tx)
+	if tx.IsRepayLending() {
+		return pool.validateRepayLending(cloneStateDb, cloneLendingStateDb,tx)
 	}
 
 	return ErrInvalidLendingStatus

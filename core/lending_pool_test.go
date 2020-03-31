@@ -63,39 +63,59 @@ func getLendingNonce(userAddress common.Address) (uint64, error) {
 func (l *LendingMsg) computeHash() common.Hash {
 	borrowing := l.Side == lendingstate.Borrowing
 	sha := sha3.NewKeccak256()
-	if l.Status == lendingstate.LendingStatusCancelled {
-		sha := sha3.NewKeccak256()
-		sha.Write(l.Hash.Bytes())
+	if l.Type == lendingstate.Repay {
 		sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
-		sha.Write(l.UserAddress.Bytes())
-		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingId))).Bytes())
 		sha.Write([]byte(l.Status))
 		sha.Write(l.RelayerAddress.Bytes())
-	} else if l.Status == lendingstate.LendingStatusNew {
-		sha.Write(l.RelayerAddress.Bytes())
 		sha.Write(l.UserAddress.Bytes())
-		if borrowing {
-			sha.Write(l.CollateralToken.Bytes())
-		}
 		sha.Write(l.LendingToken.Bytes())
-		sha.Write(common.BigToHash(l.Quantity).Bytes())
 		sha.Write(common.BigToHash(big.NewInt(int64(l.Term))).Bytes())
-		if l.Type == lendingstate.Limit {
-			sha.Write(common.BigToHash(big.NewInt(int64(l.Interest))).Bytes())
-		}
-		sha.Write([]byte(l.Side))
-		sha.Write([]byte(l.Status))
-		sha.Write([]byte(l.Type))
-		sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
 		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingTradeId))).Bytes())
-		if borrowing {
-			autoTopUp := int64(0)
-			if l.AutoTopUp {
-				autoTopUp = int64(1)
+	} else if l.Type == lendingstate.TopUp {
+		sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
+		sha.Write([]byte(l.Status))
+		sha.Write(l.RelayerAddress.Bytes())
+		sha.Write(l.UserAddress.Bytes())
+		sha.Write(l.LendingToken.Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.Term))).Bytes())
+		sha.Write(common.BigToHash(big.NewInt(int64(l.LendingTradeId))).Bytes())
+		sha.Write(common.BigToHash(l.Quantity).Bytes())
+	} else {
+		if l.Status == lendingstate.LendingStatusCancelled {
+			sha := sha3.NewKeccak256()
+			sha.Write(l.Hash.Bytes())
+			sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
+			sha.Write(l.UserAddress.Bytes())
+			sha.Write(common.BigToHash(big.NewInt(int64(l.LendingId))).Bytes())
+			sha.Write([]byte(l.Status))
+			sha.Write(l.RelayerAddress.Bytes())
+		} else if l.Status == lendingstate.LendingStatusNew {
+			sha.Write(l.RelayerAddress.Bytes())
+			sha.Write(l.UserAddress.Bytes())
+			if borrowing {
+				sha.Write(l.CollateralToken.Bytes())
 			}
-			sha.Write(common.BigToHash(big.NewInt(autoTopUp)).Bytes())
+			sha.Write(l.LendingToken.Bytes())
+			sha.Write(common.BigToHash(l.Quantity).Bytes())
+			sha.Write(common.BigToHash(big.NewInt(int64(l.Term))).Bytes())
+			if l.Type == lendingstate.Limit {
+				sha.Write(common.BigToHash(big.NewInt(int64(l.Interest))).Bytes())
+			}
+			sha.Write([]byte(l.Side))
+			sha.Write([]byte(l.Status))
+			sha.Write([]byte(l.Type))
+			sha.Write(common.BigToHash(big.NewInt(int64(l.AccountNonce))).Bytes())
+			sha.Write(common.BigToHash(big.NewInt(int64(l.LendingTradeId))).Bytes())
+			if borrowing {
+				autoTopUp := int64(0)
+				if l.AutoTopUp {
+					autoTopUp = int64(1)
+				}
+				sha.Write(common.BigToHash(big.NewInt(autoTopUp)).Bytes())
+			}
 		}
 	}
+
 	return common.BytesToHash(sha.Sum(nil))
 
 }

@@ -45,8 +45,8 @@ const (
 	LendingTypeLo              = "LO"
 	LendingSideBorrow          = "BORROW"
 	LendingSideInvest          = "INVEST"
-	LendingStatusRePay         = "REPAY"
-	LendingStatusTopup         = "TOPUP"
+	LendingRePay               = "REPAY"
+	LendingTopup               = "TOPUP"
 )
 
 // LendingTransaction lending transaction
@@ -86,7 +86,7 @@ type lendingtxdata struct {
 
 // IsCreatedLending check if tx is cancelled transaction
 func (tx *LendingTransaction) IsCreatedLending() bool {
-	if tx.Status() == LendingStatusNew {
+	if tx.IsMoTypeLending() || tx.IsLoTypeLending() {
 		return true
 	}
 	return false
@@ -100,9 +100,9 @@ func (tx *LendingTransaction) IsCancelledLending() bool {
 	return false
 }
 
-// IsRePaymentLending check if tx is repay lending transaction
-func (tx *LendingTransaction) IsRePaymentLending() bool {
-	if tx.Status() == LendingStatusRePay {
+// IsRepayLending check if tx is repay lending transaction
+func (tx *LendingTransaction) IsRepayLending() bool {
+	if tx.Type() == LendingRePay {
 		return true
 	}
 	return false
@@ -110,7 +110,7 @@ func (tx *LendingTransaction) IsRePaymentLending() bool {
 
 // IsTopupLending check if tx is repay lending transaction
 func (tx *LendingTransaction) IsTopupLending() bool {
-	if tx.Status() == LendingStatusTopup {
+	if tx.Type() == LendingTopup {
 		return true
 	}
 	return false

@@ -28,10 +28,15 @@ const (
 )
 
 var ValidInputLendingStatus = map[string]bool{
-	TopUp:                  true,
-	Repay:                  true,
 	LendingStatusNew:       true,
 	LendingStatusCancelled: true,
+}
+
+var ValidInputLendingType = map[string]bool{
+	Market: true,
+	Limit:  true,
+	Repay:  true,
+	TopUp:  true,
 }
 
 // Signature struct
@@ -238,7 +243,7 @@ func (l *LendingItem) VerifyLendingQuantity() error {
 }
 
 func (l *LendingItem) VerifyLendingType() error {
-	if l.Type != Market && l.Type != Limit {
+	if valid, ok := ValidInputLendingType[l.Type]; !ok && !valid {
 		return fmt.Errorf("VerifyLendingType: invalid lending type. Type: %s", l.Type)
 	}
 	return nil
@@ -310,102 +315,108 @@ func (l *LendingItem) VerifyLendingSignature() error {
 }
 
 func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
-	side, status string, userAddress, relayer, lendingToken, collateralToken common.Address,
+	orderType, side, status string, userAddress, relayer, lendingToken, collateralToken common.Address,
 	quantity, lendingTokenDecimal, collateralTokenDecimal, lendTokenTOMOPrice, collateralPrice *big.Int,
 	term uint64, lendingId uint64, lendingTradeId uint64) error {
 	borrowingFeeRate := GetFee(statedb, relayer)
-	switch side {
-	case Investing:
-		switch status {
-		case LendingStatusNew:
-			// make sure that investor have enough lendingToken
-			if balance := GetTokenBalance(userAddress, lendingToken, statedb); balance.Cmp(quantity) < 0 {
-				return fmt.Errorf("VerifyBalance: investor doesn't have enough lendingToken. User: %s. Token: %s. Expected: %v. Have: %v", userAddress.Hex(), lendingToken.Hex(), quantity, balance)
-			}
-		case LendingStatusCancelled:
-			// in case of cancel, investor need to pay cancel fee in lendingToken
-			// make sure actualBalance >= cancel fee
-			lendingBook := GetLendingOrderBookHash(lendingToken, term)
-			item := lendingStateDb.GetLendingOrder(lendingBook, common.BigToHash(new(big.Int).SetUint64(lendingId)))
-			cancelFee := big.NewInt(0)
-			cancelFee = new(big.Int).Mul(item.Quantity, borrowingFeeRate)
-			cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
-
-			actualBalance := GetTokenBalance(userAddress, lendingToken, statedb)
-			if actualBalance.Cmp(cancelFee) < 0 {
-				return fmt.Errorf("VerifyBalance: investor doesn't have enough lendingToken to pay cancel fee. LendingToken: %s . ExpectedBalance: %s . ActualBalance: %s",
-					lendingToken.Hex(), cancelFee.String(), actualBalance.String())
-			}
-		default:
-			return fmt.Errorf("VerifyBalance: invalid status of investing lendingitem. Status: %s", status)
+	switch orderType {
+	case TopUp:
+		lendingBook := GetLendingOrderBookHash(lendingToken, term)
+		lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
+		if lendingTrade == EmptyLendingTrade {
+			return fmt.Errorf("VerifyBalance: process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 		}
-		return nil
-	case Borrowing:
-		switch status {
-		case LendingStatusNew:
-			depositRate, _, _ := GetCollateralDetail(statedb, collateralToken)
-			settleBalanceResult, err := GetSettleBalance(Borrowing, lendTokenTOMOPrice, collateralPrice, depositRate, borrowingFeeRate, lendingToken, collateralToken, lendingTokenDecimal, collateralTokenDecimal, quantity)
-			if err != nil {
-				return err
-			}
-			expectedBalance := settleBalanceResult.CollateralLockedAmount
-			actualBalance := GetTokenBalance(userAddress, collateralToken, statedb)
-			if actualBalance.Cmp(expectedBalance) < 0 {
-				return fmt.Errorf("VerifyBalance: borrower doesn't have enough collateral token.  User: %s. CollateralToken: %s . ExpectedBalance: %s . ActualBalance: %s",
-					userAddress.Hex(), collateralToken.Hex(), expectedBalance.String(), actualBalance.String())
-			}
-		case LendingStatusCancelled:
-			lendingBook := GetLendingOrderBookHash(lendingToken, term)
-			item := lendingStateDb.GetLendingOrder(lendingBook, common.BigToHash(new(big.Int).SetUint64(lendingId)))
-			cancelFee := big.NewInt(0)
-			// Fee ==  quantityToLend/base lend token decimal *price*borrowFee/LendingCancelFee
-			cancelFee = new(big.Int).Div(item.Quantity, collateralPrice)
-			cancelFee = new(big.Int).Mul(cancelFee, borrowingFeeRate)
-			cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
-			actualBalance := GetTokenBalance(userAddress, collateralToken, statedb)
-			if actualBalance.Cmp(cancelFee) < 0 {
-				return fmt.Errorf("VerifyBalance: borrower doesn't have enough collateralToken to pay cancel fee. User: %s. CollateralToken: %s . ExpectedBalance: %s . ActualBalance: %s",
-					userAddress.Hex(), lendingToken.Hex(), cancelFee.String(), actualBalance.String())
-			}
-		case TopUp:
-			lendingBook := GetLendingOrderBookHash(lendingToken, term)
-			lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
-			if lendingTrade == EmptyLendingTrade {
-				return fmt.Errorf("VerifyBalance: process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
-			}
-			tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
-			if tokenBalance.Cmp(quantity) < 0 {
-				return fmt.Errorf("VerifyBalance: not enough balance to process deposit for lendingTrade."+
-					"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
-					lendingTradeId, lendingTrade.CollateralToken.Hex(), quantity.String(), tokenBalance.String())
-			}
-		case Repay:
-			lendingBook := GetLendingOrderBookHash(lendingToken, term)
-			lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
-			if lendingTrade == EmptyLendingTrade {
-				return fmt.Errorf("VerifyBalance: process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
-			}
-			tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
-			interestRate := CalculateInterestRate(uint64(time.Now().Unix()), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest)
-
-			// interest 10%
-			// user should send: 10 * common.BaseLendingInterest
-			// decimal = common.BaseLendingInterest * 100
-			baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
-
-			paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(baseInterestDecimal, interestRate))
-			paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
-			if tokenBalance.Cmp(paymentBalance) < 0 {
-				return fmt.Errorf("VerifyBalance: not enough balance to process payment for lendingTrade."+
-					"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
-					lendingTradeId, lendingTrade.LendingToken.Hex(), paymentBalance.String(), tokenBalance.String())
-
-			}
-		default:
-			return fmt.Errorf("VerifyBalance: invalid status of borrowing lendingitem. Status: %s", status)
+		tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
+		if tokenBalance.Cmp(quantity) < 0 {
+			return fmt.Errorf("VerifyBalance: not enough balance to process deposit for lendingTrade."+
+				"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
+				lendingTradeId, lendingTrade.CollateralToken.Hex(), quantity.String(), tokenBalance.String())
 		}
-		return nil
+	case Repay:
+		lendingBook := GetLendingOrderBookHash(lendingToken, term)
+		lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
+		if lendingTrade == EmptyLendingTrade {
+			return fmt.Errorf("VerifyBalance: process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
+		}
+		tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
+		interestRate := CalculateInterestRate(uint64(time.Now().Unix()), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest)
+
+		// interest 10%
+		// user should send: 10 * common.BaseLendingInterest
+		// decimal = common.BaseLendingInterest * 100
+		baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
+
+		paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(baseInterestDecimal, interestRate))
+		paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
+		if tokenBalance.Cmp(paymentBalance) < 0 {
+			return fmt.Errorf("VerifyBalance: not enough balance to process payment for lendingTrade."+
+				"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
+				lendingTradeId, lendingTrade.LendingToken.Hex(), paymentBalance.String(), tokenBalance.String())
+
+		}
+	case Market, Limit:
+		switch side {
+		case Investing:
+			switch status {
+			case LendingStatusNew:
+				// make sure that investor have enough lendingToken
+				if balance := GetTokenBalance(userAddress, lendingToken, statedb); balance.Cmp(quantity) < 0 {
+					return fmt.Errorf("VerifyBalance: investor doesn't have enough lendingToken. User: %s. Token: %s. Expected: %v. Have: %v", userAddress.Hex(), lendingToken.Hex(), quantity, balance)
+				}
+			case LendingStatusCancelled:
+				// in case of cancel, investor need to pay cancel fee in lendingToken
+				// make sure actualBalance >= cancel fee
+				lendingBook := GetLendingOrderBookHash(lendingToken, term)
+				item := lendingStateDb.GetLendingOrder(lendingBook, common.BigToHash(new(big.Int).SetUint64(lendingId)))
+				cancelFee := big.NewInt(0)
+				cancelFee = new(big.Int).Mul(item.Quantity, borrowingFeeRate)
+				cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
+
+				actualBalance := GetTokenBalance(userAddress, lendingToken, statedb)
+				if actualBalance.Cmp(cancelFee) < 0 {
+					return fmt.Errorf("VerifyBalance: investor doesn't have enough lendingToken to pay cancel fee. LendingToken: %s . ExpectedBalance: %s . ActualBalance: %s",
+						lendingToken.Hex(), cancelFee.String(), actualBalance.String())
+				}
+			default:
+				return fmt.Errorf("VerifyBalance: invalid status of investing lendingitem. Status: %s", status)
+			}
+			return nil
+		case Borrowing:
+			switch status {
+			case LendingStatusNew:
+				depositRate, _, _ := GetCollateralDetail(statedb, collateralToken)
+				settleBalanceResult, err := GetSettleBalance(Borrowing, lendTokenTOMOPrice, collateralPrice, depositRate, borrowingFeeRate, lendingToken, collateralToken, lendingTokenDecimal, collateralTokenDecimal, quantity)
+				if err != nil {
+					return err
+				}
+				expectedBalance := settleBalanceResult.CollateralLockedAmount
+				actualBalance := GetTokenBalance(userAddress, collateralToken, statedb)
+				if actualBalance.Cmp(expectedBalance) < 0 {
+					return fmt.Errorf("VerifyBalance: borrower doesn't have enough collateral token.  User: %s. CollateralToken: %s . ExpectedBalance: %s . ActualBalance: %s",
+						userAddress.Hex(), collateralToken.Hex(), expectedBalance.String(), actualBalance.String())
+				}
+			case LendingStatusCancelled:
+				lendingBook := GetLendingOrderBookHash(lendingToken, term)
+				item := lendingStateDb.GetLendingOrder(lendingBook, common.BigToHash(new(big.Int).SetUint64(lendingId)))
+				cancelFee := big.NewInt(0)
+				// Fee ==  quantityToLend/base lend token decimal *price*borrowFee/LendingCancelFee
+				cancelFee = new(big.Int).Div(item.Quantity, collateralPrice)
+				cancelFee = new(big.Int).Mul(cancelFee, borrowingFeeRate)
+				cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
+				actualBalance := GetTokenBalance(userAddress, collateralToken, statedb)
+				if actualBalance.Cmp(cancelFee) < 0 {
+					return fmt.Errorf("VerifyBalance: borrower doesn't have enough collateralToken to pay cancel fee. User: %s. CollateralToken: %s . ExpectedBalance: %s . ActualBalance: %s",
+						userAddress.Hex(), lendingToken.Hex(), cancelFee.String(), actualBalance.String())
+				}
+			default:
+				return fmt.Errorf("VerifyBalance: invalid status of borrowing lendingitem. Status: %s", status)
+			}
+			return nil
+		default:
+			return fmt.Errorf("VerifyBalance: unknown lending side")
+		}
 	default:
-		return fmt.Errorf("VerifyBalance: unknown lending side")
+		return fmt.Errorf("VerifyBalance: unknown lending type")
 	}
+	return nil
 }

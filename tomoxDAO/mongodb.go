@@ -21,9 +21,9 @@ const (
 	tradesCollection        = "trades"
 	lendingItemsCollection  = "lending_items"
 	lendingTradesCollection = "lending_trades"
-	lendingTopUpCollection  = "lending_topup"
-	lendingRepayCollection  = "lending_repay"
-	epochPriceCollection    = "epoch_price"
+	lendingTopUpCollection  = "lending_topups"
+	lendingRepayCollection  = "lending_repays"
+	epochPriceCollection    = "epoch_prices"
 )
 
 type MongoDatabase struct {
@@ -237,11 +237,19 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 	case *lendingstate.LendingItem:
 		// PutObject order into ordersCollection collection
 		li := val.(*lendingstate.LendingItem)
-		if li.Status == lendingstate.Repay {
+		if li.Type == lendingstate.Repay {
+			if li.Status != lendingstate.LendingStatusReject {
+				li.Status = lendingstate.Repay
+			}
+			li.FilledAmount = li.Quantity
 			db.repayBulk.Insert(li)
 			return nil
 		}
-		if li.Status == lendingstate.TopUp {
+		if li.Type == lendingstate.TopUp {
+			if li.Status != lendingstate.LendingStatusReject {
+				li.Status = lendingstate.TopUp
+			}
+			li.FilledAmount = li.Quantity
 			db.topUpBulk.Insert(li)
 			return nil
 		}

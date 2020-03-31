@@ -60,13 +60,7 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		return trades, rejects, nil
 	}
 
-	switch order.Status {
-	case lendingstate.LendingStatusCancelled:
-		err, reject := l.ProcessCancelOrder(lendingStateDB, statedb, tradingStateDb, chain, coinbase, lendingOrderBook, order)
-		if err != nil || reject {
-			rejects = append(rejects, order)
-		}
-		return trades, rejects, nil
+	switch order.Type {
 	case lendingstate.TopUp:
 		err, reject, newLendingTrade := l.ProcessTopUp(lendingStateDB, statedb, tradingStateDb, order)
 		if err != nil || reject {
@@ -85,6 +79,15 @@ func (l *Lending) ApplyOrder(createdBlockTime uint64, coinbase common.Address, c
 		return trades, rejects, nil
 	default:
 	}
+
+	if order.Status == lendingstate.LendingStatusCancelled {
+		err, reject := l.ProcessCancelOrder(lendingStateDB, statedb, tradingStateDb, chain, coinbase, lendingOrderBook, order)
+		if err != nil || reject {
+			rejects = append(rejects, order)
+		}
+		return trades, rejects, nil
+	}
+
 	if order.Type != lendingstate.Market {
 		if order.Interest.Sign() == 0 || common.BigToHash(order.Interest).Big().Cmp(order.Interest) != 0 {
 			log.Debug("Reject order Interest invalid", "Interest", order.Interest)
