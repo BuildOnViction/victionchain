@@ -23,6 +23,7 @@ const (
 	lendingTradesCollection = "lending_trades"
 	lendingTopUpCollection  = "lending_topups"
 	lendingRepayCollection  = "lending_repays"
+	lendingRecallCollection = "lending_recalls"
 	epochPriceCollection    = "epoch_prices"
 )
 
@@ -36,6 +37,7 @@ type MongoDatabase struct {
 	epochPriceBulk   *mgo.Bulk
 	lendingItemBulk  *mgo.Bulk
 	topUpBulk        *mgo.Bulk
+	recallBulk       *mgo.Bulk
 	repayBulk        *mgo.Bulk
 	lendingTradeBulk *mgo.Bulk
 }
@@ -245,6 +247,14 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 			db.repayBulk.Insert(li)
 			return nil
 		}
+		if li.Type == lendingstate.Recall {
+			if li.Status != lendingstate.LendingStatusReject {
+				li.Status = lendingstate.Recall
+			}
+			li.FilledAmount = li.Quantity
+			db.recallBulk.Insert(li)
+			return nil
+		}
 		if li.Type == lendingstate.TopUp {
 			if li.Status != lendingstate.LendingStatusReject {
 				li.Status = lendingstate.TopUp
@@ -324,6 +334,7 @@ func (db *MongoDatabase) InitLendingBulk() {
 	db.lendingTradeBulk = sc.DB(db.dbName).C(lendingTradesCollection).Bulk()
 	db.topUpBulk = sc.DB(db.dbName).C(lendingTopUpCollection).Bulk()
 	db.repayBulk = sc.DB(db.dbName).C(lendingRepayCollection).Bulk()
+	db.recallBulk = sc.DB(db.dbName).C(lendingRecallCollection).Bulk()
 }
 
 func (db *MongoDatabase) CommitBulk() error {
@@ -350,6 +361,9 @@ func (db *MongoDatabase) CommitLendingBulk() error {
 		return err
 	}
 	if _, err := db.repayBulk.Run(); err != nil && !mgo.IsDup(err) {
+		return err
+	}
+	if _, err := db.recallBulk.Run(); err != nil && !mgo.IsDup(err) {
 		return err
 	}
 	return nil
@@ -565,6 +579,23 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Sparse:     true,
 		Name:       "index_lending_repay_tx_hash",
 	}
+
+	recallHashIndex := mgo.Index{
+		Key:        []string{"hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_recall_hash",
+	}
+	recallTxHashIndex := mgo.Index{
+		Key:        []string{"txHash"},
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_recall_tx_hash",
+	}
+
 	topupHashIndex := mgo.Index{
 		Key:        []string{"hash"},
 		Unique:     true,
@@ -652,6 +683,19 @@ func (db *MongoDatabase) EnsureIndexes() error {
 			return fmt.Errorf("failed to create index %s . Err: %v", repayTxHashIndex.Name, err)
 		}
 	}
+
+	indexes, _ = sc.DB(db.dbName).C(lendingRecallCollection).Indexes()
+	if !existingIndex(recallHashIndex.Name, indexes) {
+		if err := sc.DB(db.dbName).C(lendingRecallCollection).EnsureIndex(recallHashIndex); err != nil {
+			return fmt.Errorf("failed to create index %s . Err: %v", recallHashIndex.Name, err)
+		}
+	}
+	if !existingIndex(recallTxHashIndex.Name, indexes) {
+		if err := sc.DB(db.dbName).C(lendingRecallCollection).EnsureIndex(recallTxHashIndex); err != nil {
+			return fmt.Errorf("failed to create index %s . Err: %v", recallTxHashIndex.Name, err)
+		}
+	}
+
 
 	indexes, _ = sc.DB(db.dbName).C(lendingTopUpCollection).Indexes()
 	if !existingIndex(topupHashIndex.Name, indexes) {
