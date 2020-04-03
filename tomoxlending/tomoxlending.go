@@ -857,27 +857,32 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 		// recall trades
 		depositRate, liquidationRate, _, recallRate, _ := lendingstate.GetCollateralDetail(statedb, lendingPair.CollateralToken)
 		recalLiquidatePrice := new(big.Int).Mul(collateralPrice, common.BaseRecall)
-		recalLiquidatePrice = new(big.Int).Div(collateralPrice, recallRate)
+		recalLiquidatePrice = new(big.Int).Div(recalLiquidatePrice, recallRate)
 		newLiquidatePrice := new(big.Int).Mul(collateralPrice, liquidationRate)
 		newLiquidatePrice = new(big.Int).Div(newLiquidatePrice, depositRate)
-		lowestLiquidatePrice, liquidationData := tradingState.GetLowestLiquidationPriceData(orderbook, recalLiquidatePrice)
-		log.Debug("ProcessLiquidationData", "recalLiquidatePrice", recalLiquidatePrice, "newLiquidatePrice", newLiquidatePrice, "lowestLiquidatePrice", lowestLiquidatePrice, "liquidationData", liquidationData)
-		for lowestLiquidatePrice.Sign() > 0 && recalLiquidatePrice.Cmp(lowestLiquidatePrice) > 0 {
-			for lendingBook, tradingIds := range liquidationData {
-				for _, tradingIdHash := range tradingIds {
-					trade := lendingState.GetLendingTrade(lendingBook, tradingIdHash)
-					if trade.AutoTopUp {
-						if err, _, newTrade := l.ProcessRecallLendingTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash, newLiquidatePrice); err == nil {
+		allLowertLiquidationData := tradingState.GetAllLowerLiquidationPriceData(orderbook, recalLiquidatePrice)
+		log.Debug("ProcessLiquidationData", "orderbook", orderbook.Hex(), "collateralPrice", collateralPrice, "recallRate", recallRate, "recalLiquidatePrice", recalLiquidatePrice, "newLiquidatePrice", newLiquidatePrice, "allLowertLiquidationData", len(allLowertLiquidationData))
+		for price, liquidationData := range allLowertLiquidationData {
+			if price.Sign() > 0 && recalLiquidatePrice.Cmp(price) > 0 {
+				for lendingBook, tradingIds := range liquidationData {
+					log.Debug("GetAllLowerLiquidationPriceData", "price", price, "lendingBook", lendingBook, "tradingIds", tradingIds)
+					for _, tradingIdHash := range tradingIds {
+						trade := lendingState.GetLendingTrade(lendingBook, tradingIdHash)
+						log.Debug("TestRecall", "borrower", trade.Borrower.Hex(), "lendingToken", trade.LendingToken.Hex(), "collateral", trade.CollateralToken.Hex(), "price", price, "tradingIdHash", tradingIdHash.Hex())
+						if trade.AutoTopUp {
+							err, _, newTrade := l.ProcessRecallLendingTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash, newLiquidatePrice)
+							if err != nil {
+								log.Error("ProcessRecallLendingTrade", "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "newLiquidatePrice", newLiquidatePrice, "err", err)
+								return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err
+							}
 							// if this action complete successfully, do not liquidate this trade in this epoch
 							log.Debug("AutoRecall", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
 							autoRecallTrades = append(autoRecallTrades, newTrade)
 							updatedTrades[newTrade.Hash] = newTrade
 						}
 					}
-					log.Debug("Recall Trade", "lowestLiquidatePrice", lowestLiquidatePrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
 				}
 			}
-			lowestLiquidatePrice, liquidationData = tradingState.GetLowestLiquidationPriceData(orderbook, recalLiquidatePrice)
 		}
 	}
 

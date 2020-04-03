@@ -292,6 +292,17 @@ func TestFilled(t *testing.T) {
 	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1200000), _1E18), TOMOUSDPrice, "SELL", "NEW", 0)
 
 }
+
+func TestX10Filled(t *testing.T) {
+	TOMOUSDPrice := new(big.Int).Mul(_1E7, big.NewInt(60)) // 6
+	time.Sleep(2 * time.Second)
+	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
+	time.Sleep(2 * time.Second)
+	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
+	time.Sleep(2 * time.Second)
+	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1200000), _1E18), TOMOUSDPrice, "SELL", "NEW", 0)
+
+}
 func TestPartialFilled(t *testing.T) {
 
 }

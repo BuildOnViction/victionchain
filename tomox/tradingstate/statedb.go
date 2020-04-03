@@ -605,30 +605,35 @@ func (s *TradingStateDB) Commit() (root common.Hash, err error) {
 	return root, err
 }
 
-func (self *TradingStateDB) GetLowestLiquidationPriceData(orderBook common.Hash, price *big.Int) (*big.Int, map[common.Hash][]common.Hash) {
-	liquidationData := map[common.Hash][]common.Hash{}
+func (self *TradingStateDB) GetAllLowerLiquidationPriceData(orderBook common.Hash, limit *big.Int) map[*big.Int]map[common.Hash][]common.Hash {
+	result := map[*big.Int]map[common.Hash][]common.Hash{}
 	orderbookState := self.getStateExchangeObject(orderBook)
 	if orderbookState == nil {
-		return common.Big0, liquidationData
+		return result
 	}
-	lowestPriceHash, liquidationState := orderbookState.getLowestLiquidationPrice(self.db)
-	lowestPrice := new(big.Int).SetBytes(lowestPriceHash[:])
-	if liquidationState != nil && lowestPrice.Sign() > 0 && lowestPrice.Cmp(price) < 0 {
-		priceLiquidationData := liquidationState.getAllLiquidationData(self.db)
-		for lendingBook, data := range priceLiquidationData {
-			if len(data) == 0 {
-				continue
+	mapPrices := orderbookState.getAllLowerLiquidationPrice(self.db, common.BigToHash(limit))
+	for priceHash, liquidationState := range mapPrices {
+		price := new(big.Int).SetBytes(priceHash[:])
+		log.Debug("GetAllLowerLiquidationPriceData", "price", price, "limit", limit)
+		if liquidationState != nil && price.Sign() > 0 && price.Cmp(limit) < 0 {
+			liquidationData := map[common.Hash][]common.Hash{}
+			priceLiquidationData := liquidationState.getAllLiquidationData(self.db)
+			for lendingBook, data := range priceLiquidationData {
+				if len(data) == 0 {
+					continue
+				}
+				oldData := liquidationData[lendingBook]
+				if len(oldData) == 0 {
+					oldData = data
+				} else {
+					oldData = append(oldData, data...)
+				}
+				liquidationData[lendingBook] = oldData
 			}
-			oldData := liquidationData[lendingBook]
-			if len(oldData) == 0 {
-				oldData = data
-			} else {
-				oldData = append(oldData, data...)
-			}
-			liquidationData[lendingBook] = oldData
+			result[price] = liquidationData
 		}
 	}
-	return lowestPrice, liquidationData
+	return result
 }
 
 func (self *TradingStateDB) GetHighestLiquidationPriceData(orderBook common.Hash, price *big.Int) (*big.Int, map[common.Hash][]common.Hash) {

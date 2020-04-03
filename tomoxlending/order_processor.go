@@ -974,7 +974,7 @@ func (l *Lending) ProcessTopUpLendingTrade(lendingStateDB *lendingstate.LendingS
 	return nil, false, &newLendingTrade
 }
 
-func (l *Lending) ProcessRecallLendingTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, lendingTradeId common.Hash, lendingBook common.Hash, newLiquidationPrice *big.Int) (error, bool, *lendingstate.LendingTrade) {
+func (l *Lending) ProcessRecallLendingTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId common.Hash, newLiquidationPrice *big.Int) (error, bool, *lendingstate.LendingTrade) {
 	log.Debug("ProcessRecallLendingTrade", "lendingTradeId", lendingTradeId.Hex(), "lendingBook", lendingBook.Hex(), "newLiquidationPrice", newLiquidationPrice)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeId)
 	if lendingTrade == lendingstate.EmptyLendingTrade {
