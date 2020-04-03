@@ -203,8 +203,10 @@ func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
 		if err := l.VerifyLendingQuantity(); err != nil {
 			return err
 		}
-		if err := l.VerifyLendingSide(); err != nil {
-			return err
+		if l.Type == Limit || l.Type == Market {
+			if err := l.VerifyLendingSide(); err != nil {
+				return err
+			}
 		}
 		if l.Type == Limit {
 			if err := l.VerifyLendingInterest(); err != nil {
