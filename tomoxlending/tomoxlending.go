@@ -218,7 +218,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	lastState := lendingstate.LendingItemHistoryItem{}
 	// Typically, takerItem has never existed in database
 	// except cancel case: in this case, item existed in database with status = OPEN, then use send another lendingItem to cancel it
-	val, err := db.GetObject(takerLendingItem.Hash, &lendingstate.LendingItem{})
+	val, err := db.GetObject(takerLendingItem.Hash, &lendingstate.LendingItem{Type: takerLendingItem.Type})
 	if err == nil && val != nil {
 		originTakerLendingItem = val.(*lendingstate.LendingItem)
 		lastState = lendingstate.LendingItemHistoryItem{
@@ -240,7 +240,6 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	} else if takerLendingItem.Status == lendingstate.LendingStatusCancelled {
 		updatedTakerLendingItem.Status = lendingstate.LendingStatusCancelled
 	}
-
 	updatedTakerLendingItem.TxHash = txHash
 	if updatedTakerLendingItem.CreatedAt.IsZero() {
 		updatedTakerLendingItem.CreatedAt = txMatchTime
@@ -265,6 +264,15 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		if updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp || updatedTakerLendingItem.Type == lendingstate.Recall {
 			// repay, topup: assign hash = trade.hash
 			updatedTakerLendingItem.Hash = tradeRecord.Hash
+			updatedTakerLendingItem.CollateralToken = tradeRecord.CollateralToken
+			updatedTakerLendingItem.FilledAmount = updatedTakerLendingItem.Quantity
+			updatedTakerLendingItem.Interest = new(big.Int).SetUint64(tradeRecord.Interest)
+			if updatedTakerLendingItem.Type == lendingstate.TopUp {
+				updatedTakerLendingItem.Status = lendingstate.TopUp
+			} else {
+				updatedTakerLendingItem.Status = lendingstate.Repay
+			}
+
 			log.Debug("UpdateLendingTrade:", "type", updatedTakerLendingItem.Type, "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
 			tradeList[tradeRecord.Hash] = tradeRecord
 			continue
@@ -317,7 +325,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	// filledAmount > 0 : FILLED
 	// otherwise: REJECTED
 	if updatedTakerLendingItem.Type == lendingstate.Market {
-		if updatedTakerLendingItem.FilledAmount.Cmp(big.NewInt(0)) > 0 {
+		if updatedTakerLendingItem.FilledAmount.Sign() > 0 {
 			updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
 		} else {
 			updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
@@ -329,9 +337,12 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		"Interest", updatedTakerLendingItem.Interest, "quantity", updatedTakerLendingItem.Quantity, "filledAmount", updatedTakerLendingItem.FilledAmount, "status", updatedTakerLendingItem.Status,
 		"hash", updatedTakerLendingItem.Hash.Hex(), "txHash", updatedTakerLendingItem.TxHash.Hex())
 
-	if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
-		return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerLendingItem.Hash.Hex(), err.Error())
+	if !(updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp) || updatedTakerLendingItem.Status != lendingstate.LendingStatusOpen {
+		if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
+			return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerLendingItem.Hash.Hex(), err.Error())
+		}
 	}
+
 
 	items := db.GetListItemByHashes(makerDirtyHashes, &lendingstate.LendingItem{})
 	if items != nil {
@@ -386,7 +397,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 				l.UpdateLendingItemCache(updatedTakerLendingItem.LendingToken, updatedTakerLendingItem.CollateralToken, updatedTakerLendingItem.Hash, txHash, historyRecord)
 				// if whole order is rejected, status = REJECTED
 				// otherwise, status = FILLED
-				if updatedTakerLendingItem.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+				if updatedTakerLendingItem.FilledAmount.Sign() > 0 {
 					updatedTakerLendingItem.Status = lendingstate.LendingStatusFilled
 				} else {
 					updatedTakerLendingItem.Status = lendingstate.LendingStatusReject
@@ -420,7 +431,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 				}
 				// if whole order is rejected, status = REJECTED
 				// otherwise, status = FILLED
-				if r.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+				if r.FilledAmount.Sign() > 0 {
 					r.Status = lendingstate.LendingStatusFilled
 				} else {
 					r.Status = lendingstate.LendingStatusReject
@@ -764,8 +775,8 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 	}
 
 	// remove repay/topup history
-	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Status: lendingstate.Repay})
-	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Status: lendingstate.TopUp})
+	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Type: lendingstate.Repay})
+	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Type: lendingstate.TopUp})
 
 	if err := db.CommitLendingBulk(); err != nil {
 		return fmt.Errorf("failed to RollbackLendingData. %v", err)

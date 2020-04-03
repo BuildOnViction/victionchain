@@ -184,7 +184,16 @@ func (db *MongoDatabase) GetObject(hash common.Hash, val interface{}) (interface
 			return t, nil
 		case *lendingstate.LendingItem:
 			var li *lendingstate.LendingItem
-			err := sc.DB(db.dbName).C(ordersCollection).Find(query).One(&li)
+			var err error
+			item := val.(*lendingstate.LendingItem)
+			if item.Type == lendingstate.Repay {
+				err = sc.DB(db.dbName).C(lendingRepayCollection).Find(query).One(&li)
+			} else if item.Type == lendingstate.TopUp {
+				err = sc.DB(db.dbName).C(lendingTopUpCollection).Find(query).One(&li)
+			} else {
+				err = sc.DB(db.dbName).C(lendingItemsCollection).Find(query).One(&li)
+			}
+
 			if err != nil {
 				return nil, err
 			}
@@ -192,7 +201,7 @@ func (db *MongoDatabase) GetObject(hash common.Hash, val interface{}) (interface
 			return li, nil
 		case *lendingstate.LendingTrade:
 			var t *lendingstate.LendingTrade
-			err := sc.DB(db.dbName).C(tradesCollection).Find(query).One(&t)
+			err := sc.DB(db.dbName).C(lendingTradesCollection).Find(query).One(&t)
 			if err != nil {
 				return nil, err
 			}
@@ -243,7 +252,6 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 			if li.Status != lendingstate.LendingStatusReject {
 				li.Status = lendingstate.Repay
 			}
-			li.FilledAmount = li.Quantity
 			db.repayBulk.Insert(li)
 			return nil
 		}
@@ -259,7 +267,6 @@ func (db *MongoDatabase) PutObject(hash common.Hash, val interface{}) error {
 			if li.Status != lendingstate.LendingStatusReject {
 				li.Status = lendingstate.TopUp
 			}
-			li.FilledAmount = li.Quantity
 			db.topUpBulk.Insert(li)
 			return nil
 		}
@@ -305,7 +312,14 @@ func (db *MongoDatabase) DeleteObject(hash common.Hash, val interface{}) error {
 				return fmt.Errorf("failed to delete tomox trade. Err: %v", err)
 			}
 		case *lendingstate.LendingItem:
-			err = sc.DB(db.dbName).C(lendingItemsCollection).Remove(query)
+			item := val.(*lendingstate.LendingItem)
+			if item.Type == lendingstate.Repay {
+				err = sc.DB(db.dbName).C(lendingRepayCollection).Remove(query)
+			} else if item.Type == lendingstate.TopUp {
+				err = sc.DB(db.dbName).C(lendingTopUpCollection).Remove(query)
+			} else {
+				err = sc.DB(db.dbName).C(lendingItemsCollection).Remove(query)
+			}
 			if err != nil && err != mgo.ErrNotFound {
 				return fmt.Errorf("failed to delete lendingItem. Err: %v", err)
 			}
@@ -405,13 +419,13 @@ func (db *MongoDatabase) DeleteItemByTxHash(txhash common.Hash, val interface{})
 		}
 	case *lendingstate.LendingItem:
 		item := val.(*lendingstate.LendingItem)
-		if item.Status == lendingstate.Repay {
+		if item.Type == lendingstate.Repay {
 			if err := sc.DB(db.dbName).C(lendingRepayCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
 				log.Error("DeleteItemByTxHash: failed to delete repayItem", "txhash", txhash, "err", err)
 			}
 			return
 		}
-		if item.Status == lendingstate.TopUp {
+		if item.Type == lendingstate.TopUp {
 			if err := sc.DB(db.dbName).C(lendingTopUpCollection).Remove(query); err != nil && err != mgo.ErrNotFound {
 				log.Error("DeleteItemByTxHash: failed to delete topupItem", "txhash", txhash, "err", err)
 			}
@@ -449,7 +463,20 @@ func (db *MongoDatabase) GetListItemByTxHash(txhash common.Hash, val interface{}
 		}
 		return result
 	case *lendingstate.LendingItem:
+		item := val.(*lendingstate.LendingItem)
 		result := []*lendingstate.LendingItem{}
+		if item.Type == lendingstate.Repay {
+			if err := sc.DB(db.dbName).C(lendingRepayCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+				log.Error("failed to GetListItemByTxHash (lendingItems)", "err", err, "Txhash", txhash)
+			}
+			return result
+		}
+		if item.Type == lendingstate.TopUp {
+			if err := sc.DB(db.dbName).C(lendingTopUpCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+				log.Error("failed to GetListItemByTxHash (lendingItems)", "err", err, "Txhash", txhash)
+			}
+			return result
+		}
 		if err := sc.DB(db.dbName).C(lendingItemsCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
 			log.Error("failed to GetListItemByTxHash (lendingItems)", "err", err, "Txhash", txhash)
 		}
@@ -486,7 +513,20 @@ func (db *MongoDatabase) GetListItemByHashes(hashes []string, val interface{}) i
 		}
 		return result
 	case *lendingstate.LendingItem:
+		item := val.(*lendingstate.LendingItem)
 		result := []*lendingstate.LendingItem{}
+		if item.Type == lendingstate.Repay {
+			if err := sc.DB(db.dbName).C(lendingRepayCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+				log.Error("failed to GetListItemByHashes (lendingItems)", "err", err, "hashes", hashes)
+			}
+			return result
+		}
+		if item.Type == lendingstate.TopUp {
+			if err := sc.DB(db.dbName).C(lendingTopUpCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
+				log.Error("failed to GetListItemByHashes (lendingItems)", "err", err, "hashes", hashes)
+			}
+			return result
+		}
 		if err := sc.DB(db.dbName).C(lendingItemsCollection).Find(query).All(&result); err != nil && err != mgo.ErrNotFound {
 			log.Error("failed to GetListItemByHashes (lendingItems)", "err", err, "hashes", hashes)
 		}

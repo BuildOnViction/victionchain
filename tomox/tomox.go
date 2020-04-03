@@ -399,7 +399,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 	// filledAmount > 0 : FILLED
 	// otherwise: REJECTED
 	if updatedTakerOrder.Type == tradingstate.Market {
-		if updatedTakerOrder.FilledAmount.Cmp(big.NewInt(0)) > 0 {
+		if updatedTakerOrder.FilledAmount.Sign() > 0 {
 			updatedTakerOrder.Status = tradingstate.OrderStatusFilled
 		} else {
 			updatedTakerOrder.Status = tradingstate.OrderStatusRejected
@@ -465,7 +465,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 				tomox.UpdateOrderCache(updatedTakerOrder.BaseToken, updatedTakerOrder.QuoteToken, updatedTakerOrder.Hash, txHash, orderHistoryRecord)
 				// if whole order is rejected, status = REJECTED
 				// otherwise, status = FILLED
-				if updatedTakerOrder.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+				if updatedTakerOrder.FilledAmount.Sign() > 0 {
 					updatedTakerOrder.Status = tradingstate.OrderStatusFilled
 				} else {
 					updatedTakerOrder.Status = tradingstate.OrderStatusRejected
@@ -499,7 +499,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 				}
 				// if whole order is rejected, status = REJECTED
 				// otherwise, status = FILLED
-				if order.FilledAmount.Cmp(new(big.Int).SetUint64(0)) > 0 {
+				if order.FilledAmount.Sign() > 0 {
 					order.Status = tradingstate.OrderStatusFilled
 				} else {
 					order.Status = tradingstate.OrderStatusRejected
