@@ -337,7 +337,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		"Interest", updatedTakerLendingItem.Interest, "quantity", updatedTakerLendingItem.Quantity, "filledAmount", updatedTakerLendingItem.FilledAmount, "status", updatedTakerLendingItem.Status,
 		"hash", updatedTakerLendingItem.Hash.Hex(), "txHash", updatedTakerLendingItem.TxHash.Hex())
 
-	if !(updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp) || updatedTakerLendingItem.Status != lendingstate.LendingStatusOpen {
+	if !(updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp || updatedTakerLendingItem.Type == lendingstate.Recall) || updatedTakerLendingItem.Status != lendingstate.LendingStatusOpen {
 		if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
 			return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerLendingItem.Hash.Hex(), err.Error())
 		}
@@ -774,9 +774,10 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 		}
 	}
 
-	// remove repay/topup history
+	// remove repay/topup/recall history
 	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Type: lendingstate.Repay})
 	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Type: lendingstate.TopUp})
+	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Type: lendingstate.Recall})
 
 	if err := db.CommitLendingBulk(); err != nil {
 		return fmt.Errorf("failed to RollbackLendingData. %v", err)
