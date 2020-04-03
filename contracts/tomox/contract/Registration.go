@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum"
+	ethereum "github.com/tomochain/tomochain"
 	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
