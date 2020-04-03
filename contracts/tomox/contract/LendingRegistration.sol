@@ -82,7 +82,8 @@ contract Lending {
     // add/update depositRate liquidationRate recallRate price for collateral
     function addCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 recallRate, uint256 price) public contractOwnerOnly {
         require(depositRate >= 100 && liquidationRate > 100, "Invalid rates");
-        require(depositRate > liquidationRate , "Invalid rates");
+        require(depositRate > liquidationRate , "Invalid deposit rates");
+        require(recallRate > depositRate, "Invalid recall rates");
 
         bool b = TomoXListing.getTokenStatus(token) || (token == tomoNative);
         require(b, "Invalid collateral");
@@ -127,7 +128,8 @@ contract Lending {
     // add/update depositRate liquidationRate recall Rate price for ILO collateral
     function addILOCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 recallRate, uint256 price) public {
         require(depositRate >= 100 && liquidationRate > 100, "Invalid rates");
-        require(depositRate > liquidationRate , "Invalid rates");
+        require(depositRate > liquidationRate , "Invalid deposit rates");
+        require(recallRate > depositRate , "Invalid recall rates");
 
         bool b = TomoXListing.getTokenStatus(token);
         require(b, "Invalid collateral");
@@ -175,7 +177,7 @@ contract Lending {
         (, address owner,,,,) = Relayer.getRelayerByCoinbase(coinbase);
         require(owner == msg.sender, "Relayer owner required");
         require(Relayer.RESIGN_REQUESTS(coinbase) == 0, "Relayer required to close");
-        require(tradeFee >= 1 && tradeFee < 1000, "Invalid trade Fee"); // 0.01% -> 10%
+        require(tradeFee >= 0 && tradeFee < 1000, "Invalid trade Fee"); // 0% -> 10%
         require(baseTokens.length == terms.length, "Not valid number of terms");
         require(baseTokens.length == collaterals.length, "Not valid number of collaterals");
 
