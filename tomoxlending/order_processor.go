@@ -861,63 +861,73 @@ func (l *Lending) GetCollateralPrices(header *types.Header, chain consensus.Chai
 	// collateralTOMOPrice: price of ticker collateralToken/TOMO
 	// collateralPrice: price of ticker collateralToken/lendToken
 
-	_, _, collateralTOMOBasePrice, _, collateralUpdatedBlock := lendingstate.GetCollateralDetail(statedb, collateralToken)
-	_, _, lendingTOMOBasePrice, _, lendinglUpdatedBlock := lendingstate.GetCollateralDetail(statedb, lendingToken)
+	_, _, collateralTOMOBasePriceFromContract, _, collateralUpdatedBlock := lendingstate.GetCollateralDetail(statedb, collateralToken)
+	_, _, lendingTOMOBasePriceFromContract, _, lendingUpdatedBlock := lendingstate.GetCollateralDetail(statedb, lendingToken)
 	collateralPriceUpdatedFromContract := collateralUpdatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
-	lendingTOMOPriceUpdatedFromContract := lendinglUpdatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
+	lendingTOMOPriceUpdatedFromContract := lendingUpdatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
 	if lendingToken == common.HexToAddress(common.TomoNativeAddress) {
-		lendingTOMOBasePrice = common.BasePrice
+		lendingTOMOBasePriceFromContract = common.BasePrice
 	}
 	if collateralToken == common.HexToAddress(common.TomoNativeAddress) {
-		collateralTOMOBasePrice = common.BasePrice
+		collateralTOMOBasePriceFromContract = common.BasePrice
 	}
-	collateralPrice := big.NewInt(0)
-	lendTokenTOMOPrice, err := l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, lendingToken, common.HexToAddress(common.TomoNativeAddress))
-	if err != nil {
-		return lendTokenTOMOPrice, collateralPrice, err
-	}
-	log.Debug("GetCollateralPrices", "lendTokenTOMOPrice", lendTokenTOMOPrice)
-	if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() == 0 || lendingTOMOPriceUpdatedFromContract {
-		lendTokenTOMOPrice = lendingTOMOBasePrice
-	}
-	lastMediumPrice, err := l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, lendingToken)
-	if err != nil {
-		return lendTokenTOMOPrice, collateralPrice, err
-	}
-	log.Debug("GetCollateralPrices", "lastMediumPrice", lastMediumPrice, "lendTokenTOMOPrice", lendTokenTOMOPrice)
-	if lastMediumPrice != nil && lastMediumPrice.Sign() > 0 {
-		if collateralPriceUpdatedFromContract && lendingTOMOPriceUpdatedFromContract {
-			lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, common.Address{}, lendingToken)
-			log.Debug("GetTokenDecimal", "lendingToken", lendingToken, "err", err)
-			if err != nil {
-				return nil, nil, err
-			}
-			collateralPrice = new(big.Int).Mul(collateralTOMOBasePrice, lendingTokenDecimal)
-			collateralPrice = new(big.Int).Div(collateralPrice, lendTokenTOMOPrice)
-		} else {
-			collateralPrice = lastMediumPrice
-		}
+
+	var collateralPrice, lendTokenTOMOPrice, collateralTOMOPrice *big.Int
+	var err error
+
+	// getting lendToken price from contract first
+	// otherwise, getting from tomox lendToken/TOMO
+	if lendingTOMOPriceUpdatedFromContract {
+		log.Debug("Getting lendTokenTOMOPrice from contract", "lendTokenTOMOPrice", lendTokenTOMOPrice)
+		lendTokenTOMOPrice = lendingTOMOBasePriceFromContract
 	} else {
-		collateralTOMOPrice, err := l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, common.HexToAddress(common.TomoNativeAddress))
-		log.Debug("GetCollateralPrices", "collateralTOMOPrice", collateralTOMOPrice, "err", err)
+		lendTokenTOMOPrice, err = l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, lendingToken, common.HexToAddress(common.TomoNativeAddress))
+		if err != nil {
+			return lendTokenTOMOPrice, collateralPrice, err
+		}
+		log.Debug("Getting lendTokenTOMOPrice from tomox", "lendTokenTOMOPrice", lendTokenTOMOPrice, "err", err)
+
+	}
+
+	// if contract doesn't provide any price information
+	// getting price from direct pair in tomox
+	if !lendingTOMOPriceUpdatedFromContract && !collateralPriceUpdatedFromContract {
+		lastAveragePrice, err := l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, lendingToken)
+		if err != nil {
+			return lendTokenTOMOPrice, collateralPrice, err
+		}
+		if lastAveragePrice != nil && lastAveragePrice.Sign() > 0 {
+			log.Debug("Getting collateralPrice from direct pair in tomox", "lendToken", lendingToken.Hex(), "collateralToken", collateralToken.Hex(), "price", lastAveragePrice)
+			collateralPrice = lastAveragePrice
+			return lendTokenTOMOPrice, collateralPrice, nil
+		}
+	}
+
+	// getting collateralToken price from contract first
+	// otherwise, getting from tomox collateralToken/TOMO
+	if collateralPriceUpdatedFromContract {
+		log.Debug("Getting collateralTOMOPrice from contract", "collateralTOMOPrice", collateralTOMOPrice)
+		collateralTOMOPrice = collateralTOMOBasePriceFromContract
+	} else {
+		collateralTOMOPrice, err = l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, common.HexToAddress(common.TomoNativeAddress))
 		if err != nil {
 			return collateralPrice, lendTokenTOMOPrice, err
 		}
-		if collateralTOMOPrice == nil || collateralTOMOPrice.Sign() == 0 || collateralPriceUpdatedFromContract {
-			collateralTOMOPrice = collateralTOMOBasePrice
-		}
-		if lendTokenTOMOPrice != nil && lendTokenTOMOPrice.Sign() > 0 {
-			lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, common.Address{}, lendingToken)
-			log.Debug("GetTokenDecimal", "lendingToken", lendingToken, "err", err)
-			if err != nil {
-				return nil, nil, err
-			}
-			collateralPrice = new(big.Int).Mul(collateralTOMOPrice, lendingTokenDecimal)
-			collateralPrice = new(big.Int).Div(collateralPrice, lendTokenTOMOPrice)
-			log.Debug("GetCollateralPrices: Calculate collateral/LendToken price from collateral/TOMO, lendToken/TOMO", "collateralPrice", collateralPrice,
-				"collateralTOMOPrice", collateralTOMOPrice, "lendingTokenDecimal", lendingTokenDecimal, "lendTokenTOMOPrice", lendTokenTOMOPrice)
-		}
+		log.Debug("Getting collateralTOMOPrice from tomox", "collateralTOMOPrice", collateralTOMOPrice, "err", err)
 	}
+	lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, common.Address{}, lendingToken)
+	log.Debug("GetTokenDecimal", "lendingToken", lendingToken, "err", err)
+	if err != nil {
+		return nil, nil, err
+	}
+	if collateralTOMOPrice == nil || lendTokenTOMOPrice == nil {
+		return common.Big0, common.Big0, nil
+	}
+	// Calculate collateral/LendToken price from collateral/TOMO, lendToken/TOMO
+	collateralPrice = new(big.Int).Mul(collateralTOMOPrice, lendingTokenDecimal)
+	collateralPrice = new(big.Int).Div(collateralPrice, lendTokenTOMOPrice)
+	log.Debug("GetCollateralPrices: Calculate collateral/LendToken price from collateral/TOMO, lendToken/TOMO", "collateralPrice", collateralPrice,
+		"collateralTOMOPrice", collateralTOMOPrice, "lendingTokenDecimal", lendingTokenDecimal, "lendTokenTOMOPrice", lendTokenTOMOPrice)
 
 	return lendTokenTOMOPrice, collateralPrice, nil
 }
