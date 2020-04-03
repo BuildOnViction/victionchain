@@ -109,7 +109,7 @@ contract RelayerRegistration {
         require(coinbase != CONTRACT_OWNER, "Coinbase must not be same as CONTRACT_OWNER");
         require(msg.value >= MinimumDeposit, "Minimum deposit not satisfied.");
         /// @dev valid relayer configuration
-        require(tradeFee >= 1 && tradeFee < 1000, "Invalid Maker Fee");
+        require(tradeFee >= 0 && tradeFee < 1000, "Invalid Maker Fee");
         require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
         require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
 
@@ -142,7 +142,7 @@ contract RelayerRegistration {
 
 
     function update(address coinbase, uint16 tradeFee, address[] memory fromTokens, address[] memory toTokens) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
-        require(tradeFee >= 1 && tradeFee < 1000, "Invalid Maker Fee");
+        require(tradeFee >= 0 && tradeFee < 1000, "Invalid Maker Fee");
         require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
         require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
 
@@ -198,7 +198,7 @@ contract RelayerRegistration {
 
     function transfer(address coinbase, address new_owner) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
         require(new_owner != address(0) && new_owner != msg.sender);
-        require(RELAYER_LIST[new_owner]._tradeFee == 0, "Owner address must not be currently used as relayer-coinbase");
+        require(RELAYER_LIST[new_owner]._owner != address(0), "Owner address must not be currently used as relayer-coinbase");
 
         RELAYER_LIST[coinbase]._owner = new_owner;
         emit TransferEvent(RELAYER_LIST[coinbase]._owner,
