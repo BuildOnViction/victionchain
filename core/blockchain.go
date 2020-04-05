@@ -1555,7 +1555,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					}
 					for _, batch := range batches {
 						log.Debug("Verify matching transaction", "txHash", batch.TxHash.Hex())
-						err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Time().Uint64())
+						err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Header())
 						if err != nil {
 							bc.reportBlock(block, nil, err)
 							return i, events, coalescedLogs, err
@@ -1564,7 +1564,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					// liquidate / finalize open lendingTrades
 					if block.Number().Uint64()%bc.chainConfig.Posv.Epoch == common.LiquidateLendingTradeBlock {
 						finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
-						finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+						finalizedTrades, _, _, _, _,  err = lendingService.ProcessLiquidationData(block.Header(), bc, statedb, tradingState, lendingState)
 						if err != nil {
 							return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 						}
@@ -1844,7 +1844,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				}
 				for _, batch := range batches {
 					log.Debug("Lending Verify matching transaction", "txHash", batch.TxHash.Hex())
-					err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Time().Uint64())
+					err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Header())
 					if err != nil {
 						bc.reportBlock(block, nil, err)
 						return nil, err
@@ -1853,7 +1853,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				// liquidate / finalize open lendingTrades
 				if block.Number().Uint64()%bc.chainConfig.Posv.Epoch == common.LiquidateLendingTradeBlock {
 					finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
-					finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+					finalizedTrades, _, _, _, _, err = lendingService.ProcessLiquidationData(block.Header(), bc, statedb, tradingState, lendingState)
 					if err != nil {
 						return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 					}

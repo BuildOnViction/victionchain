@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/trie"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 // Trie cache generation limit after which to evic trie nodes from memory.
@@ -63,6 +63,7 @@ type Database interface {
 type Trie interface {
 	TryGet(key []byte) ([]byte, error)
 	TryGetBestLeftKeyAndValue() ([]byte, []byte, error)
+	TryGetAllLeftKeyAndValue(limit []byte) ([][]byte, [][]byte, error)
 	TryGetBestRightKeyAndValue() ([]byte, []byte, error)
 	TryUpdate(key, value []byte) error
 	TryDelete(key []byte) error

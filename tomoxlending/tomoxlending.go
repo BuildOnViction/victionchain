@@ -96,7 +96,7 @@ func (l *Lending) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.LendingTransactions, statedb *state.StateDB, lendingStatedb *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB) ([]*lendingstate.LendingItem, map[common.Hash]lendingstate.MatchingResult) {
+func (l *Lending) ProcessOrderPending(header *types.Header, coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.LendingTransactions, statedb *state.StateDB, lendingStatedb *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB) ([]*lendingstate.LendingItem, map[common.Hash]lendingstate.MatchingResult) {
 	lendingItems := []*lendingstate.LendingItem{}
 	matchingResults := map[common.Hash]lendingstate.MatchingResult{}
 
@@ -153,7 +153,7 @@ func (l *Lending) ProcessOrderPending(createdBlockTime uint64, coinbase common.A
 			order.Status = lendingstate.LendingStatusCancelled
 		}
 
-		newTrades, newRejectedOrders, err := l.CommitOrder(createdBlockTime, coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
+		newTrades, newRejectedOrders, err := l.CommitOrder(header, coinbase, chain, statedb, lendingStatedb, tradingStateDb, lendingstate.GetLendingOrderBookHash(order.LendingToken, order.Term), order)
 		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)
 		}
@@ -261,7 +261,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	for _, tradeRecord := range trades {
 		// 2.a. put to trades
 
-		if updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp {
+		if updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp || updatedTakerLendingItem.Type == lendingstate.Recall {
 			// repay, topup: assign hash = trade.hash
 			updatedTakerLendingItem.Hash = tradeRecord.Hash
 			updatedTakerLendingItem.CollateralToken = tradeRecord.CollateralToken
@@ -306,7 +306,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		makerDirtyFilledAmount[makerOrderHash.Hex()] = makerFilledAmount
 		makerDirtyHashes = append(makerDirtyHashes, makerOrderHash.Hex())
 
-		if updatedTakerLendingItem.Type != lendingstate.Repay && updatedTakerLendingItem.Type != lendingstate.TopUp {
+		if updatedTakerLendingItem.Type == lendingstate.Limit || updatedTakerLendingItem.Type == lendingstate.Market {
 			//updatedTakerOrder = l.updateMatchedOrder(updatedTakerOrder, filledAmount, txMatchTime, txHash)
 			//  update filledAmount, status of takerOrder
 			updatedTakerLendingItem.FilledAmount = new(big.Int).Add(updatedTakerLendingItem.FilledAmount, filledAmount)
@@ -337,7 +337,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		"Interest", updatedTakerLendingItem.Interest, "quantity", updatedTakerLendingItem.Quantity, "filledAmount", updatedTakerLendingItem.FilledAmount, "status", updatedTakerLendingItem.Status,
 		"hash", updatedTakerLendingItem.Hash.Hex(), "txHash", updatedTakerLendingItem.TxHash.Hex())
 
-	if !(updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp) || updatedTakerLendingItem.Status != lendingstate.LendingStatusOpen {
+	if !(updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp || updatedTakerLendingItem.Type == lendingstate.Recall) || updatedTakerLendingItem.Status != lendingstate.LendingStatusOpen {
 		if err := db.PutObject(updatedTakerLendingItem.Hash, updatedTakerLendingItem); err != nil {
 			return fmt.Errorf("SDKNode: failed to put processed takerOrder. Hash: %s Error: %s", updatedTakerLendingItem.Hash.Hex(), err.Error())
 		}
@@ -517,6 +517,47 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 					CollateralToken: oldTrade.CollateralToken,
 					FilledAmount:    topUpAmount,
 					Status:          lendingstate.TopUp,
+					AutoTopUp:       true,
+					Relayer:         oldTrade.BorrowingRelayer,
+					Term:            oldTrade.Term,
+					UserAddress:     oldTrade.Borrower,
+					Signature:       nil,
+					Hash:            oldTrade.Hash,
+					TxHash:          txhash,
+					Nonce:           nil,
+					CreatedAt:       txTime,
+					UpdatedAt:       txTime,
+					LendingId:       0,
+					LendingTradeId:  oldTrade.TradeId,
+					ExtraData:       "auto",
+				}
+				if err := db.PutObject(topUpItem.Hash, topUpItem); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// adding auto recall transaction
+	if len(result.AutoRecall) > 0 {
+		oldTradeHashes := []string{}
+		for _, hash := range result.AutoRecall {
+			oldTradeHashes = append(oldTradeHashes, hash.Hex())
+		}
+		items := db.GetListItemByHashes(oldTradeHashes, &lendingstate.LendingTrade{})
+		if items != nil && len(items.([]*lendingstate.LendingTrade)) > 0 {
+			for _, oldTrade := range items.([]*lendingstate.LendingTrade) {
+				newTrade := trades[oldTrade.Hash]
+				recallAmount := new(big.Int).Sub(oldTrade.CollateralLockedAmount, newTrade.CollateralLockedAmount)
+				topUpItem := &lendingstate.LendingItem{
+					Quantity:        recallAmount,
+					Interest:        big.NewInt(int64(oldTrade.Interest)),
+					Side:            "",
+					Type:            lendingstate.Recall,
+					LendingToken:    oldTrade.LendingToken,
+					CollateralToken: oldTrade.CollateralToken,
+					FilledAmount:    recallAmount,
+					Status:          lendingstate.Recall,
 					AutoTopUp:       true,
 					Relayer:         oldTrade.BorrowingRelayer,
 					Term:            oldTrade.Term,
@@ -733,9 +774,10 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 		}
 	}
 
-	// remove repay/topup history
+	// remove repay/topup/recall history
 	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Type: lendingstate.Repay})
 	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Type: lendingstate.TopUp})
+	db.DeleteItemByTxHash(txhash, &lendingstate.LendingItem{Type: lendingstate.Recall})
 
 	if err := db.CommitLendingBulk(); err != nil {
 		return fmt.Errorf("failed to RollbackLendingData. %v", err)
@@ -743,19 +785,24 @@ func (l *Lending) RollbackLendingData(txhash common.Hash) error {
 	return nil
 }
 
-func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big.Int, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (finalizedTrades map[common.Hash]*lendingstate.LendingTrade, err error) {
+func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.ChainContext, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB) (updatedTrades map[common.Hash]*lendingstate.LendingTrade, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades []*lendingstate.LendingTrade, err error) {
+	time := header.Time
+	updatedTrades = map[common.Hash]*lendingstate.LendingTrade{} // sum of liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades
+	liquidatedTrades = []*lendingstate.LendingTrade{}
+	autoRepayTrades = []*lendingstate.LendingTrade{}
+	autoTopUpTrades = []*lendingstate.LendingTrade{}
+	autoRecallTrades = []*lendingstate.LendingTrade{}
+
 	allPairs, err := lendingstate.GetAllLendingPairs(statedb)
 	if err != nil {
 		log.Debug("Not found all trading pairs", "error", err)
-		return map[common.Hash]*lendingstate.LendingTrade{}, nil
+		return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, nil
 	}
 	allLendingBooks, err := lendingstate.GetAllLendingBooks(statedb)
 	if err != nil {
 		log.Debug("Not found all lending books", "error", err)
-		return map[common.Hash]*lendingstate.LendingTrade{}, nil
+		return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, nil
 	}
-
-	finalizedTrades = map[common.Hash]*lendingstate.LendingTrade{}
 
 	// liquidate trades by time
 	for lendingBook, _ := range allLendingBooks {
@@ -767,53 +814,90 @@ func (l *Lending) ProcessLiquidationData(chain consensus.ChainContext, time *big
 				trade, err := l.ProcessRepay(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
-					return map[common.Hash]*lendingstate.LendingTrade{}, err
+					return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err
 				}
 				if trade != nil && trade.Hash != (common.Hash{}) {
-					finalizedTrades[trade.Hash] = trade
+					updatedTrades[trade.Hash] = trade
+					if trade.Status == lendingstate.TradeStatusLiquidated {
+						liquidatedTrades = append(liquidatedTrades, trade)
+					} else if trade.Status == lendingstate.TradeStatusClosed {
+						autoRepayTrades = append(autoRepayTrades, trade)
+					}
 				}
 			}
 			lowestTime, tradingIds = lendingState.GetLowestLiquidationTime(lendingBook, time)
 		}
 	}
 
-	// liquidate trades by collateralPrice
 	for _, lendingPair := range allPairs {
 		orderbook := tradingstate.GetTradingOrderBookHash(lendingPair.CollateralToken, lendingPair.LendingToken)
-		_, liquidationPrice, err := l.GetCollateralPrices(chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
+		_, collateralPrice, err := l.GetCollateralPrices(header, chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
 		if err != nil {
 			log.Error("Fail when get all trading pairs", "error", err)
-			return map[common.Hash]*lendingstate.LendingTrade{}, err
+			return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err
 		}
-		highestPrice, liquidationData := tradingState.GetHighestLiquidationPriceData(orderbook, liquidationPrice)
-		for highestPrice.Sign() > 0 && liquidationPrice.Cmp(highestPrice) < 0 {
+		// liquidate trades
+		highestLiquidatePrice, liquidationData := tradingState.GetHighestLiquidationPriceData(orderbook, collateralPrice)
+		for highestLiquidatePrice.Sign() > 0 && collateralPrice.Cmp(highestLiquidatePrice) < 0 {
 			for lendingBook, tradingIds := range liquidationData {
 				for _, tradingIdHash := range tradingIds {
 					trade := lendingState.GetLendingTrade(lendingBook, tradingIdHash)
 					if trade.AutoTopUp {
-						if newTrade, err := l.AutoTopUp(statedb, tradingState, lendingState, lendingBook, tradingIdHash, liquidationPrice); err == nil {
+						if newTrade, err := l.AutoTopUp(statedb, tradingState, lendingState, lendingBook, tradingIdHash, collateralPrice); err == nil {
 							// if this action complete successfully, do not liquidate this trade in this epoch
 							log.Debug("AutoTopUp", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
-							finalizedTrades[newTrade.Hash] = newTrade
+							autoTopUpTrades = append(autoTopUpTrades, newTrade)
+							updatedTrades[newTrade.Hash] = newTrade
 							continue
 						}
 					}
-					log.Debug("LiquidationTrade", "highestPrice", highestPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
+					log.Debug("LiquidationTrade", "highestLiquidatePrice", highestLiquidatePrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())
 					newTrade, err := l.LiquidationTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash.Big().Uint64())
 					if err != nil {
 						log.Error("Fail when remove liquidation newTrade", "time", time, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "error", err)
-						return map[common.Hash]*lendingstate.LendingTrade{}, err
+						return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err
 					}
 					if newTrade != nil && newTrade.Hash != (common.Hash{}) {
 						newTrade.Status = lendingstate.TradeStatusLiquidated
-						finalizedTrades[newTrade.Hash] = newTrade
+						liquidatedTrades = append(liquidatedTrades, newTrade)
+						updatedTrades[newTrade.Hash] = newTrade
 					}
 				}
 			}
-			highestPrice, liquidationData = tradingState.GetHighestLiquidationPriceData(orderbook, liquidationPrice)
+			highestLiquidatePrice, liquidationData = tradingState.GetHighestLiquidationPriceData(orderbook, collateralPrice)
+		}
+		// recall trades
+		depositRate, liquidationRate, _, recallRate, _ := lendingstate.GetCollateralDetail(statedb, lendingPair.CollateralToken)
+		recalLiquidatePrice := new(big.Int).Mul(collateralPrice, common.BaseRecall)
+		recalLiquidatePrice = new(big.Int).Div(recalLiquidatePrice, recallRate)
+		newLiquidatePrice := new(big.Int).Mul(collateralPrice, liquidationRate)
+		newLiquidatePrice = new(big.Int).Div(newLiquidatePrice, depositRate)
+		allLowertLiquidationData := tradingState.GetAllLowerLiquidationPriceData(orderbook, recalLiquidatePrice)
+		log.Debug("ProcessLiquidationData", "orderbook", orderbook.Hex(), "collateralPrice", collateralPrice, "recallRate", recallRate, "recalLiquidatePrice", recalLiquidatePrice, "newLiquidatePrice", newLiquidatePrice, "allLowertLiquidationData", len(allLowertLiquidationData))
+		for price, liquidationData := range allLowertLiquidationData {
+			if price.Sign() > 0 && recalLiquidatePrice.Cmp(price) > 0 {
+				for lendingBook, tradingIds := range liquidationData {
+					log.Debug("GetAllLowerLiquidationPriceData", "price", price, "lendingBook", lendingBook, "tradingIds", tradingIds)
+					for _, tradingIdHash := range tradingIds {
+						trade := lendingState.GetLendingTrade(lendingBook, tradingIdHash)
+						log.Debug("TestRecall", "borrower", trade.Borrower.Hex(), "lendingToken", trade.LendingToken.Hex(), "collateral", trade.CollateralToken.Hex(), "price", price, "tradingIdHash", tradingIdHash.Hex())
+						if trade.AutoTopUp {
+							err, _, newTrade := l.ProcessRecallLendingTrade(lendingState, statedb, tradingState, lendingBook, tradingIdHash, newLiquidatePrice)
+							if err != nil {
+								log.Error("ProcessRecallLendingTrade", "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "newLiquidatePrice", newLiquidatePrice, "err", err)
+								return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err
+							}
+							// if this action complete successfully, do not liquidate this trade in this epoch
+							log.Debug("AutoRecall", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
+							autoRecallTrades = append(autoRecallTrades, newTrade)
+							updatedTrades[newTrade.Hash] = newTrade
+						}
+					}
+				}
+			}
 		}
 	}
 
-	log.Debug("ProcessLiquidationData", "len", len(finalizedTrades))
-	return finalizedTrades, nil
+	log.Debug("ProcessLiquidationData", "updatedTrades", len(updatedTrades), "liquidated", len(liquidatedTrades), "autoRepay", len(autoRepayTrades), "autoTopUp", len(autoTopUpTrades), "autoRecall", len(autoRecallTrades))
+	return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, nil
 }

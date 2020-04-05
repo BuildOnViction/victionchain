@@ -67,8 +67,8 @@ func TestEchangeStates(t *testing.T) {
 	}
 	statedb.SetLastPrice(orderBook, price)
 	statedb.InsertLiquidationPrice(orderBook, big.NewInt(1), orderBook, 2)
-	statedb.InsertLiquidationPrice(orderBook, big.NewInt(1), orderBook, 3)
-	statedb.InsertLiquidationPrice(orderBook, big.NewInt(2), orderBook, 1)
+	statedb.InsertLiquidationPrice(orderBook, big.NewInt(2), orderBook, 3)
+	statedb.InsertLiquidationPrice(orderBook, big.NewInt(3), orderBook, 1)
 	root := statedb.IntermediateRoot()
 	statedb.Commit()
 	//err := stateCache.TrieDB().Commit(root, false)
@@ -80,7 +80,7 @@ func TestEchangeStates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
 	}
-	liquidationPrice, liquidationData := statedb.GetLowestLiquidationPriceData(orderBook, big.NewInt(1))
+	liquidationPrice, liquidationData := statedb.GetHighestLiquidationPriceData(orderBook, big.NewInt(1))
 	if len(liquidationData) == 0 {
 		t.Fatalf("Error when get liquidation data save in database: got : %d , %s  ", liquidationPrice, liquidationData)
 	}
@@ -94,7 +94,7 @@ func TestEchangeStates(t *testing.T) {
 			}
 		}
 	}
-	liquidationPrice, liquidationData = statedb.GetLowestLiquidationPriceData(orderBook, big.NewInt(1))
+	liquidationPrice, liquidationData = statedb.GetHighestLiquidationPriceData(orderBook, big.NewInt(2))
 	for lendingBook, tradingIds := range liquidationData {
 		for _, tradingIdHash := range tradingIds {
 			fmt.Println("liquidationPrice", liquidationPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())

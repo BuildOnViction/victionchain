@@ -49,7 +49,9 @@ var (
 	EOSAddress = common.HexToAddress("0xd9bb01454c85247B2ef35BB5BE57384cC275a8cf")
 	USDAddress = common.HexToAddress("0x45c25041b8e6CBD5c963E7943007187C3673C7c9")
 	_1E18      = new(big.Int).Mul(big.NewInt(10000000000000000), big.NewInt(100))
+	_1E17      = new(big.Int).Mul(big.NewInt(10000000000000000), big.NewInt(10))
 	_1E8       = big.NewInt(100000000)
+	_1E7       = big.NewInt(10000000)
 )
 
 func getNonce(t *testing.T, userAddress common.Address) (uint64, error) {
@@ -265,7 +267,7 @@ func TestFilled(t *testing.T) {
 	//testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1000000000000000000), big.NewInt(5000)), BTCUSDPrice, "BUY", "NEW", 0)
 	//ETH/BTC
 
-	BTCUSDPrice := new(big.Int).Mul(big.NewInt(10000000000000000), big.NewInt(1000000)) // 10000
+	BTCUSDPrice := new(big.Int).Mul(_1E8, big.NewInt(10000)) // 10000
 	time.Sleep(2 * time.Second)
 	testSendOrderBTCUSD(t, _1E18, BTCUSDPrice, "BUY", "NEW", 0)
 	time.Sleep(2 * time.Second)
@@ -281,7 +283,18 @@ func TestFilled(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	testSendOrderTOMOBTC(t, new(big.Int).Mul(big.NewInt(1200000), _1E18), TOMOBTCPrice, "SELL", "NEW", 0)
 
-	TOMOUSDPrice := new(big.Int).Mul(big.NewInt(10000000000000), big.NewInt(60000)) // 0.6
+	TOMOUSDPrice := new(big.Int).Mul(_1E7, big.NewInt(6)) // 0.6
+	time.Sleep(2 * time.Second)
+	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
+	time.Sleep(2 * time.Second)
+	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
+	time.Sleep(2 * time.Second)
+	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(1200000), _1E18), TOMOUSDPrice, "SELL", "NEW", 0)
+
+}
+
+func TestX10Filled(t *testing.T) {
+	TOMOUSDPrice := new(big.Int).Mul(_1E7, big.NewInt(60)) // 6
 	time.Sleep(2 * time.Second)
 	testSendOrderTOMOUSD(t, new(big.Int).Mul(big.NewInt(600000), _1E18), TOMOUSDPrice, "BUY", "NEW", 0)
 	time.Sleep(2 * time.Second)
