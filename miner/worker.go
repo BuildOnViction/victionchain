@@ -623,16 +623,17 @@ func (self *worker) commitNewWork() {
 	}
 	// won't grasp txs at checkpoint
 	var (
-		txs                              *types.TransactionsByPriceAndNonce
-		specialTxs                       types.Transactions
-		tradingTransaction               *types.Transaction
-		lendingTransaction               *types.Transaction
-		tradingTxMatches                 []tradingstate.TxDataMatch
-		tradingMatchingResults           map[common.Hash]tradingstate.MatchingResult
-		lendingMatchingResults           map[common.Hash]lendingstate.MatchingResult
-		lendingInput                     []*lendingstate.LendingItem
-		finalizedTrades                  map[common.Hash]*lendingstate.LendingTrade
-		lendingFinalizedTradeTransaction *types.Transaction
+		txs                                                                  *types.TransactionsByPriceAndNonce
+		specialTxs                                                           types.Transactions
+		tradingTransaction                                                   *types.Transaction
+		lendingTransaction                                                   *types.Transaction
+		tradingTxMatches                                                     []tradingstate.TxDataMatch
+		tradingMatchingResults                                               map[common.Hash]tradingstate.MatchingResult
+		lendingMatchingResults                                               map[common.Hash]lendingstate.MatchingResult
+		lendingInput                                                         []*lendingstate.LendingItem
+		updatedTrades                                                        map[common.Hash]*lendingstate.LendingTrade
+		liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades []*lendingstate.LendingTrade
+		lendingFinalizedTradeTransaction                                     *types.Transaction
 	)
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
@@ -670,10 +671,10 @@ func (self *worker) commitNewWork() {
 					log.Debug("trading transaction matches found", "tradingTxMatches", len(tradingTxMatches))
 
 					lendingOrderPending, _ := self.eth.LendingPool().Pending()
-					lendingInput, lendingMatchingResults = tomoXLending.ProcessOrderPending(header.Time.Uint64(), self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
+					lendingInput, lendingMatchingResults = tomoXLending.ProcessOrderPending(header, self.coinbase, self.chain, lendingOrderPending, work.state, work.lendingState, work.tradingState)
 					log.Debug("lending transaction matches found", "lendingInput", len(lendingInput), "lendingMatchingResults", len(lendingMatchingResults))
-					if header.Number.Uint64() % self.config.Posv.Epoch == common.LiquidateLendingTradeBlock {
-						finalizedTrades, err = tomoXLending.ProcessLiquidationData(self.chain, header.Time, work.state, work.tradingState, work.lendingState)
+					if header.Number.Uint64()%self.config.Posv.Epoch == common.LiquidateLendingTradeBlock {
+						updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err = tomoXLending.ProcessLiquidationData(header, self.chain, work.state, work.tradingState, work.lendingState)
 						if err != nil {
 							log.Error("Fail when process lending liquidation data ", "error", err)
 							return
@@ -730,9 +731,9 @@ func (self *worker) commitNewWork() {
 					}
 				}
 
-				if len(finalizedTrades) > 0 {
+				if len(updatedTrades) > 0 {
 					log.Debug("M1 finalized trades")
-					finalizedTradeData, err := lendingstate.EncodeFinalizedResult(finalizedTrades)
+					finalizedTradeData, err := lendingstate.EncodeFinalizedResult(liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades)
 					if err != nil {
 						log.Error("Fail to marshal lendingData", "error", err)
 						return
@@ -746,7 +747,7 @@ func (self *worker) commitNewWork() {
 					} else {
 						lendingFinalizedTradeTransaction = signedFinalizedTx
 						if tomoX.IsSDKNode() {
-							self.chain.AddFinalizedTrades(lendingFinalizedTradeTransaction.Hash(), finalizedTrades)
+							self.chain.AddFinalizedTrades(lendingFinalizedTradeTransaction.Hash(), updatedTrades)
 						}
 					}
 				}

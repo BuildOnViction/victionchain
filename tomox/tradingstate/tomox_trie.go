@@ -88,6 +88,10 @@ func (t *TomoXTrie) TryGetBestLeftKeyAndValue() ([]byte, []byte, error) {
 	return t.trie.TryGetBestLeftKeyAndValue()
 }
 
+func (t *TomoXTrie) TryGetAllLeftKeyAndValue(limit []byte ) ([][]byte, [][]byte, error) {
+	return t.trie.TryGetAllLeftKeyAndValue(limit)
+}
+
 // TryGetBestRightKey returns the value of max left leaf
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *TomoXTrie) TryGetBestRightKeyAndValue() ([]byte, []byte, error) {

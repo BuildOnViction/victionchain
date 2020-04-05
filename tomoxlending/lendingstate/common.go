@@ -3,7 +3,6 @@ package lendingstate
 import (
 	"encoding/json"
 	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"time"
 
@@ -80,6 +79,7 @@ type FinalizedResult struct {
 	Liquidated []common.Hash
 	AutoRepay  []common.Hash
 	AutoTopUp  []common.Hash
+	AutoRecall []common.Hash
 	TxHash     common.Hash
 	Timestamp  int64
 }
@@ -192,31 +192,29 @@ func WeiToEther(amount *big.Int) *big.Int {
 	return new(big.Int).Div(amount, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
 }
 
-func EncodeFinalizedResult(finalizedTrades map[common.Hash]*LendingTrade) ([]byte, error) {
-	liquidatedTrades := []common.Hash{}
-	autoRepayTrades := []common.Hash{}
-	autoTopUpTrades := []common.Hash{}
+func EncodeFinalizedResult(liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades []*LendingTrade) ([]byte, error) {
+	liquidatedHashes := []common.Hash{}
+	autoRepayHashes := []common.Hash{}
+	autoTopUpHashes := []common.Hash{}
+	autoRecallHashes := []common.Hash{}
 
-	for hash, trade := range finalizedTrades {
-		switch trade.Status {
-		case TradeStatusLiquidated:
-			liquidatedTrades = append(liquidatedTrades, hash)
-			break
-		case TradeStatusClosed:
-			autoRepayTrades = append(autoRepayTrades, hash)
-			break
-		case TradeStatusOpen:
-			autoTopUpTrades = append(autoTopUpTrades, hash)
-		default:
-			log.Debug("unknown status of finalizedTrade", "status", trade.Status)
-			break
-
-		}
+	for _, trade := range liquidatedTrades {
+		liquidatedHashes = append(liquidatedHashes, trade.Hash)
+	}
+	for _, trade := range autoRepayTrades {
+		autoRepayHashes = append(autoRepayHashes, trade.Hash)
+	}
+	for _, trade := range autoTopUpTrades {
+		autoTopUpHashes = append(autoTopUpHashes, trade.Hash)
+	}
+	for _, trade := range autoRecallTrades {
+		autoRecallHashes = append(autoRecallHashes, trade.Hash)
 	}
 	result := FinalizedResult{
-		Liquidated: liquidatedTrades,
-		AutoRepay:  autoRepayTrades,
-		AutoTopUp : autoTopUpTrades,
+		Liquidated: liquidatedHashes,
+		AutoRepay:  autoRepayHashes,
+		AutoTopUp : autoTopUpHashes,
+		AutoRecall: autoRecallHashes,
 		Timestamp:  time.Now().UnixNano(),
 	}
 	data, err := json.Marshal(result)

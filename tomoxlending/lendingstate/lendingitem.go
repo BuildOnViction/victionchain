@@ -17,6 +17,7 @@ const (
 	Borrowing                  = "BORROW"
 	TopUp                      = "TOPUP"
 	Repay                      = "REPAY"
+	Recall                     = "RECALL"
 	LendingStatusNew           = "NEW"
 	LendingStatusOpen          = "OPEN"
 	LendingStatusReject        = "REJECTED"
@@ -37,6 +38,7 @@ var ValidInputLendingType = map[string]bool{
 	Limit:  true,
 	Repay:  true,
 	TopUp:  true,
+	Recall: true,
 }
 
 // Signature struct
@@ -203,8 +205,10 @@ func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
 		if err := l.VerifyLendingQuantity(); err != nil {
 			return err
 		}
-		if err := l.VerifyLendingSide(); err != nil {
-			return err
+		if l.Type == Limit || l.Type == Market {
+			if err := l.VerifyLendingSide(); err != nil {
+				return err
+			}
 		}
 		if l.Type == Limit {
 			if err := l.VerifyLendingInterest(); err != nil {
@@ -384,7 +388,7 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 		case Borrowing:
 			switch status {
 			case LendingStatusNew:
-				depositRate, _, _ := GetCollateralDetail(statedb, collateralToken)
+				depositRate, _, _, _, _ := GetCollateralDetail(statedb, collateralToken)
 				settleBalanceResult, err := GetSettleBalance(Borrowing, lendTokenTOMOPrice, collateralPrice, depositRate, borrowingFeeRate, lendingToken, collateralToken, lendingTokenDecimal, collateralTokenDecimal, quantity)
 				if err != nil {
 					return err
