@@ -26,8 +26,8 @@ func main() {
 	}
 	nonce, _ := client.NonceAt(context.Background(), simulation.MainAddr, nil)
 	auth := bind.NewKeyedTransactor(simulation.MainKey)
-	auth.Value = big.NewInt(0)      // in wei
-	auth.GasLimit = uint64(4000000) // in units
+	auth.Value = big.NewInt(0)       // in wei
+	auth.GasLimit = uint64(10000000) // in units
 	auth.GasPrice = big.NewInt(250000000000000)
 
 	// init trc21 issuer
@@ -265,7 +265,7 @@ func main() {
 	lendingRelayerRegistration.TransactOpts.Nonce = big.NewInt(int64(nonce))
 	lendingRelayerRegistration.TransactOpts.Value = big.NewInt(0)
 	lendingRelayerRegistration.TransactOpts.GasPrice = big.NewInt(250000000000000)
-	lendingRelayerRegistration.TransactOpts.GasLimit = uint64(4000000)
+	lendingRelayerRegistration.TransactOpts.GasLimit = uint64(10000000)
 
 	baseTokens := []common.Address{}
 	terms := []*big.Int{}

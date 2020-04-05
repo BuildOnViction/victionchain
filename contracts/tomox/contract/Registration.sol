@@ -351,14 +351,14 @@ contract RelayerRegistration {
 
         address[] memory tomoPairs = new address[](RELAYER_LIST[coinbase]._toTokens.length + 1);
 
-        if (fromToken == tomoNative || toToken == tomoNative) {
-            return true;
-        }
-
         bool b = TomoXListing.getTokenStatus(toToken) || (toToken == tomoNative);
         b = b && (TomoXListing.getTokenStatus(fromToken) || fromToken == tomoNative);
         if (!b) {
             return false;
+        }
+
+        if (fromToken == tomoNative || toToken == tomoNative) {
+            return true;
         }
 
         // get tokens that paired with tomo
@@ -394,6 +394,17 @@ contract RelayerRegistration {
             }
         }
 
+        if (count != RELAYER_LIST[coinbase]._toTokens.length) {
+            address[] memory fts = new address[](newToTokens.length-1);
+            address[] memory tts = new address[](newToTokens.length-1);
+            for (uint j = 0; j < newToTokens.length - 1; j++) {
+                fts[j] = newFromTokens[j];
+                tts[j] = newToTokens[j];
+            }
+            return (fts, tts);
+        }
+
         return (newFromTokens, newToTokens);
+       
     }
 }
