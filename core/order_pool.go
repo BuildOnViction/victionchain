@@ -511,7 +511,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 		}
 		if originOrder.Hash != tx.OrderHash() {
 			log.Debug("Invalid order hash", "expected", originOrder.Hash.Hex(), "got", tx.OrderHash().Hex())
-			return ErrInvalidCancelledOrder
+			return ErrInvalidOrderHash
 		}
 	}
 

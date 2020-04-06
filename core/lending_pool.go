@@ -450,7 +450,7 @@ func (pool *LendingPool) validateCancelledLending(cloneLendingStateDb *lendingst
 	}
 	if item.Hash != tx.LendingHash() {
 		log.Debug("Invalid lending hash", "expected", item.Hash.Hex(), "got", tx.LendingHash().Hex())
-		return ErrInvalidCancelledLending
+		return ErrInvalidLendingHash
 	}
 	return nil
 }
