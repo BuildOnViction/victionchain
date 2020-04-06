@@ -868,10 +868,10 @@ func (l *Lending) GetCollateralPrices(header *types.Header, chain consensus.Chai
 	_, _, lendingTOMOBasePriceFromContract, _, lendingUpdatedBlock := lendingstate.GetCollateralDetail(statedb, lendingToken)
 	collateralPriceUpdatedFromContract := collateralUpdatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
 	lendingTOMOPriceUpdatedFromContract := lendingUpdatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
-	if lendingToken == common.HexToAddress(common.TomoNativeAddress) {
+	if lendingToken.String() == common.TomoNativeAddress {
 		lendingTOMOBasePriceFromContract = common.BasePrice
 	}
-	if collateralToken == common.HexToAddress(common.TomoNativeAddress) {
+	if collateralToken.String() == common.TomoNativeAddress {
 		collateralTOMOBasePriceFromContract = common.BasePrice
 	}
 
@@ -884,7 +884,11 @@ func (l *Lending) GetCollateralPrices(header *types.Header, chain consensus.Chai
 		log.Debug("Getting lendTokenTOMOPrice from contract", "lendTokenTOMOPrice", lendTokenTOMOPrice)
 		lendTokenTOMOPrice = lendingTOMOBasePriceFromContract
 	} else {
-		lendTokenTOMOPrice, err = l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, lendingToken, common.HexToAddress(common.TomoNativeAddress))
+		if lendingToken.String() == common.TomoNativeAddress {
+			lendTokenTOMOPrice = common.BasePrice
+		} else {
+			lendTokenTOMOPrice, err = l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, lendingToken, common.HexToAddress(common.TomoNativeAddress))
+		}
 		if err != nil {
 			return lendTokenTOMOPrice, collateralPrice, err
 		}
@@ -912,7 +916,11 @@ func (l *Lending) GetCollateralPrices(header *types.Header, chain consensus.Chai
 		log.Debug("Getting collateralTOMOPrice from contract", "collateralTOMOPrice", collateralTOMOPrice)
 		collateralTOMOPrice = collateralTOMOBasePriceFromContract
 	} else {
-		collateralTOMOPrice, err = l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, common.HexToAddress(common.TomoNativeAddress))
+		if collateralToken.String() == common.TomoNativeAddress {
+			collateralTOMOPrice = common.BasePrice
+		} else {
+			collateralTOMOPrice, err = l.getMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, common.HexToAddress(common.TomoNativeAddress))
+		}
 		if err != nil {
 			return collateralPrice, lendTokenTOMOPrice, err
 		}
