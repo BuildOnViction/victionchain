@@ -509,6 +509,10 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 			log.Debug("Order not found ", "OrderId", tx.OrderID(), "BaseToken", tx.BaseToken().Hex(), "QuoteToken", tx.QuoteToken().Hex())
 			return ErrInvalidCancelledOrder
 		}
+		if originOrder.Hash != tx.OrderHash() {
+			log.Debug("Invalid order hash", "expected", originOrder.Hash.Hex(), "got", tx.OrderHash().Hex())
+			return ErrInvalidOrderHash
+		}
 	}
 
 	from, _ := types.OrderSender(pool.signer, tx)

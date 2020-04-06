@@ -86,7 +86,7 @@ type lendingtxdata struct {
 
 // IsCreatedLending check if tx is cancelled transaction
 func (tx *LendingTransaction) IsCreatedLending() bool {
-	if tx.IsMoTypeLending() || tx.IsLoTypeLending() {
+	if (tx.IsLoTypeLending() || tx.IsMoTypeLending())&& tx.Status() == LendingStatusNew {
 		return true
 	}
 	return false

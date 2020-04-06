@@ -448,6 +448,10 @@ func (pool *LendingPool) validateCancelledLending(cloneLendingStateDb *lendingst
 		log.Debug("LendingOrder not found ", "LendingId", tx.LendingId(), "LendToken", tx.LendingToken().Hex(), "CollateralToken", tx.CollateralToken().Hex(), "Term", tx.Term())
 		return ErrInvalidCancelledLending
 	}
+	if item.Hash != tx.LendingHash() {
+		log.Debug("Invalid lending hash", "expected", item.Hash.Hex(), "got", tx.LendingHash().Hex())
+		return ErrInvalidLendingHash
+	}
 	return nil
 }
 func (pool *LendingPool) validateRepayLending(cloneStateDb *state.StateDB, cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {

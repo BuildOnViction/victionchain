@@ -658,6 +658,9 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 	if originOrder == lendingstate.EmptyLendingOrder {
 		return fmt.Errorf("lendingOrder not found. Id: %v. LendToken: %s . Term: %v. CollateralToken: %v", order.LendingId, order.LendingToken.Hex(), order.Term, order.CollateralToken.Hex()), false
 	}
+	if originOrder.Hash != order.Hash {
+		return fmt.Errorf("invalid lending hash. GotHash: %s. ExpectedHash: %s . LendToken: %s . Term: %v. CollateralToken: %v", order.Hash.Hex(), originOrder.Hash.Hex(), order.LendingToken.Hex(), order.Term, order.CollateralToken.Hex()), false
+	}
 	if originOrder.UserAddress != order.UserAddress {
 		return fmt.Errorf("userAddress doesnot match. Expected: %s . Got: %s", originOrder.UserAddress.Hex(), order.UserAddress.Hex()), false
 	}

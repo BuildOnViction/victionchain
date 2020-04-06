@@ -306,6 +306,9 @@ func (self *TradingStateDB) CancelOrder(orderBook common.Hash, order *OrderItem)
 	if stateOrderItem.data.UserAddress != order.UserAddress {
 		return fmt.Errorf("Error Order User Address mismatch when cancel order book : %s , order id  : %s , got : %s , expect : %s ", orderBook, orderIdHash.Hex(), stateOrderItem.data.UserAddress.Hex(), order.UserAddress.Hex())
 	}
+	if stateOrderItem.data.Hash != order.Hash {
+		return fmt.Errorf("Invalid order hash :  got : %s , expect : %s ", order.Hash.Hex(), stateOrderItem.data.Hash.Hex())
+	}
 	if stateOrderItem.data.ExchangeAddress != order.ExchangeAddress {
 		return fmt.Errorf("Exchange Address mismatch when cancel. order book : %s , order id  : %s , got : %s , expect : %s ", orderBook, orderIdHash.Hex(), order.ExchangeAddress.Hex(), stateOrderItem.data.ExchangeAddress.Hex())
 	}
