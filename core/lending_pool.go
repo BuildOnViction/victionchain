@@ -514,6 +514,17 @@ func (pool *LendingPool) validateBalance(cloneStateDb *state.StateDB, cloneLendi
 				return lendingstate.ErrInvalidCollateralPrice
 			}
 		}
+		if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() == 0 {
+			if tx.LendingToken().String() == common.TomoNativeAddress {
+				lendTokenTOMOPrice = common.BasePrice
+			} else {
+				lendTokenTOMOPrice, err = lendingServ.GetMediumTradePriceBeforeEpoch(pool.chain, cloneStateDb, cloneTradingStateDb, tx.LendingToken(), common.HexToAddress(common.TomoNativeAddress))
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		if err := lendingstate.VerifyBalance(cloneStateDb,
 			cloneLendingStateDb,
 			tx.Type(),

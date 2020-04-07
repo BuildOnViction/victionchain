@@ -368,19 +368,21 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 					return fmt.Errorf("VerifyBalance: investor doesn't have enough lendingToken. User: %s. Token: %s. Expected: %v. Have: %v", userAddress.Hex(), lendingToken.Hex(), quantity, balance)
 				}
 				// check quantity: reject if it's too small
-				defaultFee := new(big.Int).Mul(quantity, new(big.Int).SetUint64(DefaultFeeRate))
-				defaultFee = new(big.Int).Div(defaultFee, common.TomoXBaseFee)
-				defaultFeeInTOMO := common.Big0
-				if lendingToken.String() != common.TomoNativeAddress {
-					defaultFeeInTOMO = new(big.Int).Mul(defaultFee, lendTokenTOMOPrice)
-					defaultFeeInTOMO = new(big.Int).Div(defaultFeeInTOMO, lendingTokenDecimal)
-				} else {
-					defaultFeeInTOMO = defaultFee
-				}
-				if defaultFeeInTOMO.Cmp(common.RelayerLendingFee) <= 0 {
-					return ErrQuantityTradeTooSmall
-				}
+				if lendTokenTOMOPrice != nil && lendTokenTOMOPrice.Sign() > 0 {
+					defaultFee := new(big.Int).Mul(quantity, new(big.Int).SetUint64(DefaultFeeRate))
+					defaultFee = new(big.Int).Div(defaultFee, common.TomoXBaseFee)
+					defaultFeeInTOMO := common.Big0
+					if lendingToken.String() != common.TomoNativeAddress {
+						defaultFeeInTOMO = new(big.Int).Mul(defaultFee, lendTokenTOMOPrice)
+						defaultFeeInTOMO = new(big.Int).Div(defaultFeeInTOMO, lendingTokenDecimal)
+					} else {
+						defaultFeeInTOMO = defaultFee
+					}
+					if defaultFeeInTOMO.Cmp(common.RelayerLendingFee) <= 0 {
+						return ErrQuantityTradeTooSmall
+					}
 
+				}
 
 			case LendingStatusCancelled:
 				// in case of cancel, investor need to pay cancel fee in lendingToken
