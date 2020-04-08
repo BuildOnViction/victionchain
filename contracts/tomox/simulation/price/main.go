@@ -38,8 +38,9 @@ func main() {
 	lendContract, _ := tomox.NewLendingRelayerRegistration(auth, common.HexToAddress(os.Getenv("LENDING_ADDRESS")), client)
 
 	token := common.HexToAddress(os.Getenv("TOKEN_ADDRESS"))
+	lendingToken := common.HexToAddress(os.Getenv("LENDING_TOKEN_ADDRESS"))
 
-	tx, err := lendContract.SetCollateralPrice(token, price)
+	tx, err := lendContract.SetCollateralPrice(token, lendingToken, price)
 	if err != nil {
 		fmt.Println("Set price failed!", err)
 	}
