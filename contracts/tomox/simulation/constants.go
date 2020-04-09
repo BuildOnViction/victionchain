@@ -27,8 +27,8 @@ var (
 	CollateralDepositRate     = big.NewInt(150)
 	CollateralLiquidationRate = big.NewInt(110)
 	CollateralRecallRate      = big.NewInt(200)
-	TradeFee                  = uint16(10)  // trade fee decimals 10
-	LendingTradeFee           = uint16(100) // lending trade fee decimals 10
+	TradeFee                  = uint16(10)  // trade fee decimals 10^4
+	LendingTradeFee           = uint16(100) // lending trade fee decimals 10^4
 	// 1m , 1d,7d,30d
 	Terms                 = []*big.Int{big.NewInt(60), big.NewInt(86400), big.NewInt(7 * 86400), big.NewInt(30 * 86400)}
 	RelayerCoinbaseKey, _ = crypto.HexToECDSA(os.Getenv("RELAYER_COINBASE_KEY")) //

@@ -480,7 +480,7 @@ func (pool *OrderPool) validateOrder(tx *types.OrderTransaction) error {
 				return fmt.Errorf("validateOrder: failed to get quoteDecimal. err: %v", err)
 			}
 			if err := tradingstate.VerifyBalance(cloneStateDb, cloneTomoXStateDb, tx, baseDecimal, quoteDecimal); err != nil {
-				return fmt.Errorf("not enough balance to make this order. OrderHash: %s. UserAddress: %s. PairName: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.PairName(), err)
+				return fmt.Errorf("VerifyBalance failed. OrderHash: %s. UserAddress: %s. PairName: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.PairName(), err)
 			}
 		}
 

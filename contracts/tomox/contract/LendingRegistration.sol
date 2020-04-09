@@ -200,7 +200,17 @@ contract Lending {
             _collaterals: collaterals
         });
     }
-    
+
+    function updateFee(address coinbase, uint16 tradeFee) public {
+        (, address owner,,,,) = Relayer.getRelayerByCoinbase(coinbase);
+        require(owner == msg.sender, "Relayer owner required");
+        require(Relayer.RESIGN_REQUESTS(coinbase) == 0, "Relayer required to close");
+        require(tradeFee >= 0 && tradeFee < 1000, "Invalid trade Fee"); // 0% -> 10%
+
+        LENDINGRELAYER_LIST[coinbase]._tradeFee = tradeFee;
+    }
+
+
     function getLendingRelayerByCoinbase(address coinbase) public view returns (uint16, address[] memory, uint256[] memory, address[] memory) {
         return (LENDINGRELAYER_LIST[coinbase]._tradeFee,
                 LENDINGRELAYER_LIST[coinbase]._baseTokens,

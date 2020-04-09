@@ -44,6 +44,7 @@ contract RelayerRegistration {
     event ConfigEvent(uint max_relayer, uint max_token, uint256 min_deposit);
     event RegisterEvent(uint256 deposit, uint16 tradeFee, address[] fromTokens, address[] toTokens);
     event UpdateEvent(uint256 deposit, uint16 tradeFee, address[] fromTokens, address[] toTokens);
+    event UpdateFeeEvent(address coinbase, uint16 tradeFee);
     event TransferEvent(address owner, uint256 deposit, uint16 tradeFee, address[] fromTokens, address[] toTokens);
     event ResignEvent(uint deposit_release_time, uint256 deposit_amount);
     event RefundEvent(bool success, uint remaining_time, uint256 deposit_amount);
@@ -156,6 +157,12 @@ contract RelayerRegistration {
                          RELAYER_LIST[coinbase]._tradeFee,
                          RELAYER_LIST[coinbase]._fromTokens,
                          RELAYER_LIST[coinbase]._toTokens);
+    }
+
+    function updateFee(address coinbase, uint16 tradeFee) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
+        require(tradeFee >= 0 && tradeFee < 1000, "Invalid Maker Fee");
+        RELAYER_LIST[coinbase]._tradeFee = tradeFee;
+        emit UpdateFeeEvent(coinbase, RELAYER_LIST[coinbase]._tradeFee);
     }
 
     // List new tokens

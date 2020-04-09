@@ -363,6 +363,18 @@ func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TradingStateDB, order *
 	var quotePrice *big.Int
 	if order.QuoteToken().String() != common.TomoNativeAddress {
 		quotePrice = tomoxStateDb.GetLastPrice(GetTradingOrderBookHash(order.QuoteToken(), common.HexToAddress(common.TomoNativeAddress)))
+		log.Debug("TryGet quotePrice QuoteToken/TOMO", "quotePrice", quotePrice)
+		if quotePrice == nil || quotePrice.Sign() == 0 {
+			inversePrice := tomoxStateDb.GetLastPrice(GetTradingOrderBookHash(common.HexToAddress(common.TomoNativeAddress), order.QuoteToken()))
+			log.Debug("TryGet inversePrice TOMO/QuoteToken", "inversePrice", inversePrice)
+			if inversePrice != nil && inversePrice.Sign() > 0 {
+				quotePrice = new(big.Int).Div(common.BasePrice, inversePrice)
+				quotePrice = new(big.Int).Mul(quotePrice, quoteDecimal)
+				log.Debug("TryGet quotePrice after get inversePrice TOMO/QuoteToken", "quotePrice", quotePrice, "quoteTokenDecimal", quoteDecimal)
+			}
+		}
+	} else {
+		quotePrice = common.BasePrice
 	}
 	feeRate := GetExRelayerFee(order.ExchangeAddress(), statedb)
 	balanceResult, err := GetSettleBalance(quotePrice, order.Side(), feeRate, order.BaseToken(), order.QuoteToken(), order.Price(), feeRate, baseDecimal, quoteDecimal, order.Quantity())

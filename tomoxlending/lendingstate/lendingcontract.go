@@ -38,7 +38,9 @@ var (
 func IsValidRelayer(statedb *state.StateDB, coinbase common.Address) bool {
 	locRelayerState := GetLocMappingAtKey(coinbase.Hash(), LendingRelayerListSlot)
 
-	if v := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), common.BytesToHash(locRelayerState.Bytes())); v != (common.Hash{}) {
+	// a valid relayer must have baseToken
+	locBaseToken := state.GetLocOfStructElement(locRelayerState, LendingRelayerStructSlots["bases"])
+	if v := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), common.BytesToHash(locBaseToken.Bytes())); v != (common.Hash{}) {
 		if tradingstate.IsResignedRelayer(coinbase, statedb) {
 			return false
 		}
