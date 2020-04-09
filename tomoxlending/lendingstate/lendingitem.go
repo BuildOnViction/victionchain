@@ -202,8 +202,10 @@ func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
 		if err := l.VerifyLendingType(); err != nil {
 			return err
 		}
-		if err := l.VerifyLendingQuantity(); err != nil {
-			return err
+		if l.Type != Repay {
+			if err := l.VerifyLendingQuantity(); err != nil {
+				return err
+			}
 		}
 		if l.Type == Limit || l.Type == Market {
 			if err := l.VerifyLendingSide(); err != nil {
