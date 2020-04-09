@@ -24,6 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core"
@@ -34,7 +35,6 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
-	"github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -285,6 +285,9 @@ func (self *LightChain) GetBlockByNumber(ctx context.Context, number uint64) (*t
 		return nil, err
 	}
 	return self.GetBlock(ctx, hash, number)
+}
+
+func (bc *LightChain) SaveData() {
 }
 
 // Stop stops the blockchain service. If any imports are currently in progress

@@ -341,6 +341,9 @@ func (self *Swarm) updateGauges() {
 	uptimeGauge.Update(time.Since(startTime).Nanoseconds())
 }
 
+func (self *Swarm) SaveData() {
+}
+
 // implements the node.Service interface
 // stops all component services.
 func (self *Swarm) Stop() error {

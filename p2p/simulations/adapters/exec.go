@@ -465,6 +465,8 @@ func (s *snapshotService) Start(*p2p.Server) error {
 	return nil
 }
 
+func (s *snapshotService) SaveData() {
+}
 func (s *snapshotService) Stop() error {
 	return nil
 }
