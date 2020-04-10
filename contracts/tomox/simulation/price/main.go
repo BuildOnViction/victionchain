@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"math/big"
 	"os"
 	"time"
@@ -19,7 +21,6 @@ func main() {
 	if err != nil {
 		fmt.Println(err, client)
 	}
-
 	MainKey, _ := crypto.HexToECDSA(os.Getenv("OWNER_KEY"))
 	MainAddr := crypto.PubkeyToAddress(MainKey.PublicKey)
 
@@ -52,4 +53,15 @@ func main() {
 	}
 	fmt.Println("Done receipt status", r.Status)
 
+	collateralState := state.GetLocMappingAtKey(token.Hash(), lendingstate.CollateralMapSlot)
+	locMapPrices := collateralState.Add(collateralState, lendingstate.CollateralStructSlots["price"])
+	locLendingTokenPriceByte := crypto.Keccak256(lendingToken.Hash().Bytes(), common.BigToHash(locMapPrices).Bytes())
+
+	locCollateralPrice := common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(locLendingTokenPriceByte), lendingstate.PriceStructSlots["price"]))
+	locBlockNumber := common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(locLendingTokenPriceByte), lendingstate.PriceStructSlots["blockNumber"]))
+
+	priceByte, err := client.StorageAt(context.Background(), common.HexToAddress(os.Getenv("LENDING_ADDRESS")), locCollateralPrice, nil)
+	fmt.Println(new(big.Int).SetBytes(priceByte), err)
+	blockNumberByte, err := client.StorageAt(context.Background(), common.HexToAddress(os.Getenv("LENDING_ADDRESS")), locBlockNumber, nil)
+	fmt.Println(new(big.Int).SetBytes(blockNumberByte), err)
 }

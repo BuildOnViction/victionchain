@@ -343,7 +343,6 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 		}
 	}
 
-
 	items := db.GetListItemByHashes(makerDirtyHashes, &lendingstate.LendingItem{})
 	if items != nil {
 		makerItems := items.([]*lendingstate.LendingItem)
@@ -867,7 +866,7 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 			highestLiquidatePrice, liquidationData = tradingState.GetHighestLiquidationPriceData(orderbook, collateralPrice)
 		}
 		// recall trades
-		depositRate, liquidationRate, _, recallRate, _ := lendingstate.GetCollateralDetail(statedb, lendingPair.CollateralToken)
+		depositRate, liquidationRate, recallRate := lendingstate.GetCollateralDetail(statedb, lendingPair.CollateralToken)
 		recalLiquidatePrice := new(big.Int).Mul(collateralPrice, common.BaseRecall)
 		recalLiquidatePrice = new(big.Int).Div(recalLiquidatePrice, recallRate)
 		newLiquidatePrice := new(big.Int).Mul(collateralPrice, liquidationRate)
