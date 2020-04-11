@@ -267,10 +267,15 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 			updatedTakerLendingItem.CollateralToken = tradeRecord.CollateralToken
 			updatedTakerLendingItem.FilledAmount = updatedTakerLendingItem.Quantity
 			updatedTakerLendingItem.Interest = new(big.Int).SetUint64(tradeRecord.Interest)
-			if updatedTakerLendingItem.Type == lendingstate.TopUp {
+			switch updatedTakerLendingItem.Type {
+			case lendingstate.TopUp:
 				updatedTakerLendingItem.Status = lendingstate.TopUp
-			} else {
+			case lendingstate.Repay:
 				updatedTakerLendingItem.Status = lendingstate.Repay
+				updatedTakerLendingItem.Quantity = tradeRecord.Amount
+				updatedTakerLendingItem.FilledAmount = tradeRecord.Amount
+			case lendingstate.Recall:
+				updatedTakerLendingItem.Status = lendingstate.Recall
 			}
 
 			log.Debug("UpdateLendingTrade:", "type", updatedTakerLendingItem.Type, "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
