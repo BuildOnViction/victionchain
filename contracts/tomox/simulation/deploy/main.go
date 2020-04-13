@@ -356,7 +356,7 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 		if tokenName == "USDT" {
 			d = 8
 		}
-		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, d, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
+		tokenAddr, _, err := tomox.DeployTRC21(auth, client, simulation.Owners, simulation.Required, tokenName, tokenName, d, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
 		if err != nil {
 			log.Fatal("DeployTRC21 ", tokenName, err)
 		}

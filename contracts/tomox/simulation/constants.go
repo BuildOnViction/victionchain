@@ -63,4 +63,11 @@ var (
 		common.HexToAddress("0xaaC1959F6F0fb539F653409079Ec4146267B7555"), // BTCUSD
 		common.HexToAddress("0x726DA688e2e09f01A2e1aB4c10F25B7CEdD4a0f3"), // ETHUSD
 	}
+
+	Required = big.NewInt(2)
+	Owners   = []common.Address{
+		common.HexToAddress("0x244e17B2141288a6F00E79E8feC2341f827d156f"),
+		common.HexToAddress("0xd106159eC58BD2EAf5B62eF4e9cDb286170B0Bb9"),
+		common.HexToAddress("0x0197BE034Bf0Bd2b3adDC84366a5681Bb7545888"),
+	}
 )

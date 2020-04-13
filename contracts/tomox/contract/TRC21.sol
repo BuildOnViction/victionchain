@@ -231,6 +231,21 @@ contract TRC21 is ITRC21 {
     }
 
     /**
+     * @dev Internal function that burns an amount of the token of a given
+     * account.
+     * @param account The account whose tokens will be burnt.
+     * @param value The amount that will be burnt.
+     */
+    function _burn(address account, uint256 value) internal {
+        require(account != 0);
+        require(value <= _balances[account]);
+
+        _totalSupply = _totalSupply.sub(value);
+        _balances[account] = _balances[account].sub(value);
+        emit Transfer(account, address(0), value);
+    }
+
+    /**
      * @dev Transfers token's foundation to new issuer
      * @param newIssuer The address to transfer ownership to.
      */
@@ -254,7 +269,101 @@ contract MyTRC21 is TRC21 {
     string private _symbol;
     uint8 private _decimals;
 
-    constructor (string memory name, string memory symbol, uint8 decimals, uint256 cap, uint256 minFee) public {
+    /*
+     *  Events
+     */
+    // event TxBurn(uint indexed transactionId);
+    event Confirmation(address indexed sender, uint indexed transactionId);
+    event Revocation(address indexed sender, uint indexed transactionId);
+    event Submission(uint indexed transactionId);
+    event Execution(uint indexed transactionId, address indexed sender, bool isMintingTx, uint value, bytes data);
+    event ExecutionFailure(uint indexed transactionId);
+    event OwnerAddition(address indexed owner);
+    event OwnerRemoval(address indexed owner);
+    event RequirementChange(uint required);
+
+    /*
+     *  Constants
+     */
+    uint constant public MAX_OWNER_COUNT = 50;
+    uint constant WITHDRAW_FEE = 3000000000000000;
+    
+    /*
+     *  Storage
+     */
+    mapping (uint => Transaction) public transactions;
+    mapping (uint => mapping (address => bool)) public confirmations;
+    mapping (address => bool) public isOwner;
+    address[] public owners;
+    uint public required;
+    uint public transactionCount;
+
+    struct Transaction {
+        bool isMintingTx;
+        address destination;
+        uint value;
+        bytes data;
+        bool executed;
+    }
+
+    /*
+     *  Modifiers
+     */
+    modifier onlyWallet() {
+        require(msg.sender == address(this));
+        _;
+    }
+
+    modifier ownerDoesNotExist(address owner) {
+        require(!isOwner[owner]);
+        _;
+    }
+
+    modifier ownerExists(address owner) {
+        require(isOwner[owner]);
+        _;
+    }
+
+    modifier transactionExists(uint transactionId) {
+        require(transactions[transactionId].destination != 0);
+        _;
+    }
+
+    modifier confirmed(uint transactionId, address owner) {
+        require(confirmations[transactionId][owner]);
+        _;
+    }
+
+    modifier notConfirmed(uint transactionId, address owner) {
+        require(!confirmations[transactionId][owner]);
+        _;
+    }
+
+    modifier notExecuted(uint transactionId) {
+        require(!transactions[transactionId].executed);
+        _;
+    }
+
+    modifier notNull(address _address) {
+        require(_address != 0);
+        _;
+    }
+
+    modifier validRequirement(uint ownerCount, uint _required) {
+        require(ownerCount <= MAX_OWNER_COUNT
+        && _required <= ownerCount
+        && _required != 0
+        && ownerCount != 0);
+        _;
+    }
+
+    /*
+     * Public functions
+     */
+    /// @dev Contract constructor sets initial owners and required number of confirmations.
+    /// @param _owners List of initial owners.
+    /// @param _required Number of required confirmations.
+    constructor (address[] _owners, uint _required, string memory name, string memory symbol, uint8 decimals, uint256 cap, uint256 minFee) public validRequirement(_owners.length, _required) {
         _name = name;
         _symbol = symbol;
         _decimals = decimals;
@@ -263,30 +372,270 @@ contract MyTRC21 is TRC21 {
         _changeMinFee(minFee);
     }
 
-    /**
-     * @return the name of the token.
+    /// @dev Allows to add a new owner. Transaction has to be sent by wallet.
+    /// @param owner Address of new owner.
+    function addOwner(address owner)
+    public
+    onlyWallet
+    ownerDoesNotExist(owner)
+    notNull(owner)
+    validRequirement(owners.length + 1, required)
+    {
+        isOwner[owner] = true;
+        owners.push(owner);
+        OwnerAddition(owner);
+    }
+
+    /// @dev Allows to remove an owner. Transaction has to be sent by wallet.
+    /// @param owner Address of owner.
+    function removeOwner(address owner)
+    public
+    onlyWallet
+    ownerExists(owner)
+    {
+        isOwner[owner] = false;
+        for (uint i=0; i<owners.length - 1; i++)
+            if (owners[i] == owner) {
+                owners[i] = owners[owners.length - 1];
+                break;
+            }
+        owners.length -= 1;
+        if (required > owners.length)
+            changeRequirement(owners.length);
+        OwnerRemoval(owner);
+    }
+
+    /// @dev Allows to replace an owner with a new owner. Transaction has to be sent by wallet.
+    /// @param owner Address of owner to be replaced.
+    /// @param newOwner Address of new owner.
+    function replaceOwner(address owner, address newOwner)
+    public
+    onlyWallet
+    ownerExists(owner)
+    ownerDoesNotExist(newOwner)
+    {
+        for (uint i=0; i<owners.length; i++)
+            if (owners[i] == owner) {
+                owners[i] = newOwner;
+                break;
+            }
+        isOwner[owner] = false;
+        isOwner[newOwner] = true;
+        OwnerRemoval(owner);
+        OwnerAddition(newOwner);
+    }
+
+    /// @dev Allows to change the number of required confirmations. Transaction has to be sent by wallet.
+    /// @param _required Number of required confirmations.
+    function changeRequirement(uint _required)
+    public
+    onlyWallet
+    validRequirement(owners.length, _required)
+    {
+        required = _required;
+        RequirementChange(_required);
+    }
+
+    /// @dev Allows an owner to submit and confirm a transaction.
+    /// @param destination Transaction target address.
+    /// @param value Transaction ether value.
+    /// @param data Transaction data payload.
+    /// @return Returns transaction ID.
+    function submitTransaction(address destination, uint value, bytes data)
+    public
+    returns (uint transactionId)
+    {
+        transactionId = addTransaction(true, destination, value, data);
+        confirmTransaction(transactionId);
+    }
+    
+
+    /// @dev Allows an owner to confirm a transaction.
+    /// @param transactionId Transaction ID.
+    function confirmTransaction(uint transactionId)
+    public
+    ownerExists(msg.sender)
+    transactionExists(transactionId)
+    notConfirmed(transactionId, msg.sender)
+    {
+        confirmations[transactionId][msg.sender] = true;
+        Confirmation(msg.sender, transactionId);
+        executeTransaction(transactionId);
+    }
+
+    /// @dev Allows an owner to revoke a confirmation for a transaction.
+    /// @param transactionId Transaction ID.
+    function revokeConfirmation(uint transactionId)
+    public
+    ownerExists(msg.sender)
+    confirmed(transactionId, msg.sender)
+    notExecuted(transactionId)
+    {
+        confirmations[transactionId][msg.sender] = false;
+        Revocation(msg.sender, transactionId);
+    }
+
+    /// @dev Allows an user to burn the token.
+    function burn(uint value, bytes data)
+    public
+    returns (uint transactionId)
+    {
+        require(value > WITHDRAW_FEE);
+        transactionId = addTransaction(false, msg.sender, value - WITHDRAW_FEE, data);
+        super._burn(msg.sender, value);
+        Transaction storage txn = transactions[transactionId];
+        txn.executed = true;
+        Execution(transactionId, msg.sender, false, value, data);
+        // TxBurn(transactionId);
+    }
+
+    /// @dev Allows anyone to execute a confirmed transaction.
+    /// @param transactionId Transaction ID.
+    function executeTransaction(uint transactionId)
+    public
+    ownerExists(msg.sender)
+    confirmed(transactionId, msg.sender)
+    notExecuted(transactionId)
+    {
+        if (isConfirmed(transactionId)) {
+            Transaction storage txn = transactions[transactionId];
+
+            // just need multisig for minting - freely burn
+            if (txn.isMintingTx) {
+                super._mint(txn.destination, txn.value);
+                txn.executed = true;
+                Execution(transactionId, txn.destination, true, txn.value, txn.data);
+            }
+        }
+    }
+
+    /// @dev Returns the confirmation status of a transaction.
+    /// @param transactionId Transaction ID.
+    /// @return Confirmation status.
+    function isConfirmed(uint transactionId)
+    public
+    constant
+    returns (bool)
+    {
+        uint count = 0;
+        for (uint i=0; i<owners.length; i++) {
+            if (confirmations[transactionId][owners[i]])
+                count += 1;
+            if (count == required)
+                return true;
+        }
+    }
+
+    /*
+     * Internal functions
      */
-    function name() public view returns (string memory) {
-        return _name;
+    /// @dev Adds a new transaction to the transaction mapping, if transaction does not exist yet.
+    /// @param destination Transaction target address.
+    /// @param value Transaction ether value.
+    /// @param data Transaction data payload.
+    /// @return Returns transaction ID.
+    function addTransaction(bool isMintingTx, address destination, uint value, bytes data)
+    internal
+    notNull(destination)
+    returns (uint transactionId)
+    {
+        transactionId = transactionCount;
+        transactions[transactionId] = Transaction({
+            isMintingTx: isMintingTx,
+            destination: destination,
+            value: value,
+            data: data,
+            executed: false
+            });
+        transactionCount += 1;
+        Submission(transactionId);
     }
 
-    /**
-     * @return the symbol of the token.
+    /*
+     * Web3 call functions
      */
-    function symbol() public view returns (string memory) {
-        return _symbol;
+    /// @dev Returns number of confirmations of a transaction.
+    /// @param transactionId Transaction ID.
+    /// @return Number of confirmations.
+    function getConfirmationCount(uint transactionId)
+    public
+    constant
+    returns (uint count)
+    {
+        for (uint i=0; i<owners.length; i++)
+            if (confirmations[transactionId][owners[i]])
+                count += 1;
     }
 
-    /**
-     * @return the number of decimals of the token.
-     */
-    function decimals() public view returns (uint8) {
-        return _decimals;
+    /// @dev Returns total number of transactions after filers are applied.
+    /// @param pending Include pending transactions.
+    /// @param executed Include executed transactions.
+    /// @return Total number of transactions after filters are applied.
+    function getTransactionCount(bool pending, bool executed)
+    public
+    constant
+    returns (uint count)
+    {
+        for (uint i=0; i<transactionCount; i++)
+            if (   pending && !transactions[i].executed
+            || executed && transactions[i].executed)
+                count += 1;
     }
 
-    function setMinFee(uint256 value) public {
-        require(msg.sender == issuer());
-        _changeMinFee(value);
+    /// @dev Returns list of owners.
+    /// @return List of owner addresses.
+    function getOwners()
+    public
+    constant
+    returns (address[])
+    {
+        return owners;
     }
 
+    /// @dev Returns array with owner addresses, which confirmed transaction.
+    /// @param transactionId Transaction ID.
+    /// @return Returns array of owner addresses.
+    function getConfirmations(uint transactionId)
+    public
+    constant
+    returns (address[] _confirmations)
+    {
+        address[] memory confirmationsTemp = new address[](owners.length);
+        uint count = 0;
+        uint i;
+        for (i=0; i<owners.length; i++)
+            if (confirmations[transactionId][owners[i]]) {
+                confirmationsTemp[count] = owners[i];
+                count += 1;
+            }
+        _confirmations = new address[](count);
+        for (i=0; i<count; i++)
+            _confirmations[i] = confirmationsTemp[i];
+    }
+
+    /// @dev Returns list of transaction IDs in defined range.
+    /// @param from Index start position of transaction array.
+    /// @param to Index end position of transaction array.
+    /// @param pending Include pending transactions.
+    /// @param executed Include executed transactions.
+    /// @return Returns array of transaction IDs.
+    function getTransactionIds(uint from, uint to, bool pending, bool executed)
+    public
+    constant
+    returns (uint[] _transactionIds)
+    {
+        uint[] memory transactionIdsTemp = new uint[](transactionCount);
+        uint count = 0;
+        uint i;
+        for (i=0; i<transactionCount; i++)
+            if (   pending && !transactions[i].executed
+            || executed && transactions[i].executed)
+            {
+                transactionIdsTemp[count] = i;
+                count += 1;
+            }
+        _transactionIds = new uint[](to - from);
+        for (i=from; i<to; i++)
+            _transactionIds[i - from] = transactionIdsTemp[i];
+    }
 }
