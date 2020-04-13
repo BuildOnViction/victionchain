@@ -35,6 +35,7 @@ type LendingTrade struct {
 	AutoTopUp              bool           `bson:"autoTopUp" json:"autoTopUp"`
 	LiquidationTime        uint64         `bson:"liquidationTime" json:"liquidationTime"`
 	DepositRate            *big.Int       `bson:"depositRate" json:"depositRate"`
+	LiquidationRate        *big.Int       `bson:"liquidationRate" json:"liquidationRate"`
 	Amount                 *big.Int       `bson:"amount" json:"amount"`
 	BorrowingFee           *big.Int       `bson:"borrowingFee" json:"borrowingFee"`
 	InvestingFee           *big.Int       `bson:"investingFee" json:"investingFee"`
@@ -67,6 +68,7 @@ type LendingTradeBSON struct {
 	CollateralLockedAmount string    `bson:"collateralLockedAmount" json:"collateralLockedAmount"`
 	AutoTopUp              bool      `bson:"autoTopUp" json:"autoTopUp"`
 	DepositRate            string    `bson:"depositRate" json:"depositRate"`
+	LiquidationRate        string    `bson:"liquidationRate" json:"liquidationRate"`
 	Amount                 string    `bson:"amount" json:"amount"`
 	BorrowingFee           string    `bson:"borrowingFee" json:"borrowingFee"`
 	InvestingFee           string    `bson:"investingFee" json:"investingFee"`
@@ -103,6 +105,7 @@ func (t *LendingTrade) GetBSON() (interface{}, error) {
 			CollateralLockedAmount: t.CollateralLockedAmount.String(),
 			AutoTopUp:              t.AutoTopUp,
 			DepositRate:            t.DepositRate.String(),
+			LiquidationRate:        t.LiquidationRate.String(),
 			Amount:                 t.Amount.String(),
 			BorrowingFee:           t.BorrowingFee.String(),
 			InvestingFee:           t.InvestingFee.String(),
@@ -159,6 +162,7 @@ func (t *LendingTrade) SetBSON(raw bson.Raw) error {
 	t.LiquidationTime = uint64(liquidationTime)
 	t.CollateralLockedAmount = ToBigInt(decoded.CollateralLockedAmount)
 	t.DepositRate = ToBigInt(decoded.DepositRate)
+	t.LiquidationRate = ToBigInt(decoded.LiquidationRate)
 	t.Amount = tradingstate.ToBigInt(decoded.Amount)
 	t.BorrowingFee = tradingstate.ToBigInt(decoded.BorrowingFee)
 	t.InvestingFee = tradingstate.ToBigInt(decoded.InvestingFee)

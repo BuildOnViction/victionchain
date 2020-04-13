@@ -1,6 +1,7 @@
 package tomoxlending
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/tomochain/tomochain/consensus"
@@ -273,12 +274,32 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 			switch updatedTakerLendingItem.Type {
 			case lendingstate.TopUp:
 				updatedTakerLendingItem.Status = lendingstate.TopUp
+				extraData, _ := json.Marshal(struct {
+					Auto bool
+					Price *big.Int
+				}{
+					Auto: false,
+					Price: new(big.Int).Div(new(big.Int).Mul(tradeRecord.LiquidationPrice, tradeRecord.DepositRate), tradeRecord.LiquidationRate),
+				})
+				updatedTakerLendingItem.ExtraData = string(extraData)
 			case lendingstate.Repay:
 				updatedTakerLendingItem.Status = lendingstate.Repay
 				updatedTakerLendingItem.Quantity = tradeRecord.Amount
 				updatedTakerLendingItem.FilledAmount = tradeRecord.Amount
+				extraData, _ := json.Marshal(struct {
+					Auto bool
+				}{
+					Auto: false,
+				})
+				updatedTakerLendingItem.ExtraData = string(extraData)
 			case lendingstate.Recall:
 				updatedTakerLendingItem.Status = lendingstate.Recall
+				extraData, _ := json.Marshal(struct {
+					Auto bool
+				}{
+					Auto: false,
+				})
+				updatedTakerLendingItem.ExtraData = string(extraData)
 			}
 
 			log.Debug("UpdateLendingTrade:", "type", updatedTakerLendingItem.Type, "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
@@ -475,6 +496,11 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 			if trade == nil {
 				continue
 			}
+			extraData, _ := json.Marshal(struct {
+				Auto bool
+			}{
+				Auto: true,
+			})
 			repayItem := &lendingstate.LendingItem{
 				Quantity:        trade.Amount,
 				Interest:        big.NewInt(int64(trade.Interest)),
@@ -496,7 +522,7 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 				LendingId:       0,
 				LendingTradeId:  trade.TradeId,
 				AutoTopUp:       true,
-				ExtraData:       "auto",
+				ExtraData:       string(extraData),
 			}
 			if err := db.PutObject(repayItem.Hash, repayItem); err != nil {
 				return err
@@ -515,6 +541,13 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 			for _, oldTrade := range items.([]*lendingstate.LendingTrade) {
 				newTrade := trades[oldTrade.Hash]
 				topUpAmount := new(big.Int).Sub(newTrade.CollateralLockedAmount, oldTrade.CollateralLockedAmount)
+				extraData, _ := json.Marshal(struct {
+					Auto bool
+					Price *big.Int
+				}{
+					Auto: true,
+					Price: new(big.Int).Div(new(big.Int).Mul(newTrade.LiquidationPrice, common.BaseTopUp), common.RateTopUp),
+				})
 				topUpItem := &lendingstate.LendingItem{
 					Quantity:        topUpAmount,
 					Interest:        big.NewInt(int64(oldTrade.Interest)),
@@ -536,7 +569,7 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 					UpdatedAt:       txTime,
 					LendingId:       0,
 					LendingTradeId:  oldTrade.TradeId,
-					ExtraData:       "auto",
+					ExtraData:       string(extraData),
 				}
 				if err := db.PutObject(topUpItem.Hash, topUpItem); err != nil {
 					return err
@@ -556,6 +589,13 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 			for _, oldTrade := range items.([]*lendingstate.LendingTrade) {
 				newTrade := trades[oldTrade.Hash]
 				recallAmount := new(big.Int).Sub(oldTrade.CollateralLockedAmount, newTrade.CollateralLockedAmount)
+				extraData, _ := json.Marshal(struct {
+					Auto bool
+					Price *big.Int
+				}{
+					Auto: true,
+					Price: new(big.Int).Div(new(big.Int).Mul(newTrade.LiquidationPrice, oldTrade.DepositRate), oldTrade.LiquidationRate),
+				})
 				topUpItem := &lendingstate.LendingItem{
 					Quantity:        recallAmount,
 					Interest:        big.NewInt(int64(oldTrade.Interest)),
@@ -577,7 +617,7 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 					UpdatedAt:       txTime,
 					LendingId:       0,
 					LendingTradeId:  oldTrade.TradeId,
-					ExtraData:       "auto",
+					ExtraData:       string(extraData),
 				}
 				if err := db.PutObject(topUpItem.Hash, topUpItem); err != nil {
 					return err

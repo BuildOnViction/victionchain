@@ -337,6 +337,7 @@ func (l *Lending) processOrderList(header *types.Header, coinbase common.Address
 				LiquidationPrice:       liquidationPrice,
 				Interest:               oldestOrder.Interest.Uint64(),
 				DepositRate:            depositRate,
+				LiquidationRate: liquidationRate,
 				CollateralLockedAmount: collateralLockedAmount,
 			}
 			lendingTrade.Status = lendingstate.TradeStatusOpen
