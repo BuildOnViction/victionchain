@@ -70,8 +70,7 @@ func (l *Lending) ApplyOrder(header *types.Header, coinbase common.Address, chai
 		trades = append(trades, newLendingTrade)
 		return trades, rejects, nil
 	case lendingstate.Repay:
-		lendingTradeId := order.LendingTradeId
-		lendingTrade, err := l.ProcessRepay(header.Time.Uint64(), lendingStateDB, statedb, tradingStateDb, lendingOrderBook, lendingTradeId)
+		lendingTrade, err := l.ProcessRepay(header.Time.Uint64(), lendingStateDB, statedb, tradingStateDb, lendingOrderBook, order)
 		if err != nil {
 			log.Debug("Can not process payment", "err", err)
 			rejects = append(rejects, order)
@@ -732,55 +731,34 @@ func (l *Lending) ProcessTopUp(lendingStateDB *lendingstate.LendingStateDB, stat
 	if lendingTrade == lendingstate.EmptyLendingTrade {
 		return fmt.Errorf("process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId.Hex()), true, nil
 	}
-	if order.UserAddress != lendingTrade.Borrower {
+	if order.UserAddress.String() != lendingTrade.Borrower.String() {
 		return fmt.Errorf("ProcessTopUp: invalid userAddress . UserAddress: %s . Borrower: %s", order.UserAddress.Hex(), lendingTrade.Borrower.Hex()), true, nil
 	}
+	if order.Relayer.String() != lendingTrade.BorrowingRelayer.String() {
+		return fmt.Errorf("ProcessTopUp: invalid relayerAddress . Got: %s . Expect: %s", order.Relayer.Hex(), lendingTrade.BorrowingRelayer.Hex()), true, nil
+	}
 	if order.Quantity.Sign() <= 0 || lendingTrade.TradeId != lendingTradeId.Big().Uint64() {
-		log.Debug("invalid order deposit", "Quantity", order.Quantity, "lendingTradeId", lendingTradeId.Hex())
+		log.Debug("ProcessTopUp: invalid quantity", "Quantity", order.Quantity, "lendingTradeId", lendingTradeId.Hex())
 		return nil, true, nil
 	}
 	return l.ProcessTopUpLendingTrade(lendingStateDB, statedb, tradingStateDb, lendingTradeId, lendingBook, order.Quantity)
 }
 
 // return hash: hash of lendingTrade
-func (l *Lending) ProcessRepay(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (trade *lendingstate.LendingTrade, err error) {
+func (l *Lending) ProcessRepay(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, order *lendingstate.LendingItem) (trade *lendingstate.LendingTrade, err error) {
+	lendingTradeId := order.LendingTradeId
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
-	if lendingTrade == lendingstate.EmptyLendingTrade {
-		return nil, fmt.Errorf("process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
+	if lendingTrade == lendingstate.EmptyLendingTrade || lendingTrade.TradeId != lendingTradeIdHash.Big().Uint64() {
+		return nil, fmt.Errorf("ProcessRepay for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 	}
-	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
-	paymentBalance := lendingstate.CalculateTotalRepayValue(time, lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, lendingTrade.Amount)
-	log.Debug("ProcessRepay", "totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "totalRepayValue", paymentBalance, "token", lendingTrade.LendingToken.Hex())
-	if tokenBalance.Cmp(paymentBalance) < 0 {
-		if lendingTrade.LiquidationTime > time {
-			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
-		}
-		_, err := l.LiquidationTrade(lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
-		lendingTrade.Status = lendingstate.TradeStatusLiquidated
-		return &lendingTrade, err
-	} else {
-		lendingstate.SubTokenBalance(lendingTrade.Borrower, paymentBalance, lendingTrade.LendingToken, statedb)
-		lendingstate.AddTokenBalance(lendingTrade.Investor, paymentBalance, lendingTrade.LendingToken, statedb)
-
-		lendingstate.SubTokenBalance(common.HexToAddress(common.LendingLockAddress), lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
-		lendingstate.AddTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
-
-		err = lendingStateDB.RemoveLiquidationTime(lendingBook, lendingTradeId, lendingTrade.LiquidationTime)
-		if err != nil {
-			log.Debug("ProcessRepay RemoveLiquidationTime", "err", err, "lendingHash", lendingTrade.Hash, "trade", lendingstate.ToJSON(lendingTrade))
-		}
-		err = tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
-		if err != nil {
-			log.Debug("ProcessRepay RemoveLiquidationPrice", "err", err)
-		}
-		lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
-		if err != nil {
-			log.Debug("ProcessRepay CancelLendingTrade", "err", err)
-		}
-		lendingTrade.Status = lendingstate.TradeStatusClosed
+	if order.UserAddress.String() != lendingTrade.Borrower.String() {
+		return nil, fmt.Errorf("ProcessRepay: invalid userAddress . UserAddress: %s . Borrower: %s", order.UserAddress.Hex(), lendingTrade.Borrower.Hex())
 	}
-	return &lendingTrade, nil
+	if order.Relayer.String() != lendingTrade.BorrowingRelayer.String() {
+		return nil, fmt.Errorf("ProcessRepay: invalid relayerAddress . Got: %s . Expect: %s", order.Relayer.Hex(), lendingTrade.BorrowingRelayer.Hex())
+	}
+	return l.ProcessRepayLendingTrade(time, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
 }
 
 // return liquidatedTrade
@@ -981,6 +959,48 @@ func (l *Lending) ProcessTopUpLendingTrade(lendingStateDB *lendingstate.LendingS
 	log.Debug("ProcessTopUp successfully", "price", newLiquidationPrice, "lockAmount", newLockedAmount)
 	return nil, false, &newLendingTrade
 }
+
+func (l *Lending) ProcessRepayLendingTrade(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (trade *lendingstate.LendingTrade, err error) {
+	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
+	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
+	if lendingTrade == lendingstate.EmptyLendingTrade {
+		return nil, fmt.Errorf("ProcessRepayLendingTrade for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
+	}
+	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
+	paymentBalance := lendingstate.CalculateTotalRepayValue(time, lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, lendingTrade.Amount)
+	log.Debug("ProcessRepay", "totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "totalRepayValue", paymentBalance, "token", lendingTrade.LendingToken.Hex())
+
+	if tokenBalance.Cmp(paymentBalance) < 0 {
+		if lendingTrade.LiquidationTime > time {
+			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
+		}
+		_, err := l.LiquidationTrade(lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+		lendingTrade.Status = lendingstate.TradeStatusLiquidated
+		return &lendingTrade, err
+	} else {
+		lendingstate.SubTokenBalance(lendingTrade.Borrower, paymentBalance, lendingTrade.LendingToken, statedb)
+		lendingstate.AddTokenBalance(lendingTrade.Investor, paymentBalance, lendingTrade.LendingToken, statedb)
+
+		lendingstate.SubTokenBalance(common.HexToAddress(common.LendingLockAddress), lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
+		lendingstate.AddTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
+
+		err = lendingStateDB.RemoveLiquidationTime(lendingBook, lendingTradeId, lendingTrade.LiquidationTime)
+		if err != nil {
+			log.Debug("ProcessRepay RemoveLiquidationTime", "err", err, "lendingHash", lendingTrade.Hash, "trade", lendingstate.ToJSON(lendingTrade))
+		}
+		err = tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
+		if err != nil {
+			log.Debug("ProcessRepay RemoveLiquidationPrice", "err", err)
+		}
+		lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
+		if err != nil {
+			log.Debug("ProcessRepay CancelLendingTrade", "err", err)
+		}
+		lendingTrade.Status = lendingstate.TradeStatusClosed
+	}
+	return &lendingTrade, nil
+}
+
 
 func (l *Lending) ProcessRecallLendingTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId common.Hash, newLiquidationPrice *big.Int) (error, bool, *lendingstate.LendingTrade) {
 	log.Debug("ProcessRecallLendingTrade", "lendingTradeId", lendingTradeId.Hex(), "lendingBook", lendingBook.Hex(), "newLiquidationPrice", newLiquidationPrice)

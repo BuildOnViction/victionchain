@@ -39,15 +39,13 @@ import (
 )
 
 var (
-	ErrInvalidLendingFormat      = errors.New("invalid lending format")
-	ErrInvalidLendingContent     = errors.New("invalid lending content")
 	ErrInvalidLendingSide        = errors.New("invalid lending side")
 	ErrInvalidLendingType        = errors.New("invalid lending type")
 	ErrInvalidLendingStatus      = errors.New("invalid lending status")
 	ErrInvalidLendingUserAddress = errors.New("invalid lending user address")
 	ErrInvalidLendingQuantity    = errors.New("invalid lending quantity")
 	ErrInvalidLendingInterest    = errors.New("invalid lending interest")
-	ErrInvalidLendingDuration    = errors.New("invalid lending duration")
+	ErrInvalidLendingRelayer     = errors.New("invalid lending relayer address")
 	ErrInvalidLendingHash        = errors.New("invalid lending hash")
 	ErrInvalidCancelledLending   = errors.New("invalid cancel lending id")
 	ErrInvalidLendingTradeID     = errors.New("invalid lending trade ID")
@@ -458,6 +456,17 @@ func (pool *LendingPool) validateRepayLending(cloneStateDb *state.StateDB, clone
 	if tx.LendingTradeId() == 0 {
 		return ErrInvalidLendingTradeID
 	}
+	lendingBook := lendingstate.GetLendingOrderBookHash(tx.LendingToken(), tx.Term())
+	lendingTrade := cloneLendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(tx.LendingTradeId()))
+	if lendingTrade == lendingstate.EmptyLendingTrade {
+		return ErrInvalidLendingTradeID
+	}
+	if tx.UserAddress().String() != lendingTrade.Borrower.String() {
+		return ErrInvalidLendingUserAddress
+	}
+	if tx.RelayerAddress().String() != lendingTrade.BorrowingRelayer.String() {
+		return ErrInvalidLendingRelayer
+	}
 	if err := pool.validateBalance(cloneStateDb, cloneLendingStateDb, tx); err != nil {
 		return err
 	}
@@ -470,6 +479,17 @@ func (pool *LendingPool) validateTopupLending(cloneStateDb *state.StateDB, clone
 	if tx.Quantity() == nil || tx.Quantity().Sign() <= 0 {
 		return ErrInvalidLendingQuantity
 	}
+	lendingBook := lendingstate.GetLendingOrderBookHash(tx.LendingToken(), tx.Term())
+	lendingTrade := cloneLendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(tx.LendingTradeId()))
+	if lendingTrade == lendingstate.EmptyLendingTrade {
+		return ErrInvalidLendingTradeID
+	}
+	if tx.UserAddress().String() != lendingTrade.Borrower.String() {
+		return ErrInvalidLendingUserAddress
+	}
+	if tx.RelayerAddress().String() != lendingTrade.BorrowingRelayer.String() {
+		return ErrInvalidLendingRelayer
+	}
 	if err := pool.validateBalance(cloneStateDb, cloneLendingStateDb, tx); err != nil {
 		return err
 	}
@@ -477,74 +497,74 @@ func (pool *LendingPool) validateTopupLending(cloneStateDb *state.StateDB, clone
 }
 
 func (pool *LendingPool) validateBalance(cloneStateDb *state.StateDB, cloneLendingStateDb *lendingstate.LendingStateDB, tx *types.LendingTransaction) error {
-		posvEngine, ok := pool.chain.Engine().(*posv.Posv)
-		if !ok {
-			return ErrNotPoSV
-		}
-		tomoXServ := posvEngine.GetTomoXService()
-		lendingServ := posvEngine.GetLendingService()
-		if tomoXServ == nil {
-			return fmt.Errorf("tomox not found in order validation")
-		}
-		lendingTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.LendingToken())
+	posvEngine, ok := pool.chain.Engine().(*posv.Posv)
+	if !ok {
+		return ErrNotPoSV
+	}
+	tomoXServ := posvEngine.GetTomoXService()
+	lendingServ := posvEngine.GetLendingService()
+	if tomoXServ == nil {
+		return fmt.Errorf("tomox not found in order validation")
+	}
+	lendingTokenDecimal, err := tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.LendingToken())
+	if err != nil {
+		return fmt.Errorf("validateOrder: failed to get lendingTokenDecimal. err: %v", err)
+	}
+	tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock())
+	if err != nil {
+		return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
+	}
+	cloneTradingStateDb := tradingStateDb.Copy()
+	// collateralPrice: price of collateral by LendingToken
+	// Eg: LendingToken: USD, CollateralToken: BTC
+	// collateralPrice = BTC/USD (eg: 8000 USD)
+	// lendTokenTOMOPrice: price of lendingToken in TOMO quote
+	var lendTokenTOMOPrice, collateralPrice, collateralTokenDecimal *big.Int
+	if tx.Side() == lendingstate.Borrowing {
+		collateralTokenDecimal, err = tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.CollateralToken())
 		if err != nil {
-			return fmt.Errorf("validateOrder: failed to get lendingTokenDecimal. err: %v", err)
+			return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
 		}
-		tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock())
+		lendTokenTOMOPrice, collateralPrice, err = lendingServ.GetCollateralPrices(pool.chain.CurrentHeader(), pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
 		if err != nil {
-			return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
+			return err
 		}
-		cloneTradingStateDb := tradingStateDb.Copy()
-		// collateralPrice: price of collateral by LendingToken
-		// Eg: LendingToken: USD, CollateralToken: BTC
-		// collateralPrice = BTC/USD (eg: 8000 USD)
-		// lendTokenTOMOPrice: price of lendingToken in TOMO quote
-		var lendTokenTOMOPrice, collateralPrice, collateralTokenDecimal *big.Int
-		if tx.Side() == lendingstate.Borrowing {
-			collateralTokenDecimal, err = tomoXServ.GetTokenDecimal(pool.chain, cloneStateDb, pool.chain.CurrentBlock().Header().Coinbase, tx.CollateralToken())
-			if err != nil {
-				return fmt.Errorf("validateOrder: failed to get collateralTokenDecimal. err: %v", err)
-			}
-			lendTokenTOMOPrice, collateralPrice, err = lendingServ.GetCollateralPrices(pool.chain.CurrentHeader(), pool.chain, cloneStateDb, cloneTradingStateDb, tx.CollateralToken(), tx.LendingToken())
+		if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() <= 0 || collateralPrice == nil || collateralPrice.Sign() <= 0 {
+			log.Debug("ValidateLending: ErrInvalidCollateralPrice", "lendTokenTOMOPrice", lendTokenTOMOPrice, "collateralPrice", collateralPrice)
+			return lendingstate.ErrInvalidCollateralPrice
+		}
+	}
+	if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() == 0 {
+		if tx.LendingToken().String() == common.TomoNativeAddress {
+			lendTokenTOMOPrice = common.BasePrice
+		} else {
+			lendTokenTOMOPrice, err = lendingServ.GetMediumTradePriceBeforeEpoch(pool.chain, cloneStateDb, cloneTradingStateDb, tx.LendingToken(), common.HexToAddress(common.TomoNativeAddress))
 			if err != nil {
 				return err
 			}
-			if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() <= 0 || collateralPrice == nil || collateralPrice.Sign() <= 0 {
-				log.Debug("ValidateLending: ErrInvalidCollateralPrice", "lendTokenTOMOPrice", lendTokenTOMOPrice, "collateralPrice", collateralPrice)
-				return lendingstate.ErrInvalidCollateralPrice
-			}
 		}
-		if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() == 0 {
-			if tx.LendingToken().String() == common.TomoNativeAddress {
-				lendTokenTOMOPrice = common.BasePrice
-			} else {
-				lendTokenTOMOPrice, err = lendingServ.GetMediumTradePriceBeforeEpoch(pool.chain, cloneStateDb, cloneTradingStateDb, tx.LendingToken(), common.HexToAddress(common.TomoNativeAddress))
-				if err != nil {
-					return err
-				}
-			}
-		}
+	}
 
-		if err := lendingstate.VerifyBalance(cloneStateDb,
-			cloneLendingStateDb,
-			tx.Type(),
-			tx.Side(),
-			tx.Status(),
-			tx.UserAddress(),
-			tx.RelayerAddress(),
-			tx.LendingToken(),
-			tx.CollateralToken(),
-			tx.Quantity(),
-			lendingTokenDecimal,
-			collateralTokenDecimal,
-			lendTokenTOMOPrice,
-			collateralPrice,
-			tx.Term(),
-			tx.LendingId(),
-			tx.LendingTradeId(),
-		); err != nil {
-			return fmt.Errorf("VerifyBalance failed ! OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToken: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
-		}
+	if err := lendingstate.VerifyBalance(cloneStateDb,
+		cloneLendingStateDb,
+		tx.Type(),
+		tx.Side(),
+		tx.Status(),
+		tx.UserAddress(),
+		tx.RelayerAddress(),
+		tx.LendingToken(),
+		tx.CollateralToken(),
+		tx.Quantity(),
+		lendingTokenDecimal,
+		collateralTokenDecimal,
+		lendTokenTOMOPrice,
+		collateralPrice,
+		tx.Term(),
+		tx.LendingId(),
+		tx.LendingTradeId(),
+	); err != nil {
+		return fmt.Errorf("VerifyBalance failed ! OrderHash: %s. UserAddress: %s. LendingToken: %s. CollateralToken: %s. Err: %v", tx.Hash().Hex(), tx.UserAddress().Hex(), tx.LendingToken().Hex(), tx.CollateralToken().Hex(), err)
+	}
 	return nil
 }
 
@@ -568,10 +588,10 @@ func (pool *LendingPool) validateLending(tx *types.LendingTransaction) error {
 		return pool.validateCancelledLending(cloneLendingStateDb, tx)
 	}
 	if tx.IsTopupLending() {
-		return pool.validateTopupLending(cloneStateDb, cloneLendingStateDb,tx)
+		return pool.validateTopupLending(cloneStateDb, cloneLendingStateDb, tx)
 	}
 	if tx.IsRepayLending() {
-		return pool.validateRepayLending(cloneStateDb, cloneLendingStateDb,tx)
+		return pool.validateRepayLending(cloneStateDb, cloneLendingStateDb, tx)
 	}
 
 	return ErrInvalidLendingStatus
