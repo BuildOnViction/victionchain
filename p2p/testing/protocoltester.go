@@ -146,6 +146,9 @@ func (t *testNode) Start(server *p2p.Server) error {
 	return nil
 }
 
+func (t *testNode) SaveData() {
+}
+
 func (t *testNode) Stop() error {
 	return nil
 }
@@ -197,6 +200,9 @@ func (m *mockNode) Trigger(trig *Trigger) error {
 func (m *mockNode) Expect(exp ...Expect) error {
 	m.expect <- exp
 	return <-m.err
+}
+
+func (m *mockNode) SaveData() {
 }
 
 func (m *mockNode) Stop() error {

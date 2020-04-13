@@ -72,6 +72,8 @@ func (tomox *TomoX) Start(server *p2p.Server) error {
 	return nil
 }
 
+func (tomox *TomoX) SaveData() {
+}
 func (tomox *TomoX) Stop() error {
 	return nil
 }

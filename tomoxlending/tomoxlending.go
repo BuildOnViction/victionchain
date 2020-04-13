@@ -53,6 +53,9 @@ func (l *Lending) Start(server *p2p.Server) error {
 	return nil
 }
 
+func (l *Lending) SaveData() {
+}
+
 func (l *Lending) Stop() error {
 	return nil
 }
@@ -642,7 +645,11 @@ func (l *Lending) GetLendingState(block *types.Block) (*lendingstate.LendingStat
 	if l.StateCache == nil {
 		return nil, errors.New("Not initialized tomox")
 	}
-	return lendingstate.New(root, l.StateCache)
+	state, err := lendingstate.New(root, l.StateCache)
+	if err != nil {
+		log.Info("Not found lending state when GetLendingState", "block", block.Number(), "lendingRoot", root.Hex())
+	}
+	return state, err
 }
 
 func (l *Lending) GetStateCache() lendingstate.Database {
