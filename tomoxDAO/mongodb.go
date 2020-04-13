@@ -641,7 +641,6 @@ func (db *MongoDatabase) EnsureIndexes() error {
 	}
 	repayHashIndex := mgo.Index{
 		Key:        []string{"hash"},
-		Unique:     true,
 		DropDups:   true,
 		Background: true,
 		Sparse:     true,
@@ -657,7 +656,6 @@ func (db *MongoDatabase) EnsureIndexes() error {
 
 	recallHashIndex := mgo.Index{
 		Key:        []string{"hash"},
-		Unique:     true,
 		DropDups:   true,
 		Background: true,
 		Sparse:     true,
@@ -673,7 +671,6 @@ func (db *MongoDatabase) EnsureIndexes() error {
 
 	topupHashIndex := mgo.Index{
 		Key:        []string{"hash"},
-		Unique:     true,
 		DropDups:   true,
 		Background: true,
 		Sparse:     true,
