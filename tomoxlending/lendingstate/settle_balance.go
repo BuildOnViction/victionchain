@@ -75,7 +75,7 @@ func GetSettleBalance(takerSide string,
 			defaultFeeInTOMO := new(big.Int).Mul(defaultFee, lendTokenTOMOPrice)
 			defaultFeeInTOMO = new(big.Int).Div(defaultFeeInTOMO, lendTokenDecimal)
 
-			if (exTakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 && exTakerReceivedFee.Sign() > 0 ) || defaultFeeInTOMO.Cmp(common.RelayerLendingFee) <= 0 {
+			if (exTakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 && exTakerReceivedFee.Sign() > 0) || defaultFeeInTOMO.Cmp(common.RelayerLendingFee) <= 0 {
 				log.Debug("takerFee too small", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee, "defaultFeeInTOMO", defaultFeeInTOMO)
 				return result, ErrQuantityTradeTooSmall
 			}
@@ -175,4 +175,16 @@ func CalculateInterestRate(finalizeTime, liquidationTime, term uint64, apr uint6
 	interestRate = new(big.Int).Mul(interestRate, timeToPayInterest)
 	interestRate = new(big.Int).Div(interestRate, new(big.Int).SetUint64(common.OneYear))
 	return interestRate
+}
+
+func CalculateTotalRepayValue(finalizeTime, liquidationTime, term uint64, apr uint64, tradeAmount *big.Int) *big.Int {
+	interestRate := CalculateInterestRate(finalizeTime, liquidationTime, term, apr)
+
+	// interest 10%
+	// user should send: 10 * common.BaseLendingInterest
+	// decimal = common.BaseLendingInterest * 100
+	baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
+	paymentBalance := new(big.Int).Mul(tradeAmount, new(big.Int).Add(baseInterestDecimal, interestRate))
+	paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
+	return paymentBalance
 }

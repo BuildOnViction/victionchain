@@ -1,6 +1,7 @@
 package tomoxlending
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/tomochain/tomochain/consensus"
@@ -202,7 +203,7 @@ func (l *Lending) ProcessOrderPending(header *types.Header, coinbase common.Addr
 // 2.a Update status, filledAmount of makerLendingItem
 // 2.b. Put lendingTrade to database
 // 3. Update status of rejected items
-func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, txHash common.Hash, txMatchTime time.Time, trades []*lendingstate.LendingTrade, rejectedItems []*lendingstate.LendingItem, dirtyOrderCount *uint64) error {
+func (l *Lending) SyncDataToSDKNode(blockTime uint64, takerLendingItem *lendingstate.LendingItem, txHash common.Hash, txMatchTime time.Time, trades []*lendingstate.LendingTrade, rejectedItems []*lendingstate.LendingItem, dirtyOrderCount *uint64) error {
 	var (
 		// originTakerLendingItem: item getting from database
 		originTakerLendingItem, updatedTakerLendingItem *lendingstate.LendingItem
@@ -273,12 +274,25 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 			switch updatedTakerLendingItem.Type {
 			case lendingstate.TopUp:
 				updatedTakerLendingItem.Status = lendingstate.TopUp
+				extraData, _ := json.Marshal(struct {
+					Price *big.Int
+				}{
+					Price: new(big.Int).Div(new(big.Int).Mul(tradeRecord.LiquidationPrice, tradeRecord.DepositRate), tradeRecord.LiquidationRate),
+				})
+				updatedTakerLendingItem.ExtraData = string(extraData)
+				// manual topUp item
+				updatedTakerLendingItem.AutoTopUp = false
 			case lendingstate.Repay:
 				updatedTakerLendingItem.Status = lendingstate.Repay
-				updatedTakerLendingItem.Quantity = tradeRecord.Amount
-				updatedTakerLendingItem.FilledAmount = tradeRecord.Amount
+				paymentBalance := lendingstate.CalculateTotalRepayValue(blockTime, tradeRecord.LiquidationTime, tradeRecord.Term, tradeRecord.Interest, tradeRecord.Amount)
+				updatedTakerLendingItem.Quantity = paymentBalance
+				updatedTakerLendingItem.FilledAmount = paymentBalance
+				// manual repay item
+				updatedTakerLendingItem.AutoTopUp = false
 			case lendingstate.Recall:
 				updatedTakerLendingItem.Status = lendingstate.Recall
+				// manual recall item
+				updatedTakerLendingItem.AutoTopUp = false
 			}
 
 			log.Debug("UpdateLendingTrade:", "type", updatedTakerLendingItem.Type, "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
@@ -458,7 +472,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	return nil
 }
 
-func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, trades map[common.Hash]*lendingstate.LendingTrade) error {
+func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.FinalizedResult, trades map[common.Hash]*lendingstate.LendingTrade) error {
 	db := l.GetMongoDB()
 	db.InitLendingBulk()
 
@@ -475,14 +489,15 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 			if trade == nil {
 				continue
 			}
+			paymentBalance := lendingstate.CalculateTotalRepayValue(blockTime, trade.LiquidationTime, trade.Term, trade.Interest, trade.Amount)
 			repayItem := &lendingstate.LendingItem{
-				Quantity:        trade.Amount,
+				Quantity:        paymentBalance,
 				Interest:        big.NewInt(int64(trade.Interest)),
 				Side:            "",
 				Type:            lendingstate.Repay,
 				LendingToken:    trade.LendingToken,
 				CollateralToken: trade.CollateralToken,
-				FilledAmount:    trade.Amount,
+				FilledAmount:    paymentBalance,
 				Status:          lendingstate.Repay,
 				Relayer:         trade.BorrowingRelayer,
 				Term:            trade.Term,
@@ -495,8 +510,8 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 				UpdatedAt:       txTime,
 				LendingId:       0,
 				LendingTradeId:  trade.TradeId,
-				AutoTopUp:       true,
-				ExtraData:       "auto",
+				AutoTopUp:       true, // auto repay
+				ExtraData:       "",
 			}
 			if err := db.PutObject(repayItem.Hash, repayItem); err != nil {
 				return err
@@ -515,6 +530,11 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 			for _, oldTrade := range items.([]*lendingstate.LendingTrade) {
 				newTrade := trades[oldTrade.Hash]
 				topUpAmount := new(big.Int).Sub(newTrade.CollateralLockedAmount, oldTrade.CollateralLockedAmount)
+				extraData, _ := json.Marshal(struct {
+					Price *big.Int
+				}{
+					Price: new(big.Int).Div(new(big.Int).Mul(newTrade.LiquidationPrice, common.BaseTopUp), common.RateTopUp),
+				})
 				topUpItem := &lendingstate.LendingItem{
 					Quantity:        topUpAmount,
 					Interest:        big.NewInt(int64(oldTrade.Interest)),
@@ -524,7 +544,7 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 					CollateralToken: oldTrade.CollateralToken,
 					FilledAmount:    topUpAmount,
 					Status:          lendingstate.TopUp,
-					AutoTopUp:       true,
+					AutoTopUp:       true, // auto topup
 					Relayer:         oldTrade.BorrowingRelayer,
 					Term:            oldTrade.Term,
 					UserAddress:     oldTrade.Borrower,
@@ -536,7 +556,7 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 					UpdatedAt:       txTime,
 					LendingId:       0,
 					LendingTradeId:  oldTrade.TradeId,
-					ExtraData:       "auto",
+					ExtraData:       string(extraData),
 				}
 				if err := db.PutObject(topUpItem.Hash, topUpItem); err != nil {
 					return err
@@ -556,6 +576,11 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 			for _, oldTrade := range items.([]*lendingstate.LendingTrade) {
 				newTrade := trades[oldTrade.Hash]
 				recallAmount := new(big.Int).Sub(oldTrade.CollateralLockedAmount, newTrade.CollateralLockedAmount)
+				extraData, _ := json.Marshal(struct {
+					Price *big.Int
+				}{
+					Price: new(big.Int).Div(new(big.Int).Mul(newTrade.LiquidationPrice, oldTrade.DepositRate), oldTrade.LiquidationRate),
+				})
 				topUpItem := &lendingstate.LendingItem{
 					Quantity:        recallAmount,
 					Interest:        big.NewInt(int64(oldTrade.Interest)),
@@ -565,7 +590,7 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 					CollateralToken: oldTrade.CollateralToken,
 					FilledAmount:    recallAmount,
 					Status:          lendingstate.Recall,
-					AutoTopUp:       true,
+					AutoTopUp:       true, // auto recall
 					Relayer:         oldTrade.BorrowingRelayer,
 					Term:            oldTrade.Term,
 					UserAddress:     oldTrade.Borrower,
@@ -577,7 +602,7 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 					UpdatedAt:       txTime,
 					LendingId:       0,
 					LendingTradeId:  oldTrade.TradeId,
-					ExtraData:       "auto",
+					ExtraData:       string(extraData),
 				}
 				if err := db.PutObject(topUpItem.Hash, topUpItem); err != nil {
 					return err

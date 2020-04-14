@@ -345,15 +345,8 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 			return fmt.Errorf("VerifyBalance: process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 		}
 		tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
-		interestRate := CalculateInterestRate(uint64(time.Now().Unix()), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest)
+		paymentBalance := CalculateTotalRepayValue(uint64(time.Now().Unix()), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, lendingTrade.Amount)
 
-		// interest 10%
-		// user should send: 10 * common.BaseLendingInterest
-		// decimal = common.BaseLendingInterest * 100
-		baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
-
-		paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(baseInterestDecimal, interestRate))
-		paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
 		if tokenBalance.Cmp(paymentBalance) < 0 {
 			return fmt.Errorf("VerifyBalance: not enough balance to process payment for lendingTrade."+
 				"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
