@@ -263,7 +263,7 @@ func (l *Lending) processOrderList(header *types.Header, coinbase common.Address
 			borrowFee = lendingstate.GetFee(statedb, oldestOrder.Relayer)
 		}
 		collateralPrice := common.BasePrice
-		depositRate, liquidationRate, _ := lendingstate.GetCollateralDetail(statedb, collateralToken)
+		depositRate, liquidationRate, recallRate := lendingstate.GetCollateralDetail(statedb, collateralToken)
 		lendTokenTOMOPrice, collateralPrice, err := l.GetCollateralPrices(header, chain, statedb, tradingStateDb, collateralToken, order.LendingToken)
 		if err != nil {
 			return nil, nil, nil, err
@@ -337,7 +337,8 @@ func (l *Lending) processOrderList(header *types.Header, coinbase common.Address
 				LiquidationPrice:       liquidationPrice,
 				Interest:               oldestOrder.Interest.Uint64(),
 				DepositRate:            depositRate,
-				LiquidationRate: liquidationRate,
+				LiquidationRate:        liquidationRate,
+				RecallRate:             recallRate,
 				CollateralLockedAmount: collateralLockedAmount,
 			}
 			lendingTrade.Status = lendingstate.TradeStatusOpen
