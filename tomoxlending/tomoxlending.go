@@ -203,7 +203,7 @@ func (l *Lending) ProcessOrderPending(header *types.Header, coinbase common.Addr
 // 2.a Update status, filledAmount of makerLendingItem
 // 2.b. Put lendingTrade to database
 // 3. Update status of rejected items
-func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, txHash common.Hash, txMatchTime time.Time, trades []*lendingstate.LendingTrade, rejectedItems []*lendingstate.LendingItem, dirtyOrderCount *uint64) error {
+func (l *Lending) SyncDataToSDKNode(blockTime uint64, takerLendingItem *lendingstate.LendingItem, txHash common.Hash, txMatchTime time.Time, trades []*lendingstate.LendingTrade, rejectedItems []*lendingstate.LendingItem, dirtyOrderCount *uint64) error {
 	var (
 		// originTakerLendingItem: item getting from database
 		originTakerLendingItem, updatedTakerLendingItem *lendingstate.LendingItem
@@ -275,17 +275,18 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 			case lendingstate.TopUp:
 				updatedTakerLendingItem.Status = lendingstate.TopUp
 				extraData, _ := json.Marshal(struct {
-					Auto bool
+					Auto  bool
 					Price *big.Int
 				}{
-					Auto: false,
+					Auto:  false,
 					Price: new(big.Int).Div(new(big.Int).Mul(tradeRecord.LiquidationPrice, tradeRecord.DepositRate), tradeRecord.LiquidationRate),
 				})
 				updatedTakerLendingItem.ExtraData = string(extraData)
 			case lendingstate.Repay:
 				updatedTakerLendingItem.Status = lendingstate.Repay
-				updatedTakerLendingItem.Quantity = tradeRecord.Amount
-				updatedTakerLendingItem.FilledAmount = tradeRecord.Amount
+				paymentBalance := lendingstate.CalculateTotalRepayValue(blockTime, tradeRecord.LiquidationTime, tradeRecord.Term, tradeRecord.Interest, tradeRecord.Amount)
+				updatedTakerLendingItem.Quantity = paymentBalance
+				updatedTakerLendingItem.FilledAmount = paymentBalance
 				extraData, _ := json.Marshal(struct {
 					Auto bool
 				}{
@@ -479,7 +480,7 @@ func (l *Lending) SyncDataToSDKNode(takerLendingItem *lendingstate.LendingItem, 
 	return nil
 }
 
-func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, trades map[common.Hash]*lendingstate.LendingTrade) error {
+func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.FinalizedResult, trades map[common.Hash]*lendingstate.LendingTrade) error {
 	db := l.GetMongoDB()
 	db.InitLendingBulk()
 
@@ -496,19 +497,20 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 			if trade == nil {
 				continue
 			}
+			paymentBalance := lendingstate.CalculateTotalRepayValue(blockTime, trade.LiquidationTime, trade.Term, trade.Interest, trade.Amount)
 			extraData, _ := json.Marshal(struct {
 				Auto bool
 			}{
 				Auto: true,
 			})
 			repayItem := &lendingstate.LendingItem{
-				Quantity:        trade.Amount,
+				Quantity:        paymentBalance,
 				Interest:        big.NewInt(int64(trade.Interest)),
 				Side:            "",
 				Type:            lendingstate.Repay,
 				LendingToken:    trade.LendingToken,
 				CollateralToken: trade.CollateralToken,
-				FilledAmount:    trade.Amount,
+				FilledAmount:    paymentBalance,
 				Status:          lendingstate.Repay,
 				Relayer:         trade.BorrowingRelayer,
 				Term:            trade.Term,
@@ -542,10 +544,10 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 				newTrade := trades[oldTrade.Hash]
 				topUpAmount := new(big.Int).Sub(newTrade.CollateralLockedAmount, oldTrade.CollateralLockedAmount)
 				extraData, _ := json.Marshal(struct {
-					Auto bool
+					Auto  bool
 					Price *big.Int
 				}{
-					Auto: true,
+					Auto:  true,
 					Price: new(big.Int).Div(new(big.Int).Mul(newTrade.LiquidationPrice, common.BaseTopUp), common.RateTopUp),
 				})
 				topUpItem := &lendingstate.LendingItem{
@@ -590,10 +592,10 @@ func (l *Lending) UpdateLiquidatedTrade(result lendingstate.FinalizedResult, tra
 				newTrade := trades[oldTrade.Hash]
 				recallAmount := new(big.Int).Sub(oldTrade.CollateralLockedAmount, newTrade.CollateralLockedAmount)
 				extraData, _ := json.Marshal(struct {
-					Auto bool
+					Auto  bool
 					Price *big.Int
 				}{
-					Auto: true,
+					Auto:  true,
 					Price: new(big.Int).Div(new(big.Int).Mul(newTrade.LiquidationPrice, oldTrade.DepositRate), oldTrade.LiquidationRate),
 				})
 				topUpItem := &lendingstate.LendingItem{

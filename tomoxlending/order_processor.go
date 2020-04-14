@@ -750,15 +750,8 @@ func (l *Lending) ProcessRepay(time uint64, lendingStateDB *lendingstate.Lending
 		return nil, fmt.Errorf("process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 	}
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
-	interestRate := lendingstate.CalculateInterestRate(time, lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest)
-
-	// interest 10%
-	// user should send: 10 * common.BaseLendingInterest
-	// decimal = common.BaseLendingInterest * 100
-	baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
-	paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(baseInterestDecimal, interestRate))
-	paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
-	log.Debug("ProcessRepay", "rate", interestRate, "totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "token", lendingTrade.LendingToken.Hex())
+	paymentBalance := lendingstate.CalculateTotalRepayValue(time, lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, lendingTrade.Amount)
+	log.Debug("ProcessRepay", "totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "totalRepayValue", paymentBalance, "token", lendingTrade.LendingToken.Hex())
 	if tokenBalance.Cmp(paymentBalance) < 0 {
 		if lendingTrade.LiquidationTime > time {
 			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
