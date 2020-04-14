@@ -26,6 +26,7 @@ import (
 )
 
 func TestEchangeStates(t *testing.T) {
+	t.SkipNow()
 	orderBook := common.StringToHash("BTC/TOMO")
 	price := big.NewInt(10000)
 	numberOrder := 200000
