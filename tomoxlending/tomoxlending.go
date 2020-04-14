@@ -275,32 +275,24 @@ func (l *Lending) SyncDataToSDKNode(blockTime uint64, takerLendingItem *lendings
 			case lendingstate.TopUp:
 				updatedTakerLendingItem.Status = lendingstate.TopUp
 				extraData, _ := json.Marshal(struct {
-					Auto  bool
 					Price *big.Int
 				}{
-					Auto:  false,
 					Price: new(big.Int).Div(new(big.Int).Mul(tradeRecord.LiquidationPrice, tradeRecord.DepositRate), tradeRecord.LiquidationRate),
 				})
 				updatedTakerLendingItem.ExtraData = string(extraData)
+				// manual topUp item
+				updatedTakerLendingItem.AutoTopUp = false
 			case lendingstate.Repay:
 				updatedTakerLendingItem.Status = lendingstate.Repay
 				paymentBalance := lendingstate.CalculateTotalRepayValue(blockTime, tradeRecord.LiquidationTime, tradeRecord.Term, tradeRecord.Interest, tradeRecord.Amount)
 				updatedTakerLendingItem.Quantity = paymentBalance
 				updatedTakerLendingItem.FilledAmount = paymentBalance
-				extraData, _ := json.Marshal(struct {
-					Auto bool
-				}{
-					Auto: false,
-				})
-				updatedTakerLendingItem.ExtraData = string(extraData)
+				// manual repay item
+				updatedTakerLendingItem.AutoTopUp = false
 			case lendingstate.Recall:
 				updatedTakerLendingItem.Status = lendingstate.Recall
-				extraData, _ := json.Marshal(struct {
-					Auto bool
-				}{
-					Auto: false,
-				})
-				updatedTakerLendingItem.ExtraData = string(extraData)
+				// manual recall item
+				updatedTakerLendingItem.AutoTopUp = false
 			}
 
 			log.Debug("UpdateLendingTrade:", "type", updatedTakerLendingItem.Type, "hash", tradeRecord.Hash.Hex(), "status", tradeRecord.Status, "tradeId", tradeRecord.TradeId)
@@ -498,11 +490,6 @@ func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.Fi
 				continue
 			}
 			paymentBalance := lendingstate.CalculateTotalRepayValue(blockTime, trade.LiquidationTime, trade.Term, trade.Interest, trade.Amount)
-			extraData, _ := json.Marshal(struct {
-				Auto bool
-			}{
-				Auto: true,
-			})
 			repayItem := &lendingstate.LendingItem{
 				Quantity:        paymentBalance,
 				Interest:        big.NewInt(int64(trade.Interest)),
@@ -523,8 +510,8 @@ func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.Fi
 				UpdatedAt:       txTime,
 				LendingId:       0,
 				LendingTradeId:  trade.TradeId,
-				AutoTopUp:       true,
-				ExtraData:       string(extraData),
+				AutoTopUp:       true, // auto repay
+				ExtraData:       "",
 			}
 			if err := db.PutObject(repayItem.Hash, repayItem); err != nil {
 				return err
@@ -544,10 +531,8 @@ func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.Fi
 				newTrade := trades[oldTrade.Hash]
 				topUpAmount := new(big.Int).Sub(newTrade.CollateralLockedAmount, oldTrade.CollateralLockedAmount)
 				extraData, _ := json.Marshal(struct {
-					Auto  bool
 					Price *big.Int
 				}{
-					Auto:  true,
 					Price: new(big.Int).Div(new(big.Int).Mul(newTrade.LiquidationPrice, common.BaseTopUp), common.RateTopUp),
 				})
 				topUpItem := &lendingstate.LendingItem{
@@ -559,7 +544,7 @@ func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.Fi
 					CollateralToken: oldTrade.CollateralToken,
 					FilledAmount:    topUpAmount,
 					Status:          lendingstate.TopUp,
-					AutoTopUp:       true,
+					AutoTopUp:       true, // auto topup
 					Relayer:         oldTrade.BorrowingRelayer,
 					Term:            oldTrade.Term,
 					UserAddress:     oldTrade.Borrower,
@@ -592,10 +577,8 @@ func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.Fi
 				newTrade := trades[oldTrade.Hash]
 				recallAmount := new(big.Int).Sub(oldTrade.CollateralLockedAmount, newTrade.CollateralLockedAmount)
 				extraData, _ := json.Marshal(struct {
-					Auto  bool
 					Price *big.Int
 				}{
-					Auto:  true,
 					Price: new(big.Int).Div(new(big.Int).Mul(newTrade.LiquidationPrice, oldTrade.DepositRate), oldTrade.LiquidationRate),
 				})
 				topUpItem := &lendingstate.LendingItem{
@@ -607,7 +590,7 @@ func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.Fi
 					CollateralToken: oldTrade.CollateralToken,
 					FilledAmount:    recallAmount,
 					Status:          lendingstate.Recall,
-					AutoTopUp:       true,
+					AutoTopUp:       true, // auto recall
 					Relayer:         oldTrade.BorrowingRelayer,
 					Term:            oldTrade.Term,
 					UserAddress:     oldTrade.Borrower,
