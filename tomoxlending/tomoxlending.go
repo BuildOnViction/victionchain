@@ -870,7 +870,8 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 		_, collateralPrice, err := l.GetCollateralPrices(header, chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
 		if err != nil {
 			log.Error("Fail when get all trading pairs", "error", err)
-			return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err
+			// ignore this pair, do not throw error
+			continue
 		}
 		// liquidate trades
 		highestLiquidatePrice, liquidationData := tradingState.GetHighestLiquidationPriceData(orderbook, collateralPrice)

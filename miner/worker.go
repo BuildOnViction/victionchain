@@ -851,6 +851,25 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 
+		// validate minFee slot for TomoZ
+		if tx.IsTomoZApplyTransaction() {
+			copyState, _ := bc.State()
+			if err := core.ValidateTomoZApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				log.Debug("TomoZApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
+				txs.Pop()
+				continue
+			}
+		}
+		// validate balance slot, token decimal for TomoX
+		if tx.IsTomoXApplyTransaction() {
+			copyState, _ := bc.State()
+			if err := core.ValidateTomoXApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
+				txs.Pop()
+				continue
+			}
+		}
+
 		if gp.Gas() < params.TxGas && tx.Gas() > 0 {
 			log.Trace("Not enough gas for further transactions", "gp", gp)
 			break
@@ -943,6 +962,25 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			if tx.To() != nil && common.Blacklist[*tx.To()] {
 				log.Debug("Skipping transaction with receiver in black-list", "receiver", tx.To().Hex())
 				txs.Shift()
+				continue
+			}
+		}
+
+		// validate minFee slot for TomoZ
+		if tx.IsTomoZApplyTransaction() {
+			copyState, _ := bc.State()
+			if err := core.ValidateTomoZApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				log.Debug("TomoZApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
+				txs.Pop()
+				continue
+			}
+		}
+		// validate balance slot, token decimal for TomoX
+		if tx.IsTomoXApplyTransaction() {
+			copyState, _ := bc.State()
+			if err := core.ValidateTomoXApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
+				txs.Pop()
 				continue
 			}
 		}
