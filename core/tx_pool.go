@@ -674,11 +674,13 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrMinDeploySMC
 	}
 
+	// validate minFee slot for TomoZ
 	if tx.IsTomoZApplyTransaction() {
 		copyState := pool.currentState.Copy()
 		return ValidateTomoZApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:]))
 	}
 
+	// validate balance slot, token decimal for TomoX
 	if tx.IsTomoXApplyTransaction() {
 		copyState := pool.currentState.Copy()
 		return ValidateTomoXApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:]))
