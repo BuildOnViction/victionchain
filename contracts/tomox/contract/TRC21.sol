@@ -44,9 +44,27 @@ contract TRC21 is ITRC21 {
     mapping (address => mapping (address => uint256)) private _allowed;
     uint256 private _totalSupply;
 
-    string public name;
-    string public symbol;
-    uint8 public decimals;
+    string private _name;
+    string private _symbol;
+    uint8 private _decimals;
+
+    constructor (string memory name, string memory symbol, uint8 decimals) public {
+        _name = name;
+        _symbol = symbol;
+        _decimals = decimals;
+    }
+
+    function name() public view returns (string) {
+        return _name;
+    }
+
+    function symbol() public view returns (string) {
+        return _symbol;
+    }
+
+    function decimals() public view returns (uint8) {
+        return _decimals;
+    }
 
     /**
      * @dev Total number of tokens in existence
@@ -317,10 +335,7 @@ contract MyTRC21 is TRC21 {
     /// @dev Contract constructor sets initial owners and required number of confirmations.
     /// @param _owners List of initial owners.
     /// @param _required Number of required confirmations.
-    constructor (address[] _owners, uint _required, string memory _name, string memory _symbol, uint8 _decimals, uint256 cap, uint256 minFee, uint256 depositFee, uint256 withdrawFee) public validRequirement(_owners.length, _required) {
-        name = _name;
-        symbol = _symbol;
-        decimals = _decimals;
+    constructor (address[] _owners, uint _required, string memory _name, string memory _symbol, uint8 _decimals, uint256 cap, uint256 minFee, uint256 depositFee, uint256 withdrawFee) TRC21(_name, _symbol, _decimals) public validRequirement(_owners.length, _required) {
         _mint(msg.sender, cap);
         _changeIssuer(msg.sender);
         _changeMinFee(minFee);
