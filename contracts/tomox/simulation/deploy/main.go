@@ -355,7 +355,6 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 		}
 
 		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
-		fmt.Println("wait 10s to execute init smart contract", tokenName)
 
 		tokenListResult = append(tokenListResult, map[string]interface{}{
 			"name":    tokenName,
@@ -375,7 +374,7 @@ func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interfac
 		if err != nil {
 			log.Fatal("trc21Issuer Apply  ", token["name"].(string), err)
 		}
-		fmt.Println("wait 10s to applyIssuer ", token["name"].(string))
+		fmt.Println("applyIssuer ", token["name"].(string))
 		nonce = nonce + 1
 	}
 	time.Sleep(5 * time.Second)
@@ -389,7 +388,7 @@ func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]
 		if err != nil {
 			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
 		}
-		fmt.Println("wait 10s to applyTomoXListing ", token["name"].(string))
+		fmt.Println("applyTomoXListing ", token["name"].(string))
 		nonce = nonce + 1
 	}
 	time.Sleep(5 * time.Second)

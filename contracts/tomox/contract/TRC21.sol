@@ -12,6 +12,8 @@ interface ITRC21 {
 
     function issuer() external view returns (address);
 
+    function decimals() external view returns (uint8);
+
     function estimateFee(uint256 value) external view returns (uint256);
 
     function allowance(address owner, address spender) external view returns (uint256);
@@ -41,6 +43,10 @@ contract TRC21 is ITRC21 {
     address private _issuer;
     mapping (address => mapping (address => uint256)) private _allowed;
     uint256 private _totalSupply;
+
+    string public name;
+    string public symbol;
+    uint8 public decimals;
 
     /**
      * @dev Total number of tokens in existence
@@ -78,6 +84,11 @@ contract TRC21 is ITRC21 {
      */
     function estimateFee(uint256 value) public view returns (uint256) {
         return value.mul(0).add(_minFee);
+    }
+
+    function setMinFee(uint256 value) public {
+        require(msg.sender == _issuer);
+        _changeMinFee(value);
     }
 
     /**
@@ -203,14 +214,9 @@ contract TRC21 is ITRC21 {
     function _changeMinFee(uint256 value) internal {
         _minFee = value;
     }
-
 }
 
 contract MyTRC21 is TRC21 {
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals;
-
     /*
      *  Events
      */
@@ -311,10 +317,10 @@ contract MyTRC21 is TRC21 {
     /// @dev Contract constructor sets initial owners and required number of confirmations.
     /// @param _owners List of initial owners.
     /// @param _required Number of required confirmations.
-    constructor (address[] _owners, uint _required, string memory name, string memory symbol, uint8 decimals, uint256 cap, uint256 minFee, uint256 depositFee, uint256 withdrawFee) public validRequirement(_owners.length, _required) {
-        _name = name;
-        _symbol = symbol;
-        _decimals = decimals;
+    constructor (address[] _owners, uint _required, string memory _name, string memory _symbol, uint8 _decimals, uint256 cap, uint256 minFee, uint256 depositFee, uint256 withdrawFee) public validRequirement(_owners.length, _required) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
         _mint(msg.sender, cap);
         _changeIssuer(msg.sender);
         _changeMinFee(minFee);
@@ -614,32 +620,6 @@ contract MyTRC21 is TRC21 {
         _transactionIds = new uint[](to - from);
         for (i=from; i<to; i++)
             _transactionIds[i - from] = transactionIdsTemp[i];
-    }
-
-    /**
-     * @return the name of the token.
-     */
-    function name() public view returns (string memory) {
-        return _name;
-    }
-
-    /**
-     * @return the symbol of the token.
-     */
-    function symbol() public view returns (string memory) {
-        return _symbol;
-    }
-
-    /**
-     * @return the number of decimals of the token.
-     */
-    function decimals() public view returns (uint8) {
-        return _decimals;
-    }
-
-    function setMinFee(uint256 value) public {
-        require(msg.sender == issuer());
-        _changeMinFee(value);
     }
 
 }
