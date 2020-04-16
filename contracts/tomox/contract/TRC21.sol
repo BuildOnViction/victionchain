@@ -115,7 +115,7 @@ contract TRC21 is ITRC21 {
      * @param spender address The address which will spend the funds.
      * @return A uint256 specifying the amount of tokens still available for the spender.
      */
-    function allowance(address owner,address spender) public	view returns (uint256){
+    function allowance(address owner,address spender) public view returns (uint256){
         return _allowed[owner][spender];
     }
 
@@ -335,7 +335,12 @@ contract MyTRC21 is TRC21 {
     /// @dev Contract constructor sets initial owners and required number of confirmations.
     /// @param _owners List of initial owners.
     /// @param _required Number of required confirmations.
-    constructor (address[] _owners, uint _required, string memory _name, string memory _symbol, uint8 _decimals, uint256 cap, uint256 minFee, uint256 depositFee, uint256 withdrawFee) TRC21(_name, _symbol, _decimals) public validRequirement(_owners.length, _required) {
+    constructor (address[] _owners,
+                 uint _required, string memory _name,
+                 string memory _symbol, uint8 _decimals,
+                 uint256 cap, uint256 minFee,
+                 uint256 depositFee, uint256 withdrawFee
+                ) TRC21(_name, _symbol, _decimals) public validRequirement(_owners.length, _required) {
         _mint(msg.sender, cap);
         _changeIssuer(msg.sender);
         _changeMinFee(minFee);
