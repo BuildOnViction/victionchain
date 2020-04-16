@@ -335,10 +335,21 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 	for _, tokenName := range tokenNameList {
 		auth.Nonce = big.NewInt(int64(nonce))
 		d := uint8(18)
+		depositFee := big.NewInt(0)
+		withdrawFee := big.NewInt(0)
+		tokenCap := simulation.TRC21TokenCap
 		if tokenName == "USDT" {
 			d = 8
+			tokenCap.Div(simulation.TRC21TokenCap, big.NewInt(10000000000))
+			withdrawFee = big.NewInt(97000000)
 		}
-		tokenAddr, _, err := tomox.DeployTRC21(auth, client, simulation.Owners, simulation.Required, tokenName, tokenName, d, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
+		if tokenName == "BTC" {
+			withdrawFee = big.NewInt(400000000000000)
+		}
+		if tokenName == "ETH" {
+			withdrawFee = big.NewInt(3000000000000000)
+		}
+		tokenAddr, _, err := tomox.DeployTRC21(auth, client, simulation.Owners, simulation.Required, tokenName, tokenName, d, tokenCap, simulation.TRC21TokenFee, depositFee, withdrawFee)
 		if err != nil {
 			log.Fatal("DeployTRC21 ", tokenName, err)
 		}

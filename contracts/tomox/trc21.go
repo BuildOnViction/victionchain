@@ -27,8 +27,8 @@ func NewTRC21(transactOpts *bind.TransactOpts, contractAddr common.Address, cont
 	}, nil
 }
 
-func DeployTRC21(transactOpts *bind.TransactOpts, contractBackend bind.ContractBackend, owners []common.Address, required *big.Int, name string, symbol string, decimals uint8, cap, fee *big.Int) (common.Address, *MyTRC21, error) {
-	contractAddr, _, _, err := contract.DeployMyTRC21(transactOpts, contractBackend, owners, required, name, symbol, decimals, cap, fee)
+func DeployTRC21(transactOpts *bind.TransactOpts, contractBackend bind.ContractBackend, owners []common.Address, required *big.Int, name string, symbol string, decimals uint8, cap, fee, depositFee, withdrawFee *big.Int) (common.Address, *MyTRC21, error) {
+	contractAddr, _, _, err := contract.DeployMyTRC21(transactOpts, contractBackend, owners, required, name, symbol, decimals, cap, fee, depositFee, withdrawFee)
 	if err != nil {
 		return contractAddr, nil, err
 	}

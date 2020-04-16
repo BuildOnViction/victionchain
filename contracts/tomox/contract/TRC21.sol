@@ -230,7 +230,6 @@ contract MyTRC21 is TRC21 {
     uint constant public MAX_OWNER_COUNT = 50;
     uint public WITHDRAW_FEE = 0;
     uint public DEPOSIT_FEE = 0;
-    address public CONTRACT_OWNER;
     
     /*
      *  Storage
@@ -258,8 +257,8 @@ contract MyTRC21 is TRC21 {
         _;
     }
 
-    modifier onlyContractOwner() {
-        require(msg.sender == CONTRACT_OWNER);
+    modifier onlyContractIssuer() {
+        require(msg.sender == issuer());
         _;
     }
 
@@ -325,22 +324,21 @@ contract MyTRC21 is TRC21 {
         }
         owners = _owners;
         required = _required;
-        CONTRACT_OWNER = msg.sender;
         DEPOSIT_FEE = depositFee;
         WITHDRAW_FEE = withdrawFee;
     }
 
-    function transferContractOwner(address newOwner) public onlyContractOwner {
+    function transferContractIssuer(address newOwner) public onlyContractIssuer {
         if (newOwner != address(0)) {
-            CONTRACT_OWNER = newOwner;
+            _changeIssuer(msg.sender);
         }
     }
 
-    function setDepositFee(uint256 depositFee) public onlyContractOwner {
+    function setDepositFee(uint256 depositFee) public onlyContractIssuer {
         DEPOSIT_FEE = depositFee;
     }
 
-    function setWithdrawFee(uint256 withdrawFee) public onlyContractOwner {
+    function setWithdrawFee(uint256 withdrawFee) public onlyContractIssuer {
         WITHDRAW_FEE = withdrawFee;
     }
 
@@ -452,10 +450,13 @@ contract MyTRC21 is TRC21 {
     public
     returns (uint transactionId)
     {
+        require(value > 0);
         value = value.sub(WITHDRAW_FEE);
         transactionId = addTransaction(false, msg.sender, value, data);
         super._burn(msg.sender, value);
-        super._mint(CONTRACT_OWNER, WITHDRAW_FEE);
+        if (WITHDRAW_FEE > 0) {
+            super._mint(issuer(), WITHDRAW_FEE);
+        }
         Transaction storage txn = transactions[transactionId];
         txn.executed = true;
         Execution(transactionId, msg.sender, false, value, data);
@@ -476,7 +477,9 @@ contract MyTRC21 is TRC21 {
             if (txn.isMintingTx) {
                 txn.value = txn.value.sub(DEPOSIT_FEE);
                 super._mint(txn.destination, txn.value);
-                super._mint(CONTRACT_OWNER, DEPOSIT_FEE);
+                if (DEPOSIT_FEE > 0) {
+                    super._mint(issuer(), DEPOSIT_FEE);
+                }
                 txn.executed = true;
                 Execution(transactionId, txn.destination, true, txn.value, txn.data);
             }
