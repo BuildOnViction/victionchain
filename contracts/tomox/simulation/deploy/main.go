@@ -335,20 +335,35 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 	for _, tokenName := range tokenNameList {
 		auth.Nonce = big.NewInt(int64(nonce))
 		d := uint8(18)
+		depositFee := big.NewInt(0)
+		withdrawFee := big.NewInt(0)
+		tokenCap := simulation.TRC21TokenCap
+		if tokenName == "ADA" {
+			d = 0
+			tokenCap = new(big.Int).Div(simulation.TRC21TokenCap, simulation.BaseTOMO)
+		}
 		if tokenName == "USDT" {
 			d = 8
+			tokenCap = new(big.Int).Div(simulation.TRC21TokenCap, big.NewInt(10000000000))
+			withdrawFee = big.NewInt(97000000)
 		}
-		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, d, simulation.TRC21TokenCap, simulation.TRC21TokenFee)
+		if tokenName == "BTC" {
+			withdrawFee = big.NewInt(400000000000000)
+		}
+		if tokenName == "ETH" {
+			withdrawFee = big.NewInt(3000000000000000)
+		}
+		tokenAddr, _, err := tomox.DeployTRC21(auth, client, simulation.Owners, simulation.Required, tokenName, tokenName, d, tokenCap, simulation.TRC21TokenFee, depositFee, withdrawFee)
 		if err != nil {
 			log.Fatal("DeployTRC21 ", tokenName, err)
 		}
 
-		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
-		fmt.Println("wait 10s to execute init smart contract", tokenName)
+		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", tokenCap)
 
 		tokenListResult = append(tokenListResult, map[string]interface{}{
-			"name":    tokenName,
-			"address": tokenAddr,
+			"name":     tokenName,
+			"address":  tokenAddr,
+			"decimals": d,
 		})
 		nonce = nonce + 1
 	}
@@ -364,7 +379,7 @@ func applyIssuer(trc21Issuer *tomox.TRC21Issuer, tokenList []map[string]interfac
 		if err != nil {
 			log.Fatal("trc21Issuer Apply  ", token["name"].(string), err)
 		}
-		fmt.Println("wait 10s to applyIssuer ", token["name"].(string))
+		fmt.Println("applyIssuer ", token["name"].(string))
 		nonce = nonce + 1
 	}
 	time.Sleep(5 * time.Second)
@@ -378,7 +393,7 @@ func applyTomoXListing(tomoxListing *tomox.TOMOXListing, tokenList []map[string]
 		if err != nil {
 			log.Fatal("tomoxListing Apply ", token["name"].(string), err)
 		}
-		fmt.Println("wait 10s to applyTomoXListing ", token["name"].(string))
+		fmt.Println("applyTomoXListing ", token["name"].(string))
 		nonce = nonce + 1
 	}
 	time.Sleep(5 * time.Second)
@@ -389,9 +404,11 @@ func airdrop(auth *bind.TransactOpts, client *ethclient.Client, tokenList []map[
 		for _, address := range addresses {
 			trc21Contract, _ := tomox.NewTRC21(auth, token["address"].(common.Address), client)
 			trc21Contract.TransactOpts.Nonce = big.NewInt(int64(nonce))
-			_, err := trc21Contract.Transfer(address, big.NewInt(0).Mul(common.BasePrice, big.NewInt(1000000)))
+			baseAmount := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(token["decimals"].(uint8))), nil)
+			amount := big.NewInt(0).Mul(baseAmount, big.NewInt(1000000))
+			_, err := trc21Contract.Transfer(address, amount)
 			if err == nil {
-				fmt.Printf("Transfer %v to %v successfully", token["name"].(string), address.String())
+				fmt.Printf("Transfer %v %v to %v successfully", amount.String(), token["name"].(string), address.String())
 				fmt.Println()
 			} else {
 				fmt.Printf("Transfer %v to %v failed!", token["name"].(string), address.String())
