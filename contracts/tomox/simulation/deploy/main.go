@@ -357,8 +357,9 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
 
 		tokenListResult = append(tokenListResult, map[string]interface{}{
-			"name":    tokenName,
-			"address": tokenAddr,
+			"name":     tokenName,
+			"address":  tokenAddr,
+			"decimals": d,
 		})
 		nonce = nonce + 1
 	}
@@ -399,9 +400,11 @@ func airdrop(auth *bind.TransactOpts, client *ethclient.Client, tokenList []map[
 		for _, address := range addresses {
 			trc21Contract, _ := tomox.NewTRC21(auth, token["address"].(common.Address), client)
 			trc21Contract.TransactOpts.Nonce = big.NewInt(int64(nonce))
-			_, err := trc21Contract.Transfer(address, big.NewInt(0).Mul(common.BasePrice, big.NewInt(1000000)))
+			baseAmount := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(token["decimals"].(uint8))), nil)
+			amount := big.NewInt(0).Mul(baseAmount, big.NewInt(1000000))
+			_, err := trc21Contract.Transfer(address, amount)
 			if err == nil {
-				fmt.Printf("Transfer %v to %v successfully", token["name"].(string), address.String())
+				fmt.Printf("Transfer %v %v to %v successfully", amount.String(), token["name"].(string), address.String())
 				fmt.Println()
 			} else {
 				fmt.Printf("Transfer %v to %v failed!", token["name"].(string), address.String())
