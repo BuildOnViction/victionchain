@@ -44,6 +44,7 @@ contract RelayerRegistration {
     event ConfigEvent(uint max_relayer, uint max_token, uint256 min_deposit);
     event RegisterEvent(uint256 deposit, uint16 tradeFee, address[] fromTokens, address[] toTokens);
     event UpdateEvent(uint256 deposit, uint16 tradeFee, address[] fromTokens, address[] toTokens);
+    event UpdateFeeEvent(address coinbase, uint16 tradeFee);
     event TransferEvent(address owner, uint256 deposit, uint16 tradeFee, address[] fromTokens, address[] toTokens);
     event ResignEvent(uint deposit_release_time, uint256 deposit_amount);
     event RefundEvent(bool success, uint remaining_time, uint256 deposit_amount);
@@ -109,7 +110,7 @@ contract RelayerRegistration {
         require(coinbase != CONTRACT_OWNER, "Coinbase must not be same as CONTRACT_OWNER");
         require(msg.value >= MinimumDeposit, "Minimum deposit not satisfied.");
         /// @dev valid relayer configuration
-        require(tradeFee >= 1 && tradeFee < 1000, "Invalid Maker Fee");
+        require(tradeFee >= 0 && tradeFee < 1000, "Invalid Maker Fee");
         require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
         require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
 
@@ -142,7 +143,7 @@ contract RelayerRegistration {
 
 
     function update(address coinbase, uint16 tradeFee, address[] memory fromTokens, address[] memory toTokens) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
-        require(tradeFee >= 1 && tradeFee < 1000, "Invalid Maker Fee");
+        require(tradeFee >= 0 && tradeFee < 1000, "Invalid Maker Fee");
         require(fromTokens.length <= MaximumTokenList, "Exceeding number of trade pairs");
         require(toTokens.length == fromTokens.length, "Not valid number of Pairs");
 
@@ -156,6 +157,12 @@ contract RelayerRegistration {
                          RELAYER_LIST[coinbase]._tradeFee,
                          RELAYER_LIST[coinbase]._fromTokens,
                          RELAYER_LIST[coinbase]._toTokens);
+    }
+
+    function updateFee(address coinbase, uint16 tradeFee) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
+        require(tradeFee >= 0 && tradeFee < 1000, "Invalid Maker Fee");
+        RELAYER_LIST[coinbase]._tradeFee = tradeFee;
+        emit UpdateFeeEvent(coinbase, RELAYER_LIST[coinbase]._tradeFee);
     }
 
     // List new tokens
@@ -198,7 +205,7 @@ contract RelayerRegistration {
 
     function transfer(address coinbase, address new_owner) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
         require(new_owner != address(0) && new_owner != msg.sender);
-        require(RELAYER_LIST[new_owner]._tradeFee == 0, "Owner address must not be currently used as relayer-coinbase");
+        require(RELAYER_LIST[new_owner]._owner != address(0), "Owner address must not be currently used as relayer-coinbase");
 
         RELAYER_LIST[coinbase]._owner = new_owner;
         emit TransferEvent(RELAYER_LIST[coinbase]._owner,
@@ -351,14 +358,14 @@ contract RelayerRegistration {
 
         address[] memory tomoPairs = new address[](RELAYER_LIST[coinbase]._toTokens.length + 1);
 
-        if (fromToken == tomoNative || toToken == tomoNative) {
-            return true;
-        }
-
         bool b = TomoXListing.getTokenStatus(toToken) || (toToken == tomoNative);
         b = b && (TomoXListing.getTokenStatus(fromToken) || fromToken == tomoNative);
         if (!b) {
             return false;
+        }
+
+        if (fromToken == tomoNative || toToken == tomoNative) {
+            return true;
         }
 
         // get tokens that paired with tomo
@@ -394,6 +401,17 @@ contract RelayerRegistration {
             }
         }
 
+        if (count != RELAYER_LIST[coinbase]._toTokens.length) {
+            address[] memory fts = new address[](newToTokens.length-1);
+            address[] memory tts = new address[](newToTokens.length-1);
+            for (uint j = 0; j < newToTokens.length - 1; j++) {
+                fts[j] = newFromTokens[j];
+                tts[j] = newToTokens[j];
+            }
+            return (fts, tts);
+        }
+
         return (newFromTokens, newToTokens);
+       
     }
 }

@@ -8,8 +8,9 @@ import (
 	"math/big"
 )
 
+const DefaultFeeRate = 100 // 100 / TomoXBaseFee = 100 / 10000 = 1%
 var (
-	ErrQuantityTradeTooSmall = errors.New("quantity trade too small")
+	ErrQuantityTradeTooSmall  = errors.New("quantity trade too small")
 	ErrInvalidCollateralPrice = errors.New("unable to retrieve price of this collateral. Please try another collateral")
 )
 
@@ -46,6 +47,10 @@ func GetSettleBalance(takerSide string,
 		return nil, ErrInvalidCollateralPrice
 	}
 
+	//use the defaultFee to validate small orders
+	defaultFee := new(big.Int).Mul(quantityToLend, new(big.Int).SetUint64(DefaultFeeRate))
+	defaultFee = new(big.Int).Div(defaultFee, common.TomoXBaseFee)
+
 	var result *LendingSettleBalance
 	//result = map[common.Address]map[string]interface{}{}
 	if takerSide == Borrowing {
@@ -58,23 +63,26 @@ func GetSettleBalance(takerSide string,
 		// takerFee = quantityToLend*borrowFee/baseFee
 		takerFee := new(big.Int).Mul(quantityToLend, borrowFee)
 		takerFee = new(big.Int).Div(takerFee, common.TomoXBaseFee)
-		if quantityToLend.Cmp(takerFee) <= 0 {
+
+		if quantityToLend.Cmp(takerFee) <= 0 || quantityToLend.Cmp(defaultFee) <= 0 {
 			log.Debug("quantity lending too small", "quantityToLend", quantityToLend, "takerFee", takerFee)
 			return result, ErrQuantityTradeTooSmall
 		}
 		if lendingToken.String() != common.TomoNativeAddress && lendTokenTOMOPrice != nil && lendTokenTOMOPrice.Cmp(common.Big0) > 0 {
 			exTakerReceivedFee := new(big.Int).Mul(takerFee, lendTokenTOMOPrice)
 			exTakerReceivedFee = new(big.Int).Div(exTakerReceivedFee, lendTokenDecimal)
-			log.Debug("exTakerReceivedFee", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee)
-			if exTakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 {
-				log.Debug("takerFee too small", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee)
+
+			defaultFeeInTOMO := new(big.Int).Mul(defaultFee, lendTokenTOMOPrice)
+			defaultFeeInTOMO = new(big.Int).Div(defaultFeeInTOMO, lendTokenDecimal)
+
+			if (exTakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 && exTakerReceivedFee.Sign() > 0) || defaultFeeInTOMO.Cmp(common.RelayerLendingFee) <= 0 {
+				log.Debug("takerFee too small", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee, "defaultFeeInTOMO", defaultFeeInTOMO)
 				return result, ErrQuantityTradeTooSmall
 			}
 		} else if lendingToken.String() == common.TomoNativeAddress {
 			exTakerReceivedFee := takerFee
-			log.Debug("exTakerReceivedFee", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee)
-			if exTakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 {
-				log.Debug("takerFee too small", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee)
+			if (exTakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 && exTakerReceivedFee.Sign() > 0) || defaultFee.Cmp(common.RelayerLendingFee) <= 0 {
+				log.Debug("takerFee too small", "quantityToLend", quantityToLend, "takerFee", takerFee, "exTakerReceivedFee", exTakerReceivedFee, "borrowFee", borrowFee, "defaultFee", defaultFee)
 				return result, ErrQuantityTradeTooSmall
 			}
 		}
@@ -106,23 +114,25 @@ func GetSettleBalance(takerSide string,
 		// Fee
 		makerFee := new(big.Int).Mul(quantityToLend, borrowFee)
 		makerFee = new(big.Int).Div(makerFee, common.TomoXBaseFee)
-		if quantityToLend.Cmp(makerFee) <= 0 {
+		if quantityToLend.Cmp(makerFee) <= 0 || quantityToLend.Cmp(defaultFee) <= 0 {
 			log.Debug("quantity lending too small", "quantityToLend", quantityToLend, "makerFee", makerFee)
 			return result, ErrQuantityTradeTooSmall
 		}
 		if lendingToken.String() != common.TomoNativeAddress && lendTokenTOMOPrice != nil && lendTokenTOMOPrice.Cmp(common.Big0) > 0 {
 			exMakerReceivedFee := new(big.Int).Mul(makerFee, lendTokenTOMOPrice)
 			exMakerReceivedFee = new(big.Int).Div(exMakerReceivedFee, lendTokenDecimal)
-			log.Debug("exMakerReceivedFee", "quantityToLend", quantityToLend, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "borrowFee", borrowFee)
-			if exMakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 {
-				log.Debug("makerFee too small", "quantityToLend", quantityToLend, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "borrowFee", borrowFee)
+
+			defaultFeeInTOMO := new(big.Int).Mul(defaultFee, lendTokenTOMOPrice)
+			defaultFeeInTOMO = new(big.Int).Div(defaultFeeInTOMO, lendTokenDecimal)
+
+			if (exMakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 && exMakerReceivedFee.Sign() > 0) || defaultFeeInTOMO.Cmp(common.RelayerLendingFee) <= 0 {
+				log.Debug("makerFee too small", "quantityToLend", quantityToLend, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "borrowFee", borrowFee, "defaultFeeInTOMO", defaultFeeInTOMO)
 				return result, ErrQuantityTradeTooSmall
 			}
 		} else if lendingToken.String() == common.TomoNativeAddress {
 			exMakerReceivedFee := makerFee
-			log.Debug("exMakerReceivedFee", "quantityToLend", quantityToLend, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "borrowFee", borrowFee)
-			if exMakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 {
-				log.Debug("makerFee too small", "quantityToLend", quantityToLend, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "borrowFee", borrowFee)
+			if (exMakerReceivedFee.Cmp(common.RelayerLendingFee) <= 0 && exMakerReceivedFee.Sign() > 0) || defaultFee.Cmp(common.RelayerLendingFee) <= 0 {
+				log.Debug("makerFee too small", "quantityToLend", quantityToLend, "makerFee", makerFee, "exMakerReceivedFee", exMakerReceivedFee, "borrowFee", borrowFee, "defaultFee", defaultFee)
 				return result, ErrQuantityTradeTooSmall
 			}
 		}
@@ -165,4 +175,16 @@ func CalculateInterestRate(finalizeTime, liquidationTime, term uint64, apr uint6
 	interestRate = new(big.Int).Mul(interestRate, timeToPayInterest)
 	interestRate = new(big.Int).Div(interestRate, new(big.Int).SetUint64(common.OneYear))
 	return interestRate
+}
+
+func CalculateTotalRepayValue(finalizeTime, liquidationTime, term uint64, apr uint64, tradeAmount *big.Int) *big.Int {
+	interestRate := CalculateInterestRate(finalizeTime, liquidationTime, term, apr)
+
+	// interest 10%
+	// user should send: 10 * common.BaseLendingInterest
+	// decimal = common.BaseLendingInterest * 100
+	baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
+	paymentBalance := new(big.Int).Mul(tradeAmount, new(big.Int).Add(baseInterestDecimal, interestRate))
+	paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
+	return paymentBalance
 }

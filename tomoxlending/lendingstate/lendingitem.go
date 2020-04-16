@@ -17,6 +17,7 @@ const (
 	Borrowing                  = "BORROW"
 	TopUp                      = "TOPUP"
 	Repay                      = "REPAY"
+	Recall                     = "RECALL"
 	LendingStatusNew           = "NEW"
 	LendingStatusOpen          = "OPEN"
 	LendingStatusReject        = "REJECTED"
@@ -37,6 +38,7 @@ var ValidInputLendingType = map[string]bool{
 	Limit:  true,
 	Repay:  true,
 	TopUp:  true,
+	Recall: true,
 }
 
 // Signature struct
@@ -200,8 +202,10 @@ func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
 		if err := l.VerifyLendingType(); err != nil {
 			return err
 		}
-		if err := l.VerifyLendingQuantity(); err != nil {
-			return err
+		if l.Type != Repay {
+			if err := l.VerifyLendingQuantity(); err != nil {
+				return err
+			}
 		}
 		if l.Type == Limit || l.Type == Market {
 			if err := l.VerifyLendingSide(); err != nil {
@@ -341,15 +345,8 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 			return fmt.Errorf("VerifyBalance: process payment for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 		}
 		tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
-		interestRate := CalculateInterestRate(uint64(time.Now().Unix()), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest)
+		paymentBalance := CalculateTotalRepayValue(uint64(time.Now().Unix()), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, lendingTrade.Amount)
 
-		// interest 10%
-		// user should send: 10 * common.BaseLendingInterest
-		// decimal = common.BaseLendingInterest * 100
-		baseInterestDecimal := new(big.Int).Mul(common.BaseLendingInterest, new(big.Int).SetUint64(100))
-
-		paymentBalance := new(big.Int).Mul(lendingTrade.Amount, new(big.Int).Add(baseInterestDecimal, interestRate))
-		paymentBalance = new(big.Int).Div(paymentBalance, baseInterestDecimal)
 		if tokenBalance.Cmp(paymentBalance) < 0 {
 			return fmt.Errorf("VerifyBalance: not enough balance to process payment for lendingTrade."+
 				"lendingTradeId: %v. Token: %s. ExpectedBalance: %s. ActualBalance: %s",
@@ -365,6 +362,23 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 				if balance := GetTokenBalance(userAddress, lendingToken, statedb); balance.Cmp(quantity) < 0 {
 					return fmt.Errorf("VerifyBalance: investor doesn't have enough lendingToken. User: %s. Token: %s. Expected: %v. Have: %v", userAddress.Hex(), lendingToken.Hex(), quantity, balance)
 				}
+				// check quantity: reject if it's too small
+				if lendTokenTOMOPrice != nil && lendTokenTOMOPrice.Sign() > 0 {
+					defaultFee := new(big.Int).Mul(quantity, new(big.Int).SetUint64(DefaultFeeRate))
+					defaultFee = new(big.Int).Div(defaultFee, common.TomoXBaseFee)
+					defaultFeeInTOMO := common.Big0
+					if lendingToken.String() != common.TomoNativeAddress {
+						defaultFeeInTOMO = new(big.Int).Mul(defaultFee, lendTokenTOMOPrice)
+						defaultFeeInTOMO = new(big.Int).Div(defaultFeeInTOMO, lendingTokenDecimal)
+					} else {
+						defaultFeeInTOMO = defaultFee
+					}
+					if defaultFeeInTOMO.Cmp(common.RelayerLendingFee) <= 0 {
+						return ErrQuantityTradeTooSmall
+					}
+
+				}
+
 			case LendingStatusCancelled:
 				// in case of cancel, investor need to pay cancel fee in lendingToken
 				// make sure actualBalance >= cancel fee

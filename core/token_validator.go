@@ -31,8 +31,9 @@ import (
 )
 
 const (
-	balanceOfFunction = "balanceOf"
-	minFeeFunction    = "minFee"
+	balanceOfFunction  = "balanceOf"
+	minFeeFunction     = "minFee"
+	getDecimalFunction = "decimals"
 )
 
 // callmsg implements core.Message to allow passing it as a transaction simulator.
@@ -119,11 +120,17 @@ func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, 
 
 // make sure that balance of token is at slot 0
 func ValidateTomoXApplyTransaction(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address) error {
+	if !chain.Config().IsTIPTomoX(chain.CurrentHeader().Number) {
+		return nil
+	}
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)
 	if err != nil {
-		return fmt.Errorf("ValidateTomoZApplyTransaction: cannot parse ABI. Err: %v", err)
+		return fmt.Errorf("ValidateTomoXApplyTransaction: cannot parse ABI. Err: %v", err)
 	}
 	if err := ValidateBalanceSlot(chain, copyState, tokenAddr, contractABI); err != nil {
+		return err
+	}
+	if err := ValidateTokenDecimal(chain, copyState, tokenAddr, contractABI); err != nil {
 		return err
 	}
 	return nil
@@ -132,6 +139,9 @@ func ValidateTomoXApplyTransaction(chain consensus.ChainContext, copyState *stat
 // make sure that balance of token is at slot 0
 // make sure that minFee of token is at slot 1
 func ValidateTomoZApplyTransaction(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address) error {
+	if !chain.Config().IsTIPTomoX(chain.CurrentHeader().Number) {
+		return nil
+	}
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)
 	if err != nil {
 		return fmt.Errorf("ValidateTomoZApplyTransaction: cannot parse ABI. Err: %v", err)
@@ -168,7 +178,7 @@ func ValidateBalanceSlot(chain consensus.ChainContext, copyState *state.StateDB,
 		return fmt.Errorf("invalid balance at slot %v . Token: %s . GotBalance: %v . ResultType: %T", state.SlotTRC21Token["balances"], tokenAddr.Hex(), result, result)
 	}
 	if balance.Cmp(randBalance) != 0 {
-		log.Debug("ValidateTomoZApplyTransaction", "balance_set_at_slot_0", randBalance, "balance_get_from_abi", balance)
+		log.Debug("invalid balance slot", "balance_set_at_slot_0", randBalance, "balance_get_from_abi", balance)
 		return fmt.Errorf("invalid balance slot. Token: %s", tokenAddr.Hex())
 	}
 	return nil
@@ -188,8 +198,16 @@ func ValidateMinFeeSlot(chain consensus.ChainContext, copyState *state.StateDB, 
 		return fmt.Errorf("invalid minFee at slot %v . Token: %s . GotMinFee: %v . ResultType: %T", state.SlotTRC21Token["minFee"], tokenAddr.Hex(), result, result)
 	}
 	if minFee.Cmp(randomValue) != 0 {
-		log.Debug("ValidateTomoZApplyTransaction", "minFee_set_at_slot_1", randomValue, "minFee_get_from_abi", minFee)
+		log.Debug("invalid minFee slot", "minFee_set_at_slot_1", randomValue, "minFee_get_from_abi", minFee)
 		return fmt.Errorf("invalid minFee slot. Token: %s", tokenAddr.Hex())
+	}
+	return nil
+}
+
+func ValidateTokenDecimal(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address, contractABI *abi.ABI) error {
+	result, err := RunContract(chain, copyState, tokenAddr, contractABI, getDecimalFunction)
+	if err != nil || result == nil {
+		return fmt.Errorf("cannot get token decimal. Token: %s . Err: %v", tokenAddr.Hex(), err)
 	}
 	return nil
 }

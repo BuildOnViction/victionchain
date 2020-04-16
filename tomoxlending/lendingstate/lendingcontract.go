@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
@@ -25,7 +26,12 @@ var (
 	CollateralStructSlots = map[string]*big.Int{
 		"depositRate":     big.NewInt(0),
 		"liquidationRate": big.NewInt(1),
-		"price":           big.NewInt(2),
+		"recallRate":      big.NewInt(2),
+		"price":           big.NewInt(3),
+	}
+	PriceStructSlots = map[string]*big.Int{
+		"price":       big.NewInt(0),
+		"blockNumber": big.NewInt(1),
 	}
 )
 
@@ -36,7 +42,9 @@ var (
 func IsValidRelayer(statedb *state.StateDB, coinbase common.Address) bool {
 	locRelayerState := GetLocMappingAtKey(coinbase.Hash(), LendingRelayerListSlot)
 
-	if v := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), common.BytesToHash(locRelayerState.Bytes())); v != (common.Hash{}) {
+	// a valid relayer must have baseToken
+	locBaseToken := state.GetLocOfStructElement(locRelayerState, LendingRelayerStructSlots["bases"])
+	if v := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), common.BytesToHash(locBaseToken.Bytes())); v != (common.Hash{}) {
 		if tradingstate.IsResignedRelayer(coinbase, statedb) {
 			return false
 		}
@@ -169,15 +177,28 @@ func GetCollaterals(statedb *state.StateDB, coinbase common.Address, baseToken c
 // @param statedb : current state
 // @param token: address of collateral token
 // @return: depositRate, liquidationRate, price of collateral
-func GetCollateralDetail(statedb *state.StateDB, token common.Address) (depositRate *big.Int, liquidationRate *big.Int, price *big.Int) {
+func GetCollateralDetail(statedb *state.StateDB, token common.Address) (depositRate, liquidationRate, recallRate *big.Int) {
 	collateralState := GetLocMappingAtKey(token.Hash(), CollateralMapSlot)
 	locDepositRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["depositRate"])
 	locLiquidationRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["liquidationRate"])
-	locCollateralPrice := state.GetLocOfStructElement(collateralState, CollateralStructSlots["price"])
+	locRecallRate := state.GetLocOfStructElement(collateralState, CollateralStructSlots["recallRate"])
 	depositRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDepositRate).Big()
 	liquidationRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locLiquidationRate).Big()
+	recallRate = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locRecallRate).Big()
+	return depositRate, liquidationRate, recallRate
+}
+
+func GetCollateralPrice(statedb *state.StateDB, collateralToken common.Address, lendingToken common.Address) (price, blockNumber *big.Int) {
+	collateralState := GetLocMappingAtKey(collateralToken.Hash(), CollateralMapSlot)
+	locMapPrices := collateralState.Add(collateralState, CollateralStructSlots["price"])
+	locLendingTokenPriceByte := crypto.Keccak256(lendingToken.Hash().Bytes(), common.BigToHash(locMapPrices).Bytes())
+
+	locCollateralPrice := common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(locLendingTokenPriceByte), PriceStructSlots["price"]))
+	locBlockNumber := common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(locLendingTokenPriceByte), PriceStructSlots["blockNumber"]))
+
 	price = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locCollateralPrice).Big()
-	return depositRate, liquidationRate, price
+	blockNumber = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locBlockNumber).Big()
+	return price, blockNumber
 }
 
 // @function GetSupportedTerms

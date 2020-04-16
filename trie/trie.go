@@ -20,7 +20,6 @@ package trie
 import (
 	"bytes"
 	"fmt"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/log"
@@ -177,57 +176,6 @@ func (t *Trie) tryGet(origNode Node, key []byte, pos int) (value []byte, newnode
 	}
 }
 
-//func (t *Trie) TryGetBestLeftKey() ([]byte, error) {
-//	key, newroot, didResolve, err := t.tryGetBestLeftKey(t.root, []byte{})
-//	if err == nil && didResolve {
-//		t.root = newroot
-//	}
-//	return hexToKeybytes(key), err
-//}
-//
-//func (t *Trie) tryGetBestLeftKey(origNode Node, prefix []byte) (key []byte, newnode Node, didResolve bool, err error) {
-//	switch n := (origNode).(type) {
-//	case nil:
-//		return nil, nil, false, nil
-//	case *ShortNode:
-//		switch n.Val.(type) {
-//		case ValueNode:
-//			return append(prefix, n.Key...), n, false, nil
-//		default:
-//		}
-//		key, newnode, didResolve, err = t.tryGetBestLeftKey(n.Val, append(prefix, n.Key...))
-//		if err == nil && didResolve {
-//			n = n.copy()
-//			n.Val = newnode
-//			n.flags.gen = t.cachegen
-//		}
-//		return key, n, didResolve, err
-//	case *FullNode:
-//		for i := byte(0); i < byte(len(n.Children)); i++ {
-//			if n.Children[i] == nil {
-//				continue
-//			}
-//			key, newnode, didResolve, err = t.tryGetBestLeftKey(n.Children[i], append(prefix, i))
-//			if err == nil && didResolve {
-//				n = n.copy()
-//				n.flags.gen = t.cachegen
-//				n.Children[i] = newnode
-//			}
-//			return key, n, didResolve, err
-//		}
-//	case HashNode:
-//		child, err := t.resolveHash(n, nil)
-//		if err != nil {
-//			return nil, n, true, err
-//		}
-//		key, newnode, _, err := t.tryGetBestLeftKey(child, prefix)
-//		return key, newnode, true, err
-//	default:
-//		return nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
-//	}
-//	return nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
-//}
-
 func (t *Trie) TryGetBestLeftKeyAndValue() ([]byte, []byte, error) {
 	key, value, newroot, didResolve, err := t.tryGetBestLeftKeyAndValue(t.root, []byte{})
 	if err == nil && didResolve {
@@ -254,11 +202,11 @@ func (t *Trie) tryGetBestLeftKeyAndValue(origNode Node, prefix []byte) (key []by
 		}
 		return key, value, n, didResolve, err
 	case *FullNode:
-		for i := byte(0); i < byte(len(n.Children)); i++ {
+		for i := 0; i < len(n.Children); i++ {
 			if n.Children[i] == nil {
 				continue
 			}
-			key, value, newnode, didResolve, err = t.tryGetBestLeftKeyAndValue(n.Children[i], append(prefix, i))
+			key, value, newnode, didResolve, err = t.tryGetBestLeftKeyAndValue(n.Children[i], append(prefix, byte(i)))
 			if err == nil && didResolve {
 				n = n.copy()
 				n.flags.gen = t.cachegen
@@ -279,6 +227,74 @@ func (t *Trie) tryGetBestLeftKeyAndValue(origNode Node, prefix []byte) (key []by
 	return nil, nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
 }
 
+func (t *Trie) TryGetAllLeftKeyAndValue(limit []byte) ([][]byte, [][]byte, error) {
+	limit = keybytesToHex(limit)
+	length := len(limit) - 1
+	limit = limit[0:length]
+	dataKeys, values, newroot, didResolve, err := t.tryGetAllLeftKeyAndValue(t.root, []byte{}, limit)
+	if err == nil && didResolve {
+		t.root = newroot
+	}
+	keys := [][]byte{}
+	for _, data := range dataKeys {
+		keys = append(keys, hexToKeybytes(data))
+	}
+	return keys, values, err
+}
+func (t *Trie) tryGetAllLeftKeyAndValue(origNode Node, prefix []byte, limit []byte) (keys [][]byte, values [][]byte, newnode Node, didResolve bool, err error) {
+	switch n := (origNode).(type) {
+	case nil:
+		return nil, nil, nil, false, nil
+	case ValueNode:
+		key := make([]byte, len(prefix))
+		copy(key, prefix)
+		if bytes.Compare(key, limit) < 0 {
+			keys = append(keys, key)
+			values = append(values, n)
+		}
+		return keys, values, n, false, nil
+	case *ShortNode:
+		keys, values, newnode, didResolve, err := t.tryGetAllLeftKeyAndValue(n.Val, append(prefix, n.Key...), limit)
+		if err == nil && didResolve {
+			n = n.copy()
+			n.Val = newnode
+			n.flags.gen = t.cachegen
+		}
+		return keys, values, n, didResolve, err
+	case *FullNode:
+		for i := len(n.Children) - 1; i >= 0; i-- {
+			if n.Children[i] == nil {
+				continue
+			}
+			newPrefix := append(prefix, byte(i))
+			if bytes.Compare(newPrefix, limit) > 0 {
+				continue
+			}
+			allKeys, allValues, newnode, didResolve, err := t.tryGetAllLeftKeyAndValue(n.Children[i], newPrefix, limit)
+			if err != nil {
+				return nil, nil, n, false, err
+			}
+			if err == nil && didResolve {
+				n = n.copy()
+				n.flags.gen = t.cachegen
+				n.Children[i] = newnode
+			}
+			keys = append(keys, allKeys...)
+			values = append(values, allValues...)
+		}
+		return keys, values, n, didResolve, err
+	case HashNode:
+		child, err := t.resolveHash(n, nil)
+		if err != nil {
+			return nil, nil, n, true, err
+		}
+		keys, values, newnode, _, err := t.tryGetAllLeftKeyAndValue(child, prefix, limit)
+		return keys, values, newnode, true, err
+	default:
+		return nil, nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
+	}
+	return nil, nil, nil, false, fmt.Errorf("%T: invalid node: %v", origNode, origNode)
+}
 func (t *Trie) TryGetBestRightKeyAndValue() ([]byte, []byte, error) {
 	key, value, newroot, didResolve, err := t.tryGetBestRightKeyAndValue(t.root, []byte{})
 	if err == nil && didResolve {
@@ -305,11 +321,11 @@ func (t *Trie) tryGetBestRightKeyAndValue(origNode Node, prefix []byte) (key []b
 		}
 		return key, value, n, didResolve, err
 	case *FullNode:
-		for i := byte(len(n.Children) - 1); i >= 0; i-- {
+		for i := len(n.Children) - 1; i >= 0; i-- {
 			if n.Children[i] == nil {
 				continue
 			}
-			key, value, newnode, didResolve, err = t.tryGetBestRightKeyAndValue(n.Children[i], append(prefix, i))
+			key, value, newnode, didResolve, err = t.tryGetBestRightKeyAndValue(n.Children[i], append(prefix, byte(i)))
 			if err == nil && didResolve {
 				n = n.copy()
 				n.flags.gen = t.cachegen

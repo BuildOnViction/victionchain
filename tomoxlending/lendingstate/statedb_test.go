@@ -25,8 +25,9 @@ import (
 )
 
 func TestEchangeStates(t *testing.T) {
+	t.SkipNow()
 	orderBook := common.StringToHash("BTC/TOMO")
-	numberOrder := 20
+	numberOrder := 20000
 	orderItems := []LendingItem{}
 	relayers := []common.Hash{}
 	for i := 0; i < numberOrder; i++ {
@@ -61,19 +62,28 @@ func TestEchangeStates(t *testing.T) {
 			mapPriceBuy[amount] = old + amount
 		default:
 		}
-
+		statedb.InsertLiquidationTime(orderBook, big.NewInt(int64(i)), uint64(i))
+		order := LendingTrade{TradeId: uint64(i), Amount: big.NewInt(int64(i))}
+		statedb.InsertTradingItem(orderBook, order.TradeId, order)
+		root:=statedb.IntermediateRoot()
+		fmt.Println(i, "size", stateCache.TrieDB().Size())
+		statedb.Commit()
+		fmt.Println(i, "size", stateCache.TrieDB().Size())
+		statedb, _ = New(root, stateCache)
 	}
 	statedb.InsertLiquidationTime(orderBook, big.NewInt(1), 1)
 	order := LendingTrade{TradeId: 1, Amount: big.NewInt(2)}
 	statedb.InsertTradingItem(orderBook, 1, order)
 	root := statedb.IntermediateRoot()
+	fmt.Println("size", stateCache.TrieDB().Size())
 	statedb.Commit()
-	//err := stateCache.TrieDB().Commit(root, false)
-	//if err != nil {
-	//	t.Errorf("Error when commit into database: %v", err)
-	//}
+	fmt.Println("size", stateCache.TrieDB().Size())
+	err := stateCache.TrieDB().Commit(root, false)
+	if err != nil {
+		t.Errorf("Error when commit into database: %v", err)
+	}
 	stateCache.TrieDB().Reference(root, common.Hash{})
-	statedb, err := New(root, stateCache)
+	statedb, err = New(root, stateCache)
 	if err != nil {
 		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
 	}

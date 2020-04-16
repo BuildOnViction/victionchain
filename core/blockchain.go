@@ -588,11 +588,7 @@ func (bc *BlockChain) repair(head **types.Block) error {
 					tradingRoot, err := tradingService.GetTradingStateRoot(*head)
 					if err == nil {
 						_, err = tradingstate.New(tradingRoot, tradingService.GetStateCache())
-						if err == nil {
-							return nil
-						}
 					}
-
 					if err == nil {
 						lendingRoot, err := lendingService.GetLendingStateRoot(*head)
 						if err == nil {
@@ -853,19 +849,12 @@ func (bc *BlockChain) TrieNode(hash common.Hash) ([]byte, error) {
 	return bc.stateCache.TrieDB().Node(hash)
 }
 
-// Stop stops the blockchain service. If any imports are currently in progress
-// it will abort them using the procInterrupt.
-func (bc *BlockChain) Stop() {
-	if !atomic.CompareAndSwapInt32(&bc.running, 0, 1) {
-		return
-	}
-	// Unsubscribe all subscriptions registered from blockchain
-	bc.scope.Close()
-	close(bc.quit)
-	atomic.StoreInt32(&bc.procInterrupt, 1)
-
-	bc.wg.Wait()
-
+func (bc *BlockChain) SaveData() {
+	bc.wg.Add(1)
+	defer bc.wg.Done()
+	// Make sure no inconsistent state is leaked during insertion
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
 	// Ensure the state of a recent block is also stored to disk before exiting.
 	// We're writing three different states to catch different restart scenarios:
 	//  - HEAD:     So we don't need to reprocess any blocks in the general case
@@ -931,6 +920,20 @@ func (bc *BlockChain) Stop() {
 			log.Error("Dangling trie nodes after full cleanup")
 		}
 	}
+}
+
+// Stop stops the blockchain service. If any imports are currently in progress
+// it will abort them using the procInterrupt.
+func (bc *BlockChain) Stop() {
+	if !atomic.CompareAndSwapInt32(&bc.running, 0, 1) {
+		return
+	}
+	// Unsubscribe all subscriptions registered from blockchain
+	bc.scope.Close()
+	close(bc.quit)
+	atomic.StoreInt32(&bc.procInterrupt, 1)
+	bc.wg.Wait()
+	bc.SaveData()
 	log.Info("Blockchain manager stopped")
 }
 
@@ -1247,13 +1250,19 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 				size  = triedb.Size()
 				limit = common.StorageSize(bc.cacheConfig.TrieNodeLimit) * 1024 * 1024
 			)
-			if size > limit || bc.gcproc > bc.cacheConfig.TrieTimeLimit {
+			if tradingTrieDb != nil {
+				size = size + tradingTrieDb.Size()
+			}
+			if lendingTrieDb != nil {
+				size = size + lendingTrieDb.Size()
+			}
+			if size > limit || bc.gcproc > bc.cacheConfig.TrieTimeLimit || chosen > lastWrite+triesInMemory {
 				// If we're exceeding limits but haven't reached a large enough memory gap,
 				// warn the user that the system is becoming unstable.
 				if chosen < lastWrite+triesInMemory {
 					switch {
 					case size >= 2*limit:
-						log.Warn("State memory usage too high, committing", "size", size, "limit", limit, "optimum", float64(chosen-lastWrite)/triesInMemory)
+						log.Warn("State memory usage too high, committing", "size", size, "limit", limit, "optimum", float64(chosen-lastWrite)/triesInMemory, "triedb", triedb.Size(), "tradingTrieDb", tradingTrieDb.Size(), "lendingTrieDb", lendingTrieDb.Size())
 					case bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit:
 						log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/triesInMemory)
 					}
@@ -1555,7 +1564,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					}
 					for _, batch := range batches {
 						log.Debug("Verify matching transaction", "txHash", batch.TxHash.Hex())
-						err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Time().Uint64())
+						err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Header())
 						if err != nil {
 							bc.reportBlock(block, nil, err)
 							return i, events, coalescedLogs, err
@@ -1564,7 +1573,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					// liquidate / finalize open lendingTrades
 					if block.Number().Uint64()%bc.chainConfig.Posv.Epoch == common.LiquidateLendingTradeBlock {
 						finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
-						finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+						finalizedTrades, _, _, _, _,  err = lendingService.ProcessLiquidationData(block.Header(), bc, statedb, tradingState, lendingState)
 						if err != nil {
 							return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 						}
@@ -1844,7 +1853,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				}
 				for _, batch := range batches {
 					log.Debug("Lending Verify matching transaction", "txHash", batch.TxHash.Hex())
-					err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Time().Uint64())
+					err := bc.Validator().ValidateLendingOrder(statedb, lendingState, tradingState, batch, author, block.Header())
 					if err != nil {
 						bc.reportBlock(block, nil, err)
 						return nil, err
@@ -1853,7 +1862,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				// liquidate / finalize open lendingTrades
 				if block.Number().Uint64()%bc.chainConfig.Posv.Epoch == common.LiquidateLendingTradeBlock {
 					finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
-					finalizedTrades, err = lendingService.ProcessLiquidationData(bc, block.Time(), statedb, tradingState, lendingState)
+					finalizedTrades, _, _, _, _, err = lendingService.ProcessLiquidationData(block.Header(), bc, statedb, tradingState, lendingState)
 					if err != nil {
 						return nil, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 					}
@@ -2639,7 +2648,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
 			milliSecond := batch.Timestamp / 1e6
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
-			if err := lendingService.SyncDataToSDKNode(item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
+			if err := lendingService.SyncDataToSDKNode(block.Time().Uint64(), item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Crit("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 			}
 		}
@@ -2657,7 +2666,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			finalizedTrades = finalizedData.(map[common.Hash]*lendingstate.LendingTrade)
 		}
 		if len(finalizedTrades) > 0 {
-			if err := lendingService.UpdateLiquidatedTrade(finalizedTx, finalizedTrades); err != nil {
+			if err := lendingService.UpdateLiquidatedTrade(block.Time().Uint64(), finalizedTx, finalizedTrades); err != nil {
 				log.Crit("lending: failed to UpdateLiquidatedTrade ", "blockNumber", block.Number(), "err", err)
 			}
 		}

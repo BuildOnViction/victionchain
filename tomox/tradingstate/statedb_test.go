@@ -26,9 +26,10 @@ import (
 )
 
 func TestEchangeStates(t *testing.T) {
+	t.SkipNow()
 	orderBook := common.StringToHash("BTC/TOMO")
 	price := big.NewInt(10000)
-	numberOrder := 20
+	numberOrder := 200000
 	orderItems := []OrderItem{}
 	relayers := []common.Hash{}
 	for i := 0; i < numberOrder; i++ {
@@ -67,20 +68,22 @@ func TestEchangeStates(t *testing.T) {
 	}
 	statedb.SetLastPrice(orderBook, price)
 	statedb.InsertLiquidationPrice(orderBook, big.NewInt(1), orderBook, 2)
-	statedb.InsertLiquidationPrice(orderBook, big.NewInt(1), orderBook, 3)
-	statedb.InsertLiquidationPrice(orderBook, big.NewInt(2), orderBook, 1)
+	statedb.InsertLiquidationPrice(orderBook, big.NewInt(2), orderBook, 3)
+	statedb.InsertLiquidationPrice(orderBook, big.NewInt(3), orderBook, 1)
 	root := statedb.IntermediateRoot()
+	fmt.Println("size", stateCache.TrieDB().Size())
 	statedb.Commit()
-	//err := stateCache.TrieDB().Commit(root, false)
-	//if err != nil {
-	//	t.Errorf("Error when commit into database: %v", err)
-	//}
+	fmt.Println("size", stateCache.TrieDB().Size())
+	err := stateCache.TrieDB().Commit(root, false)
+	if err != nil {
+		t.Errorf("Error when commit into database: %v", err)
+	}
 	stateCache.TrieDB().Reference(root, common.Hash{})
-	statedb, err := New(root, stateCache)
+	statedb, err = New(root, stateCache)
 	if err != nil {
 		t.Fatalf("Error when get trie in database: %s , err: %v", root.Hex(), err)
 	}
-	liquidationPrice, liquidationData := statedb.GetLowestLiquidationPriceData(orderBook, big.NewInt(1))
+	liquidationPrice, liquidationData := statedb.GetHighestLiquidationPriceData(orderBook, big.NewInt(1))
 	if len(liquidationData) == 0 {
 		t.Fatalf("Error when get liquidation data save in database: got : %d , %s  ", liquidationPrice, liquidationData)
 	}
@@ -94,7 +97,7 @@ func TestEchangeStates(t *testing.T) {
 			}
 		}
 	}
-	liquidationPrice, liquidationData = statedb.GetLowestLiquidationPriceData(orderBook, big.NewInt(1))
+	liquidationPrice, liquidationData = statedb.GetHighestLiquidationPriceData(orderBook, big.NewInt(2))
 	for lendingBook, tradingIds := range liquidationData {
 		for _, tradingIdHash := range tradingIds {
 			fmt.Println("liquidationPrice", liquidationPrice, "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex())

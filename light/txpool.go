@@ -353,6 +353,21 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 		return fmt.Errorf("Reject transaction with receiver in black-list: %v", tx.To().Hex())
 	}
 
+	// validate minFee slot for TomoZ
+	if tx.IsTomoZApplyTransaction() {
+		copyState := pool.currentState(ctx).Copy()
+		if err := core.ValidateTomoZApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			return err
+		}
+	}
+	// validate balance slot, token decimal for TomoX
+	if tx.IsTomoXApplyTransaction() {
+		copyState := pool.currentState(ctx).Copy()
+		if err := core.ValidateTomoXApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			return err
+		}
+	}
+
 	// Validate the transaction sender and it's sig. Throw
 	// if the from fields is invalid.
 	if from, err = types.Sender(pool.signer, tx); err != nil {

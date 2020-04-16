@@ -236,7 +236,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 		if oldestOrder.QuoteToken.String() != common.TomoNativeAddress {
 			quotePrice = tradingStateDB.GetLastPrice(tradingstate.GetTradingOrderBookHash(oldestOrder.QuoteToken, common.HexToAddress(common.TomoNativeAddress)))
 			log.Debug("TryGet quotePrice QuoteToken/TOMO", "quotePrice", quotePrice)
-			if (quotePrice == nil || quotePrice.Sign() == 0) && oldestOrder.BaseToken.String() != common.TomoNativeAddress {
+			if quotePrice == nil || quotePrice.Sign() == 0 {
 				inversePrice := tradingStateDB.GetLastPrice(tradingstate.GetTradingOrderBookHash(common.HexToAddress(common.TomoNativeAddress), oldestOrder.QuoteToken))
 				quoteTokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, coinbase, oldestOrder.QuoteToken)
 				if err != nil || quoteTokenDecimal.Sign() == 0 {
@@ -249,6 +249,8 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 					log.Debug("TryGet quotePrice after get inversePrice TOMO/QuoteToken", "quotePrice", quotePrice, "quoteTokenDecimal", quoteTokenDecimal)
 				}
 			}
+		} else {
+			quotePrice = common.BasePrice
 		}
 		tradedQuantity, rejectMaker, err := tomox.getTradeQuantity(quotePrice, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
 		if err != nil && err == tradingstate.ErrQuantityTradeTooSmall {
