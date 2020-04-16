@@ -119,8 +119,11 @@ func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, 
 }
 
 // make sure that balance of token is at slot 0
-func ValidateTomoXApplyTransaction(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address) error {
-	if !chain.Config().IsTIPTomoX(chain.CurrentHeader().Number) {
+func ValidateTomoXApplyTransaction(chain consensus.ChainContext, blockNumber *big.Int, copyState *state.StateDB, tokenAddr common.Address) error {
+	if blockNumber == nil || blockNumber.Sign() <= 0 {
+		blockNumber = chain.CurrentHeader().Number
+	}
+	if !chain.Config().IsTIPTomoX(blockNumber) {
 		return nil
 	}
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)
@@ -138,8 +141,11 @@ func ValidateTomoXApplyTransaction(chain consensus.ChainContext, copyState *stat
 
 // make sure that balance of token is at slot 0
 // make sure that minFee of token is at slot 1
-func ValidateTomoZApplyTransaction(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address) error {
-	if !chain.Config().IsTIPTomoX(chain.CurrentHeader().Number) {
+func ValidateTomoZApplyTransaction(chain consensus.ChainContext, blockNumber *big.Int, copyState *state.StateDB, tokenAddr common.Address) error {
+	if blockNumber == nil || blockNumber.Sign() <= 0 {
+		blockNumber = chain.CurrentHeader().Number
+	}
+	if !chain.Config().IsTIPTomoX(blockNumber) {
 		return nil
 	}
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)

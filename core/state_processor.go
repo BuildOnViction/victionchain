@@ -96,14 +96,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		// validate minFee slot for TomoZ
 		if tx.IsTomoZApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoZApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoZApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
 		// validate balance slot, token decimal for TomoX
 		if tx.IsTomoXApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoXApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
@@ -174,14 +174,14 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		// validate minFee slot for TomoZ
 		if tx.IsTomoZApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoZApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoZApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
 		// validate balance slot, token decimal for TomoX
 		if tx.IsTomoXApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoXApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
