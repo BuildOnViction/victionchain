@@ -228,7 +228,9 @@ contract MyTRC21 is TRC21 {
      *  Constants
      */
     uint constant public MAX_OWNER_COUNT = 50;
-    uint constant WITHDRAW_FEE = 3000000000000000;
+    uint public WITHDRAW_FEE = 0;
+    uint public DEPOSIT_FEE = 0;
+    address public CONTRACT_OWNER;
     
     /*
      *  Storage
@@ -253,6 +255,11 @@ contract MyTRC21 is TRC21 {
      */
     modifier onlyWallet() {
         require(msg.sender == address(this));
+        _;
+    }
+
+    modifier onlyContractOwner() {
+        require(msg.sender == CONTRACT_OWNER);
         _;
     }
 
@@ -305,7 +312,7 @@ contract MyTRC21 is TRC21 {
     /// @dev Contract constructor sets initial owners and required number of confirmations.
     /// @param _owners List of initial owners.
     /// @param _required Number of required confirmations.
-    constructor (address[] _owners, uint _required, string memory name, string memory symbol, uint8 decimals, uint256 cap, uint256 minFee) public validRequirement(_owners.length, _required) {
+    constructor (address[] _owners, uint _required, string memory name, string memory symbol, uint8 decimals, uint256 cap, uint256 minFee, uint256 depositFee, uint256 withdrawFee) public validRequirement(_owners.length, _required) {
         _name = name;
         _symbol = symbol;
         _decimals = decimals;
@@ -318,6 +325,23 @@ contract MyTRC21 is TRC21 {
         }
         owners = _owners;
         required = _required;
+        CONTRACT_OWNER = msg.sender;
+        DEPOSIT_FEE = depositFee;
+        WITHDRAW_FEE = withdrawFee;
+    }
+
+    function transferContractOwner(address newOwner) public onlyContractOwner {
+        if (newOwner != address(0)) {
+            CONTRACT_OWNER = newOwner;
+        }
+    }
+
+    function setDepositFee(uint256 depositFee) public onlyContractOwner {
+        DEPOSIT_FEE = depositFee;
+    }
+
+    function setWithdrawFee(uint256 withdrawFee) public onlyContractOwner {
+        WITHDRAW_FEE = withdrawFee;
     }
 
     /// @dev Allows to add a new owner. Transaction has to be sent by wallet.
@@ -428,13 +452,13 @@ contract MyTRC21 is TRC21 {
     public
     returns (uint transactionId)
     {
-        require(value > WITHDRAW_FEE);
-        transactionId = addTransaction(false, msg.sender, value - WITHDRAW_FEE, data);
+        value = value.sub(WITHDRAW_FEE);
+        transactionId = addTransaction(false, msg.sender, value, data);
         super._burn(msg.sender, value);
+        super._mint(CONTRACT_OWNER, WITHDRAW_FEE);
         Transaction storage txn = transactions[transactionId];
         txn.executed = true;
         Execution(transactionId, msg.sender, false, value, data);
-        // TxBurn(transactionId);
     }
 
     /// @dev Allows anyone to execute a confirmed transaction.
@@ -450,7 +474,9 @@ contract MyTRC21 is TRC21 {
 
             // just need multisig for minting - freely burn
             if (txn.isMintingTx) {
+                txn.value = txn.value.sub(DEPOSIT_FEE);
                 super._mint(txn.destination, txn.value);
+                super._mint(CONTRACT_OWNER, DEPOSIT_FEE);
                 txn.executed = true;
                 Execution(transactionId, txn.destination, true, txn.value, txn.data);
             }
