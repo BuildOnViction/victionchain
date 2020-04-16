@@ -338,9 +338,13 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 		depositFee := big.NewInt(0)
 		withdrawFee := big.NewInt(0)
 		tokenCap := simulation.TRC21TokenCap
+		if tokenName == "ADA" {
+			d = 0
+			tokenCap = new(big.Int).Div(simulation.TRC21TokenCap, simulation.BaseTOMO)
+		}
 		if tokenName == "USDT" {
 			d = 8
-			tokenCap.Div(simulation.TRC21TokenCap, big.NewInt(10000000000))
+			tokenCap = new(big.Int).Div(simulation.TRC21TokenCap, big.NewInt(10000000000))
 			withdrawFee = big.NewInt(97000000)
 		}
 		if tokenName == "BTC" {
@@ -354,7 +358,7 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 			log.Fatal("DeployTRC21 ", tokenName, err)
 		}
 
-		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", simulation.TRC21TokenCap)
+		fmt.Println(tokenName+" token address", tokenAddr.Hex(), "cap", tokenCap)
 
 		tokenListResult = append(tokenListResult, map[string]interface{}{
 			"name":     tokenName,
