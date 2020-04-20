@@ -261,14 +261,33 @@ func (l *Lending) processOrderList(header *types.Header, coinbase common.Address
 			collateralToken = oldestOrder.CollateralToken
 			borrowFee = lendingstate.GetFee(statedb, oldestOrder.Relayer)
 		}
+		if collateralToken.String() == lendingstate.EmptyAddress {
+			return nil, nil, nil, fmt.Errorf("empty collateral")
+		}
 		collateralPrice := common.BasePrice
 		depositRate, liquidationRate, recallRate := lendingstate.GetCollateralDetail(statedb, collateralToken)
+		if depositRate == nil || depositRate.Sign() <= 0 {
+			return nil, nil, nil, fmt.Errorf("invalid depositRate %v", depositRate)
+		}
+		if liquidationRate == nil || liquidationRate.Sign() <= 0 {
+			return nil, nil, nil, fmt.Errorf("invalid liquidationRate %v", liquidationRate)
+		}
+		if recallRate == nil || recallRate.Sign() <= 0 {
+			return nil, nil, nil, fmt.Errorf("invalid recallRate %v", recallRate)
+		}
+
 		lendTokenTOMOPrice, collateralPrice, err := l.GetCollateralPrices(header, chain, statedb, tradingStateDb, collateralToken, order.LendingToken)
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		if lendTokenTOMOPrice == nil || lendTokenTOMOPrice.Sign() <= 0 {
+			return nil, nil, nil, fmt.Errorf("invalid lendToken price")
+		}
+		if collateralPrice == nil || collateralPrice.Sign() <= 0 {
+			return nil, nil, nil, fmt.Errorf("invalid collateral price")
+		}
 		tradedQuantity, collateralLockedAmount, rejectMaker, settleBalanceResult, err := l.getLendQuantity(lendTokenTOMOPrice, collateralPrice, depositRate, borrowFee, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
-		if err != nil && err == lendingstate.ErrQuantityTradeTooSmall {
+		if err != nil && err == lendingstate.ErrQuantityTradeTooSmall && tradedQuantity != nil && tradedQuantity.Sign() >= 0{
 			if tradedQuantity.Cmp(maxTradedQuantity) == 0 {
 				if quantityToTrade.Cmp(amount) == 0 { // reject Taker & maker
 					rejects = append(rejects, order)
