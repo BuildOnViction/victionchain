@@ -327,6 +327,9 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 	makerDirtyFilledAmount = make(map[string]*big.Int)
 	for _, trade := range trades {
 		// 2.a. put to trades
+		if trade == nil {
+			continue
+		}
 		tradeRecord := &tradingstate.Trade{}
 		quantity := tradingstate.ToBigInt(trade[tradingstate.TradeQuantity])
 		price := tradingstate.ToBigInt(trade[tradingstate.TradePrice])

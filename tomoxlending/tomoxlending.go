@@ -264,7 +264,9 @@ func (l *Lending) SyncDataToSDKNode(blockTime uint64, takerLendingItem *lendings
 	tradeList := map[common.Hash]*lendingstate.LendingTrade{}
 	for _, tradeRecord := range trades {
 		// 2.a. put to trades
-
+		if tradeRecord == nil {
+			continue
+		}
 		if updatedTakerLendingItem.Type == lendingstate.Repay || updatedTakerLendingItem.Type == lendingstate.TopUp || updatedTakerLendingItem.Type == lendingstate.Recall {
 			// repay, topup: assign hash = trade.hash
 			updatedTakerLendingItem.Hash = tradeRecord.Hash
