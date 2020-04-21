@@ -343,12 +343,14 @@ func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, 
 			tokenCap = new(big.Int).Div(simulation.TRC21TokenCap, simulation.BaseTOMO)
 		}
 		if tokenName == "USDT" {
-			d = 8
-			tokenCap = new(big.Int).Div(simulation.TRC21TokenCap, big.NewInt(10000000000))
-			withdrawFee = big.NewInt(97000000)
+			d = 6
+			tokenCap = new(big.Int).Div(simulation.TRC21TokenCap, big.NewInt(1000000000000))
+			withdrawFee = big.NewInt(970000)
 		}
 		if tokenName == "BTC" {
-			withdrawFee = big.NewInt(400000000000000)
+			d = 8
+			tokenCap = new(big.Int).Div(simulation.TRC21TokenCap, big.NewInt(10000000000))
+			withdrawFee = big.NewInt(40000)
 		}
 		if tokenName == "ETH" {
 			withdrawFee = big.NewInt(3000000000000000)
