@@ -198,6 +198,9 @@ func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
 	if err := l.VerifyLendingStatus(); err != nil {
 		return err
 	}
+	if valid, _ := IsValidPair(state, l.Relayer, l.LendingToken, l.Term); valid == false {
+		return fmt.Errorf("invalid pair . LendToken %s . Term: %v", l.LendingToken.Hex(), l.Term)
+	}
 	if l.Status == LendingStatusNew {
 		if err := l.VerifyLendingType(); err != nil {
 			return err
@@ -210,6 +213,11 @@ func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
 		if l.Type == Limit || l.Type == Market {
 			if err := l.VerifyLendingSide(); err != nil {
 				return err
+			}
+			if l.Side == Borrowing {
+				if err := l.VerifyCollateral(state); err != nil {
+					return err
+				}
 			}
 		}
 		if l.Type == Limit {
@@ -230,6 +238,24 @@ func (l *LendingItem) VerifyLendingItem(state *state.StateDB) error {
 func (l *LendingItem) VerifyLendingSide() error {
 	if l.Side != Borrowing && l.Side != Investing {
 		return fmt.Errorf("VerifyLendingSide: invalid side . Side: %s", l.Side)
+	}
+	return nil
+}
+
+func (l *LendingItem) VerifyCollateral(state *state.StateDB) error {
+	if l.CollateralToken.String() ==  EmptyAddress || l.CollateralToken.String() == l.LendingToken.String(){
+		return fmt.Errorf("invalid collateral %s", l.CollateralToken.Hex())
+	}
+	validCollateral := false
+	collateralList, _ := GetCollaterals(state, l.Relayer, l.LendingToken, l.Term)
+	for _, collateral := range collateralList {
+		if l.CollateralToken.String() == collateral.String() {
+			validCollateral = true
+			break
+		}
+	}
+	if !validCollateral {
+		return fmt.Errorf("invalid collateral %s", l.CollateralToken.Hex())
 	}
 	return nil
 }
@@ -331,6 +357,9 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 		lendingTrade := lendingStateDb.GetLendingTrade(lendingBook, common.Uint64ToHash(lendingTradeId))
 		if lendingTrade == EmptyLendingTrade {
 			return fmt.Errorf("VerifyBalance: process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
+		}
+		if collateralToken.String() != lendingTrade.CollateralToken.String() {
+			return fmt.Errorf("invalid collateral . Got: %s Expect: %s", collateralToken.Hex(), lendingTrade.CollateralToken.Hex())
 		}
 		tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
 		if tokenBalance.Cmp(quantity) < 0 {

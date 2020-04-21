@@ -49,6 +49,7 @@ var (
 	ErrInvalidLendingHash        = errors.New("invalid lending hash")
 	ErrInvalidCancelledLending   = errors.New("invalid cancel lending id")
 	ErrInvalidLendingTradeID     = errors.New("invalid lending trade ID")
+	ErrInvalidLendingCollateral  = errors.New("invalid collateral")
 )
 
 var (
@@ -429,6 +430,22 @@ func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLe
 	if lendingType != LendingTypeLimit && lendingType != LendingTypeMarket {
 		return ErrInvalidLendingType
 	}
+	if tx.Side() == lendingstate.Borrowing {
+		if tx.CollateralToken().String() ==  lendingstate.EmptyAddress || tx.CollateralToken().String() == tx.LendingToken().String(){
+			return ErrInvalidLendingCollateral
+		}
+		validCollateral := false
+		collateralList, _ := lendingstate.GetCollaterals(cloneStateDb, tx.RelayerAddress(), tx.LendingToken(), tx.Term())
+		for _, collateral := range collateralList {
+			if tx.CollateralToken().String() == collateral.String() {
+				validCollateral = true
+				break
+			}
+		}
+		if !validCollateral {
+			return ErrInvalidLendingCollateral
+		}
+	}
 	if lendingType == LendingTypeLimit {
 		if err := pool.validateBalance(cloneStateDb, cloneLendingStateDb, tx); err != nil {
 			return err
@@ -489,6 +506,9 @@ func (pool *LendingPool) validateTopupLending(cloneStateDb *state.StateDB, clone
 	}
 	if tx.RelayerAddress().String() != lendingTrade.BorrowingRelayer.String() {
 		return ErrInvalidLendingRelayer
+	}
+	if tx.CollateralToken().String() != lendingTrade.CollateralToken.String() {
+		return ErrInvalidLendingCollateral
 	}
 	if err := pool.validateBalance(cloneStateDb, cloneLendingStateDb, tx); err != nil {
 		return err
