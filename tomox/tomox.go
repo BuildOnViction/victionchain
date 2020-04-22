@@ -197,7 +197,6 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 				R: common.BigToHash(R),
 				S: common.BigToHash(S),
 			},
-			PairName: tx.PairName(),
 		}
 		cancel := false
 		if order.Status == tradingstate.OrderStatusCancelled {
@@ -338,7 +337,6 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		}
 		tradeRecord.Amount = quantity
 		tradeRecord.PricePoint = price
-		tradeRecord.PairName = updatedTakerOrder.PairName
 		tradeRecord.BaseToken = updatedTakerOrder.BaseToken
 		tradeRecord.QuoteToken = updatedTakerOrder.QuoteToken
 		tradeRecord.Status = tradingstate.TradeStatusSuccess
@@ -372,7 +370,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		tradeRecord.UpdatedAt = txMatchTime
 		tradeRecord.Hash = tradeRecord.ComputeHash()
 
-		log.Debug("TRADE history", "pairName", tradeRecord.PairName, "amount", tradeRecord.Amount, "pricepoint", tradeRecord.PricePoint,
+		log.Debug("TRADE history",  "amount", tradeRecord.Amount, "pricepoint", tradeRecord.PricePoint,
 			"taker", tradeRecord.Taker.Hex(), "maker", tradeRecord.Maker.Hex(), "takerOrder", tradeRecord.TakerOrderHash.Hex(), "makerOrder", tradeRecord.MakerOrderHash.Hex(),
 			"takerFee", tradeRecord.TakeFee, "makerFee", tradeRecord.MakeFee)
 		if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {
@@ -411,7 +409,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		}
 	}
 	log.Debug("PutObject processed takerOrder",
-		"pairName", updatedTakerOrder.PairName, "userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
+		"userAddr", updatedTakerOrder.UserAddress.Hex(), "side", updatedTakerOrder.Side,
 		"price", updatedTakerOrder.Price, "quantity", updatedTakerOrder.Quantity, "filledAmount", updatedTakerOrder.FilledAmount, "status", updatedTakerOrder.Status,
 		"hash", updatedTakerOrder.Hash.Hex(), "txHash", updatedTakerOrder.TxHash.Hex())
 	if err := db.PutObject(updatedTakerOrder.Hash, updatedTakerOrder); err != nil {
@@ -442,7 +440,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 				o.Status = tradingstate.OrderStatusFilled
 			}
 			log.Debug("PutObject processed makerOrder",
-				"pairName", o.PairName, "userAddr", o.UserAddress.Hex(), "side", o.Side,
+				"userAddr", o.UserAddress.Hex(), "side", o.Side,
 				"price", o.Price, "quantity", o.Quantity, "filledAmount", o.FilledAmount, "status", o.Status,
 				"hash", o.Hash.Hex(), "txHash", o.TxHash.Hex())
 			if err := db.PutObject(o.Hash, o); err != nil {

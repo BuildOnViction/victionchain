@@ -1903,7 +1903,6 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context)
 					R: common.BigToHash(R),
 					S: common.BigToHash(S),
 				},
-				PairName: tx.PairName(),
 			}
 			pendingOrders = append(pendingOrders, order)
 		}
@@ -1930,7 +1929,6 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderPoolContent(ctx context.Context)
 					R: common.BigToHash(R),
 					S: common.BigToHash(S),
 				},
-				PairName: tx.PairName(),
 			}
 			queuedOrders = append(pendingOrders, order)
 		}
@@ -1953,9 +1951,9 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderStats(ctx context.Context) inter
 
 // OrderMsg struct
 type OrderMsg struct {
-	AccountNonce    uint64         `json:"nonce"    gencodec:"required"`
-	Quantity        *big.Int       `json:"quantity,omitempty"`
-	Price           *big.Int       `json:"price,omitempty"`
+	AccountNonce    hexutil.Uint64 `json:"nonce"    gencodec:"required"`
+	Quantity        hexutil.Big    `json:"quantity,omitempty"`
+	Price           hexutil.Big    `json:"price,omitempty"`
 	ExchangeAddress common.Address `json:"exchangeAddress,omitempty"`
 	UserAddress     common.Address `json:"userAddress,omitempty"`
 	BaseToken       common.Address `json:"baseToken,omitempty"`
@@ -1963,12 +1961,11 @@ type OrderMsg struct {
 	Status          string         `json:"status,omitempty"`
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
-	PairName        string         `json:"pairName,omitempty"`
-	OrderID         uint64         `json:"orderid,omitempty"`
+	OrderID         hexutil.Uint64 `json:"orderid,omitempty"`
 	// Signature values
-	V *big.Int `json:"v" gencodec:"required"`
-	R *big.Int `json:"r" gencodec:"required"`
-	S *big.Int `json:"s" gencodec:"required"`
+	V hexutil.Big `json:"v" gencodec:"required"`
+	R hexutil.Big `json:"r" gencodec:"required"`
+	S hexutil.Big `json:"s" gencodec:"required"`
 
 	// This is only used when marshaling to JSON.
 	Hash common.Hash `json:"hash" rlp:"-"`
@@ -1976,26 +1973,26 @@ type OrderMsg struct {
 
 // LendingMsg api message for lending
 type LendingMsg struct {
-	AccountNonce    uint64         `json:"nonce"    gencodec:"required"`
-	Quantity        *big.Int       `json:"quantity,omitempty"`
+	AccountNonce    hexutil.Uint64 `json:"nonce"    gencodec:"required"`
+	Quantity        hexutil.Big    `json:"quantity,omitempty"`
 	RelayerAddress  common.Address `json:"relayerAddress,omitempty"`
 	UserAddress     common.Address `json:"userAddress,omitempty"`
 	CollateralToken common.Address `json:"collateralToken,omitempty"`
 	AutoTopUp       bool           `json:"autoTopUp,omitempty"`
 	LendingToken    common.Address `json:"lendingToken,omitempty"`
-	Term            uint64         `json:"term,omitempty"`
-	Interest        uint64         `json:"interest,omitempty"`
+	Term            hexutil.Uint64 `json:"term,omitempty"`
+	Interest        hexutil.Uint64 `json:"interest,omitempty"`
 	Status          string         `json:"status,omitempty"`
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
-	LendingId       uint64         `json:"lendingId,omitempty"`
-	LendingTradeId  uint64         `json:"tradeId,omitempty"`
+	LendingId       hexutil.Uint64 `json:"lendingId,omitempty"`
+	LendingTradeId  hexutil.Uint64 `json:"tradeId,omitempty"`
 	ExtraData       string         `json:"extraData,omitempty"`
 
 	// Signature values
-	V *big.Int `json:"v" gencodec:"required"`
-	R *big.Int `json:"r" gencodec:"required"`
-	S *big.Int `json:"s" gencodec:"required"`
+	V hexutil.Big `json:"v" gencodec:"required"`
+	R hexutil.Big `json:"r" gencodec:"required"`
+	S hexutil.Big `json:"s" gencodec:"required"`
 
 	// This is only used when marshaling to JSON.
 	Hash common.Hash `json:"hash" rlp:"-"`
@@ -2014,16 +2011,16 @@ type InterestVolume struct {
 // SendOrder will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTomoXTransactionPoolAPI) SendOrder(ctx context.Context, msg OrderMsg) (common.Hash, error) {
-	tx := types.NewOrderTransaction(msg.AccountNonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, msg.Hash, msg.OrderID)
-	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
+	tx := types.NewOrderTransaction(uint64(msg.AccountNonce), msg.Quantity.ToInt(), msg.Price.ToInt(), msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.Hash, uint64(msg.OrderID))
+	tx = tx.ImportSignature(msg.V.ToInt(), msg.R.ToInt(), msg.S.ToInt())
 	return submitOrderTransaction(ctx, s.b, tx)
 }
 
 // SendLending will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTomoXTransactionPoolAPI) SendLending(ctx context.Context, msg LendingMsg) (common.Hash, error) {
-	tx := types.NewLendingTransaction(msg.AccountNonce, msg.Quantity, msg.Interest, msg.Term, msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.AutoTopUp, msg.Status, msg.Side, msg.Type, msg.Hash, msg.LendingId, msg.LendingTradeId, msg.ExtraData)
-	tx = tx.ImportSignature(msg.V, msg.R, msg.S)
+	tx := types.NewLendingTransaction(uint64(msg.AccountNonce), msg.Quantity.ToInt(), uint64(msg.Interest), uint64(msg.Term), msg.RelayerAddress, msg.UserAddress, msg.LendingToken, msg.CollateralToken, msg.AutoTopUp, msg.Status, msg.Side, msg.Type, msg.Hash, uint64(msg.LendingId), uint64(msg.LendingTradeId), msg.ExtraData)
+	tx = tx.ImportSignature(msg.V.ToInt(), msg.R.ToInt(), msg.S.ToInt())
 	return submitLendingTransaction(ctx, s.b, tx)
 }
 
