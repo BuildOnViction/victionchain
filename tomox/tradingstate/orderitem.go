@@ -39,7 +39,6 @@ type OrderItem struct {
 	Signature       *Signature     `json:"signature,omitempty"`
 	FilledAmount    *big.Int       `json:"filledAmount,omitempty"`
 	Nonce           *big.Int       `json:"nonce,omitempty"`
-	PairName        string         `json:"pairName,omitempty"`
 	CreatedAt       time.Time      `json:"createdAt,omitempty"`
 	UpdatedAt       time.Time      `json:"updatedAt,omitempty"`
 	OrderID         uint64         `json:"orderID,omitempty"`
@@ -74,7 +73,6 @@ type OrderItemBSON struct {
 	Signature       *SignatureRecord `json:"signature,omitempty" bson:"signature"`
 	FilledAmount    string           `json:"filledAmount,omitempty" bson:"filledAmount"`
 	Nonce           string           `json:"nonce,omitempty" bson:"nonce"`
-	PairName        string           `json:"pairName,omitempty" bson:"pairName"`
 	CreatedAt       time.Time        `json:"createdAt,omitempty" bson:"createdAt"`
 	UpdatedAt       time.Time        `json:"updatedAt,omitempty" bson:"updatedAt"`
 	OrderID         string           `json:"orderID,omitempty" bson:"orderID"`
@@ -83,7 +81,6 @@ type OrderItemBSON struct {
 
 func (o *OrderItem) GetBSON() (interface{}, error) {
 	or := OrderItemBSON{
-		PairName:        o.PairName,
 		ExchangeAddress: o.ExchangeAddress.Hex(),
 		UserAddress:     o.UserAddress.Hex(),
 		BaseToken:       o.BaseToken.Hex(),
@@ -120,7 +117,6 @@ func (o *OrderItem) GetBSON() (interface{}, error) {
 func (o *OrderItem) SetBSON(raw bson.Raw) error {
 	decoded := new(struct {
 		ID              bson.ObjectId    `json:"id,omitempty" bson:"_id"`
-		PairName        string           `json:"pairName" bson:"pairName"`
 		ExchangeAddress string           `json:"exchangeAddress" bson:"exchangeAddress"`
 		UserAddress     string           `json:"userAddress" bson:"userAddress"`
 		BaseToken       string           `json:"baseToken" bson:"baseToken"`
@@ -148,7 +144,6 @@ func (o *OrderItem) SetBSON(raw bson.Raw) error {
 		return err
 	}
 
-	o.PairName = decoded.PairName
 	o.ExchangeAddress = common.HexToAddress(decoded.ExchangeAddress)
 	o.UserAddress = common.HexToAddress(decoded.UserAddress)
 	o.BaseToken = common.HexToAddress(decoded.BaseToken)
@@ -256,7 +251,7 @@ func (o *OrderItem) verifySignature() error {
 	S := o.Signature.S.Big()
 
 	tx := types.NewOrderTransaction(uint64(n), o.Quantity, o.Price, o.ExchangeAddress, o.UserAddress,
-		o.BaseToken, o.QuoteToken, o.Status, o.Side, o.Type, o.PairName, o.Hash, o.OrderID)
+		o.BaseToken, o.QuoteToken, o.Status, o.Side, o.Type, o.Hash, o.OrderID)
 	tx.ImportSignature(V, R, S)
 	from, _ := types.OrderSender(types.OrderTxSigner{}, tx)
 	if from != tx.UserAddress() {
