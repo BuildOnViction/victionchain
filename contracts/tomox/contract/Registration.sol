@@ -36,6 +36,7 @@ contract RelayerRegistration {
 
     uint public RelayerCount;
     uint256 public MinimumDeposit;
+    uint public ActiveRelayerCount;
 
     AbstractTOMOXListing private TomoXListing;
 
@@ -55,6 +56,7 @@ contract RelayerRegistration {
     constructor (address tomoxListing, uint maxRelayers, uint maxTokenList, uint minDeposit) public {
         TomoXListing = AbstractTOMOXListing(tomoxListing);
         RelayerCount = 0;
+        ActiveRelayerCount = 0;
         MaximumRelayers = maxRelayers;
         MaximumTokenList = maxTokenList;
         MinimumDeposit = minDeposit;
@@ -91,7 +93,7 @@ contract RelayerRegistration {
 
     /// @dev Contract Config Modifications
     function reconfigure(uint maxRelayer, uint maxToken, uint minDeposit) public contractOwnerOnly {
-        require(maxRelayer >= RelayerCount);
+        require(maxRelayer >= ActiveRelayerCount);
         require(maxToken > 4 && maxToken < 1001);
         require(minDeposit > 10000);
         MaximumRelayers = maxRelayer;
@@ -116,13 +118,11 @@ contract RelayerRegistration {
 
         require(RELAYER_LIST[coinbase]._deposit == 0, "Coinbase already registered.");
         require(RESIGN_REQUESTS[coinbase] == 0, "The relayer has been requested to close.");
-        require(RelayerCount < MaximumRelayers, "Maximum relayers registered");
+        require(ActiveRelayerCount < MaximumRelayers, "Maximum relayers registered");
 
         // check valid tokens, token must pair with tomo(x/TOMO)
         require(validateTokens(fromTokens, toTokens) == true, "Invalid quote tokens");
 
-        /// @notice Do we need to check the duplication of Token trade-pairs?
-        // Relayer memory relayer = Relayer(msg.value, tradeFee, fromTokens, toTokens, RelayerCount, msg.sender);
         RELAYER_COINBASES[RelayerCount] = coinbase;
         RELAYER_LIST[coinbase] = Relayer({
             _deposit: msg.value,
@@ -134,6 +134,7 @@ contract RelayerRegistration {
         });
 
         RelayerCount++;
+        ActiveRelayerCount++;
 
         emit RegisterEvent(RELAYER_LIST[coinbase]._deposit,
                            RELAYER_LIST[coinbase]._tradeFee,
@@ -229,8 +230,8 @@ contract RelayerRegistration {
     function resign(address coinbase) public relayerOwnerOnly(coinbase) notForSale(coinbase) {
         require(RELAYER_LIST[coinbase]._deposit > 0, "No relayer associated with this address");
         require(RESIGN_REQUESTS[coinbase] == 0, "Request already received");
-        /// @notice: for testing contract, change `4 weeks` to 4 seconds only
         RESIGN_REQUESTS[coinbase] = now + 4 weeks;
+        ActiveRelayerCount--;
         emit ResignEvent(RESIGN_REQUESTS[coinbase],
                          RELAYER_LIST[coinbase]._deposit);
     }
