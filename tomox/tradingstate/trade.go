@@ -35,7 +35,6 @@ type Trade struct {
 	TakerExchange  common.Address `json:"takerExchange" bson:"takerExchange"`
 	Hash           common.Hash    `json:"hash" bson:"hash"`
 	TxHash         common.Hash    `json:"txHash" bson:"txHash"`
-	PairName       string         `json:"pairName" bson:"pairName"`
 	PricePoint     *big.Int       `json:"pricepoint" bson:"pricepoint"`
 	Amount         *big.Int       `json:"amount" bson:"amount"`
 	MakeFee        *big.Int       `json:"makeFee" bson:"makeFee"`
@@ -59,7 +58,6 @@ type TradeBSON struct {
 	TakerExchange  string    `json:"takerExchange" bson:"takerExchange"`
 	Hash           string    `json:"hash" bson:"hash"`
 	TxHash         string    `json:"txHash" bson:"txHash"`
-	PairName       string    `json:"pairName" bson:"pairName"`
 	Amount         string    `json:"amount" bson:"amount"`
 	MakeFee        string    `json:"makeFee" bson:"makeFee"`
 	TakeFee        string    `json:"takeFee" bson:"takeFee"`
@@ -74,8 +72,6 @@ type TradeBSON struct {
 
 func (t *Trade) GetBSON() (interface{}, error) {
 	tr := TradeBSON{
-
-		PairName:       t.PairName,
 		Maker:          t.Maker.Hex(),
 		Taker:          t.Taker.Hex(),
 		BaseToken:      t.BaseToken.Hex(),
@@ -109,7 +105,6 @@ func (t *Trade) SetBSON(raw bson.Raw) error {
 		return err
 	}
 
-	t.PairName = decoded.PairName
 	t.Taker = common.HexToAddress(decoded.Taker)
 	t.Maker = common.HexToAddress(decoded.Maker)
 	t.BaseToken = common.HexToAddress(decoded.BaseToken)
