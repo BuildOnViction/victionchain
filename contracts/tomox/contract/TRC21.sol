@@ -125,9 +125,9 @@ contract TRC21 is ITRC21 {
      * @param value The amount to be transferred.
      */
     function transfer(address to, uint256 value) public returns (bool) {
-        uint256 total = value.add(_minFee);
         require(to != address(0));
-        require(value <= total);
+        uint256 total = value.add(_minFee);
+        require(total <= _balances[msg.sender]);    
         _transfer(msg.sender, to, value);
         if (_minFee > 0) {
             _transfer(msg.sender, _issuer, _minFee);
@@ -162,9 +162,8 @@ contract TRC21 is ITRC21 {
      */
     function transferFrom(address from,	address to,	uint256 value)	public returns (bool) {
         uint256 total = value.add(_minFee);
-        require(to != address(0));
-        require(value <= total);
-        require(total <= _allowed[from][msg.sender]);
+        require(total <= _balances[from]);   
+        require(value <= _allowed[from][msg.sender]);   //msg.sender should be allowed to transfer maximum of value amount
 
         _allowed[from][msg.sender] = _allowed[from][msg.sender].sub(total);
         _transfer(from, to, value);
@@ -181,10 +180,10 @@ contract TRC21 is ITRC21 {
      */
     function _transfer(address from, address to, uint256 value) internal {
         require(value <= _balances[from]);
-        require(to != address(0));
+        require(to != address(0));  
         _balances[from] = _balances[from].sub(value);
         _balances[to] = _balances[to].add(value);
-        emit Transfer(from, to, value);
+        emit Transfer(from, to, value); 
     }
 
     /**
@@ -234,7 +233,8 @@ contract TRC21 is ITRC21 {
     }
 }
 
-contract MyTRC21 is TRC21 {
+//Wrap token based on multisig wallet that only mints new token if there are user deposits 
+contract TomoBridgeWrapToken is TRC21 {
     /*
      *  Events
      */
@@ -269,7 +269,7 @@ contract MyTRC21 is TRC21 {
         bool isMintingTx;
         address destination;
         uint value;
-        bytes data;
+        bytes data; //data is used in transactions altering owner list
         bool executed;
     }
 
@@ -370,7 +370,7 @@ contract MyTRC21 is TRC21 {
 
     /// @dev Allows to add a new owner. Transaction has to be sent by wallet.
     /// @param owner Address of new owner.
-    function addOwner(address owner)
+    function addOwner(address owner) 
     public
     onlyWallet
     ownerDoesNotExist(owner)
@@ -437,11 +437,12 @@ contract MyTRC21 is TRC21 {
     /// @param value Transaction ether value.
     /// @param data Transaction data payload.
     /// @return Returns transaction ID.
-    function submitTransaction(address destination, uint value, bytes data)
+    function submitTransaction(address destination, uint value, bytes data) 
     public
     returns (uint transactionId)
     {
-        transactionId = addTransaction(true, destination, value, data);
+        //transaction is considered as minting if no data provided, otherwise it's owner changing transaction
+        transactionId = addTransaction(data.length == 0, destination, value, data);
         confirmTransaction(transactionId);
     }
     
@@ -472,20 +473,15 @@ contract MyTRC21 is TRC21 {
     }
 
     /// @dev Allows an user to burn the token.
-    function burn(uint value, bytes data)
+    function burn(uint value)
     public
-    returns (uint transactionId)
     {
-        require(value > 0);
+        require(value > WITHDRAW_FEE);  //avoid spamming 
         value = value.sub(WITHDRAW_FEE);
-        transactionId = addTransaction(false, msg.sender, value, data);
         super._burn(msg.sender, value);
         if (WITHDRAW_FEE > 0) {
             super._mint(issuer(), WITHDRAW_FEE);
         }
-        Transaction storage txn = transactions[transactionId];
-        txn.executed = true;
-        Execution(transactionId, msg.sender, false, value, data);
     }
 
     /// @dev Allows anyone to execute a confirmed transaction.
@@ -498,16 +494,25 @@ contract MyTRC21 is TRC21 {
     {
         if (isConfirmed(transactionId)) {
             Transaction storage txn = transactions[transactionId];
+            txn.executed = true;
 
             // just need multisig for minting - freely burn
             if (txn.isMintingTx) {
+                //execute minting transaction
                 txn.value = txn.value.sub(DEPOSIT_FEE);
                 super._mint(txn.destination, txn.value);
                 if (DEPOSIT_FEE > 0) {
                     super._mint(issuer(), DEPOSIT_FEE);
                 }
-                txn.executed = true;
                 Execution(transactionId, txn.destination, true, txn.value, txn.data);
+            } else {
+                //transaction that alters the owners list
+                if (txn.destination.call.value(txn.value)(txn.data))
+                    Execution(transactionId, txn.destination, false, txn.value, txn.data);
+                else {
+                    ExecutionFailure(transactionId);
+                    txn.executed = false;
+                }
             }
         }
     }
@@ -627,19 +632,21 @@ contract MyTRC21 is TRC21 {
     constant
     returns (uint[] _transactionIds)
     {
-        uint[] memory transactionIdsTemp = new uint[](transactionCount);
+        uint end = to > transactionCount? transactionCount: to;
+        uint[] memory transactionIdsTemp = new uint[](end - from);
         uint count = 0;
         uint i;
-        for (i=0; i<transactionCount; i++)
-            if (   pending && !transactions[i].executed
-            || executed && transactions[i].executed)
+        for (i = from; i < to; i++) {
+            if ((pending && !transactions[i].executed)
+                || (executed && transactions[i].executed))
             {
                 transactionIdsTemp[count] = i;
                 count += 1;
             }
-        _transactionIds = new uint[](to - from);
-        for (i=from; i<to; i++)
-            _transactionIds[i - from] = transactionIdsTemp[i];
+        }
+        _transactionIds = new uint[](count);
+        for (i = 0; i < count; i++)
+            _transactionIds[i] = transactionIdsTemp[i];
     }
 
 }
