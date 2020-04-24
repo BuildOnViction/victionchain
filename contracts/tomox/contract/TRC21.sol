@@ -477,7 +477,6 @@ contract TomoBridgeWrapToken is TRC21 {
     public
     {
         require(value > WITHDRAW_FEE);  //avoid spamming 
-        value = value.sub(WITHDRAW_FEE);
         super._burn(msg.sender, value);
         if (WITHDRAW_FEE > 0) {
             super._mint(issuer(), WITHDRAW_FEE);
