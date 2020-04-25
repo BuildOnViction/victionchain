@@ -678,7 +678,7 @@ func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tradingsta
 		// Fee
 		// makerFee = quoteTokenQuantity * feeRate / baseFee = quantityToTrade * makerPrice / baseTokenDecimal * feeRate / baseFee
 		cancelFee = new(big.Int).Mul(quoteTokenQuantity, feeRate)
-		cancelFee = new(big.Int).Div(quoteTokenQuantity, common.TomoXBaseCancelFee)
+		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
 	}
 	return cancelFee
 }
