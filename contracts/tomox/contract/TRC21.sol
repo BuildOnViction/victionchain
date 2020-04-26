@@ -477,8 +477,8 @@ contract MyTRC21 is TRC21 {
     returns (uint transactionId)
     {
         require(value > 0);
-        value = value.sub(WITHDRAW_FEE);
-        transactionId = addTransaction(false, msg.sender, value, data);
+        uint256 unwrapValue = value.sub(WITHDRAW_FEE);
+        transactionId = addTransaction(false, msg.sender, unwrapValue, data);
         super._burn(msg.sender, value);
         if (WITHDRAW_FEE > 0) {
             super._mint(issuer(), WITHDRAW_FEE);

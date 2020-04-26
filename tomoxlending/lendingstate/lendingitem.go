@@ -358,9 +358,6 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 		if lendingTrade == EmptyLendingTrade {
 			return fmt.Errorf("VerifyBalance: process deposit for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 		}
-		if collateralToken.String() != lendingTrade.CollateralToken.String() {
-			return fmt.Errorf("invalid collateral . Got: %s Expect: %s", collateralToken.Hex(), lendingTrade.CollateralToken.Hex())
-		}
 		tokenBalance := GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
 		if tokenBalance.Cmp(quantity) < 0 {
 			return fmt.Errorf("VerifyBalance: not enough balance to process deposit for lendingTrade."+

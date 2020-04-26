@@ -48,14 +48,21 @@ contract Lending {
 
     LAbstractRegistration public Relayer;
 
-    address public CONTRACT_OWNER;
+    address public MODERATOR;
 
     address constant private tomoNative = 0x0000000000000000000000000000000000000001;
 
     LAbstractTOMOXListing public TomoXListing;
 
-    modifier contractOwnerOnly() {
-        require(msg.sender == CONTRACT_OWNER, "Contract Owner Only.");
+    address public ORACLE_PRICE_FEEDER;
+
+    modifier oraclePriceFeederOnly() {
+        require(msg.sender == ORACLE_PRICE_FEEDER, "Oracle price feeder only.");
+        _;
+    }
+
+    modifier moderatorOnly() {
+        require(msg.sender == MODERATOR, "Moderator only.");
         _;
     }
 
@@ -80,11 +87,23 @@ contract Lending {
     constructor (address r, address t) public {
         Relayer = LAbstractRegistration(r);
         TomoXListing = LAbstractTOMOXListing(t);
-        CONTRACT_OWNER = msg.sender;
+        ORACLE_PRICE_FEEDER = msg.sender;
+        MODERATOR = msg.sender;
     }
     
+    // change Oracle Price Feeder, to support Oracle Price Service
+    function changeOraclePriceFeeder(address feeder) public oraclePriceFeederOnly {
+        require(feeder != address(0));
+        ORACLE_PRICE_FEEDER = feeder;
+    }
+
+    function changeModerator(address moderator) public moderatorOnly {
+        require(moderator != address(0));
+        MODERATOR = moderator;
+    }
+
     // add/update depositRate liquidationRate recallRate price for collateral
-    function addCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 recallRate) public contractOwnerOnly {
+    function addCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 recallRate) public moderatorOnly {
         require(depositRate >= 100 && liquidationRate > 100, "Invalid rates");
         require(depositRate > liquidationRate , "Invalid deposit rates");
         require(recallRate > depositRate, "Invalid recall rates");
@@ -109,10 +128,12 @@ contract Lending {
         bool b = TomoXListing.getTokenStatus(token) || (token == tomoNative);
         require(b, "Invalid collateral");
 
+        require(indexOf(BASES, lendingToken), "Invalid lending token");
+
         require(COLLATERAL_LIST[token]._depositRate >= 100, "Invalid collateral");
 
         if (indexOf(COLLATERALS, token)) {
-            require(msg.sender == CONTRACT_OWNER, "Contract owner required");
+            require(msg.sender == ORACLE_PRICE_FEEDER, "Oracle Price Feeder required");
         } else {
             LAbstractTokenTRC21 t = LAbstractTokenTRC21(token);
             require(t.issuer() == msg.sender, "Required token issuer");
@@ -125,10 +146,13 @@ contract Lending {
     }
 
     // add/update depositRate liquidationRate recall Rate price for ILO collateral
+    // ILO token is issued by a relayer
     function addILOCollateral(address token, uint256 depositRate, uint256 liquidationRate, uint256 recallRate) public {
         require(depositRate >= 100 && liquidationRate > 100, "Invalid rates");
         require(depositRate > liquidationRate , "Invalid deposit rates");
         require(recallRate > depositRate , "Invalid recall rates");
+
+        require(!indexOf(COLLATERALS, token) , "Invalid ILO collateral");
 
         bool b = TomoXListing.getTokenStatus(token);
         require(b, "Invalid collateral");
@@ -148,7 +172,7 @@ contract Lending {
     }
     
     // lending tokens
-    function addBaseToken(address token) public contractOwnerOnly {
+    function addBaseToken(address token) public moderatorOnly {
         bool b = TomoXListing.getTokenStatus(token) || (token == tomoNative);
         require(b, "Invalid base token");
         if (!indexOf(BASES, token)) {
@@ -157,7 +181,7 @@ contract Lending {
     }
     
     // period of loan
-    function addTerm(uint256 term) public contractOwnerOnly {
+    function addTerm(uint256 term) public moderatorOnly {
         require(term >= 60, "Invalid term");
 
         if (!termIndexOf(TERMS, term)) {
@@ -216,5 +240,10 @@ contract Lending {
                 LENDINGRELAYER_LIST[coinbase]._baseTokens,
                 LENDINGRELAYER_LIST[coinbase]._terms,
                 LENDINGRELAYER_LIST[coinbase]._collaterals);
+    }
+
+    function getCollateralPrice(address token, address lendingToken) public view returns (uint256, uint256) {
+        return (COLLATERAL_LIST[token]._price[lendingToken]._price,
+                COLLATERAL_LIST[token]._price[lendingToken]._blockNumber);
     }
 }

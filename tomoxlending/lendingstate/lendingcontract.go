@@ -145,24 +145,25 @@ func IsValidPair(statedb *state.StateDB, coinbase common.Address, baseToken comm
 //		- collaterals []common.Address  : list of addresses of collateral
 //		- isSpecialCollateral			: TRUE if collateral is a token which is NOT available for trading in TomoX, otherwise FALSE
 func GetCollaterals(statedb *state.StateDB, coinbase common.Address, baseToken common.Address, term uint64) (collaterals []common.Address, isSpecialCollateral bool) {
-	validPair, pairIndex := IsValidPair(statedb, coinbase, baseToken, term)
+	validPair, _ := IsValidPair(statedb, coinbase, baseToken, term)
 	if !validPair {
 		return []common.Address{}, false
 	}
 
-	locRelayerState := state.GetLocMappingAtKey(coinbase.Hash(), LendingRelayerListSlot)
-	locCollateralHash := state.GetLocOfStructElement(locRelayerState, LendingRelayerStructSlots["collaterals"])
-	length := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locCollateralHash).Big().Uint64()
-
-	loc := state.GetLocDynamicArrAtElement(locCollateralHash, pairIndex, 1)
-	collateralAddr := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), loc).Bytes())
-	if collateralAddr != (common.Address{}) && collateralAddr != (common.HexToAddress("0x0")) {
-		return []common.Address{collateralAddr}, true
-	}
+	//TODO: ILO Collateral is not supported in release 2.2.0
+	//locRelayerState := state.GetLocMappingAtKey(coinbase.Hash(), LendingRelayerListSlot)
+	//locCollateralHash := state.GetLocOfStructElement(locRelayerState, LendingRelayerStructSlots["collaterals"])
+	//length := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locCollateralHash).Big().Uint64()
+	//
+	//loc := state.GetLocDynamicArrAtElement(locCollateralHash, pairIndex, 1)
+	//collateralAddr := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), loc).Bytes())
+	//if collateralAddr != (common.Address{}) && collateralAddr != (common.HexToAddress("0x0")) {
+	//	return []common.Address{collateralAddr}, true
+	//}
 
 	// if collaterals is not defined for the relayer, return default collaterals
 	locDefaultCollateralHash := state.GetLocSimpleVariable(DefaultCollateralSlot)
-	length = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDefaultCollateralHash).Big().Uint64()
+	length := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDefaultCollateralHash).Big().Uint64()
 	for i := uint64(0); i < length; i++ {
 		loc := state.GetLocDynamicArrAtElement(locDefaultCollateralHash, i, 1)
 		addr := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), loc).Bytes())
@@ -240,18 +241,20 @@ func GetSupportedBaseToken(statedb *state.StateDB) []common.Address {
 // @return: list of address of collateral token
 func GetAllCollateral(statedb *state.StateDB) []common.Address {
 	collaterals := []common.Address{}
-	locILOCollateral := state.GetLocSimpleVariable(ILOCollateralSlot)
-	length := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locILOCollateral).Big().Uint64()
-	for i := uint64(0); i < length; i++ {
-		loc := state.GetLocDynamicArrAtElement(locILOCollateral, i, 1)
-		addr := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), loc).Bytes())
-		if addr != (common.Address{}) {
-			collaterals = append(collaterals, addr)
-		}
-	}
+
+	//TODO: ILO Collateral is not supported in release 2.2.0
+	//locILOCollateral := state.GetLocSimpleVariable(ILOCollateralSlot)
+	//length := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locILOCollateral).Big().Uint64()
+	//for i := uint64(0); i < length; i++ {
+	//	loc := state.GetLocDynamicArrAtElement(locILOCollateral, i, 1)
+	//	addr := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), loc).Bytes())
+	//	if addr != (common.Address{}) {
+	//		collaterals = append(collaterals, addr)
+	//	}
+	//}
 
 	locDefaultCollateralHash := state.GetLocSimpleVariable(DefaultCollateralSlot)
-	length = statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDefaultCollateralHash).Big().Uint64()
+	length := statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), locDefaultCollateralHash).Big().Uint64()
 	for i := uint64(0); i < length; i++ {
 		loc := state.GetLocDynamicArrAtElement(locDefaultCollateralHash, i, 1)
 		addr := common.BytesToAddress(statedb.GetState(common.HexToAddress(common.LendingRegistrationSMC), loc).Bytes())

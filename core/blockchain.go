@@ -2648,7 +2648,8 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
 			milliSecond := batch.Timestamp / 1e6
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
-			if err := lendingService.SyncDataToSDKNode(block.Time().Uint64(), item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
+			statedb, _ := bc.State()
+			if err := lendingService.SyncDataToSDKNode(bc, statedb.Copy(),  block, item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Crit("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 			}
 		}
