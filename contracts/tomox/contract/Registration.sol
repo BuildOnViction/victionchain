@@ -91,6 +91,12 @@ contract RelayerRegistration {
     }
 
 
+    /// @dev support to move to oracle service
+    function changeContractOwner(address owner) public contractOwnerOnly {
+        require(owner != address(0));
+        CONTRACT_OWNER = owner;
+    }
+
     /// @dev Contract Config Modifications
     function reconfigure(uint maxRelayer, uint maxToken, uint minDeposit) public contractOwnerOnly {
         require(maxRelayer >= ActiveRelayerCount);
