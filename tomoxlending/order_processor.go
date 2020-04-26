@@ -431,7 +431,7 @@ func (l *Lending) getLendQuantity(
 			return lendingstate.Zero, lendingstate.Zero, true, nil, nil
 		}
 	}
-	LendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, makerOrder.LendingToken)
+	LendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, makerOrder.LendingToken)
 	if err != nil || LendingTokenDecimal.Sign() == 0 {
 		return lendingstate.Zero, lendingstate.Zero, false, nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", makerOrder.LendingToken.String(), err)
 	}
@@ -439,7 +439,7 @@ func (l *Lending) getLendQuantity(
 	if takerOrder.Side == lendingstate.Borrowing {
 		collateralToken = takerOrder.CollateralToken
 	}
-	collateralTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, collateralToken)
+	collateralTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, collateralToken)
 	if err != nil || collateralTokenDecimal.Sign() == 0 {
 		return lendingstate.Zero, lendingstate.Zero, false, nil, fmt.Errorf("fail to get tokenDecimal. Token: %v . Err: %v", collateralToken.String(), err)
 	}
@@ -688,7 +688,7 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 		log.Debug("Relayer not enough fee when cancel order", "err", err)
 		return nil, true
 	}
-	lendTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, coinbase, originOrder.LendingToken)
+	lendTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, originOrder.LendingToken)
 	if err != nil || lendTokenDecimal == nil || lendTokenDecimal.Sign() <= 0 {
 		log.Debug("Fail to get tokenDecimal ", "Token", originOrder.LendingToken.String(), "err", err)
 		return err, false
@@ -712,7 +712,7 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 		if err != nil || collateralPrice == nil || collateralPrice.Sign() <= 0 {
 			return err, false
 		}
-		collateralTokenDecimal, err = l.tomox.GetTokenDecimal(chain, statedb, coinbase, originOrder.CollateralToken)
+		collateralTokenDecimal, err = l.tomox.GetTokenDecimal(chain, statedb, originOrder.CollateralToken)
 		if err != nil || collateralTokenDecimal == nil || collateralTokenDecimal.Sign() <= 0 {
 			log.Debug("Fail to get tokenDecimal ", "Token", originOrder.LendingToken.String(), "err", err)
 			return err, false
@@ -834,11 +834,11 @@ func (l *Lending) GetMediumTradePriceBeforeEpoch(chain consensus.ChainContext, s
 		inversePrice := tradingStateDb.GetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(quoteToken, baseToken))
 		log.Debug("getMediumTradePriceBeforeEpoch", "baseToken", baseToken.Hex(), "quoteToken", quoteToken.Hex(), "inversePrice", inversePrice)
 		if inversePrice != nil && inversePrice.Sign() > 0 {
-			quoteTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, common.Address{}, quoteToken)
+			quoteTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, quoteToken)
 			if err != nil || quoteTokenDecimal.Sign() == 0 {
 				return nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", quoteToken.String(), err)
 			}
-			baseTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, common.Address{}, baseToken)
+			baseTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, baseToken)
 			if err != nil || baseTokenDecimal.Sign() == 0 {
 				return nil, fmt.Errorf("Fail to get tokenDecimal. Token: %v . Err: %v", baseToken, err)
 			}
@@ -915,7 +915,7 @@ func (l *Lending) GetCollateralPrices(header *types.Header, chain consensus.Chai
 		}
 		log.Debug("Getting collateralTOMOPrice from tomox", "collateralTOMOPrice", collateralTOMOPrice, "err", err)
 	}
-	lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, common.Address{}, lendingToken)
+	lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, lendingToken)
 	log.Debug("GetTokenDecimal", "lendingToken", lendingToken, "err", err)
 	if err != nil {
 		return nil, nil, err

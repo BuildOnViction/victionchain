@@ -1,6 +1,7 @@
 package tomox
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -307,6 +308,18 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		updatedTakerOrder.Status = tradingstate.OrderStatusOpen
 	} else {
 		updatedTakerOrder.Status = tradingstate.OrderStatusCancelled
+		// update cancel fee
+		tokenCancelFee := common.Big0
+		if baseTokenDecimal, ok := tomox.tokenDecimalCache.Get(updatedTakerOrder.BaseToken); ok {
+			feeRate := tradingstate.GetExRelayerFee(updatedTakerOrder.ExchangeAddress, statedb)
+			tokenCancelFee = getCancelFee(baseTokenDecimal.(*big.Int), feeRate, updatedTakerOrder)
+		}
+		extraData, _ := json.Marshal(struct {
+			CancelFee string
+		}{
+			CancelFee: tokenCancelFee.Text(10),
+		})
+		updatedTakerOrder.ExtraData = string(extraData)
 	}
 	updatedTakerOrder.TxHash = txHash
 	if updatedTakerOrder.CreatedAt.IsZero() {
