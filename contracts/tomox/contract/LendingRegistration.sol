@@ -128,6 +128,8 @@ contract Lending {
         bool b = TomoXListing.getTokenStatus(token) || (token == tomoNative);
         require(b, "Invalid collateral");
 
+        require(indexOf(BASES, lendingToken), "Invalid lending token");
+
         require(COLLATERAL_LIST[token]._depositRate >= 100, "Invalid collateral");
 
         if (indexOf(COLLATERALS, token)) {
@@ -238,5 +240,10 @@ contract Lending {
                 LENDINGRELAYER_LIST[coinbase]._baseTokens,
                 LENDINGRELAYER_LIST[coinbase]._terms,
                 LENDINGRELAYER_LIST[coinbase]._collaterals);
+    }
+
+    function getCollateralPrice(address token, address lendingToken) public view returns (uint256, uint256) {
+        return (COLLATERAL_LIST[token]._price[lendingToken]._price,
+                COLLATERAL_LIST[token]._price[lendingToken]._blockNumber);
     }
 }
