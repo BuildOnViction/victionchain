@@ -812,6 +812,11 @@ web3._extend({
             call: 'tomox_getLiquidatedTradesByTxHash',
             params: 1
 		}),
+		new web3._extend.Method({
+            name: 'getLendingOrderById',
+            call: 'tomox_getLendingOrderById',
+            params: 3
+		}),
 	]
 });
 `
