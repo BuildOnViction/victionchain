@@ -2526,6 +2526,29 @@ func (s *PublicTomoXTransactionPoolAPI) GetLiquidatedTradesByTxHash(ctx context.
 	return finalizedResult, nil
 }
 
+func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderById(ctx context.Context, lendingToken common.Address, term uint64, orderId uint64) (lendingstate.LendingItem, error) {
+	lendingItem := lendingstate.LendingItem{}
+	block := s.b.CurrentBlock()
+	if block == nil {
+		return lendingItem, errors.New("Current block not found")
+	}
+	lendingService := s.b.LendingService()
+	if lendingService == nil {
+		return lendingItem, errors.New("TomoX Lending service not found")
+	}
+	lendingState, err := lendingService.GetLendingState(block)
+	if err != nil {
+		return lendingItem, err
+	}
+	lendingOrderBook := lendingstate.GetLendingOrderBookHash(lendingToken, term)
+	orderIdHash := common.BigToHash(new(big.Int).SetUint64(orderId))
+	lendingItem = lendingState.GetLendingOrder(lendingOrderBook, orderIdHash)
+	if lendingItem.LendingId != orderId {
+		return lendingItem, errors.New("Lending Item not found")
+	}
+	return lendingItem, nil
+}
+
 // Sign calculates an ECDSA signature for:
 // keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
 //
