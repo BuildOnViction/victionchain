@@ -893,8 +893,8 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 	for _, lendingPair := range allPairs {
 		orderbook := tradingstate.GetTradingOrderBookHash(lendingPair.CollateralToken, lendingPair.LendingToken)
 		_, collateralPrice, err := l.GetCollateralPrices(header, chain, statedb, tradingState, lendingPair.CollateralToken, lendingPair.LendingToken)
-		if err != nil {
-			log.Error("Fail when get all trading pairs", "error", err)
+		if err != nil || collateralPrice == nil || collateralPrice.Sign() == 0 {
+			log.Error("Fail when get price collateral/lending ", "CollateralToken", lendingPair.CollateralToken.Hex(), "LendingToken", lendingPair.LendingToken.Hex(), "error", err)
 			// ignore this pair, do not throw error
 			continue
 		}
