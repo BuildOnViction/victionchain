@@ -26,7 +26,6 @@ type OrderMsg struct {
 	Status          string         `json:"status,omitempty"`
 	Side            string         `json:"side,omitempty"`
 	Type            string         `json:"type,omitempty"`
-	PairName        string         `json:"pairName,omitempty"`
 	OrderID         uint64         `json:"orderid,omitempty"`
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
@@ -95,10 +94,9 @@ func testSendOrder(t *testing.T, amount, price *big.Int, side string, status str
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
-		PairName:        "BTC/TOMO",
 	}
 	nonce, _ := getNonce(t, msg.UserAddress)
-	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
+	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, common.Hash{}, orderID)
 	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
 		log.Print(err)
@@ -131,10 +129,9 @@ func testSendOrderTOMOUSD(t *testing.T, amount, price *big.Int, side string, sta
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
-		PairName:        "TOMO/USD",
 	}
 	nonce, _ := getNonce(t, msg.UserAddress)
-	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
+	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, common.Hash{}, orderID)
 	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
 		log.Print(err)
@@ -167,10 +164,9 @@ func testSendOrderBTCUSD(t *testing.T, amount, price *big.Int, side string, stat
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
-		PairName:        "BTC/USD",
 	}
 	nonce, _ := getNonce(t, msg.UserAddress)
-	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
+	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, common.Hash{}, orderID)
 	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
 		log.Print(err)
@@ -203,10 +199,9 @@ func testSendOrderTOMOBTC(t *testing.T, amount, price *big.Int, side string, sta
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
-		PairName:        "TOMO/BTC",
 	}
 	nonce, _ := getNonce(t, msg.UserAddress)
-	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
+	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, common.Hash{}, orderID)
 	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
 		log.Print(err)
@@ -239,10 +234,9 @@ func testSendOrderETHBTC(t *testing.T, amount, price *big.Int, side string, stat
 		Status:          status,
 		Side:            side,
 		Type:            "LO",
-		PairName:        "ETH/BTC",
 	}
 	nonce, _ := getNonce(t, msg.UserAddress)
-	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, msg.PairName, common.Hash{}, orderID)
+	tx := types.NewOrderTransaction(nonce, msg.Quantity, msg.Price, msg.ExchangeAddress, msg.UserAddress, msg.BaseToken, msg.QuoteToken, msg.Status, msg.Side, msg.Type, common.Hash{}, orderID)
 	signedTx, err := types.OrderSignTx(tx, types.OrderTxSigner{}, privateKey)
 	if err != nil {
 		log.Print(err)
