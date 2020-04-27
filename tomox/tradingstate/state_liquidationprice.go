@@ -191,8 +191,10 @@ func (self *liquidationPriceState) getAllLiquidationData(db Database) map[common
 		return liquidationData
 	}
 	lendingBooks := []common.Hash{}
-	for id, _ := range self.stateLendingBooks {
-		lendingBooks = append(lendingBooks, id)
+	for id, stateLendingBook := range self.stateLendingBooks {
+		if !stateLendingBook.empty() {
+			lendingBooks = append(lendingBooks, id)
+		}
 	}
 	lendingBookListIt := trie.NewIterator(lendingBookTrie.NodeIterator(nil))
 	for lendingBookListIt.Next() {

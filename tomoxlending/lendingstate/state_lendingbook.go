@@ -588,6 +588,9 @@ func (self *lendingExchangeState) getLowestLiquidationTime(db Database) (common.
 		obj = newLiquidationTimeState(self.lendingBook, price, data, self.MarkLiquidationTimeDirty)
 		self.liquidationTimeStates[price] = obj
 	}
+	if obj.empty() {
+		return EmptyHash, nil
+	}
 	return price, obj
 }
 
