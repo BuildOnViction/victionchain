@@ -247,6 +247,7 @@ contract TomoBridgeWrapToken is TRC21 {
     event OwnerAddition(address indexed owner);
     event OwnerRemoval(address indexed owner);
     event RequirementChange(uint required);
+    event TokenBurn(address indexed burner, uint256 value, bytes data);
 
     /*
      *  Constants
@@ -264,7 +265,14 @@ contract TomoBridgeWrapToken is TRC21 {
     address[] public owners;
     uint public required;
     uint public transactionCount;
+    TokenBurnData[] public burnList;
 
+    struct TokenBurnData {
+        uint256 value;
+        address burner;
+        bytes data;
+    }
+    
     struct Transaction {
         bool isMintingTx;
         address destination;
@@ -473,7 +481,7 @@ contract TomoBridgeWrapToken is TRC21 {
     }
 
     /// @dev Allows an user to burn the token.
-    function burn(uint value)
+    function burn(uint value, bytes data)
     public
     {
         require(value > WITHDRAW_FEE);  //avoid spamming 
@@ -481,6 +489,13 @@ contract TomoBridgeWrapToken is TRC21 {
         if (WITHDRAW_FEE > 0) {
             super._mint(issuer(), WITHDRAW_FEE);
         }
+        uint256 burnValue = value.sub(WITHDRAW_FEE);
+        burnList.push(TokenBurnData({
+            value: burnValue,
+            burner: msg.sender,
+            data: data 
+        }));
+        TokenBurn(msg.sender, burnValue, data);
     }
 
     /// @dev Allows anyone to execute a confirmed transaction.
@@ -646,6 +661,16 @@ contract TomoBridgeWrapToken is TRC21 {
         _transactionIds = new uint[](count);
         for (i = 0; i < count; i++)
             _transactionIds[i] = transactionIdsTemp[i];
+    }
+    
+    function getBurnCount() public view returns (uint256) {
+        return burnList.length;
+    }
+
+    function getBurn(uint burnId) public view returns (address _burner, uint256 _value, bytes _data) {
+        _burner = burnList[burnId].burner;
+        _value = burnList[burnId].value;
+        _data = burnList[burnId].data;
     }
 
 }
