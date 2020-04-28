@@ -1097,7 +1097,7 @@ func (c *Posv) APIs(chain consensus.ChainReader) []rpc.API {
 		Namespace: "posv",
 		Version:   "1.0",
 		Service:   &API{chain: chain, posv: c},
-		Public:    false,
+		Public:    true,
 	}}
 }
 
