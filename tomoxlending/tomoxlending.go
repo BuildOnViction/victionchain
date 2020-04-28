@@ -907,7 +907,7 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 					if trade.AutoTopUp {
 						if newTrade, err := l.AutoTopUp(statedb, tradingState, lendingState, lendingBook, tradingIdHash, collateralPrice); err == nil {
 							// if this action complete successfully, do not liquidate this trade in this epoch
-							log.Debug("AutoTopUp", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
+							log.Debug("AutoTopUp", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "tradingIdHash", tradingIdHash.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
 							autoTopUpTrades = append(autoTopUpTrades, newTrade)
 							updatedTrades[newTrade.Hash] = newTrade
 							continue
@@ -939,8 +939,8 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 		for price, liquidationData := range allLowertLiquidationData {
 			if price.Sign() > 0 && recalLiquidatePrice.Cmp(price) > 0 {
 				for lendingBook, tradingIds := range liquidationData {
-					log.Debug("GetAllLowerLiquidationPriceData", "price", price, "lendingBook", lendingBook, "tradingIds", tradingIds)
 					for _, tradingIdHash := range tradingIds {
+						log.Debug("Process Recall", "price", price, "lendingBook", lendingBook, "tradingIdHash", tradingIdHash.Hex())
 						trade := lendingState.GetLendingTrade(lendingBook, tradingIdHash)
 						log.Debug("TestRecall", "borrower", trade.Borrower.Hex(), "lendingToken", trade.LendingToken.Hex(), "collateral", trade.CollateralToken.Hex(), "price", price, "tradingIdHash", tradingIdHash.Hex())
 						if trade.AutoTopUp {
@@ -950,7 +950,7 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 								return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err
 							}
 							// if this action complete successfully, do not liquidate this trade in this epoch
-							log.Debug("AutoRecall", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
+							log.Debug("AutoRecall", "borrower", trade.Borrower.Hex(), "collateral", newTrade.CollateralToken.Hex(), "lendingBook", lendingBook.Hex(), "tradingIdHash", tradingIdHash.Hex(), "newLockedAmount", newTrade.CollateralLockedAmount)
 							autoRecallTrades = append(autoRecallTrades, newTrade)
 							updatedTrades[newTrade.Hash] = newTrade
 						}

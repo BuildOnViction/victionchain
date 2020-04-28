@@ -708,6 +708,9 @@ func (self *tradingExchanges) getAllLowerLiquidationPrice(db Database, limit com
 			obj = newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
 			self.liquidationPriceStates[price] = obj
 		}
+		if obj.empty() {
+			continue
+		}
 		result[price] = obj
 	}
 	return result
@@ -734,6 +737,9 @@ func (self *tradingExchanges) getHighestLiquidationPrice(db Database) (common.Ha
 		}
 		obj = newLiquidationPriceState(self.db, self.orderBookHash, price, data, self.MarkStateLiquidationPriceDirty)
 		self.liquidationPriceStates[price] = obj
+	}
+	if obj.empty() {
+		return EmptyHash, nil
 	}
 	return price, obj
 }

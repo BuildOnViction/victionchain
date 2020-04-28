@@ -232,7 +232,7 @@ func (self *LendingStateDB) GetLendingTrade(orderBook common.Hash, orderId commo
 		return EmptyLendingTrade
 	}
 	stateOrderItem := stateObject.getLendingTrade(self.db, orderId)
-	if stateOrderItem == nil {
+	if stateOrderItem == nil || stateOrderItem.empty() {
 		return EmptyLendingTrade
 	}
 	return stateOrderItem.data

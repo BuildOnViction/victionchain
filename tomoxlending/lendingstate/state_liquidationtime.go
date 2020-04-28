@@ -114,8 +114,10 @@ func (self *liquidationTimeState) getAllTradeIds(db Database) []common.Hash {
 	if lendingBookTrie == nil {
 		return tradeIds
 	}
-	for id, _ := range self.cachedStorage {
-		tradeIds = append(tradeIds, id)
+	for id, value := range self.cachedStorage {
+		if !common.EmptyHash(value) {
+			tradeIds = append(tradeIds, id)
+		}
 	}
 	orderListIt := trie.NewIterator(lendingBookTrie.NodeIterator(nil))
 	for orderListIt.Next() {
