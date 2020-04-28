@@ -56,7 +56,7 @@ if [[ ! -z $NETWORK_ID ]]; then
       ;;
     89 )
       genesisPath="testnet.json"
-      params="$params --tomo-testnet --gcmode archive --rpcapi db,eth,net,web3,debug"
+      params="$params --tomo-testnet --gcmode archive --rpcapi db,eth,net,web3,debug,posv"
       ;;
     90 )
       genesisPath="devnet.json"
@@ -158,7 +158,7 @@ fi
 
 # debug mode
 if [[ ! -z $DEBUG_MODE ]]; then
-  params="$params --gcmode archive --rpcapi db,eth,net,web3,debug"
+  params="$params --gcmode archive --rpcapi db,eth,net,web3,debug,posv"
 fi
 
 # maxpeers

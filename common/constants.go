@@ -31,7 +31,7 @@ var TIP2019Block = big.NewInt(1050000)
 var TIPSigning = big.NewInt(3000000)
 var TIPRandomize = big.NewInt(3464000)
 var BlackListHFNumber = uint64(9349100)
-var TIPTomoX = big.NewInt(0)
+var TIPTomoX = big.NewInt(20581700)
 var TIPTomoXTestnet = big.NewInt(11303000)
 var IsTestnet bool = false
 var StoreRewardFolder string
@@ -47,13 +47,13 @@ var RelayerLendingCancelFee = big.NewInt(1000000000000000)              // 0.001
 var BaseLendingInterest = big.NewInt(100000000)                         // 1e8
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
-var RelayerRegistrationSMC = "0x0342d186212b04E69eA682b3bed8e232b6b3361a"
+var RelayerRegistrationSMC = "0xFF0266957CC194960E7a691971A4260BAbB873E0"
 var RelayerRegistrationSMCTestnet = "0xe7c16037992bEcAFaeeE779Dacaf8991637953F3"
-var LendingRegistrationSMC = "0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"
+var LendingRegistrationSMC = "0xC6034363026dC9fd321D7E2c05De201728D5C9aF"
 var LendingRegistrationSMCTestnet = "0x4d7eA2cE949216D6b120f3AA10164173615A2b6C"
 var TRC21IssuerSMCTestNet = HexToAddress("0x7081C72c9DC44686C7B7EAB1d338EA137Fa9f0D3")
 var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
-var TomoXListingSMC = HexToAddress("0x80430A33EaB86890a346bCf64F86CFeAC73287f3")
+var TomoXListingSMC = HexToAddress("0xDE34dD0f536170993E8CFF639DdFfCF1A85D3E53")
 var TomoXListingSMCTestNet = HexToAddress("0x80430A33EaB86890a346bCf64F86CFeAC73287f3")
 var TRC21GasPriceBefore = big.NewInt(2500)
 var TRC21GasPrice = big.NewInt(250000000)
