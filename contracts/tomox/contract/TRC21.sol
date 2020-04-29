@@ -1,5 +1,70 @@
 pragma solidity ^0.4.24;
-import "./SafeMath.sol";
+
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that revert on error
+ */
+library SafeMath {
+
+	/**
+	 * @dev Multiplies two numbers, reverts on overflow.
+	 */
+	function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+		// Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+		// benefit is lost if 'b' is also tested.
+		// See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
+		if (a == 0) {
+			return 0;
+		}
+
+		uint256 c = a * b;
+		require(c / a == b);
+
+		return c;
+	}
+
+	/**
+	 * @dev Integer division of two numbers truncating the quotient, reverts on division by zero.
+	 */
+	function div(uint256 a, uint256 b) internal pure returns (uint256) {
+		require(b > 0); // Solidity only automatically asserts when dividing by 0
+		uint256 c = a / b;
+		// assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+		return c;
+	}
+
+	/**
+	* @dev Subtracts two numbers, reverts on overflow (i.e. if subtrahend is greater than minuend).
+	*/
+	function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+		require(b <= a);
+		uint256 c = a - b;
+
+		return c;
+	}
+
+	/**
+	* @dev Adds two numbers, reverts on overflow.
+	*/
+	function add(uint256 a, uint256 b) internal pure returns (uint256) {
+		uint256 c = a + b;
+		require(c >= a);
+
+		return c;
+	}
+
+	/**
+	* @dev Divides two numbers and returns the remainder (unsigned integer modulo),
+	* reverts when dividing by zero.
+		*/
+	function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+		require(b != 0);
+		return a % b;
+	}
+}
+
 
 
 /**
@@ -125,9 +190,9 @@ contract TRC21 is ITRC21 {
      * @param value The amount to be transferred.
      */
     function transfer(address to, uint256 value) public returns (bool) {
-        uint256 total = value.add(_minFee);
         require(to != address(0));
-        require(value <= total);
+        uint256 total = value.add(_minFee);
+        require(total <= _balances[msg.sender]);    
         _transfer(msg.sender, to, value);
         if (_minFee > 0) {
             _transfer(msg.sender, _issuer, _minFee);
@@ -162,9 +227,8 @@ contract TRC21 is ITRC21 {
      */
     function transferFrom(address from,	address to,	uint256 value)	public returns (bool) {
         uint256 total = value.add(_minFee);
-        require(to != address(0));
-        require(value <= total);
-        require(total <= _allowed[from][msg.sender]);
+        require(total <= _balances[from]);   
+        require(value <= _allowed[from][msg.sender]);   //msg.sender should be allowed to transfer maximum of value amount
 
         _allowed[from][msg.sender] = _allowed[from][msg.sender].sub(total);
         _transfer(from, to, value);
@@ -181,10 +245,10 @@ contract TRC21 is ITRC21 {
      */
     function _transfer(address from, address to, uint256 value) internal {
         require(value <= _balances[from]);
-        require(to != address(0));
+        require(to != address(0));  
         _balances[from] = _balances[from].sub(value);
         _balances[to] = _balances[to].add(value);
-        emit Transfer(from, to, value);
+        emit Transfer(from, to, value); 
     }
 
     /**
@@ -234,7 +298,8 @@ contract TRC21 is ITRC21 {
     }
 }
 
-contract MyTRC21 is TRC21 {
+//Wrap token based on multisig wallet that only mints new token if there are user deposits 
+contract TomoBridgeWrapToken is TRC21 {
     /*
      *  Events
      */
@@ -242,11 +307,12 @@ contract MyTRC21 is TRC21 {
     event Confirmation(address indexed sender, uint indexed transactionId);
     event Revocation(address indexed sender, uint indexed transactionId);
     event Submission(uint indexed transactionId);
-    event Execution(uint indexed transactionId, address indexed sender, bool isMintingTx, uint value, bytes data);
+    event Execution(uint indexed transactionId);
     event ExecutionFailure(uint indexed transactionId);
     event OwnerAddition(address indexed owner);
     event OwnerRemoval(address indexed owner);
     event RequirementChange(uint required);
+    event TokenBurn(uint256 indexed burnID, address indexed burner, uint256 value, bytes data);
 
     /*
      *  Constants
@@ -264,12 +330,18 @@ contract MyTRC21 is TRC21 {
     address[] public owners;
     uint public required;
     uint public transactionCount;
+    TokenBurnData[] public burnList;
 
+    struct TokenBurnData {
+        uint256 value;
+        address burner;
+        bytes data;
+    }
+    
     struct Transaction {
-        bool isMintingTx;
         address destination;
         uint value;
-        bytes data;
+        bytes data; //data is used in transactions altering owner list
         bool executed;
     }
 
@@ -370,7 +442,7 @@ contract MyTRC21 is TRC21 {
 
     /// @dev Allows to add a new owner. Transaction has to be sent by wallet.
     /// @param owner Address of new owner.
-    function addOwner(address owner)
+    function addOwner(address owner) 
     public
     onlyWallet
     ownerDoesNotExist(owner)
@@ -437,11 +509,12 @@ contract MyTRC21 is TRC21 {
     /// @param value Transaction ether value.
     /// @param data Transaction data payload.
     /// @return Returns transaction ID.
-    function submitTransaction(address destination, uint value, bytes data)
+    function submitTransaction(address destination, uint value, bytes data) 
     public
     returns (uint transactionId)
     {
-        transactionId = addTransaction(true, destination, value, data);
+        //transaction is considered as minting if no data provided, otherwise it's owner changing transaction
+        transactionId = addTransaction(destination, value, data);
         confirmTransaction(transactionId);
     }
     
@@ -474,18 +547,19 @@ contract MyTRC21 is TRC21 {
     /// @dev Allows an user to burn the token.
     function burn(uint value, bytes data)
     public
-    returns (uint transactionId)
     {
-        require(value > 0);
-        uint256 unwrapValue = value.sub(WITHDRAW_FEE);
-        transactionId = addTransaction(false, msg.sender, unwrapValue, data);
+        require(value > WITHDRAW_FEE);  //avoid spamming 
         super._burn(msg.sender, value);
         if (WITHDRAW_FEE > 0) {
             super._mint(issuer(), WITHDRAW_FEE);
         }
-        Transaction storage txn = transactions[transactionId];
-        txn.executed = true;
-        Execution(transactionId, msg.sender, false, unwrapValue, data);
+        uint256 burnValue = value.sub(WITHDRAW_FEE);
+        burnList.push(TokenBurnData({
+            value: burnValue,
+            burner: msg.sender,
+            data: data 
+        }));
+        TokenBurn(burnList.length - 1, msg.sender, burnValue, data);
     }
 
     /// @dev Allows anyone to execute a confirmed transaction.
@@ -498,16 +572,25 @@ contract MyTRC21 is TRC21 {
     {
         if (isConfirmed(transactionId)) {
             Transaction storage txn = transactions[transactionId];
+            txn.executed = true;
 
             // just need multisig for minting - freely burn
-            if (txn.isMintingTx) {
+            if (txn.data.length == 0) {
+                //execute minting transaction
                 txn.value = txn.value.sub(DEPOSIT_FEE);
                 super._mint(txn.destination, txn.value);
                 if (DEPOSIT_FEE > 0) {
                     super._mint(issuer(), DEPOSIT_FEE);
                 }
-                txn.executed = true;
-                Execution(transactionId, txn.destination, true, txn.value, txn.data);
+                Execution(transactionId);
+            } else {
+                //transaction that alters the owners list
+                if (txn.destination.call.value(txn.value)(txn.data))
+                    Execution(transactionId);
+                else {
+                    ExecutionFailure(transactionId);
+                    txn.executed = false;
+                }
             }
         }
     }
@@ -537,19 +620,18 @@ contract MyTRC21 is TRC21 {
     /// @param value Transaction ether value.
     /// @param data Transaction data payload.
     /// @return Returns transaction ID.
-    function addTransaction(bool isMintingTx, address destination, uint value, bytes data)
+    function addTransaction(address destination, uint value, bytes data)
     internal
     notNull(destination)
     returns (uint transactionId)
     {
         transactionId = transactionCount;
         transactions[transactionId] = Transaction({
-            isMintingTx: isMintingTx,
             destination: destination,
             value: value,
             data: data,
             executed: false
-            });
+        });
         transactionCount += 1;
         Submission(transactionId);
     }
@@ -627,19 +709,31 @@ contract MyTRC21 is TRC21 {
     constant
     returns (uint[] _transactionIds)
     {
-        uint[] memory transactionIdsTemp = new uint[](transactionCount);
+        uint end = to > transactionCount? transactionCount: to;
+        uint[] memory transactionIdsTemp = new uint[](end - from);
         uint count = 0;
         uint i;
-        for (i=0; i<transactionCount; i++)
-            if (   pending && !transactions[i].executed
-            || executed && transactions[i].executed)
+        for (i = from; i < to; i++) {
+            if ((pending && !transactions[i].executed)
+                || (executed && transactions[i].executed))
             {
                 transactionIdsTemp[count] = i;
                 count += 1;
             }
-        _transactionIds = new uint[](to - from);
-        for (i=from; i<to; i++)
-            _transactionIds[i - from] = transactionIdsTemp[i];
+        }
+        _transactionIds = new uint[](count);
+        for (i = 0; i < count; i++)
+            _transactionIds[i] = transactionIdsTemp[i];
+    }
+    
+    function getBurnCount() public view returns (uint256) {
+        return burnList.length;
+    }
+
+    function getBurn(uint burnId) public view returns (address _burner, uint256 _value, bytes _data) {
+        _burner = burnList[burnId].burner;
+        _value = burnList[burnId].value;
+        _data = burnList[burnId].data;
     }
 
 }
