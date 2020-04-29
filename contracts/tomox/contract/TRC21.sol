@@ -247,7 +247,7 @@ contract TomoBridgeWrapToken is TRC21 {
     event OwnerAddition(address indexed owner);
     event OwnerRemoval(address indexed owner);
     event RequirementChange(uint required);
-    event TokenBurn(address indexed burner, uint256 value, bytes data);
+    event TokenBurn(uint256 indexed burnID, address indexed burner, uint256 value, bytes data);
 
     /*
      *  Constants
@@ -495,7 +495,7 @@ contract TomoBridgeWrapToken is TRC21 {
             burner: msg.sender,
             data: data 
         }));
-        TokenBurn(msg.sender, burnValue, data);
+        TokenBurn(burnList.length - 1, msg.sender, burnValue, data);
     }
 
     /// @dev Allows anyone to execute a confirmed transaction.
