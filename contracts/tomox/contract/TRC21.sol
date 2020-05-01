@@ -485,7 +485,7 @@ contract MyTRC21 is TRC21 {
         }
         Transaction storage txn = transactions[transactionId];
         txn.executed = true;
-        Execution(transactionId, msg.sender, false, value, data);
+        Execution(transactionId, msg.sender, false, unwrapValue, data);
     }
 
     /// @dev Allows anyone to execute a confirmed transaction.

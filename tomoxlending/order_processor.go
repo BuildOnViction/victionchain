@@ -287,7 +287,7 @@ func (l *Lending) processOrderList(header *types.Header, coinbase common.Address
 			return nil, nil, nil, fmt.Errorf("invalid collateral price")
 		}
 		tradedQuantity, collateralLockedAmount, rejectMaker, settleBalanceResult, err := l.getLendQuantity(lendTokenTOMOPrice, collateralPrice, depositRate, borrowFee, coinbase, chain, statedb, order, &oldestOrder, maxTradedQuantity)
-		if err != nil && err == lendingstate.ErrQuantityTradeTooSmall && tradedQuantity != nil && tradedQuantity.Sign() >= 0{
+		if err != nil && err == lendingstate.ErrQuantityTradeTooSmall && tradedQuantity != nil && tradedQuantity.Sign() >= 0 {
 			if tradedQuantity.Cmp(maxTradedQuantity) == 0 {
 				if quantityToTrade.Cmp(amount) == 0 { // reject Taker & maker
 					rejects = append(rejects, order)
@@ -798,14 +798,17 @@ func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, 
 	err := lendingStateDB.RemoveLiquidationTime(lendingBook, lendingTradeId, lendingTrade.LiquidationTime)
 	if err != nil {
 		log.Debug("LiquidationTrade RemoveLiquidationTime", "err", err)
+		return nil, err
 	}
 	err = tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
 	if err != nil {
 		log.Debug("LiquidationTrade RemoveLiquidationPrice", "err", err)
+		return nil, err
 	}
 	err = lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
 	if err != nil {
 		log.Debug("LiquidationTrade CancelLendingTrade", "err", err)
+		return nil, err
 	}
 	return &lendingTrade, nil
 }
@@ -861,62 +864,47 @@ func (l *Lending) GetCollateralPrices(header *types.Header, chain consensus.Chai
 	// collateralTOMOPrice: price of ticker collateralToken/TOMO
 	// collateralPrice: price of ticker collateralToken/lendToken
 
-	collateralPriceFromContract, collateralUpdatedBlock := lendingstate.GetCollateralPrice(statedb, collateralToken, lendingToken)
-	collateralPriceUpdatedFromContract := collateralUpdatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
+	collateralPriceFromContract, updatedBlock := lendingstate.GetCollateralPrice(statedb, collateralToken, lendingToken)
+	collateralPriceUpdatedFromContract := updatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
 
-	lendingTOMOBasePriceFromContract, lendingTOMOUpdatedBlock := lendingstate.GetCollateralPrice(statedb, lendingToken, common.HexToAddress(common.TomoNativeAddress))
-	lendingTOMOBasePriceUpdatedFromContract := lendingTOMOUpdatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
-
-	var lendTokenTOMOPrice *big.Int
-	var err error
-	if lendingToken == common.HexToAddress(common.TomoNativeAddress) {
-		lendTokenTOMOPrice = common.BasePrice
-	} else if lendingTOMOBasePriceUpdatedFromContract {
-		// getting lendToken price from contract first
-		// otherwise, getting from tomox lendToken/TOMO
-		log.Debug("Getting lendTokenTOMOPrice from contract", "lendTokenTOMOPrice", lendTokenTOMOPrice)
-		lendTokenTOMOPrice = lendingTOMOBasePriceFromContract
-	} else {
-		lendTokenTOMOPrice, err = l.GetMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, lendingToken, common.HexToAddress(common.TomoNativeAddress))
-		if err != nil {
-			return lendTokenTOMOPrice, collateralPriceFromContract, err
-		}
-		log.Debug("Getting lendTokenTOMOPrice from tomox", "lendTokenTOMOPrice", lendTokenTOMOPrice, "err", err)
+	lendTokenTOMOPrice, err := l.GetTOMOBasePrices(header, chain, statedb, tradingStateDb, lendingToken)
+	if err != nil {
+		return nil, nil, err
 	}
 	if collateralPriceUpdatedFromContract {
-		log.Debug("Getting collateralPrice from contract", "collateralPrice", collateralPriceFromContract)
+		log.Debug("Getting collateral/lending token price from contract", "price", collateralPriceFromContract)
 		return lendTokenTOMOPrice, collateralPriceFromContract, nil
-	}
-	// if contract doesn't provide any price information
-	// getting price from direct pair in tomox
-	lastAveragePrice, err := l.GetMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, lendingToken)
-	if err != nil {
-		return lendTokenTOMOPrice, collateralPriceFromContract, err
-	}
-	if lastAveragePrice != nil && lastAveragePrice.Sign() > 0 {
-		log.Debug("Getting collateralPrice from direct pair in tomox", "lendToken", lendingToken.Hex(), "collateralToken", collateralToken.Hex(), "price", lastAveragePrice)
-		return lendTokenTOMOPrice, lastAveragePrice, nil
-	}
-
-	var collateralPrice, collateralTOMOPrice *big.Int
-	collateralTOMOBasePriceFromContract, collateralTOMOUpdatedBlock := lendingstate.GetCollateralPrice(statedb, collateralToken, common.HexToAddress(common.TomoNativeAddress))
-	collateralTOMOBasePriceUpdatedFromContract := collateralTOMOUpdatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
-	if collateralToken == common.HexToAddress(common.TomoNativeAddress) {
-		collateralTOMOPrice = common.BasePrice
-	} else if collateralTOMOBasePriceUpdatedFromContract {
-		// getting collateralToken price from contract first
-		// otherwise, getting from tomox collateralToken/TOMO
-		log.Debug("Getting collateralTOMOPrice from contract", "collateralPrice", collateralPrice)
-		collateralTOMOPrice = collateralTOMOBasePriceFromContract
-	} else {
-		collateralTOMOPrice, err = l.GetMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, common.HexToAddress(common.TomoNativeAddress))
-		if err != nil {
-			return collateralPrice, lendTokenTOMOPrice, err
-		}
-		log.Debug("Getting collateralTOMOPrice from tomox", "collateralTOMOPrice", collateralTOMOPrice, "err", err)
 	}
 	lendingTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, lendingToken)
 	log.Debug("GetTokenDecimal", "lendingToken", lendingToken, "err", err)
+	if err != nil || lendingTokenDecimal == nil || lendingTokenDecimal.Sign() == 0 {
+		return nil, nil, err
+	}
+	collateralTokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, collateralToken)
+	log.Debug("GetTokenDecimal", "collateralToken", collateralToken, "err", err)
+	if err != nil || collateralTokenDecimal == nil || collateralTokenDecimal.Sign() == 0 {
+		return nil, nil, err
+	}
+	var collateralPrice *big.Int
+	inverseCollateralPriceFromContract, updatedBlock := lendingstate.GetCollateralPrice(statedb, lendingToken, collateralToken)
+	inverseCollateralPriceUpdatedFromContract := updatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
+	if inverseCollateralPriceUpdatedFromContract {
+		log.Debug("Getting lending/collateral token price from contract", "price", inverseCollateralPriceFromContract)
+		collateralPrice = new(big.Int).Mul(lendingTokenDecimal, collateralTokenDecimal)
+		collateralPrice = new(big.Int).Div(collateralPrice, inverseCollateralPriceFromContract)
+		return lendTokenTOMOPrice, collateralPrice, nil
+	}
+	// if contract doesn't provide any price information
+	// getting price from pair in tomox
+	lastAveragePrice, err := l.GetMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, collateralToken, lendingToken)
+	if err != nil {
+		return nil, nil, err
+	}
+	if lastAveragePrice != nil && lastAveragePrice.Sign() > 0 {
+		log.Debug("Getting collateral/lending from direct pair in tomox", "lendToken", lendingToken.Hex(), "collateralToken", collateralToken.Hex(), "price", lastAveragePrice)
+		return lendTokenTOMOPrice, lastAveragePrice, nil
+	}
+	collateralTOMOPrice, err := l.GetTOMOBasePrices(header, chain, statedb, tradingStateDb, collateralToken)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -928,8 +916,48 @@ func (l *Lending) GetCollateralPrices(header *types.Header, chain consensus.Chai
 	collateralPrice = new(big.Int).Div(collateralPrice, lendTokenTOMOPrice)
 	log.Debug("GetCollateralPrices: Calculate collateral/LendToken price from collateral/TOMO, lendToken/TOMO", "collateralPrice", collateralPrice,
 		"collateralTOMOPrice", collateralTOMOPrice, "lendingTokenDecimal", lendingTokenDecimal, "lendTokenTOMOPrice", lendTokenTOMOPrice)
-
 	return lendTokenTOMOPrice, collateralPrice, nil
+}
+
+func (l *Lending) GetTOMOBasePrices(header *types.Header, chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, token common.Address) (*big.Int, error) {
+
+	tokenTOMOPriceFromContract, updatedBlock := lendingstate.GetCollateralPrice(statedb, token, common.HexToAddress(common.TomoNativeAddress))
+	tokenTOMOPriceUpdatedFromContract := updatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
+
+	if token == common.HexToAddress(common.TomoNativeAddress) {
+		return common.BasePrice, nil
+	} else if tokenTOMOPriceUpdatedFromContract {
+		// getting lendToken price from contract first
+		// otherwise, getting from tomox lendToken/TOMO
+		log.Debug("Getting token/TOMO price from contract", "price", tokenTOMOPriceFromContract)
+		return tokenTOMOPriceFromContract, nil
+	} else {
+		tomoTokenPriceFromContract, updatedBlock := lendingstate.GetCollateralPrice(statedb, common.HexToAddress(common.TomoNativeAddress), token)
+		tomoTokenPriceUpdatedFromContract := updatedBlock.Uint64()/chain.Config().Posv.Epoch == header.Number.Uint64()/chain.Config().Posv.Epoch
+		if tomoTokenPriceUpdatedFromContract && tomoTokenPriceFromContract != nil && tomoTokenPriceFromContract.Sign() > 0 {
+			// getting lendToken price from contract first
+			// otherwise, getting from tomox lendToken/TOMO
+			log.Debug("Getting TOMO/token from contract", "price", tomoTokenPriceFromContract)
+			tokenDecimal, err := l.tomox.GetTokenDecimal(chain, statedb, token)
+			log.Debug("GetTokenDecimal", "token", token.Hex(), "err", err)
+			if err != nil || tokenDecimal == nil || tokenDecimal.Sign() == 0 {
+				return nil, err
+			}
+			tokenTomoPrice := new(big.Int).Mul(common.BasePrice, tokenDecimal)
+			tokenTomoPrice = new(big.Int).Div(tokenTomoPrice, tomoTokenPriceFromContract)
+			return tokenTomoPrice, nil
+		}
+		tokenTOMOPrice, err := l.GetMediumTradePriceBeforeEpoch(chain, statedb, tradingStateDb, token, common.HexToAddress(common.TomoNativeAddress))
+		if err != nil {
+			return nil, err
+		}
+		if tokenTOMOPrice != nil && tokenTOMOPrice.Sign() > 0 {
+			log.Debug("Getting token/TOMO from tomox", "price", tokenTOMOPrice, "err", err)
+			return tokenTOMOPrice, nil
+		}
+	}
+	log.Debug("Can't getting tokenTOMOPrice ", "token", token.Hex())
+	return nil, nil
 }
 
 func (l *Lending) AutoTopUp(statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, lendingState *lendingstate.LendingStateDB, lendingBook, lendingTradeId common.Hash, currentPrice *big.Int) (*lendingstate.LendingTrade, error) {
@@ -964,10 +992,12 @@ func (l *Lending) ProcessTopUpLendingTrade(lendingStateDB *lendingstate.LendingS
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.CollateralToken, statedb)
 	if tokenBalance.Cmp(quantity) < 0 {
 		log.Debug("not enough balance deposit", "Quantity", quantity, "tokenBalance", tokenBalance)
-		return nil, true, nil
+		return fmt.Errorf("not enough balance deposit. lendingTradeId: %v , Quantity : %v , tokenBalance : %v", lendingTradeId.Hex(), quantity, tokenBalance), true, nil
 	}
-	tradingStateDb.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTrade.TradeId)
-
+	err := tradingStateDb.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTrade.TradeId)
+	if err != nil {
+		return err, true, nil
+	}
 	lendingstate.SubTokenBalance(lendingTrade.Borrower, quantity, lendingTrade.CollateralToken, statedb)
 	lendingstate.AddTokenBalance(common.HexToAddress(common.LendingLockAddress), quantity, lendingTrade.CollateralToken, statedb)
 	oldLockedAmount := lendingTrade.CollateralLockedAmount
@@ -1011,20 +1041,22 @@ func (l *Lending) ProcessRepayLendingTrade(time uint64, lendingStateDB *lendings
 		err = lendingStateDB.RemoveLiquidationTime(lendingBook, lendingTradeId, lendingTrade.LiquidationTime)
 		if err != nil {
 			log.Debug("ProcessRepay RemoveLiquidationTime", "err", err, "lendingHash", lendingTrade.Hash, "trade", lendingstate.ToJSON(lendingTrade))
+			return nil, err
 		}
 		err = tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
 		if err != nil {
 			log.Debug("ProcessRepay RemoveLiquidationPrice", "err", err)
+			return nil, err
 		}
-		lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
+		err = lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
 		if err != nil {
 			log.Debug("ProcessRepay CancelLendingTrade", "err", err)
+			return nil, err
 		}
 		lendingTrade.Status = lendingstate.TradeStatusClosed
 	}
 	return &lendingTrade, nil
 }
-
 
 func (l *Lending) ProcessRecallLendingTrade(lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId common.Hash, newLiquidationPrice *big.Int) (error, bool, *lendingstate.LendingTrade) {
 	log.Debug("ProcessRecallLendingTrade", "lendingTradeId", lendingTradeId.Hex(), "lendingBook", lendingBook.Hex(), "newLiquidationPrice", newLiquidationPrice)
@@ -1039,7 +1071,10 @@ func (l *Lending) ProcessRecallLendingTrade(lendingStateDB *lendingstate.Lending
 	newLockedAmount = new(big.Int).Div(newLockedAmount, newLiquidationPrice)
 	recallAmount := new(big.Int).Sub(lendingTrade.CollateralLockedAmount, newLockedAmount)
 	log.Debug("ProcessRecallLendingTrade", "newLockedAmount", newLockedAmount, "recallAmount", recallAmount, "oldLiquidationPrice", lendingTrade.LiquidationPrice, "newLiquidationPrice", newLiquidationPrice)
-	tradingStateDb.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTrade.TradeId)
+	err := tradingStateDb.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTrade.TradeId)
+	if err != nil {
+		return err, true, nil
+	}
 	lendingstate.AddTokenBalance(lendingTrade.Borrower, recallAmount, lendingTrade.CollateralToken, statedb)
 	lendingstate.SubTokenBalance(common.HexToAddress(common.LendingLockAddress), recallAmount, lendingTrade.CollateralToken, statedb)
 

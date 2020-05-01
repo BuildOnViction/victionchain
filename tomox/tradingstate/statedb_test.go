@@ -29,7 +29,7 @@ func TestEchangeStates(t *testing.T) {
 	t.SkipNow()
 	orderBook := common.StringToHash("BTC/TOMO")
 	price := big.NewInt(10000)
-	numberOrder := 200000
+	numberOrder := 20
 	orderItems := []OrderItem{}
 	relayers := []common.Hash{}
 	for i := 0; i < numberOrder; i++ {
@@ -97,6 +97,16 @@ func TestEchangeStates(t *testing.T) {
 			}
 		}
 	}
+	statedb.RemoveLiquidationPrice(orderBook, big.NewInt(2), orderBook, 2)
+	mapData := statedb.GetAllLowerLiquidationPriceData(orderBook, big.NewInt(2))
+	for price, lendingBooks := range mapData {
+		for lendingBook, tradeIds := range lendingBooks {
+			for _, tradeId := range tradeIds {
+				fmt.Println("price", price, "lendingBook", lendingBook.Hex(), "tradeId", tradeId.Hex())
+			}
+		}
+	}
+	fmt.Println("mapData", mapData)
 	liquidationPrice, liquidationData = statedb.GetHighestLiquidationPriceData(orderBook, big.NewInt(2))
 	for lendingBook, tradingIds := range liquidationData {
 		for _, tradingIdHash := range tradingIds {
