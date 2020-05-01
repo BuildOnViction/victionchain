@@ -212,7 +212,7 @@ contract RelayerRegistration {
 
     function transfer(address coinbase, address new_owner) public relayerOwnerOnly(coinbase) onlyActiveRelayer(coinbase) notForSale(coinbase) {
         require(new_owner != address(0) && new_owner != msg.sender);
-        require(RELAYER_LIST[new_owner]._owner != address(0), "Owner address must not be currently used as relayer-coinbase");
+        require(RELAYER_LIST[new_owner]._owner == address(0), "Owner address must not be currently used as relayer-coinbase");
 
         RELAYER_LIST[coinbase]._owner = new_owner;
         emit TransferEvent(RELAYER_LIST[coinbase]._owner,
