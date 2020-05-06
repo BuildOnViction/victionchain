@@ -363,8 +363,8 @@ func VerifyBalance(statedb *state.StateDB, tomoxStateDb *TradingStateDB, order *
 			inversePrice := tomoxStateDb.GetLastPrice(GetTradingOrderBookHash(common.HexToAddress(common.TomoNativeAddress), order.QuoteToken()))
 			log.Debug("TryGet inversePrice TOMO/QuoteToken", "inversePrice", inversePrice)
 			if inversePrice != nil && inversePrice.Sign() > 0 {
-				quotePrice = new(big.Int).Div(common.BasePrice, inversePrice)
-				quotePrice = new(big.Int).Mul(quotePrice, quoteDecimal)
+				quotePrice = new(big.Int).Mul(common.BasePrice, quoteDecimal)
+				quotePrice = new(big.Int).Div(quotePrice, inversePrice)
 				log.Debug("TryGet quotePrice after get inversePrice TOMO/QuoteToken", "quotePrice", quotePrice, "quoteTokenDecimal", quoteDecimal)
 			}
 		}
