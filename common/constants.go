@@ -126,6 +126,7 @@ var Blacklist = map[Address]bool{
 	HexToAddress("0xfe685f43acc62f92ab01a8da80d76455d39d3cb3"): true,
 	HexToAddress("0x3538a544021c07869c16b764424c5987409cba48"): true,
 	HexToAddress("0xe187cf86c2274b1f16e8225a7da9a75aba4f1f5f"): true,
+	HexToAddress("0x0000000000000000000000000000000000000011"): true,
 }
 var TIPTRC21Fee = big.NewInt(13523400)
 var LimitTimeFinality = uint64(30) // limit in 30 block
