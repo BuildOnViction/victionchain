@@ -527,7 +527,11 @@ func (pool *LendingPool) validateBalance(cloneStateDb *state.StateDB, cloneLendi
 	if err != nil {
 		return fmt.Errorf("validateOrder: failed to get lendingTokenDecimal. err: %v", err)
 	}
-	tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock())
+	author, err :=  pool.chain.Engine().Author(pool.chain.CurrentHeader())
+	if err!= nil {
+		return err
+	}
+	tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock(), author)
 	if err != nil {
 		return fmt.Errorf("validateLending: failed to get tradingStateDb. Error: %v", err)
 	}

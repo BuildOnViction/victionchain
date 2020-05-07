@@ -248,7 +248,8 @@ func (l *Lending) SyncDataToSDKNode(chain consensus.ChainContext, statedb *state
 		collateralPrice := common.BasePrice
 		collateralTokenDecimal := common.BasePrice
 		if updatedTakerLendingItem.Side == lendingstate.Borrowing && updatedTakerLendingItem.CollateralToken.String() != lendingstate.EmptyAddress {
-			tradingStateDb, _ := l.tomox.GetTradingState(block)
+			author, _ := chain.Engine().Author(block.Header())
+			tradingStateDb, _ := l.tomox.GetTradingState(block, author)
 			_, collateralPrice, err = l.GetCollateralPrices(block.Header(), chain, statedb, tradingStateDb, updatedTakerLendingItem.CollateralToken, updatedTakerLendingItem.LendingToken)
 			if err != nil || collateralPrice == nil || collateralPrice.Sign() <= 0 {
 				return err
@@ -687,8 +688,8 @@ func (l *Lending) UpdateLendingTrade(trades map[common.Hash]*lendingstate.Lendin
 	return nil
 }
 
-func (l *Lending) GetLendingState(block *types.Block) (*lendingstate.LendingStateDB, error) {
-	root, err := l.GetLendingStateRoot(block)
+func (l *Lending) GetLendingState(block *types.Block, author common.Address) (*lendingstate.LendingStateDB, error) {
+	root, err := l.GetLendingStateRoot(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -706,8 +707,8 @@ func (l *Lending) GetStateCache() lendingstate.Database {
 	return l.StateCache
 }
 
-func (l *Lending) HasLendingState(block *types.Block) bool {
-	root, err := l.GetLendingStateRoot(block)
+func (l *Lending) HasLendingState(block *types.Block, author common.Address) bool {
+	root, err := l.GetLendingStateRoot(block, author)
 	if err != nil {
 		return false
 	}
@@ -722,9 +723,10 @@ func (l *Lending) GetTriegc() *prque.Prque {
 	return l.Triegc
 }
 
-func (l *Lending) GetLendingStateRoot(block *types.Block) (common.Hash, error) {
+func (l *Lending) GetLendingStateRoot(block *types.Block, author common.Address) (common.Hash, error) {
 	for _, tx := range block.Transactions() {
-		if tx.To() != nil && tx.To().Hex() == common.TradingStateAddr {
+		from := *(tx.From())
+		if tx.To() != nil && tx.To().Hex() == common.TradingStateAddr && from.String() == author.String() {
 			if len(tx.Data()) >= 64 {
 				return common.BytesToHash(tx.Data()[32:]), nil
 			}

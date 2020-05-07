@@ -299,11 +299,12 @@ func (bc *BlockChain) loadLastState() error {
 		repair = true
 	} else {
 		engine, ok := bc.Engine().(*posv.Posv)
+		author, _ := bc.Engine().Author(currentBlock.Header())
 		if ok {
 			tradingService := engine.GetTomoXService()
 			lendingService := engine.GetLendingService()
 			if bc.Config().IsTIPTomoX(currentBlock.Number()) && tradingService != nil && lendingService != nil {
-				tradingRoot, err := tradingService.GetTradingStateRoot(currentBlock)
+				tradingRoot, err := tradingService.GetTradingStateRoot(currentBlock, author)
 				if err != nil {
 					repair = true
 				} else {
@@ -316,7 +317,7 @@ func (bc *BlockChain) loadLastState() error {
 				}
 
 				if !repair {
-					lendingRoot, err := lendingService.GetLendingStateRoot(currentBlock)
+					lendingRoot, err := lendingService.GetLendingStateRoot(currentBlock, author)
 					if err != nil {
 						repair = true
 					} else {
@@ -509,8 +510,9 @@ func (bc *BlockChain) OrderStateAt(block *types.Block) (*tradingstate.TradingSta
 	if ok {
 		tomoXService := engine.GetTomoXService()
 		if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+			author, _ := bc.Engine().Author(block.Header())
 			log.Debug("OrderStateAt", "blocknumber", block.Header().Number)
-			tomoxState, err := tomoXService.GetTradingState(block)
+			tomoxState, err := tomoXService.GetTradingState(block, author)
 			if err == nil {
 				return tomoxState, nil
 			} else {
@@ -528,8 +530,9 @@ func (bc *BlockChain) LendingStateAt(block *types.Block) (*lendingstate.LendingS
 	if ok {
 		lendingService := engine.GetLendingService()
 		if bc.Config().IsTIPTomoX(block.Number()) && lendingService != nil {
+			author, _ := bc.Engine().Author(block.Header())
 			log.Debug("LendingStateAt", "blocknumber", block.Header().Number)
-			lendingState, err := lendingService.GetLendingState(block)
+			lendingState, err := lendingService.GetLendingState(block, author)
 			if err == nil {
 				return lendingState, nil
 			}
@@ -589,12 +592,13 @@ func (bc *BlockChain) repair(head **types.Block) error {
 					tradingService := engine.GetTomoXService()
 					lendingService := engine.GetLendingService()
 					if bc.Config().IsTIPTomoX((*head).Number()) && tradingService != nil && lendingService != nil {
-						tradingRoot, err := tradingService.GetTradingStateRoot(*head)
+						author, _ := bc.Engine().Author((*head).Header())
+						tradingRoot, err := tradingService.GetTradingStateRoot(*head, author)
 						if err == nil {
 							_, err = tradingstate.New(tradingRoot, tradingService.GetStateCache())
 						}
 						if err == nil {
-							lendingRoot, err := lendingService.GetLendingStateRoot(*head)
+							lendingRoot, err := lendingService.GetLendingStateRoot(*head, author)
 							if err == nil {
 								_, err = lendingstate.New(lendingRoot, lendingService.GetStateCache())
 								if err == nil {
@@ -741,10 +745,11 @@ func (bc *BlockChain) HasFullState(block *types.Block) bool {
 	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 		tradingService := engine.GetTomoXService()
 		lendingService := engine.GetLendingService()
-		if tradingService != nil && !tradingService.HasTradingState(block) {
+		author, _ := bc.Engine().Author(block.Header())
+		if tradingService != nil && !tradingService.HasTradingState(block, author) {
 			return false
 		}
-		if lendingService != nil && !lendingService.HasLendingState(block) {
+		if lendingService != nil && !lendingService.HasLendingState(block, author) {
 			return false
 		}
 	}
@@ -889,8 +894,9 @@ func (bc *BlockChain) SaveData() {
 					log.Error("Failed to commit recent state trie", "err", err)
 				}
 				if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil {
+					author, _ := bc.Engine().Author(recent.Header())
 					if tradingService := engine.GetTomoXService(); tradingService != nil {
-						tradingRoot, _ := tradingService.GetTradingStateRoot(recent)
+						tradingRoot, _ := tradingService.GetTradingStateRoot(recent, author)
 						if !common.EmptyHash(tradingRoot) && tradingTriedb != nil {
 							if err := tradingTriedb.Commit(tradingRoot, true); err != nil {
 								log.Error("Failed to commit trading state recent state trie", "err", err)
@@ -898,7 +904,7 @@ func (bc *BlockChain) SaveData() {
 						}
 					}
 					if lendingService := engine.GetLendingService(); lendingService != nil {
-						lendingRoot, _ := lendingService.GetLendingStateRoot(recent)
+						lendingRoot, _ := lendingService.GetLendingStateRoot(recent, author)
 						if !common.EmptyHash(lendingRoot) && lendingTriedb != nil {
 							if err := lendingTriedb.Commit(lendingRoot, true); err != nil {
 								log.Error("Failed to commit lending state recent state trie", "err", err)
@@ -1244,11 +1250,13 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			oldTradingRoot := common.Hash{}
 			oldLendingRoot := common.Hash{}
 			if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
+				b := bc.GetBlock(header.Hash(), current-triesInMemory)
+				author, _ := bc.Engine().Author(b.Header())
 				if tradingService := engine.GetTomoXService(); tradingService != nil {
-					oldTradingRoot, _ = tradingService.GetTradingStateRoot(bc.GetBlock(header.Hash(), current-triesInMemory))
+					oldTradingRoot, _ = tradingService.GetTradingStateRoot(b, author)
 				}
 				if lendingService := engine.GetLendingService(); lendingService != nil {
-					oldLendingRoot, _ = lendingService.GetLendingStateRoot(bc.GetBlock(header.Hash(), current-triesInMemory))
+					oldLendingRoot, _ = lendingService.GetLendingStateRoot(b, author)
 				}
 			}
 			// Only write to disk if we exceeded our memory allowance *and* also have at
@@ -1524,6 +1532,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			bc.reportBlock(block, nil, err)
 			return i, events, coalescedLogs, err
 		}
+		parentAuthor, _ := bc.Engine().Author(parent.Header())
 		// clear the previous dry-run cache
 		var tradingState *tradingstate.TradingStateDB
 		var lendingState *lendingstate.LendingStateDB
@@ -1540,12 +1549,12 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					bc.reportBlock(block, nil, err)
 					return i, events, coalescedLogs, err
 				}
-				tradingState, err = tradingService.GetTradingState(parent)
+				tradingState, err = tradingService.GetTradingState(parent, parentAuthor)
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return i, events, coalescedLogs, err
 				}
-				lendingState, err = lendingService.GetLendingState(parent)
+				lendingState, err = lendingService.GetLendingState(parent, parentAuthor)
 				if err != nil {
 					bc.reportBlock(block, nil, err)
 					return i, events, coalescedLogs, err
@@ -1596,8 +1605,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				//check
 				if tradingState != nil && tradingService != nil {
 					gotRoot := tradingState.IntermediateRoot()
-					expectRoot, _ := tradingService.GetTradingStateRoot(block)
-					parentRoot, _ := tradingService.GetTradingStateRoot(parent)
+					expectRoot, _ := tradingService.GetTradingStateRoot(block, author)
+					parentRoot, _ := tradingService.GetTradingStateRoot(parent, parentAuthor)
 					if gotRoot != expectRoot {
 						err = fmt.Errorf("invalid tomox trading state merke trie got : %s , expect : %s ,parent : %s", gotRoot.Hex(), expectRoot.Hex(), parentRoot.Hex())
 						bc.reportBlock(block, nil, err)
@@ -1607,8 +1616,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 				if lendingState != nil && tradingState != nil {
 					gotRoot := lendingState.IntermediateRoot()
-					expectRoot, _ := lendingService.GetLendingStateRoot(block)
-					parentRoot, _ := lendingService.GetLendingStateRoot(parent)
+					expectRoot, _ := lendingService.GetLendingStateRoot(block, author)
+					parentRoot, _ := lendingService.GetLendingStateRoot(parent, parentAuthor)
 					if gotRoot != expectRoot {
 						err = fmt.Errorf("invalid lending state merke trie got : %s , expect : %s , parent :%s ", gotRoot.Hex(), expectRoot.Hex(), parentRoot.Hex())
 						bc.reportBlock(block, nil, err)
@@ -1815,6 +1824,8 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		bc.reportBlock(block, nil, err)
 		return nil, err
 	}
+	parentAuthor, _ := bc.Engine().Author(parent.Header())
+
 	var tradingState *tradingstate.TradingStateDB
 	var lendingState *lendingstate.LendingStateDB
 	var tradingService posv.TradingService
@@ -1825,12 +1836,12 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		lendingService = engine.GetLendingService()
 		if tradingService != nil && lendingService != nil {
 			isSDKNode = tradingService.IsSDKNode()
-			tradingState, err = tradingService.GetTradingState(parent)
+			tradingState, err = tradingService.GetTradingState(parent, parentAuthor)
 			if err != nil {
 				bc.reportBlock(block, nil, err)
 				return nil, err
 			}
-			lendingState, err = lendingService.GetLendingState(parent)
+			lendingState, err = lendingService.GetLendingState(parent, parentAuthor)
 			if err != nil {
 				bc.reportBlock(block, nil, err)
 				return nil, err
@@ -1884,8 +1895,8 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			}
 			if tradingState != nil && tradingService != nil {
 				gotRoot := tradingState.IntermediateRoot()
-				expectRoot, _ := tradingService.GetTradingStateRoot(block)
-				parentRoot, _ := tradingService.GetTradingStateRoot(parent)
+				expectRoot, _ := tradingService.GetTradingStateRoot(block, author)
+				parentRoot, _ := tradingService.GetTradingStateRoot(parent, parentAuthor)
 				if gotRoot != expectRoot {
 					err = fmt.Errorf("invalid tomox trading state merke trie got : %s , expect : %s ,parent : %s", gotRoot.Hex(), expectRoot.Hex(), parentRoot.Hex())
 					bc.reportBlock(block, nil, err)
@@ -1895,8 +1906,8 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			}
 			if lendingState != nil && tradingState != nil {
 				gotRoot := lendingState.IntermediateRoot()
-				expectRoot, _ := lendingService.GetLendingStateRoot(block)
-				parentRoot, _ := lendingService.GetLendingStateRoot(parent)
+				expectRoot, _ := lendingService.GetLendingStateRoot(block, author)
+				parentRoot, _ := lendingService.GetLendingStateRoot(parent, parentAuthor)
 				if gotRoot != expectRoot {
 					err = fmt.Errorf("invalid lending state merke trie got : %s , expect : %s , parent : %s ", gotRoot.Hex(), expectRoot.Hex(), parentRoot.Hex())
 					bc.reportBlock(block, nil, err)

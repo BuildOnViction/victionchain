@@ -64,9 +64,9 @@ type Masternode struct {
 }
 
 type TradingService interface {
-	GetTradingStateRoot(block *types.Block) (common.Hash, error)
-	GetTradingState(block *types.Block) (*tradingstate.TradingStateDB, error)
-	HasTradingState(block *types.Block) bool
+	GetTradingStateRoot(block *types.Block, author common.Address) (common.Hash, error)
+	GetTradingState(block *types.Block, author common.Address) (*tradingstate.TradingStateDB, error)
+	HasTradingState(block *types.Block, author common.Address) bool
 	GetStateCache() tradingstate.Database
 	GetTriegc() *prque.Prque
 	ApplyOrder(coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, tomoXstatedb *tradingstate.TradingStateDB, orderBook common.Hash, order *tradingstate.OrderItem) ([]map[string]string, []*tradingstate.OrderItem, error)
@@ -78,9 +78,9 @@ type TradingService interface {
 }
 
 type LendingService interface {
-	GetLendingStateRoot(block *types.Block) (common.Hash, error)
-	GetLendingState(block *types.Block) (*lendingstate.LendingStateDB, error)
-	HasLendingState(block *types.Block) bool
+	GetLendingStateRoot(block *types.Block, author common.Address) (common.Hash, error)
+	GetLendingState(block *types.Block, author common.Address) (*lendingstate.LendingStateDB, error)
+	HasLendingState(block *types.Block, author common.Address) bool
 	GetStateCache() lendingstate.Database
 	GetTriegc() *prque.Prque
 	ApplyOrder(header *types.Header, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]*lendingstate.LendingTrade, []*lendingstate.LendingItem, error)

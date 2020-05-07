@@ -454,17 +454,18 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	if err != nil {
 		return err
 	}
+	author, _ := self.chain.Engine().Author(parent.Header())
 	var tomoxState *tradingstate.TradingStateDB
 	var lendingState *lendingstate.LendingStateDB
 	if self.config.Posv != nil {
 		tomoX := self.eth.GetTomoX()
-		tomoxState, err = tomoX.GetTradingState(parent)
+		tomoxState, err = tomoX.GetTradingState(parent, author)
 		if err != nil {
 			log.Error("Failed to get tomox state ", "number", parent.Number(), "err", err)
 			return err
 		}
 		lending := self.eth.GetTomoXLending()
-		lendingState, err = lending.GetLendingState(parent)
+		lendingState, err = lending.GetLendingState(parent, author)
 		if err != nil {
 			log.Error("Failed to get lending state ", "number", parent.Number(), "err", err)
 			return err
