@@ -817,6 +817,11 @@ web3._extend({
             call: 'tomox_getLendingOrderById',
             params: 3
 		}),
+		new web3._extend.Method({
+            name: 'getLendingTradeById',
+            call: 'tomox_getLendingTradeById',
+            params: 3
+		}),
 	]
 });
 `
