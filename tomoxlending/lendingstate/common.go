@@ -232,3 +232,7 @@ func DecodeFinalizedResult(data []byte) (result FinalizedResult, err error) {
 	}
 	return result, nil
 }
+
+func GetLendingCacheKey(item *LendingItem) common.Hash {
+	return crypto.Keccak256Hash(item.UserAddress.Bytes(), item.Nonce.Bytes())
+}

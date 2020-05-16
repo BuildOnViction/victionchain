@@ -190,7 +190,7 @@ func (l *Lending) ProcessOrderPending(header *types.Header, coinbase common.Addr
 		// orderID has been updated
 		originalOrder.LendingId = order.LendingId
 		lendingItems = append(lendingItems, originalOrder)
-		matchingResults[order.Hash] = lendingstate.MatchingResult{
+		matchingResults[lendingstate.GetLendingCacheKey(order)] = lendingstate.MatchingResult{
 			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}

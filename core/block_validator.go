@@ -164,7 +164,7 @@ func (v *BlockValidator) ValidateLendingOrder(statedb *state.StateDB, lendingSta
 		if err != nil {
 			return err
 		}
-		lendingResult[l.Hash] = lendingstate.MatchingResult{
+		lendingResult[lendingstate.GetLendingCacheKey(l)] = lendingstate.MatchingResult{
 			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}
