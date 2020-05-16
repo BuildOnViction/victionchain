@@ -2632,13 +2632,13 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 				rejectedOrders []*lendingstate.LendingItem
 			)
 			// getTrades from cache
-			resultLendingTrades, ok := bc.resultLendingTrade.Get(crypto.Keccak256Hash(batch.TxHash.Bytes(), item.Hash.Bytes()))
+			resultLendingTrades, ok := bc.resultLendingTrade.Get(crypto.Keccak256Hash(batch.TxHash.Bytes(), lendingstate.GetLendingCacheKey(item).Bytes()))
 			if ok && resultLendingTrades != nil {
 				trades = resultLendingTrades.([]*lendingstate.LendingTrade)
 			}
 
 			// getRejectedOrder from cache
-			rejected, ok := bc.rejectedLendingItem.Get(crypto.Keccak256Hash(batch.TxHash.Bytes(), item.Hash.Bytes()))
+			rejected, ok := bc.rejectedLendingItem.Get(crypto.Keccak256Hash(batch.TxHash.Bytes(), lendingstate.GetLendingCacheKey(item).Bytes()))
 			if ok && rejected != nil {
 				rejectedOrders = rejected.([]*lendingstate.LendingItem)
 			}
