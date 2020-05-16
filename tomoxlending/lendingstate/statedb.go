@@ -226,12 +226,12 @@ func (self *LendingStateDB) GetLendingOrder(orderBook common.Hash, orderId commo
 	return stateOrderItem.data
 }
 
-func (self *LendingStateDB) GetLendingTrade(orderBook common.Hash, orderId common.Hash) LendingTrade {
+func (self *LendingStateDB) GetLendingTrade(orderBook common.Hash, tradeId common.Hash) LendingTrade {
 	stateObject := self.GetOrNewLendingExchangeObject(orderBook)
 	if stateObject == nil {
 		return EmptyLendingTrade
 	}
-	stateOrderItem := stateObject.getLendingTrade(self.db, orderId)
+	stateOrderItem := stateObject.getLendingTrade(self.db, tradeId)
 	if stateOrderItem == nil || stateOrderItem.empty() {
 		return EmptyLendingTrade
 	}
