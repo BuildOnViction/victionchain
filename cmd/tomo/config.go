@@ -162,6 +162,11 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 		common.TIPTRC21Fee = common.TIPTomoXTestnet
 	}
 
+	// Rewound
+	if rewound := ctx.GlobalInt(utils.RewoundFlag.Name); rewound != 0 {
+		common.Rewound = uint64(rewound)
+	}
+
 	// Check rollback hash exist.
 	if rollbackHash := ctx.GlobalString(utils.RollbackFlag.Name); rollbackHash != "" {
 		common.RollbackHash = common.HexToHash(rollbackHash)
