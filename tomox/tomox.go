@@ -255,7 +255,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 			Order: originalOrderValue,
 		}
 		txMatches = append(txMatches, txMatch)
-		matchingResults[order.Hash] = tradingstate.MatchingResult{
+		matchingResults[tradingstate.GetMatchingResultCacheKey(order)] = tradingstate.MatchingResult{
 			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}

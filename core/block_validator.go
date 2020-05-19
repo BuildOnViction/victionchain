@@ -129,7 +129,7 @@ func (v *BlockValidator) ValidateTradingOrder(statedb *state.StateDB, tomoxState
 		if err != nil {
 			return err
 		}
-		tradingResult[order.Hash] = tradingstate.MatchingResult{
+		tradingResult[tradingstate.GetMatchingResultCacheKey(order)] = tradingstate.MatchingResult{
 			Trades:  newTrades,
 			Rejects: newRejectedOrders,
 		}
