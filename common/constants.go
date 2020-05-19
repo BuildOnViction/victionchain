@@ -27,6 +27,7 @@ const (
 	LiquidateLendingTradeBlock = uint64(100)
 )
 
+var Rewound = uint64(0)
 var TIP2019Block = big.NewInt(1050000)
 var TIPSigning = big.NewInt(3000000)
 var TIPRandomize = big.NewInt(3464000)

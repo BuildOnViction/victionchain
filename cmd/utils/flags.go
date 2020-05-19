@@ -383,6 +383,11 @@ var (
 		Usage: "HTTP-RPC server listening interface",
 		Value: node.DefaultHTTPHost,
 	}
+	RewoundFlag = cli.IntFlag{
+		Name:  "rewound",
+		Usage: "Rewound blocks",
+		Value: 0,
+	}
 	RPCPortFlag = cli.IntFlag{
 		Name:  "rpcport",
 		Usage: "HTTP-RPC server listening port",

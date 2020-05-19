@@ -290,6 +290,9 @@ func (bc *BlockChain) loadLastState() error {
 		return bc.Reset()
 	}
 	repair := false
+	if common.Rewound != uint64(0) {
+		repair = true
+	}
 	// Make sure the state associated with the block is available
 	_, err := state.New(currentBlock.Root(), bc.stateCache)
 	if err != nil {
@@ -578,32 +581,36 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 func (bc *BlockChain) repair(head **types.Block) error {
 	for {
 		// Abort if we've rewound to a head block that does have associated state
-		if _, err := state.New((*head).Root(), bc.stateCache); err == nil {
-			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
-			engine, ok := bc.Engine().(*posv.Posv)
-			if ok {
-				tradingService := engine.GetTomoXService()
-				lendingService := engine.GetLendingService()
-				if bc.Config().IsTIPTomoX((*head).Number()) && tradingService != nil && lendingService != nil {
-					tradingRoot, err := tradingService.GetTradingStateRoot(*head)
-					if err == nil {
-						_, err = tradingstate.New(tradingRoot, tradingService.GetStateCache())
-					}
-					if err == nil {
-						lendingRoot, err := lendingService.GetLendingStateRoot(*head)
+		if (common.Rewound == uint64(0)) || ((*head).Number().Uint64() < common.Rewound) {
+			if _, err := state.New((*head).Root(), bc.stateCache); err == nil {
+				log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
+				engine, ok := bc.Engine().(*posv.Posv)
+				if ok {
+					tradingService := engine.GetTomoXService()
+					lendingService := engine.GetLendingService()
+					if bc.Config().IsTIPTomoX((*head).Number()) && tradingService != nil && lendingService != nil {
+						tradingRoot, err := tradingService.GetTradingStateRoot(*head)
 						if err == nil {
-							_, err = lendingstate.New(lendingRoot, lendingService.GetStateCache())
+							_, err = tradingstate.New(tradingRoot, tradingService.GetStateCache())
+						}
+						if err == nil {
+							lendingRoot, err := lendingService.GetLendingStateRoot(*head)
 							if err == nil {
-								return nil
+								_, err = lendingstate.New(lendingRoot, lendingService.GetStateCache())
+								if err == nil {
+									return nil
+								}
 							}
 						}
+					} else {
+						return nil
 					}
 				} else {
 					return nil
 				}
-			} else {
-				return nil
 			}
+		} else {
+			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
 		}
 		// Otherwise rewind one block and recheck state availability there
 		(*head) = bc.GetBlock((*head).ParentHash(), (*head).NumberU64()-1)
@@ -1993,7 +2000,6 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	case CanonStatTy:
 		log.Debug("Inserted new block from fetcher", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 			"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(block.ReceivedAt)))
-
 		coalescedLogs = append(coalescedLogs, result.logs...)
 		events = append(events, ChainEvent{block, block.Hash(), result.logs})
 
@@ -2625,6 +2631,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 	}()
 
 	for _, batch := range batches {
+
 		dirtyOrderCount := uint64(0)
 		for _, item := range batch.Data {
 			var (
@@ -2633,6 +2640,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			)
 			// getTrades from cache
 			resultLendingTrades, ok := bc.resultLendingTrade.Get(crypto.Keccak256Hash(batch.TxHash.Bytes(), lendingstate.GetLendingCacheKey(item).Bytes()))
+
 			if ok && resultLendingTrades != nil {
 				trades = resultLendingTrades.([]*lendingstate.LendingTrade)
 			}
@@ -2649,6 +2657,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			milliSecond := batch.Timestamp / 1e6
 			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
 			statedb, _ := bc.State()
+
 			if err := lendingService.SyncDataToSDKNode(bc, statedb.Copy(),  block, item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Crit("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 			}
