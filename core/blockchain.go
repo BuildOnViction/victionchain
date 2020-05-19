@@ -2536,7 +2536,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 				log.Crit("SDK node decode takerOrderInTx failed", "txDataMatch", txMatch)
 				return
 			}
-			cacheKey := crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), takerOrderInTx.Hash.Bytes())
+			cacheKey := crypto.Keccak256Hash(txMatchBatch.TxHash.Bytes(), tradingstate.GetMatchingResultCacheKey(takerOrderInTx).Bytes())
 			// getTrades from cache
 			resultTrades, ok := bc.resultTrade.Get(cacheKey)
 			if ok && resultTrades != nil {
