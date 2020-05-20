@@ -436,7 +436,8 @@ func TestVerifyBalance(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := VerifyBalance(statedb,
+			if err := VerifyBalance(true,
+				statedb,
 				lendingstatedb,
 				tt.fields.Type,
 				tt.fields.Side,

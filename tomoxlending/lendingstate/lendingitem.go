@@ -243,7 +243,7 @@ func (l *LendingItem) VerifyLendingSide() error {
 }
 
 func (l *LendingItem) VerifyCollateral(state *state.StateDB) error {
-	if l.CollateralToken.String() ==  EmptyAddress || l.CollateralToken.String() == l.LendingToken.String(){
+	if l.CollateralToken.String() == EmptyAddress || l.CollateralToken.String() == l.LendingToken.String() {
 		return fmt.Errorf("invalid collateral %s", l.CollateralToken.Hex())
 	}
 	validCollateral := false
@@ -346,7 +346,7 @@ func (l *LendingItem) VerifyLendingSignature() error {
 	return nil
 }
 
-func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
+func VerifyBalance(isTomoXLendingFork bool, statedb *state.StateDB, lendingStateDb *LendingStateDB,
 	orderType, side, status string, userAddress, relayer, lendingToken, collateralToken common.Address,
 	quantity, lendingTokenDecimal, collateralTokenDecimal, lendTokenTOMOPrice, collateralPrice *big.Int,
 	term uint64, lendingId uint64, lendingTradeId uint64) error {
@@ -427,7 +427,7 @@ func VerifyBalance(statedb *state.StateDB, lendingStateDb *LendingStateDB,
 			switch status {
 			case LendingStatusNew:
 				depositRate, _, _ := GetCollateralDetail(statedb, collateralToken)
-				settleBalanceResult, err := GetSettleBalance(Borrowing, lendTokenTOMOPrice, collateralPrice, depositRate, borrowingFeeRate, lendingToken, collateralToken, lendingTokenDecimal, collateralTokenDecimal, quantity)
+				settleBalanceResult, err := GetSettleBalance(isTomoXLendingFork, Borrowing, lendTokenTOMOPrice, collateralPrice, depositRate, borrowingFeeRate, lendingToken, collateralToken, lendingTokenDecimal, collateralTokenDecimal, quantity)
 				if err != nil {
 					return err
 				}

@@ -253,6 +253,10 @@ func (c *ChainConfig) IsTIPTomoX(num *big.Int) bool {
 	}
 }
 
+func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
+	return isForked(common.TIPTomoXLending, num)
+}
+
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.

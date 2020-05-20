@@ -477,7 +477,8 @@ func (l *Lending) getLendQuantity(
 	log.Debug("GetLendQuantity", "side", takerOrder.Side, "takerBalance", takerBalance, "makerBalance", makerBalance, "LendingToken", makerOrder.LendingToken, "CollateralToken", collateralToken, "quantity", quantity, "rejectMaker", rejectMaker)
 	if quantity.Sign() > 0 {
 		// Apply Match Order
-		settleBalanceResult, err := lendingstate.GetSettleBalance(takerOrder.Side, lendTokenTOMOPrice, collateralPrice, depositRate, borrowFee, lendToken, collateralToken, LendingTokenDecimal, collateralTokenDecimal, quantity)
+		isTomoXLendingFork := chain.Config().IsTIPTomoXLending(chain.CurrentHeader().Number)
+		settleBalanceResult, err := lendingstate.GetSettleBalance(isTomoXLendingFork, takerOrder.Side, lendTokenTOMOPrice, collateralPrice, depositRate, borrowFee, lendToken, collateralToken, LendingTokenDecimal, collateralTokenDecimal, quantity)
 		log.Debug("GetSettleBalance", "settleBalanceResult", settleBalanceResult, "err", err)
 		if err == nil {
 			err = DoSettleBalance(coinbase, takerOrder, makerOrder, settleBalanceResult, statedb)
