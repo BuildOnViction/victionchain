@@ -2654,7 +2654,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingTradeById(ctx context.Context,
 	if lendingService == nil {
 		return lendingItem, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return lendingItem, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return lendingItem, err
 	}
