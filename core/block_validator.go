@@ -120,7 +120,8 @@ func (v *BlockValidator) ValidateTradingOrder(statedb *state.StateDB, tomoxState
 		// verify orderItem
 		order, err := txMatch.DecodeOrder()
 		if err != nil {
-			return fmt.Errorf("transaction match is corrupted. Failed decode order. Error: %s ", err)
+			log.Error("transaction match is corrupted. Failed decode order", "err", err)
+			continue
 		}
 
 		log.Debug("process tx match", "order", order)
@@ -212,7 +213,8 @@ func ExtractTradingTransactions(transactions types.Transactions) ([]tradingstate
 		if tx.IsTradingTransaction() {
 			txMatchBatch, err := tradingstate.DecodeTxMatchesBatch(tx.Data())
 			if err != nil {
-				return []tradingstate.TxMatchBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode txMatchBatch. Error: %s", err)
+				log.Error("transaction match is corrupted. Failed to decode txMatchBatch", "err", err, "txHash", tx.Hash().Hex())
+				continue
 			}
 			txMatchBatch.TxHash = tx.Hash()
 			txMatchBatchData = append(txMatchBatchData, txMatchBatch)
@@ -227,7 +229,8 @@ func ExtractLendingTransactions(transactions types.Transactions) ([]lendingstate
 		if tx.IsLendingTransaction() {
 			txMatchBatch, err := lendingstate.DecodeTxLendingBatch(tx.Data())
 			if err != nil {
-				return []lendingstate.TxLendingBatch{}, fmt.Errorf("transaction match is corrupted. Failed to decode lendingTransaction. Error: %s", err)
+				log.Error("transaction match is corrupted. Failed to decode lendingTransaction", "err", err, "txHash", tx.Hash().Hex())
+				continue
 			}
 			txMatchBatch.TxHash = tx.Hash()
 			batchData = append(batchData, txMatchBatch)
@@ -241,7 +244,8 @@ func ExtractLendingFinalizedTradeTransactions(transactions types.Transactions) (
 		if tx.IsLendingFinalizedTradeTransaction() {
 			finalizedTrades, err := lendingstate.DecodeFinalizedResult(tx.Data())
 			if err != nil {
-				return lendingstate.FinalizedResult{}, fmt.Errorf("transaction is corrupted. Failed to decode LendingClosedTradeTransaction. Error: %s", err)
+				log.Error("transaction is corrupted. Failed to decode LendingClosedTradeTransaction", "err", err, "txHash", tx.Hash().Hex())
+				continue
 			}
 			finalizedTrades.TxHash = tx.Hash()
 			// each block has only one tx of this type

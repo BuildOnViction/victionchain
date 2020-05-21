@@ -2045,8 +2045,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestBid(ctx context.Context, baseToke
 	if tomoxService == nil {
 		return result, errors.New("TomoX service not found")
 	}
-
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return result, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return result, err
 	}
@@ -2067,8 +2070,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestAsk(ctx context.Context, baseToke
 	if tomoxService == nil {
 		return result, errors.New("TomoX service not found")
 	}
-
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return result, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return result, err
 	}
@@ -2088,7 +2094,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetBidTree(ctx context.Context, baseToke
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2108,7 +2118,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetPrice(ctx context.Context, baseToken,
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2128,7 +2142,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetLastEpochPrice(ctx context.Context, b
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2148,7 +2166,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetCurrentEpochPrice(ctx context.Context
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2168,7 +2190,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetAskTree(ctx context.Context, baseToke
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2188,7 +2214,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetOrderById(ctx context.Context, baseTo
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2209,7 +2239,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetTradingOrderBookInfo(ctx context.Cont
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2229,7 +2263,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetLiquidationPriceTree(ctx context.Cont
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2249,7 +2287,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetInvestingTree(ctx context.Context, le
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2269,7 +2311,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetBorrowingTree(ctx context.Context, le
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2289,7 +2335,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderBookInfo(tx context.Conte
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2309,7 +2359,11 @@ func (s *PublicTomoXTransactionPoolAPI) getLendingOrderTree(ctx context.Context,
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2329,7 +2383,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingTradeTree(ctx context.Context,
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2349,7 +2407,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetLiquidationTimeTree(ctx context.Conte
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2369,7 +2431,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderCount(ctx context.Context
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2387,7 +2453,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestInvesting(ctx context.Context, le
 	if lendingService == nil {
 		return result, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return result, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return result, err
 	}
@@ -2405,7 +2475,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetBestBorrowing(ctx context.Context, le
 	if lendingService == nil {
 		return result, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return result, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return result, err
 	}
@@ -2422,7 +2496,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetBids(ctx context.Context, baseToken, 
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2442,7 +2520,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetAsks(ctx context.Context, baseToken, 
 	if tomoxService == nil {
 		return nil, errors.New("TomoX service not found")
 	}
-	tomoxState, err := tomoxService.GetTradingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	tomoxState, err := tomoxService.GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2462,7 +2544,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetInvests(ctx context.Context, lendingT
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2482,7 +2568,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetBorrows(ctx context.Context, lendingT
 	if lendingService == nil {
 		return nil, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -2536,7 +2626,11 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderById(ctx context.Context,
 	if lendingService == nil {
 		return lendingItem, errors.New("TomoX Lending service not found")
 	}
-	lendingState, err := lendingService.GetLendingState(block)
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return lendingItem, err
+	}
+	lendingState, err := lendingService.GetLendingState(block, author)
 	if err != nil {
 		return lendingItem, err
 	}

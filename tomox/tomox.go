@@ -535,8 +535,8 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 	return nil
 }
 
-func (tomox *TomoX) GetTradingState(block *types.Block) (*tradingstate.TradingStateDB, error) {
-	root, err := tomox.GetTradingStateRoot(block)
+func (tomox *TomoX) GetTradingState(block *types.Block, author common.Address) (*tradingstate.TradingStateDB, error) {
+	root, err := tomox.GetTradingStateRoot(block, author)
 	if err != nil {
 		return nil, err
 	}
@@ -549,8 +549,8 @@ func (tomox *TomoX) GetTradingState(block *types.Block) (*tradingstate.TradingSt
 func (tomox *TomoX) GetStateCache() tradingstate.Database {
 	return tomox.StateCache
 }
-func (tomox *TomoX) HasTradingState(block *types.Block) bool {
-	root, err := tomox.GetTradingStateRoot(block)
+func (tomox *TomoX) HasTradingState(block *types.Block, author common.Address) bool {
+	root, err := tomox.GetTradingStateRoot(block, author)
 	if err != nil {
 		return false
 	}
@@ -564,9 +564,10 @@ func (tomox *TomoX) GetTriegc() *prque.Prque {
 	return tomox.Triegc
 }
 
-func (tomox *TomoX) GetTradingStateRoot(block *types.Block) (common.Hash, error) {
+func (tomox *TomoX) GetTradingStateRoot(block *types.Block, author common.Address) (common.Hash, error) {
 	for _, tx := range block.Transactions() {
-		if tx.To() != nil && tx.To().Hex() == common.TradingStateAddr {
+		from := *(tx.From())
+		if tx.To() != nil && tx.To().Hex() == common.TradingStateAddr && from.String() == author.String() {
 			if len(tx.Data()) >= 32 {
 				return common.BytesToHash(tx.Data()[:32]), nil
 			}
