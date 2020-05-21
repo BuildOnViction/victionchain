@@ -244,8 +244,8 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 				}
 				log.Debug("TryGet inversePrice TOMO/QuoteToken", "inversePrice", inversePrice)
 				if inversePrice != nil && inversePrice.Sign() > 0 {
-					quotePrice = new(big.Int).Div(common.BasePrice, inversePrice)
-					quotePrice = new(big.Int).Mul(quotePrice, quoteTokenDecimal)
+					quotePrice = new(big.Int).Mul(common.BasePrice, quoteTokenDecimal)
+					quotePrice = new(big.Int).Div(quotePrice, inversePrice)
 					log.Debug("TryGet quotePrice after get inversePrice TOMO/QuoteToken", "quotePrice", quotePrice, "quoteTokenDecimal", quoteTokenDecimal)
 				}
 			}
