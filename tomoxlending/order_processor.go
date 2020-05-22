@@ -1,6 +1,7 @@
 package tomoxlending
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -801,14 +802,16 @@ func (l *Lending) LiquidationExpiredTrade(header *types.Header, chain consensus.
 	repayAmount := new(big.Int).Mul(lendingTrade.CollateralLockedAmount, lendingTrade.LiquidationPrice)
 	repayAmount = new(big.Int).Div(repayAmount, collateralPrice)
 	_, liquidationRate, _ := lendingstate.GetCollateralDetail(statedb, lendingTrade.CollateralToken)
-	collateralAmount:=new(big.Int).Mul(repayAmount,big.NewInt(100))
-	collateralAmount=new(big.Int).Div(collateralAmount,liquidationRate)
+	collateralAmount := new(big.Int).Mul(repayAmount, big.NewInt(100))
+	collateralAmount = new(big.Int).Div(collateralAmount, liquidationRate)
 	totalCollateralAmount := lendingstate.CalculateTotalRepayValue(header.Time.Uint64(), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, collateralAmount)
-	interestAmount:=new(big.Int).Sub(totalCollateralAmount,collateralAmount)
-	repayAmount=new(big.Int).Add(repayAmount,interestAmount)
+	interestAmount := new(big.Int).Sub(totalCollateralAmount, collateralAmount)
+	repayAmount = new(big.Int).Add(repayAmount, interestAmount)
 
+	recallAmount := common.Big0
 	if repayAmount.Cmp(lendingTrade.CollateralLockedAmount) < 0 {
-		lendingstate.AddTokenBalance(lendingTrade.Borrower, new(big.Int).Sub(lendingTrade.CollateralLockedAmount, repayAmount), lendingTrade.CollateralToken, statedb)
+		recallAmount = new(big.Int).Sub(lendingTrade.CollateralLockedAmount, repayAmount)
+		lendingstate.AddTokenBalance(lendingTrade.Borrower, recallAmount, lendingTrade.CollateralToken, statedb)
 	} else {
 		repayAmount = lendingTrade.CollateralLockedAmount
 	}
@@ -830,8 +833,15 @@ func (l *Lending) LiquidationExpiredTrade(header *types.Header, chain consensus.
 		log.Debug("LiquidationTrade CancelLendingTrade", "err", err)
 		return nil, err
 	}
-	// update to save mongodb
-	lendingTrade.CollateralLockedAmount = repayAmount
+	// update liquidationData mongodb
+	liquidationData := lendingstate.LiquidationData{
+		RecallAmount:      recallAmount,
+		LiquidationAmount: repayAmount,
+		CollateralPrice:   collateralPrice,
+		Reason:            lendingstate.LiquidatedByTime,
+	}
+	extraData, _ := json.Marshal(liquidationData)
+	lendingTrade.ExtraData = string(extraData)
 	return &lendingTrade, nil
 }
 
@@ -1076,17 +1086,31 @@ func (l *Lending) ProcessRepayLendingTrade(header *types.Header, chain consensus
 	log.Debug("ProcessRepay", "totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "totalRepayValue", paymentBalance, "token", lendingTrade.LendingToken.Hex())
 
 	if tokenBalance.Cmp(paymentBalance) < 0 {
+		newLendingTrade := &lendingstate.LendingTrade{}
 		if lendingTrade.LiquidationTime > time {
 			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
 		}
 		var err error
 		if chain.Config().IsTIPTomoXLending(header.Number) {
-			_, err = l.LiquidationExpiredTrade(header, chain, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+			newLendingTrade, err = l.LiquidationExpiredTrade(header, chain, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
 		} else {
-			_, err = l.LiquidationTrade(lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+			newLendingTrade, err = l.LiquidationTrade(lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+			liquidationData := lendingstate.LiquidationData{
+				RecallAmount:      common.Big0,
+				LiquidationAmount: lendingTrade.CollateralLockedAmount,
+				CollateralPrice:   common.Big0,
+				Reason:            lendingstate.LiquidatedByTime,
+			}
+			extraData, _ := json.Marshal(liquidationData)
+			if newLendingTrade != nil {
+				newLendingTrade.ExtraData = string(extraData)
+			}
 		}
-		lendingTrade.Status = lendingstate.TradeStatusLiquidated
-		return &lendingTrade, err
+		if err != nil {
+			return nil, err
+		}
+		newLendingTrade.Status = lendingstate.TradeStatusLiquidated
+		return newLendingTrade, err
 	} else {
 		lendingstate.SubTokenBalance(lendingTrade.Borrower, paymentBalance, lendingTrade.LendingToken, statedb)
 		lendingstate.AddTokenBalance(lendingTrade.Investor, paymentBalance, lendingTrade.LendingToken, statedb)
