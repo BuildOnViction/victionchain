@@ -70,7 +70,7 @@ func (l *Lending) ApplyOrder(header *types.Header, coinbase common.Address, chai
 		trades = append(trades, newLendingTrade)
 		return trades, rejects, nil
 	case lendingstate.Repay:
-		lendingTrade, err := l.ProcessRepay(header.Time.Uint64(), lendingStateDB, statedb, tradingStateDb, lendingOrderBook, order)
+		lendingTrade, err := l.ProcessRepay(header, chain, lendingStateDB, statedb, tradingStateDb, lendingOrderBook, order)
 		if err != nil {
 			log.Debug("Can not process payment", "err", err)
 			rejects = append(rejects, order)
@@ -770,7 +770,7 @@ func (l *Lending) ProcessTopUp(lendingStateDB *lendingstate.LendingStateDB, stat
 }
 
 // return hash: hash of lendingTrade
-func (l *Lending) ProcessRepay(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, order *lendingstate.LendingItem) (trade *lendingstate.LendingTrade, err error) {
+func (l *Lending) ProcessRepay(header *types.Header, chain consensus.ChainContext, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, order *lendingstate.LendingItem) (trade *lendingstate.LendingTrade, err error) {
 	lendingTradeId := order.LendingTradeId
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
@@ -783,7 +783,56 @@ func (l *Lending) ProcessRepay(time uint64, lendingStateDB *lendingstate.Lending
 	if order.Relayer.String() != lendingTrade.BorrowingRelayer.String() {
 		return nil, fmt.Errorf("ProcessRepay: invalid relayerAddress . Got: %s . Expect: %s", order.Relayer.Hex(), lendingTrade.BorrowingRelayer.Hex())
 	}
-	return l.ProcessRepayLendingTrade(time, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+	return l.ProcessRepayLendingTrade(header, chain, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+}
+
+// return liquidatedTrade
+func (l *Lending) LiquidationExpiredTrade(header *types.Header, chain consensus.ChainContext, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (*lendingstate.LendingTrade, error) {
+	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
+	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
+	if lendingTrade.TradeId != lendingTradeId {
+		return nil, fmt.Errorf("Lending Trade Id not found : %d ", lendingTradeId)
+	}
+	_, collateralPrice, err := l.GetCollateralPrices(header, chain, statedb, tradingstateDB, lendingTrade.CollateralToken, lendingTrade.LendingToken)
+	if err != nil || collateralPrice == nil || collateralPrice.Sign() <= 0 {
+		return nil, err
+	}
+	// repayAmount= CollateralLockedAmount * LiquidationPrice / collateralPrice + interestAmount
+	repayAmount := new(big.Int).Mul(lendingTrade.CollateralLockedAmount, lendingTrade.LiquidationPrice)
+	repayAmount = new(big.Int).Div(repayAmount, collateralPrice)
+	_, liquidationRate, _ := lendingstate.GetCollateralDetail(statedb, lendingTrade.CollateralToken)
+	collateralAmount:=new(big.Int).Mul(repayAmount,big.NewInt(100))
+	collateralAmount=new(big.Int).Div(collateralAmount,liquidationRate)
+	totalCollateralAmount := lendingstate.CalculateTotalRepayValue(header.Time.Uint64(), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, collateralAmount)
+	interestAmount:=new(big.Int).Sub(totalCollateralAmount,collateralAmount)
+	repayAmount=new(big.Int).Add(repayAmount,interestAmount)
+
+	if repayAmount.Cmp(lendingTrade.CollateralLockedAmount) < 0 {
+		lendingstate.AddTokenBalance(lendingTrade.Borrower, new(big.Int).Sub(lendingTrade.CollateralLockedAmount, repayAmount), lendingTrade.CollateralToken, statedb)
+	} else {
+		repayAmount = lendingTrade.CollateralLockedAmount
+	}
+	lendingstate.SubTokenBalance(common.HexToAddress(common.LendingLockAddress), lendingTrade.CollateralLockedAmount, lendingTrade.CollateralToken, statedb)
+	lendingstate.AddTokenBalance(lendingTrade.Investor, repayAmount, lendingTrade.CollateralToken, statedb)
+
+	err = lendingStateDB.RemoveLiquidationTime(lendingBook, lendingTradeId, lendingTrade.LiquidationTime)
+	if err != nil {
+		log.Debug("LiquidationTrade RemoveLiquidationTime", "err", err)
+		return nil, err
+	}
+	err = tradingstateDB.RemoveLiquidationPrice(tradingstate.GetTradingOrderBookHash(lendingTrade.CollateralToken, lendingTrade.LendingToken), lendingTrade.LiquidationPrice, lendingBook, lendingTradeId)
+	if err != nil {
+		log.Debug("LiquidationTrade RemoveLiquidationPrice", "err", err)
+		return nil, err
+	}
+	err = lendingStateDB.CancelLendingTrade(lendingBook, lendingTradeId)
+	if err != nil {
+		log.Debug("LiquidationTrade CancelLendingTrade", "err", err)
+		return nil, err
+	}
+	// update to save mongodb
+	lendingTrade.CollateralLockedAmount = repayAmount
+	return &lendingTrade, nil
 }
 
 // return liquidatedTrade
@@ -1015,12 +1064,13 @@ func (l *Lending) ProcessTopUpLendingTrade(lendingStateDB *lendingstate.LendingS
 	return nil, false, &newLendingTrade
 }
 
-func (l *Lending) ProcessRepayLendingTrade(time uint64, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (trade *lendingstate.LendingTrade, err error) {
+func (l *Lending) ProcessRepayLendingTrade(header *types.Header, chain consensus.ChainContext, lendingStateDB *lendingstate.LendingStateDB, statedb *state.StateDB, tradingstateDB *tradingstate.TradingStateDB, lendingBook common.Hash, lendingTradeId uint64) (trade *lendingstate.LendingTrade, err error) {
 	lendingTradeIdHash := common.Uint64ToHash(lendingTradeId)
 	lendingTrade := lendingStateDB.GetLendingTrade(lendingBook, lendingTradeIdHash)
 	if lendingTrade == lendingstate.EmptyLendingTrade {
 		return nil, fmt.Errorf("ProcessRepayLendingTrade for emptyLendingTrade is not allowed. lendingTradeId: %v", lendingTradeId)
 	}
+	time := header.Time.Uint64()
 	tokenBalance := lendingstate.GetTokenBalance(lendingTrade.Borrower, lendingTrade.LendingToken, statedb)
 	paymentBalance := lendingstate.CalculateTotalRepayValue(time, lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, lendingTrade.Amount)
 	log.Debug("ProcessRepay", "totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "totalRepayValue", paymentBalance, "token", lendingTrade.LendingToken.Hex())
@@ -1029,7 +1079,12 @@ func (l *Lending) ProcessRepayLendingTrade(time uint64, lendingStateDB *lendings
 		if lendingTrade.LiquidationTime > time {
 			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
 		}
-		_, err := l.LiquidationTrade(lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+		var err error
+		if chain.Config().IsTIPTomoXLending(header.Number) {
+			_, err = l.LiquidationExpiredTrade(header, chain, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+		} else {
+			_, err = l.LiquidationTrade(lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
+		}
 		lendingTrade.Status = lendingstate.TradeStatusLiquidated
 		return &lendingTrade, err
 	} else {
