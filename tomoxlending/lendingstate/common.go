@@ -11,7 +11,7 @@ import (
 
 var (
 	EmptyAddress = "0x0000000000000000000000000000000000000000"
-	EmptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	EmptyRoot    = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 )
 
 var EmptyHash = common.Hash{}
@@ -38,6 +38,19 @@ type lendingObject struct {
 	LiquidationTimeRoot common.Hash
 	LendingItemRoot     common.Hash
 	LendingTradeRoot    common.Hash
+}
+
+// liquidation reasons
+const (
+	LiquidatedByTime  = uint64(0)
+	LiquidatedByPrice = uint64(1)
+)
+
+type LiquidationData struct {
+	RecallAmount      *big.Int
+	LiquidationAmount *big.Int
+	CollateralPrice   *big.Int
+	Reason            uint64
 }
 
 var (
@@ -214,7 +227,7 @@ func EncodeFinalizedResult(liquidatedTrades, autoRepayTrades, autoTopUpTrades, a
 	result := FinalizedResult{
 		Liquidated: liquidatedHashes,
 		AutoRepay:  autoRepayHashes,
-		AutoTopUp : autoTopUpHashes,
+		AutoTopUp:  autoTopUpHashes,
 		AutoRecall: autoRecallHashes,
 		Timestamp:  time.Now().UnixNano(),
 	}

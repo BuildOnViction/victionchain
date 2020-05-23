@@ -667,11 +667,12 @@ func (l *Lending) UpdateLendingTrade(trades map[common.Hash]*lendingstate.Lendin
 			trade.TxHash = txhash
 			trade.UpdatedAt = txTime
 
-			newAutoTopUpTrade := trades[trade.Hash]
-			trade.CollateralLockedAmount = newAutoTopUpTrade.CollateralLockedAmount
-			trade.Status = newAutoTopUpTrade.Status
-			trade.LiquidationPrice = newAutoTopUpTrade.LiquidationPrice
-
+			newTrade := trades[trade.Hash]
+			trade.CollateralLockedAmount = newTrade.CollateralLockedAmount
+			trade.Status = newTrade.Status
+			trade.LiquidationPrice = newTrade.LiquidationPrice
+			trade.ExtraData = newTrade.ExtraData
+			
 			if err := db.PutObject(trade.Hash, trade); err != nil {
 				return err
 			}
@@ -874,7 +875,7 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {
 			for _, tradingId := range tradingIds {
 				log.Debug("ProcessRepay", "lowestTime", lowestTime, "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId.Hex())
-				trade, err := l.ProcessRepayLendingTrade(time.Uint64(), lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
+				trade, err := l.ProcessRepayLendingTrade(header, chain, lendingState, statedb, tradingState, lendingBook, tradingId.Big().Uint64())
 				if err != nil {
 					log.Error("Fail when process payment ", "time", time, "lendingBook", lendingBook.Hex(), "tradingId", tradingId, "error", err)
 					return updatedTrades, liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades, err
@@ -923,6 +924,14 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 					}
 					if newTrade != nil && newTrade.Hash != (common.Hash{}) {
 						newTrade.Status = lendingstate.TradeStatusLiquidated
+						liquidationData := lendingstate.LiquidationData{
+							RecallAmount:      common.Big0,
+							LiquidationAmount: newTrade.CollateralLockedAmount,
+							CollateralPrice:   collateralPrice,
+							Reason:            lendingstate.LiquidatedByPrice,
+						}
+						extraData, _ := json.Marshal(liquidationData)
+						newTrade.ExtraData = string(extraData)
 						liquidatedTrades = append(liquidatedTrades, newTrade)
 						updatedTrades[newTrade.Hash] = newTrade
 					}
