@@ -1086,10 +1086,11 @@ func (l *Lending) ProcessRepayLendingTrade(header *types.Header, chain consensus
 	log.Debug("ProcessRepay", "totalInterest", new(big.Int).Sub(paymentBalance, lendingTrade.Amount), "totalRepayValue", paymentBalance, "token", lendingTrade.LendingToken.Hex())
 
 	if tokenBalance.Cmp(paymentBalance) < 0 {
-		newLendingTrade := &lendingstate.LendingTrade{}
 		if lendingTrade.LiquidationTime > time {
 			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
 		}
+		newLendingTrade := &lendingstate.LendingTrade{}
+		extraDataString := ""
 		var err error
 		if chain.Config().IsTIPTomoXLending(header.Number) {
 			newLendingTrade, err = l.LiquidationExpiredTrade(header, chain, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
@@ -1102,14 +1103,15 @@ func (l *Lending) ProcessRepayLendingTrade(header *types.Header, chain consensus
 				Reason:            lendingstate.LiquidatedByTime,
 			}
 			extraData, _ := json.Marshal(liquidationData)
-			if newLendingTrade != nil {
-				newLendingTrade.ExtraData = string(extraData)
-			}
+			extraDataString = string(extraData)
 		}
 		if err != nil {
 			return nil, err
 		}
-		newLendingTrade.Status = lendingstate.TradeStatusLiquidated
+		if newLendingTrade != nil {
+			newLendingTrade.ExtraData = extraDataString
+			newLendingTrade.Status = lendingstate.TradeStatusLiquidated
+		}
 		return newLendingTrade, err
 	} else {
 		lendingstate.SubTokenBalance(lendingTrade.Borrower, paymentBalance, lendingTrade.LendingToken, statedb)
