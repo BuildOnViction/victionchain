@@ -794,19 +794,23 @@ func (l *Lending) LiquidationExpiredTrade(header *types.Header, chain consensus.
 	if lendingTrade.TradeId != lendingTradeId {
 		return nil, fmt.Errorf("Lending Trade Id not found : %d ", lendingTradeId)
 	}
+	repayAmount := lendingTrade.CollateralLockedAmount
+
 	_, collateralPrice, err := l.GetCollateralPrices(header, chain, statedb, tradingstateDB, lendingTrade.CollateralToken, lendingTrade.LendingToken)
 	if err != nil || collateralPrice == nil || collateralPrice.Sign() <= 0 {
-		return nil, err
+		// if cannot get collateralPrice, liquidate all collateral
+		log.Error("LiquidationExpiredTrade: cannot get collateralPrice", "err", err)
+	} else {
+		// repayAmount= CollateralLockedAmount * LiquidationPrice / collateralPrice + interestAmount
+		repayAmount = new(big.Int).Mul(lendingTrade.CollateralLockedAmount, lendingTrade.LiquidationPrice)
+		repayAmount = new(big.Int).Div(repayAmount, collateralPrice)
+		_, liquidationRate, _ := lendingstate.GetCollateralDetail(statedb, lendingTrade.CollateralToken)
+		collateralAmount := new(big.Int).Mul(repayAmount, big.NewInt(100))
+		collateralAmount = new(big.Int).Div(collateralAmount, liquidationRate)
+		totalCollateralAmount := lendingstate.CalculateTotalRepayValue(header.Time.Uint64(), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, collateralAmount)
+		interestAmount := new(big.Int).Sub(totalCollateralAmount, collateralAmount)
+		repayAmount = new(big.Int).Add(repayAmount, interestAmount)
 	}
-	// repayAmount= CollateralLockedAmount * LiquidationPrice / collateralPrice + interestAmount
-	repayAmount := new(big.Int).Mul(lendingTrade.CollateralLockedAmount, lendingTrade.LiquidationPrice)
-	repayAmount = new(big.Int).Div(repayAmount, collateralPrice)
-	_, liquidationRate, _ := lendingstate.GetCollateralDetail(statedb, lendingTrade.CollateralToken)
-	collateralAmount := new(big.Int).Mul(repayAmount, big.NewInt(100))
-	collateralAmount = new(big.Int).Div(collateralAmount, liquidationRate)
-	totalCollateralAmount := lendingstate.CalculateTotalRepayValue(header.Time.Uint64(), lendingTrade.LiquidationTime, lendingTrade.Term, lendingTrade.Interest, collateralAmount)
-	interestAmount := new(big.Int).Sub(totalCollateralAmount, collateralAmount)
-	repayAmount = new(big.Int).Add(repayAmount, interestAmount)
 
 	recallAmount := common.Big0
 	if repayAmount.Cmp(lendingTrade.CollateralLockedAmount) < 0 {
@@ -1090,7 +1094,6 @@ func (l *Lending) ProcessRepayLendingTrade(header *types.Header, chain consensus
 			return nil, fmt.Errorf("Not enough balance need : %s , have : %s ", paymentBalance, tokenBalance)
 		}
 		newLendingTrade := &lendingstate.LendingTrade{}
-		extraDataString := ""
 		var err error
 		if chain.Config().IsTIPTomoXLending(header.Number) {
 			newLendingTrade, err = l.LiquidationExpiredTrade(header, chain, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
@@ -1103,13 +1106,14 @@ func (l *Lending) ProcessRepayLendingTrade(header *types.Header, chain consensus
 				Reason:            lendingstate.LiquidatedByTime,
 			}
 			extraData, _ := json.Marshal(liquidationData)
-			extraDataString = string(extraData)
+			if newLendingTrade != nil {
+				newLendingTrade.ExtraData = string(extraData)
+			}
 		}
 		if err != nil {
 			return nil, err
 		}
 		if newLendingTrade != nil {
-			newLendingTrade.ExtraData = extraDataString
 			newLendingTrade.Status = lendingstate.TradeStatusLiquidated
 		}
 		return newLendingTrade, err
