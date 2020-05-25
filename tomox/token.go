@@ -32,7 +32,7 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, contractA
 	}
 	backend := (*backends.SimulatedBackend)(nil)
 	fakeCaller := common.HexToAddress("0x0000000000000000000000000000000000000001")
-	msg := ethereum.CallMsg{To: &contractAddr, Data: input, From: fakeCaller}
+	msg := tomochain.CallMsg{To: &contractAddr, Data: input, From: fakeCaller}
 	result, err := backend.CallContractWithState(msg, chain, statedb)
 	if err != nil {
 		return nil, err
