@@ -53,7 +53,7 @@ If you'd like to experiment with smart contract creation and DApps, you might be
 In order to connect to one of the masternodes on the Testnet, just run the command below:
 
 ```bash
-$ tomo attach https://testnet.tomochain.com
+$ tomo attach https://rpc.testnet.tomochain.com
 ```
 
 This will open the JavaScript console and let you query the blockchain directly via RPC.
