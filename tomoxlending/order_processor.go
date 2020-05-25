@@ -161,7 +161,7 @@ func (l *Lending) processMarketOrder(header *types.Header, coinbase common.Addre
 			log.Debug("processMarketOrder ", "side", side, "bestInterest", bestInterest, "quantityToTrade", quantityToTrade, "volume", volume)
 		}
 	}
-	return trades, newRejects, nil
+	return trades, rejects, nil
 }
 
 // processLimitOrder : process the limit order, can change the quote

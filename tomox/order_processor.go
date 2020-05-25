@@ -141,7 +141,7 @@ func (tomox *TomoX) processMarketOrder(coinbase common.Address, chain consensus.
 			log.Debug("processMarketOrder ", "side", side, "bestPrice", bestPrice, "quantityToTrade", quantityToTrade, "volume", volume)
 		}
 	}
-	return trades, newRejects, nil
+	return trades, rejects, nil
 }
 
 // processLimitOrder : process the limit order, can change the quote
