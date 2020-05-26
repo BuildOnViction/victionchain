@@ -541,7 +541,7 @@ var (
 	TomoXDataDirFlag = DirectoryFlag{
 		Name:  "tomox.datadir",
 		Usage: "Data directory for the TomoX databases",
-		Value: DirectoryString{node.DefaultDataDir()},
+		Value: DirectoryString{DataDirFlag.Value.String() + "/tomox"},
 	}
 	TomoXDBEngineFlag = cli.StringFlag{
 		Name:  "tomox.dbengine",
@@ -1051,10 +1051,15 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 }
 
 func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
-	if len(cfg.DataDir) == 0 {
-		if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
-			cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
+	if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
+		cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
+	} else {
+		filesInTomoXDefaultDir, _ := WalkMatch(TomoXDataDirFlag.Value.String(), "*.ldb")
+		filesInNodeDefaultDir, _ := WalkMatch(node.DefaultDataDir(), "*.ldb")
+		if len(filesInTomoXDefaultDir) == 0 && len(filesInNodeDefaultDir) > 0 {
+			cfg.DataDir = node.DefaultDataDir()
 		} else {
+			// default tomox datadir: DATADIR/tomox
 			cfg.DataDir = TomoXDataDirFlag.Value.String()
 		}
 	}
@@ -1307,4 +1312,26 @@ func MigrateFlags(action func(ctx *cli.Context) error) func(*cli.Context) error 
 		}
 		return action(ctx)
 	}
+}
+
+func WalkMatch(root, pattern string) ([]string, error) {
+	var matches []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if matched, err := filepath.Match(pattern, filepath.Base(path)); err != nil {
+			return err
+		} else if matched {
+			matches = append(matches, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return matches, nil
 }
