@@ -206,7 +206,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	}
 
 	utils.SetShhConfig(ctx, stack, &cfg.Shh)
-	utils.SetTomoXConfig(ctx, &cfg.TomoX)
+	utils.SetTomoXConfig(ctx, &cfg.TomoX, cfg.Node.DataDir)
 	return stack, cfg
 }
 
