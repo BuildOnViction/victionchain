@@ -1050,17 +1050,19 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 	}
 }
 
-func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
+func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config, tomoDataDir string) {
 	if ctx.GlobalIsSet(TomoXDataDirFlag.Name) {
 		cfg.DataDir = ctx.GlobalString(TomoXDataDirFlag.Name)
 	} else {
-		filesInTomoXDefaultDir, _ := WalkMatch(TomoXDataDirFlag.Value.String(), "*.ldb")
+		// default tomox datadir: DATADIR/tomox
+		defaultTomoXDataDir := filepath.Join(tomoDataDir, "tomox")
+
+		filesInTomoXDefaultDir, _ := WalkMatch(defaultTomoXDataDir, "*.ldb")
 		filesInNodeDefaultDir, _ := WalkMatch(node.DefaultDataDir(), "*.ldb")
 		if len(filesInTomoXDefaultDir) == 0 && len(filesInNodeDefaultDir) > 0 {
 			cfg.DataDir = node.DefaultDataDir()
 		} else {
-			// default tomox datadir: DATADIR/tomox
-			cfg.DataDir = TomoXDataDirFlag.Value.String()
+			cfg.DataDir = defaultTomoXDataDir
 		}
 	}
 	log.Info("TomoX datadir", "path", cfg.DataDir)
