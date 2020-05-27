@@ -1063,6 +1063,7 @@ func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config) {
 			cfg.DataDir = TomoXDataDirFlag.Value.String()
 		}
 	}
+	log.Info("TomoX datadir", "path", cfg.DataDir)
 	if ctx.GlobalIsSet(TomoXDBEngineFlag.Name) {
 		cfg.DBEngine = ctx.GlobalString(TomoXDBEngineFlag.Name)
 	} else {
