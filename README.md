@@ -1,6 +1,7 @@
 # TomoChain
 
 [![Build Status](https://travis-ci.org/tomochain/tomochain.svg?branch=master)](https://travis-ci.org/tomochain/tomochain)
+[![codecov](https://codecov.io/gh/tomochain/tomochain/branch/master/graph/badge.svg)](https://codecov.io/gh/tomochain/tomochain)
 [![Join the chat at https://gitter.im/tomochain/tomochain](https://badges.gitter.im/tomochain/tomochain.svg)](https://gitter.im/tomochain/tomochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## About TomoChain
