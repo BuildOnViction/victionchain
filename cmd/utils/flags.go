@@ -541,7 +541,7 @@ var (
 	TomoXDataDirFlag = DirectoryFlag{
 		Name:  "tomox.datadir",
 		Usage: "Data directory for the TomoX databases",
-		Value: DirectoryString{DataDirFlag.Value.String() + "/tomox"},
+		Value: DirectoryString{filepath.Join(DataDirFlag.Value.String(), "tomox")},
 	}
 	TomoXDBEngineFlag = cli.StringFlag{
 		Name:  "tomox.dbengine",
@@ -1314,8 +1314,9 @@ func MigrateFlags(action func(ctx *cli.Context) error) func(*cli.Context) error 
 	}
 }
 
+// find all filenames match the given pattern in the given root directory
 func WalkMatch(root, pattern string) ([]string, error) {
-	var matches []string
+	matches := []string{}
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
