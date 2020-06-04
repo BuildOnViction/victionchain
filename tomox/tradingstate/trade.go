@@ -22,6 +22,8 @@ const (
 	TradeQuoteToken     = "qToken"
 	TradePrice          = "tradedPrice"
 	MakerOrderType      = "makerOrderType"
+	MakerFee            = "makerFee"
+	TakerFee            = "takerFee"
 )
 
 type Trade struct {

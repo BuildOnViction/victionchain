@@ -362,16 +362,8 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		tradeRecord.TakerExchange = updatedTakerOrder.ExchangeAddress
 		tradeRecord.MakerExchange = common.HexToAddress(trade[tradingstate.TradeMakerExchange])
 
-		// feeAmount: all fees are calculated in quoteToken
-		quoteTokenQuantity := big.NewInt(0).Mul(quantity, price)
-		quoteTokenQuantity = big.NewInt(0).Div(quoteTokenQuantity, common.BasePrice)
-		takerFee := big.NewInt(0).Mul(quoteTokenQuantity, tradingstate.GetExRelayerFee(updatedTakerOrder.ExchangeAddress, statedb))
-		takerFee = big.NewInt(0).Div(takerFee, common.TomoXBaseFee)
-		tradeRecord.TakeFee = takerFee
-
-		makerFee := big.NewInt(0).Mul(quoteTokenQuantity, tradingstate.GetExRelayerFee(common.HexToAddress(trade[tradingstate.TradeMakerExchange]), statedb))
-		makerFee = big.NewInt(0).Div(makerFee, common.TomoXBaseFee)
-		tradeRecord.MakeFee = makerFee
+		tradeRecord.MakeFee, _ = new(big.Int).SetString(trade[tradingstate.MakerFee], 10)
+		tradeRecord.TakeFee, _ = new(big.Int).SetString(trade[tradingstate.TakerFee], 10)
 
 		// set makerOrderType, takerOrderType
 		tradeRecord.MakerOrderType = trade[tradingstate.MakerOrderType]
