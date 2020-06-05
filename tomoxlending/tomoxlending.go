@@ -189,6 +189,7 @@ func (l *Lending) ProcessOrderPending(header *types.Header, coinbase common.Addr
 
 		// orderID has been updated
 		originalOrder.LendingId = order.LendingId
+		originalOrder.ExtraData = order.ExtraData
 		lendingItems = append(lendingItems, originalOrder)
 		matchingResults[lendingstate.GetLendingCacheKey(order)] = lendingstate.MatchingResult{
 			Trades:  newTrades,
@@ -243,30 +244,7 @@ func (l *Lending) SyncDataToSDKNode(chain consensus.ChainContext, statedb *state
 		updatedTakerLendingItem.Status = lendingstate.LendingStatusOpen
 	} else if takerLendingItem.Status == lendingstate.LendingStatusCancelled {
 		updatedTakerLendingItem.Status = lendingstate.LendingStatusCancelled
-		//update cancel fee
-		borrowFee := lendingstate.GetFee(statedb, updatedTakerLendingItem.Relayer)
-		collateralPrice := common.BasePrice
-		collateralTokenDecimal := common.BasePrice
-		if updatedTakerLendingItem.Side == lendingstate.Borrowing && updatedTakerLendingItem.CollateralToken.String() != lendingstate.EmptyAddress {
-			author, _ := chain.Engine().Author(block.Header())
-			tradingStateDb, _ := l.tomox.GetTradingState(block, author)
-			_, collateralPrice, err = l.GetCollateralPrices(block.Header(), chain, statedb, tradingStateDb, updatedTakerLendingItem.CollateralToken, updatedTakerLendingItem.LendingToken)
-			if err != nil || collateralPrice == nil || collateralPrice.Sign() <= 0 {
-				return err
-			}
-			collateralTokenDecimal, err = l.tomox.GetTokenDecimal(chain, statedb, updatedTakerLendingItem.CollateralToken)
-			if err != nil || collateralTokenDecimal == nil || collateralTokenDecimal.Sign() <= 0 {
-				log.Debug("Fail to get tokenDecimal ", "Token", updatedTakerLendingItem.LendingToken.String(), "err", err)
-				return err
-			}
-		}
-		tokenCancelFee := getCancelFee(collateralTokenDecimal, collateralPrice, borrowFee, updatedTakerLendingItem)
-		extraData, _ := json.Marshal(struct {
-			CancelFee string
-		}{
-			CancelFee: tokenCancelFee.Text(10),
-		})
-		updatedTakerLendingItem.ExtraData = string(extraData)
+		updatedTakerLendingItem.ExtraData = takerLendingItem.ExtraData
 	}
 	updatedTakerLendingItem.TxHash = txHash
 	if updatedTakerLendingItem.CreatedAt.IsZero() {

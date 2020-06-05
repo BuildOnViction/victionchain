@@ -1,6 +1,7 @@
 package tomox
 
 import (
+	"encoding/json"
 	"math/big"
 	"strconv"
 	"time"
@@ -662,6 +663,14 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 		tradingstate.AddTokenBalance(relayerOwner, tokenCancelFee, originOrder.QuoteToken, statedb)
 	default:
 	}
+	// update cancel fee
+	extraData, _ := json.Marshal(struct {
+		CancelFee string
+	}{
+		CancelFee: tokenCancelFee.Text(10),
+	})
+	order.ExtraData = string(extraData)
+
 	return nil, false
 }
 
