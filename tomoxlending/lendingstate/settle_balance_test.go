@@ -285,3 +285,109 @@ func TestGetSettleBalance(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateTotalRepayValue(t *testing.T) {
+	type CalculateTotalRepayValueArg struct {
+		finalizeTime    uint64
+		liquidationTime uint64
+		term            uint64
+		apr             uint64
+		tradeAmount     *big.Int
+	}
+	totalRepayOneYearRepayEarly, _ := new(big.Int).SetString("1050136986300000000000", 10)
+	totalRepayOneYearRepayInTime, _ := new(big.Int).SetString("1100000000000000000000", 10)
+	totalRepay30DaysRepayEarly, _ := new(big.Int).SetString("1004246575300000000000", 10)
+	totalRepay30DaysRepayInTime, _ := new(big.Int).SetString("1008219178000000000000", 10)
+
+	
+	tradeAmount := new(big.Int).Mul(big.NewInt(1000), common.BasePrice)
+	tests := []struct {
+		name string
+		args CalculateTotalRepayValueArg
+		want *big.Int
+	}{
+		// apr = 10% per year
+		// term 365 days
+		// repay after one day
+		// have to pay interest for a half of year
+		// I = APR *(T + T1) / 2 / 365 = 10% * (365 + 1) / 2 /365 = 5,01369863 %
+		// 1e8 is decimal of interestRate
+		// amount 1000 USDT
+		// -> totalRepay: 1000 * (1 + 5,01369863 %) = 1050,1369863
+		{
+			"term 365 days, 1000 USDT: early repay",
+			CalculateTotalRepayValueArg{
+				finalizeTime:       86400,
+				liquidationTime: common.OneYear,
+				term:            common.OneYear,
+				apr:             10 * 1e8,
+				tradeAmount: tradeAmount,
+			},
+			totalRepayOneYearRepayEarly,
+		},
+
+		// apr = 10% per year (365 days)
+		// term: 365 days
+		// repay at the end
+		// pay full interestRate 10%
+		// I = APR *(T + T1) / 2 / 365 = 10% * (365 + 365) / 2 /365 = 10 %
+		// 1e8 is decimal of interestRate
+		// -> totalRepay: 1000 * (1 + 10 %) = 1100
+		{
+			"term 365 days: repay at the end",
+			CalculateTotalRepayValueArg{
+				finalizeTime:       common.OneYear,
+				liquidationTime: common.OneYear,
+				term:            common.OneYear,
+				apr:             10 * 1e8,
+				tradeAmount: tradeAmount,
+			},
+			totalRepayOneYearRepayInTime,
+		},
+
+		// apr = 10% per year
+		// term 30 days
+		// repay after one day
+		// have to pay interest for a half of year
+		// I = APR *(T + T1) / 2 / 365 = 10% * (30 + 1) / 2 /365 = 0,424657534 %
+		// 1e8 is decimal of interestRate
+		// -> totalRepay: 1000 * (1 + 0,424657534 %) = 1004,2465753
+		{
+			"term 30 days: early repay",
+			CalculateTotalRepayValueArg{
+				finalizeTime:       86400,
+				liquidationTime: 30 * 86400,
+				term:            30 * 86400,
+				apr:             10 * 1e8,
+				tradeAmount: tradeAmount,
+			},
+			totalRepay30DaysRepayEarly,
+		},
+
+		// apr = 10% per year (365 days)
+		// term: 30 days
+		// repay at the end
+		// pay full interestRate 10%
+		// I = APR *(T + T1) / 2 / 365 = 10% * (30 + 30) / 2 /365 = 0,821917808 %
+		// 1e8 is decimal of interestRate
+		// -> totalRepay: 1000 * (1 + 0,821917808 %) = 1008,2191780
+		{
+			"term 30 days: repay at the end",
+			CalculateTotalRepayValueArg{
+				finalizeTime:       30 * 86400,
+				liquidationTime: 30 * 86400,
+				term:            30 * 86400,
+				apr:             10 * 1e8,
+				tradeAmount: tradeAmount,
+			},
+			totalRepay30DaysRepayInTime,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CalculateTotalRepayValue(tt.args.finalizeTime, tt.args.liquidationTime, tt.args.term, tt.args.apr, tt.args.tradeAmount); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CalculateTotalRepayValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

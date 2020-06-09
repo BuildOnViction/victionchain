@@ -112,7 +112,7 @@ func TestGetLendQuantity(t *testing.T) {
 		rejectMaker bool
 	}{
 		{
-			"taker: BORROW, takerBalance = 0, reject taker",
+			"taker: BORROW, takerBalance = 0, reject taker, makerBalance = 0",
 			GetLendQuantityArg{
 				lendingstate.Borrowing,
 				common.BasePrice,
@@ -120,6 +120,20 @@ func TestGetLendQuantity(t *testing.T) {
 				common.BasePrice,
 				common.Big0,
 				common.Big0,
+				lendQuantity,
+			},
+			common.Big0,
+			false,
+		},
+		{
+			"taker: BORROW, takerBalance = 0, reject taker,  makerBalance > 0",
+			GetLendQuantityArg{
+				lendingstate.Borrowing,
+				common.BasePrice,
+				depositRate,
+				common.BasePrice,
+				common.Big0,
+				lendQuantity,
 				lendQuantity,
 			},
 			common.Big0,
@@ -219,6 +233,20 @@ func TestGetLendQuantity(t *testing.T) {
 				common.BasePrice,
 				common.Big0,
 				new(big.Int).Div(collateralLocked, big.NewInt(2)),
+				lendQuantity,
+			},
+			common.Big0,
+			false,
+		},
+		{
+			"taker: INVEST, makerBalance is enough, takerBalance = 0 -> reject taker",
+			GetLendQuantityArg{
+				lendingstate.Investing,
+				common.BasePrice,
+				depositRate,
+				common.BasePrice,
+				common.Big0,
+				collateralLocked,
 				lendQuantity,
 			},
 			common.Big0,
