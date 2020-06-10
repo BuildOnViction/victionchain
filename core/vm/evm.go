@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -46,6 +47,10 @@ func run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
 			precompiles = PrecompiledContractsByzantium
 		}
 		if p := precompiles[*contract.CodeAddr]; p != nil {
+			switch p.(type) {
+			case *tomoxEpochPrice: p.(*tomoxEpochPrice).SetTradingState(evm.tomoxState)
+			case *tomoxLastPrice: p.(*tomoxLastPrice).SetTradingState(evm.tomoxState)
+			}
 			return RunPrecompiledContract(p, input, contract)
 		}
 	}
@@ -89,6 +94,9 @@ type EVM struct {
 	Context
 	// StateDB gives access to the underlying state
 	StateDB StateDB
+
+	tomoxState *tradingstate.TradingStateDB
+
 	// Depth is the current call stack
 	depth int
 
