@@ -2,6 +2,7 @@ package vm
 
 import (
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 )
@@ -21,9 +22,10 @@ func (t *tomoxLastPrice) RequiredGas(input []byte) uint64 {
 
 func (t *tomoxLastPrice) Run(input []byte) ([]byte, error) {
 	// input includes baseTokenAddress, quoteTokenAddress
-	if t.tomoxState != nil && len(input) == 40 {
-		base := common.BytesToAddress(input[:20])
-		quote := common.BytesToAddress(input[20:])
+	if t.tomoxState != nil && len(input) == 64 {
+		base := common.BytesToAddress(input[12:32]) // 20 bytes from 13-32
+		quote := common.BytesToAddress(input[44:]) // 20 bytes from 45-64
+		log.Debug("Run GetLastPrice", "result", t.tomoxState.GetLastPrice(tradingstate.GetTradingOrderBookHash(base, quote)))
 		return t.tomoxState.GetLastPrice(tradingstate.GetTradingOrderBookHash(base, quote)).Bytes(), nil
 	}
 	return []byte{}, nil
@@ -41,9 +43,10 @@ func (t *tomoxEpochPrice) RequiredGas(input []byte) uint64 {
 
 func (t *tomoxEpochPrice) Run(input []byte) ([]byte, error) {
 	// input includes baseTokenAddress, quoteTokenAddress
-	if t.tomoxState != nil && len(input) == 40 {
-		base := common.BytesToAddress(input[:20])
-		quote := common.BytesToAddress(input[20:])
+	if t.tomoxState != nil && len(input) == 64 {
+		base := common.BytesToAddress(input[12:32]) // 20 bytes from 13-32
+		quote := common.BytesToAddress(input[44:]) // 20 bytes from 45-64
+		log.Debug("Run GetEpochPrice","base", base.Hex(), "quote", quote.Hex(), "result", t.tomoxState.GetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(base, quote)))
 		return t.tomoxState.GetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(base, quote)).Bytes(), nil
 	}
 	return []byte{}, nil

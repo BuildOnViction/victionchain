@@ -1066,8 +1066,20 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
+	block, err := s.b.BlockByNumber(ctx, blockNr)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	author, err := s.b.GetEngine().Author(block.Header())
+	if err != nil {
+		return nil, 0, false, err
+	}
+	tomoxState, err := s.b.TomoxService().GetTradingState(block, author)
+	if err != nil {
+		return nil, 0, false, err
+	}
 	// Get a new instance of the EVM.
-	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, header, vmCfg)
+	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, tomoxState, header, vmCfg)
 	if err != nil {
 		return nil, 0, false, err
 	}
