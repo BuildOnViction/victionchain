@@ -18,6 +18,9 @@ package vm
 
 import (
 	"fmt"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"testing"
 
@@ -31,6 +34,13 @@ type precompiledTest struct {
 	name            string
 	noBenchmark     bool // Benchmark primarily the worst-cases
 }
+
+var (
+	BTCAddress        = "C2fa1BA90b15E3612E0067A0020192938784D9C5"
+	USDTAddress       = "45c25041b8e6CBD5c963E7943007187C3673C7c9"
+	BTCUSDTLastPrice  = big.NewInt(9000000000)
+	BTCUSDTEpochPrice = big.NewInt(8800000000)
+)
 
 // modexpTests are the test and benchmark data for the modexp precompiled contract.
 var modexpTests = []precompiledTest{
@@ -336,13 +346,50 @@ var bn256PairingTests = []precompiledTest{
 	},
 }
 
+var tomoxLastPriceTests = []precompiledTest{
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 32), common.Hex2BytesFixed(USDTAddress, 32)...)),
+		expected: common.Bytes2Hex(BTCUSDTLastPrice.Bytes()),
+		name:     "BTCUSDT",
+	},
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(USDTAddress, 32), common.Hex2BytesFixed(BTCAddress, 32)...)),
+		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		name:     "USDTBTC",
+	},
+}
+
+
+var tomoxEpochPriceTests = []precompiledTest{
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 32), common.Hex2BytesFixed(USDTAddress, 32)...)),
+		expected: common.Bytes2Hex(BTCUSDTEpochPrice.Bytes()),
+		name:     "BTCUSDT",
+	},
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(USDTAddress, 32), common.Hex2BytesFixed(BTCAddress, 32)...)),
+		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		name:     "USDTBTC",
+	},
+}
+
+
 func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
-	p := PrecompiledContractsByzantium[common.HexToAddress(addr)]
+	db, _ := ethdb.NewMemDatabase()
+	stateCache := tradingstate.NewDatabase(db)
+	tradingStateDB, _ := tradingstate.New(common.Hash{}, stateCache)
+	tradingStateDB.SetLastPrice(tradingstate.GetTradingOrderBookHash(common.HexToAddress(BTCAddress), common.HexToAddress(USDTAddress)), BTCUSDTLastPrice)
+	tradingStateDB.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(common.HexToAddress(BTCAddress), common.HexToAddress(USDTAddress)), BTCUSDTEpochPrice)
+
+	evm := NewEVM(Context{BlockNumber: common.Big1}, nil, tradingStateDB, &params.ChainConfig{ByzantiumBlock: common.Big0}, Config{})
+	contractAddr := common.HexToAddress(addr)
+	p := PrecompiledContractsByzantium[contractAddr]
 	in := common.Hex2Bytes(test.input)
 	contract := NewContract(AccountRef(common.HexToAddress("1337")),
 		nil, new(big.Int), p.RequiredGas(in))
+	contract.SetCallCode(&contractAddr, common.Hash{}, []byte{})
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.name, contract.Gas), func(t *testing.T) {
-		if res, err := RunPrecompiledContract(p, in, contract); err != nil {
+		if res, err := run(evm, contract, in); err != nil {
 			t.Error(err)
 		} else if common.Bytes2Hex(res) != test.expected {
 			t.Errorf("Expected %v, got %v", test.expected, common.Bytes2Hex(res))
@@ -472,6 +519,20 @@ func BenchmarkPrecompiledBn256ScalarMul(bench *testing.B) {
 func TestPrecompiledBn256Pairing(t *testing.T) {
 	for _, test := range bn256PairingTests {
 		testPrecompiled("08", test, t)
+	}
+}
+
+// Tests GetTomoXLastPrice
+func TestPrecompiledTomoXLastPrice(t *testing.T) {
+	for _, test := range tomoxLastPriceTests {
+		testPrecompiled("29", test, t)
+	}
+}
+
+// Tests GetTomoXEpochPrice
+func TestPrecompiledTomoXEpochPrice(t *testing.T) {
+	for _, test := range tomoxEpochPriceTests {
+		testPrecompiled("2A", test, t)
 	}
 }
 
