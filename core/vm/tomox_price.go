@@ -26,8 +26,8 @@ func (t *tomoxLastPrice) Run(input []byte) ([]byte, error) {
 		base := common.BytesToAddress(input[12:32]) // 20 bytes from 13-32
 		quote := common.BytesToAddress(input[44:]) // 20 bytes from 45-64
 		price := t.tomoxState.GetLastPrice(tradingstate.GetTradingOrderBookHash(base, quote))
-		log.Debug("Run GetLastPrice", "base", base.Hex(), "quote", quote.Hex(), "price",price)
-		return price.Bytes(), nil
+		log.Debug("Run GetLastPrice", "base", base.Hex(), "quote", quote.Hex(), "price", price)
+		return common.LeftPadBytes(price.Bytes(), 32), nil
 	}
 	return []byte{}, nil
 }
@@ -49,7 +49,7 @@ func (t *tomoxEpochPrice) Run(input []byte) ([]byte, error) {
 		quote := common.BytesToAddress(input[44:]) // 20 bytes from 45-64
 		price := t.tomoxState.GetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(base, quote))
 		log.Debug("Run GetEpochPrice","base", base.Hex(), "quote", quote.Hex(), "price", price)
-		return price.Bytes(), nil
+		return common.LeftPadBytes(price.Bytes(), 32), nil
 	}
 	return []byte{}, nil
 }
