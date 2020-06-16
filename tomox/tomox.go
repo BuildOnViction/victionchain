@@ -1,7 +1,6 @@
 package tomox
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -246,6 +245,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 
 		// orderID has been updated
 		originalOrder.OrderID = order.OrderID
+		originalOrder.ExtraData = order.ExtraData
 		originalOrderValue, err := tradingstate.EncodeBytesItem(originalOrder)
 		if err != nil {
 			log.Error("Can't encode", "order", originalOrder, "err", err)
@@ -308,18 +308,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		updatedTakerOrder.Status = tradingstate.OrderStatusOpen
 	} else {
 		updatedTakerOrder.Status = tradingstate.OrderStatusCancelled
-		// update cancel fee
-		tokenCancelFee := common.Big0
-		if baseTokenDecimal, ok := tomox.tokenDecimalCache.Get(updatedTakerOrder.BaseToken); ok {
-			feeRate := tradingstate.GetExRelayerFee(updatedTakerOrder.ExchangeAddress, statedb)
-			tokenCancelFee = getCancelFee(baseTokenDecimal.(*big.Int), feeRate, updatedTakerOrder)
-		}
-		extraData, _ := json.Marshal(struct {
-			CancelFee string
-		}{
-			CancelFee: tokenCancelFee.Text(10),
-		})
-		updatedTakerOrder.ExtraData = string(extraData)
+		updatedTakerOrder.ExtraData = takerOrderInTx.ExtraData
 	}
 	updatedTakerOrder.TxHash = txHash
 	if updatedTakerOrder.CreatedAt.IsZero() {

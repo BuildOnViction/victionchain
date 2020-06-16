@@ -746,6 +746,12 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 		lendingstate.AddTokenBalance(relayerOwner, tokenCancelFee, originOrder.CollateralToken, statedb)
 	default:
 	}
+	extraData, _ := json.Marshal(struct {
+		CancelFee string
+	}{
+		CancelFee: tokenCancelFee.Text(10),
+	})
+	order.ExtraData = string(extraData)
 
 	return nil, false
 }
