@@ -48,8 +48,10 @@ func run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
 		}
 		if p := precompiles[*contract.CodeAddr]; p != nil {
 			switch p.(type) {
-			case *tomoxEpochPrice: p.(*tomoxEpochPrice).SetTradingState(evm.tomoxState)
-			case *tomoxLastPrice: p.(*tomoxLastPrice).SetTradingState(evm.tomoxState)
+			case *tomoxEpochPrice:
+				p.(*tomoxEpochPrice).SetTradingState(evm.tradingStateDB)
+			case *tomoxLastPrice:
+				p.(*tomoxLastPrice).SetTradingState(evm.tradingStateDB)
 			}
 			return RunPrecompiledContract(p, input, contract)
 		}
@@ -95,7 +97,7 @@ type EVM struct {
 	// StateDB gives access to the underlying state
 	StateDB StateDB
 
-	tomoxState *tradingstate.TradingStateDB
+	tradingStateDB *tradingstate.TradingStateDB
 
 	// Depth is the current call stack
 	depth int
@@ -121,14 +123,14 @@ type EVM struct {
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
-func NewEVM(ctx Context, statedb StateDB, tomoxState *tradingstate.TradingStateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
+func NewEVM(ctx Context, statedb StateDB, tradingStateDB *tradingstate.TradingStateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
 	evm := &EVM{
-		Context:     ctx,
-		StateDB:     statedb,
-		tomoxState: tomoxState,
-		vmConfig:    vmConfig,
-		chainConfig: chainConfig,
-		chainRules:  chainConfig.Rules(ctx.BlockNumber),
+		Context:        ctx,
+		StateDB:        statedb,
+		tradingStateDB: tradingStateDB,
+		vmConfig:       vmConfig,
+		chainConfig:    chainConfig,
+		chainRules:     chainConfig.Rules(ctx.BlockNumber),
 	}
 
 	evm.interpreter = NewInterpreter(evm, vmConfig)

@@ -383,6 +383,43 @@ var tomoxEpochPriceTests = []precompiledTest{
 	},
 }
 
+var tomoxLastPriceWithEmptyTradingStateTests = []precompiledTest{
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 32), common.Hex2BytesFixed(USDTAddress, 32)...)),
+		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		name:     "BTCUSDT",
+	},
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 30), common.Hex2BytesFixed(USDTAddress, 30)...)),
+		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		name:     "BTCUSDT_invalid_input_length",
+	},
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(USDTAddress, 32), common.Hex2BytesFixed(BTCAddress, 32)...)),
+		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		name:     "USDTBTC",
+	},
+}
+
+
+var tomoxEpochPriceWithEmptyTradingStateTests = []precompiledTest{
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 32), common.Hex2BytesFixed(USDTAddress, 32)...)),
+		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		name:     "BTCUSDT",
+	},
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 30), common.Hex2BytesFixed(USDTAddress, 30)...)),
+		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		name:     "BTCUSDT_invalid_input_length",
+	},
+	{
+		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(USDTAddress, 32), common.Hex2BytesFixed(BTCAddress, 32)...)),
+		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		name:     "USDTBTC",
+	},
+}
+
 
 func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 	db, _ := ethdb.NewMemDatabase()
@@ -399,6 +436,24 @@ func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 		nil, new(big.Int), p.RequiredGas(in))
 	contract.SetCallCode(&contractAddr, common.Hash{}, []byte{})
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.name, contract.Gas), func(t *testing.T) {
+		if res, err := run(evm, contract, in); err != nil {
+			t.Error(err)
+		} else if common.Bytes2Hex(res) != test.expected {
+			t.Errorf("Expected %v, got %v", test.expected, common.Bytes2Hex(res))
+		}
+	})
+}
+
+func testPrecompiledWithEmptyTradingState(addr string, test precompiledTest, t *testing.T) {
+	evm := NewEVM(Context{BlockNumber: common.Big1}, nil, nil, &params.ChainConfig{ByzantiumBlock: common.Big0}, Config{})
+
+	contractAddr := common.HexToAddress(addr)
+	p := PrecompiledContractsByzantium[contractAddr]
+	in := common.Hex2Bytes(test.input)
+	contract := NewContract(AccountRef(common.HexToAddress("1337")),
+		nil, new(big.Int), p.RequiredGas(in))
+	contract.SetCallCode(&contractAddr, common.Hash{}, []byte{})
+	t.Run(fmt.Sprintf("testPrecompiledWithEmptyTradingState-%s-Gas=%d", test.name, contract.Gas), func(t *testing.T) {
 		if res, err := run(evm, contract, in); err != nil {
 			t.Error(err)
 		} else if common.Bytes2Hex(res) != test.expected {
@@ -543,6 +598,20 @@ func TestPrecompiledTomoXLastPrice(t *testing.T) {
 func TestPrecompiledTomoXEpochPrice(t *testing.T) {
 	for _, test := range tomoxEpochPriceTests {
 		testPrecompiled("2A", test, t)
+	}
+}
+
+// Tests GetTomoXLastPrice
+func TestPrecompiledTomoXLastPriceWithEmptyTradingState(t *testing.T) {
+	for _, test := range tomoxLastPriceWithEmptyTradingStateTests {
+		testPrecompiledWithEmptyTradingState("29", test, t)
+	}
+}
+
+// Tests GetTomoXEpochPrice
+func TestPrecompiledTomoXEpochPriceWithEmptyTradingState(t *testing.T) {
+	for _, test := range tomoxEpochPriceWithEmptyTradingStateTests {
+		testPrecompiledWithEmptyTradingState("2A", test, t)
 	}
 }
 
