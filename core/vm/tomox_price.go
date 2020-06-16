@@ -6,7 +6,7 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 )
-
+const TomoXPriceNumberOfBytesReturn = 32
 // tomoxPrice implements a pre-compile contract to get token price in tomox
 
 type tomoxLastPrice struct {
@@ -28,10 +28,10 @@ func (t *tomoxLastPrice) Run(input []byte) ([]byte, error) {
 		price := t.tradingStateDB.GetLastPrice(tradingstate.GetTradingOrderBookHash(base, quote))
 		if price != nil {
 			log.Debug("Run GetLastPrice", "base", base.Hex(), "quote", quote.Hex(), "price", price)
-			return price.Bytes(), nil
+			return common.LeftPadBytes(price.Bytes(), TomoXPriceNumberOfBytesReturn), nil
 		}
 	}
-	return []byte{}, nil
+	return common.LeftPadBytes([]byte{}, TomoXPriceNumberOfBytesReturn), nil
 }
 
 func (t *tomoxLastPrice) SetTradingState(tradingStateDB *tradingstate.TradingStateDB) {
@@ -54,10 +54,10 @@ func (t *tomoxEpochPrice) Run(input []byte) ([]byte, error) {
 		price := t.tradingStateDB.GetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(base, quote))
 		if price != nil {
 			log.Debug("Run GetEpochPrice", "base", base.Hex(), "quote", quote.Hex(), "price", price)
-			return price.Bytes(), nil
+			return common.LeftPadBytes(price.Bytes(), TomoXPriceNumberOfBytesReturn), nil
 		}
 	}
-	return []byte{}, nil
+	return common.LeftPadBytes([]byte{}, TomoXPriceNumberOfBytesReturn), nil
 }
 
 func (t *tomoxEpochPrice) SetTradingState(tradingStateDB *tradingstate.TradingStateDB) {

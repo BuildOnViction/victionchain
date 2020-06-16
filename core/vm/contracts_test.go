@@ -349,17 +349,17 @@ var bn256PairingTests = []precompiledTest{
 var tomoxLastPriceTests = []precompiledTest{
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 32), common.Hex2BytesFixed(USDTAddress, 32)...)),
-		expected: common.Bytes2Hex(BTCUSDTLastPrice.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(BTCUSDTLastPrice.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "BTCUSDT",
 	},
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 30), common.Hex2BytesFixed(USDTAddress, 30)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "BTCUSDT_invalid_input_length",
 	},
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(USDTAddress, 32), common.Hex2BytesFixed(BTCAddress, 32)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "USDTBTC",
 	},
 }
@@ -368,17 +368,17 @@ var tomoxLastPriceTests = []precompiledTest{
 var tomoxEpochPriceTests = []precompiledTest{
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 32), common.Hex2BytesFixed(USDTAddress, 32)...)),
-		expected: common.Bytes2Hex(BTCUSDTEpochPrice.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(BTCUSDTEpochPrice.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "BTCUSDT",
 	},
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 30), common.Hex2BytesFixed(USDTAddress, 30)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "BTCUSDT_invalid_input_length",
 	},
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(USDTAddress, 32), common.Hex2BytesFixed(BTCAddress, 32)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "USDTBTC",
 	},
 }
@@ -386,17 +386,17 @@ var tomoxEpochPriceTests = []precompiledTest{
 var tomoxLastPriceWithEmptyTradingStateTests = []precompiledTest{
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 32), common.Hex2BytesFixed(USDTAddress, 32)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "BTCUSDT",
 	},
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 30), common.Hex2BytesFixed(USDTAddress, 30)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "BTCUSDT_invalid_input_length",
 	},
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(USDTAddress, 32), common.Hex2BytesFixed(BTCAddress, 32)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "USDTBTC",
 	},
 }
@@ -405,17 +405,17 @@ var tomoxLastPriceWithEmptyTradingStateTests = []precompiledTest{
 var tomoxEpochPriceWithEmptyTradingStateTests = []precompiledTest{
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 32), common.Hex2BytesFixed(USDTAddress, 32)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "BTCUSDT",
 	},
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(BTCAddress, 30), common.Hex2BytesFixed(USDTAddress, 30)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "BTCUSDT_invalid_input_length",
 	},
 	{
 		input:    common.Bytes2Hex(append(common.Hex2BytesFixed(USDTAddress, 32), common.Hex2BytesFixed(BTCAddress, 32)...)),
-		expected: common.Bytes2Hex(common.Big0.Bytes()),
+		expected: common.Bytes2Hex(common.LeftPadBytes(common.Big0.Bytes(), TomoXPriceNumberOfBytesReturn)),
 		name:     "USDTBTC",
 	},
 }
