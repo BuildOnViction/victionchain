@@ -2658,11 +2658,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 				rejectedOrders = rejected.([]*lendingstate.LendingItem)
 			}
 
-			// the smallest time unit in mongodb is millisecond
-			// hence, we should update time in millisecond
-			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
-			milliSecond := batch.Timestamp / 1e6
-			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
+			txMatchTime := time.Unix(block.Header().Time.Int64(), 0).UTC()
 			statedb, _ := bc.State()
 
 			if err := lendingService.SyncDataToSDKNode(bc, statedb.Copy(),  block, item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
