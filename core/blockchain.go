@@ -2565,12 +2565,8 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			if ok && rejected != nil {
 				rejectedOrders = rejected.([]*tradingstate.OrderItem)
 			}
-
-			// the smallest time unit in mongodb is millisecond
-			// hence, we should update time in millisecond
-			// old txData has been attached with nanosecond, to avoid hard fork, convert nanosecond to millisecond here
-			milliSecond := txMatchBatch.Timestamp / 1e6
-			txMatchTime := time.Unix(0, milliSecond*1e6).UTC()
+			
+			txMatchTime := time.Unix(block.Header().Time.Int64(), 0).UTC()
 			if err := tomoXService.SyncDataToSDKNode(takerOrderInTx, txMatchBatch.TxHash, txMatchTime, currentState, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Crit("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 				return
