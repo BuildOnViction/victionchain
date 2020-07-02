@@ -25,12 +25,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/karalabe/hid"
 	ethereum "github.com/tomochain/tomochain"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/log"
-	"github.com/karalabe/hid"
 )
 
 // Maximum time between wallet health checks to detect USB unplugs.

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"sync"
 	"time"
@@ -66,7 +67,7 @@ type SimulatedBackend struct {
 // NewSimulatedBackend creates a new binding backend using a simulated blockchain
 // for testing purposes.
 func NewSimulatedBackend(alloc core.GenesisAlloc) *SimulatedBackend {
-	database, _ := ethdb.NewMemDatabase()
+	database := rawdb.NewMemoryDatabase()
 	genesis := core.Genesis{Config: params.AllEthashProtocolChanges, Alloc: alloc, GasLimit: 42000000}
 	genesis.MustCommit(database)
 	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{})
@@ -227,7 +228,7 @@ func (b *SimulatedBackend) CallContractWithState(call tomochain.CallMsg, chain c
 	vmenv := vm.NewEVM(evmContext, statedb, nil, chain.Config(), vm.Config{})
 	gaspool := new(core.GasPool).AddGas(1000000)
 	owner := common.Address{}
-	rval, _, _ , err :=  core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
+	rval, _, _, err := core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
 	if err != nil {
 		return nil, err
 	}

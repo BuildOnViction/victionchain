@@ -2655,7 +2655,6 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingOrderById(ctx context.Context,
 	return lendingItem, nil
 }
 
-
 func (s *PublicTomoXTransactionPoolAPI) GetLendingTradeById(ctx context.Context, lendingToken common.Address, term uint64, tradeId uint64) (lendingstate.LendingTrade, error) {
 	lendingItem := lendingstate.LendingTrade{}
 	block := s.b.CurrentBlock()
@@ -2682,6 +2681,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingTradeById(ctx context.Context,
 	}
 	return lendingItem, nil
 }
+
 // Sign calculates an ECDSA signature for:
 // keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
 //

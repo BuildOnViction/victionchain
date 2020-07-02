@@ -29,9 +29,9 @@ import (
 	"strings"
 	"time"
 
+	mapset "github.com/deckarep/golang-set"
 	"github.com/tomochain/tomochain/log"
 	"golang.org/x/net/websocket"
-	mapset "github.com/deckarep/golang-set"
 )
 
 // websocketJSONCodec is a custom JSON codec with payload size enforcement and

@@ -25,10 +25,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gizak/termui"
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/rpc"
-	"github.com/gizak/termui"
 	"gopkg.in/urfave/cli.v1"
 )
 

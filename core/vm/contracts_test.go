@@ -19,7 +19,7 @@ package vm
 import (
 	"bytes"
 	"fmt"
-	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
@@ -500,7 +500,7 @@ func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 }
 
 func testTomoxPrecompiled(addr string, test precompiledTest, t *testing.T) {
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	stateCache := tradingstate.NewDatabase(db)
 	tradingStateDB, _ := tradingstate.New(common.Hash{}, stateCache)
 	tradingStateDB.SetLastPrice(tradingstate.GetTradingOrderBookHash(common.HexToAddress(BTCAddress), common.HexToAddress(USDTAddress)), BTCUSDTLastPrice)

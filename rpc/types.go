@@ -23,8 +23,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tomochain/tomochain/common/hexutil"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/tomochain/tomochain/common/hexutil"
 )
 
 // API describes the set of methods offered over the RPC interface
