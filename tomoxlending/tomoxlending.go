@@ -481,7 +481,7 @@ func (l *Lending) UpdateLiquidatedTrade(blockTime uint64, result lendingstate.Fi
 	db.InitLendingBulk()
 
 	txhash := result.TxHash
-	txTime := time.Unix(0, (result.Timestamp/1e6)*1e6).UTC() // round to milliseconds
+	txTime := time.Unix(int64(blockTime), 0).UTC()
 	if err := l.UpdateLendingTrade(trades, txhash, txTime); err != nil {
 		return err
 	}
