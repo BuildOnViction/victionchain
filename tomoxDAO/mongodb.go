@@ -654,6 +654,15 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Name:       "index_lending_repay_tx_hash",
 	}
 
+	repayUniqueIndex := mgo.Index{
+		Key:        []string{"txHash", "hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_repay_unique",
+	}
+
 	recallHashIndex := mgo.Index{
 		Key:        []string{"hash"},
 		DropDups:   true,
@@ -669,6 +678,15 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Name:       "index_lending_recall_tx_hash",
 	}
 
+	recallUniqueIndex := mgo.Index{
+		Key:        []string{"txHash", "hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_recall_unique",
+	}
+
 	topupHashIndex := mgo.Index{
 		Key:        []string{"hash"},
 		DropDups:   true,
@@ -682,6 +700,15 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		Background: true,
 		Sparse:     true,
 		Name:       "index_lending_topup_tx_hash",
+	}
+
+	topUpUniqueIndex := mgo.Index{
+		Key:        []string{"txHash", "hash"},
+		Unique:     true,
+		DropDups:   true,
+		Background: true,
+		Sparse:     true,
+		Name:       "index_lending_topup_unique",
 	}
 
 	epochPriceIndex := mgo.Index{
@@ -756,6 +783,12 @@ func (db *MongoDatabase) EnsureIndexes() error {
 		}
 	}
 
+	if !existingIndex(repayUniqueIndex.Name, indexes) {
+		if err := sc.DB(db.dbName).C(lendingRepayCollection).EnsureIndex(repayUniqueIndex); err != nil {
+			return fmt.Errorf("failed to create index %s . Err: %v", repayUniqueIndex.Name, err)
+		}
+	}
+
 	indexes, _ = sc.DB(db.dbName).C(lendingRecallCollection).Indexes()
 	if !existingIndex(recallHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingRecallCollection).EnsureIndex(recallHashIndex); err != nil {
@@ -767,7 +800,11 @@ func (db *MongoDatabase) EnsureIndexes() error {
 			return fmt.Errorf("failed to create index %s . Err: %v", recallTxHashIndex.Name, err)
 		}
 	}
-
+	if !existingIndex(recallUniqueIndex.Name, indexes) {
+		if err := sc.DB(db.dbName).C(lendingRecallCollection).EnsureIndex(repayUniqueIndex); err != nil {
+			return fmt.Errorf("failed to create index %s . Err: %v", repayUniqueIndex.Name, err)
+		}
+	}
 
 	indexes, _ = sc.DB(db.dbName).C(lendingTopUpCollection).Indexes()
 	if !existingIndex(topupHashIndex.Name, indexes) {
@@ -778,6 +815,12 @@ func (db *MongoDatabase) EnsureIndexes() error {
 	if !existingIndex(topupTxHashIndex.Name, indexes) {
 		if err := sc.DB(db.dbName).C(lendingTopUpCollection).EnsureIndex(topupTxHashIndex); err != nil {
 			return fmt.Errorf("failed to create index %s . Err: %v", topupTxHashIndex.Name, err)
+		}
+	}
+
+	if !existingIndex(topUpUniqueIndex.Name, indexes) {
+		if err := sc.DB(db.dbName).C(lendingTopUpCollection).EnsureIndex(repayUniqueIndex); err != nil {
+			return fmt.Errorf("failed to create index %s . Err: %v", repayUniqueIndex.Name, err)
 		}
 	}
 
