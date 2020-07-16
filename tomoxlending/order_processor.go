@@ -1146,6 +1146,12 @@ func (l *Lending) ProcessRepayLendingTrade(header *types.Header, chain consensus
 			return nil, err
 		}
 		lendingTrade.Status = lendingstate.TradeStatusClosed
+		extraData, _ := json.Marshal(struct {
+			Profit *big.Int
+		}{
+			Profit: new(big.Int).Sub(paymentBalance, lendingTrade.Amount),
+		})
+		lendingTrade.ExtraData = string(extraData)
 	}
 	return &lendingTrade, nil
 }
