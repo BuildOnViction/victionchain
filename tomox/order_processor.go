@@ -634,10 +634,7 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 	}
 	log.Debug("ProcessCancelOrder", "baseToken", originOrder.BaseToken, "quoteToken", originOrder.QuoteToken)
 	feeRate := tradingstate.GetExRelayerFee(originOrder.ExchangeAddress, statedb)
-	tokenCancelFee, tokenPriceInTOMO := common.Big0, common.Big0
-	if feeRate != nil && feeRate.Sign() > 0 {
-		tokenCancelFee, tokenPriceInTOMO = tomox.getCancelFee(chain, statedb, tradingStateDB, &originOrder)
-	}
+	tokenCancelFee, tokenPriceInTOMO := tomox.getCancelFee(chain, statedb, tradingStateDB, &originOrder, feeRate)
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
 		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "balance", tokenBalance, "fee", tokenCancelFee)
 		return nil, true
@@ -680,7 +677,10 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 }
 
 // return tokenQuantity, tokenPriceInTOMO
-func (tomox *TomoX) getCancelFee(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *tradingstate.OrderItem) (*big.Int, *big.Int) {
+func (tomox *TomoX) getCancelFee(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *tradingstate.OrderItem, feeRate *big.Int) (*big.Int, *big.Int) {
+	if feeRate == nil || feeRate.Sign() == 0 {
+		return common.Big0, common.Big0
+	}
 	cancelFee := big.NewInt(0)
 	tokenPriceInTOMO := big.NewInt(0)
 	var err error

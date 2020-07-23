@@ -706,7 +706,6 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 		return nil, true
 	}
 	log.Debug("ProcessCancelOrder", "LendingToken", originOrder.LendingToken, "CollateralToken", originOrder.CollateralToken, "makerInterest", originOrder.Interest, "lendTokenDecimal", lendTokenDecimal, "quantity", originOrder.Quantity)
-	borrowFee := lendingstate.GetFee(statedb, originOrder.Relayer)
 	collateralPrice := common.BasePrice
 	collateralTokenDecimal := common.BasePrice
 	if originOrder.Side == lendingstate.Borrowing {
@@ -720,10 +719,10 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 			return err, false
 		}
 	}
-	tokenCancelFee, tokenPriceInTOMO := common.Big0, common.Big0
-	if borrowFee != nil && borrowFee.Sign() > 0 {
-		tokenCancelFee, tokenPriceInTOMO = l.getCancelFee(chain, statedb, tradingStateDb, &originOrder)
-	}
+	feeRate := lendingstate.GetFee(statedb, originOrder.Relayer)
+
+	tokenCancelFee, tokenPriceInTOMO := l.getCancelFee(chain, statedb, tradingStateDb, &originOrder, feeRate)
+
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
 		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "Interest", originOrder.Interest, "Quantity", originOrder.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
 		return nil, true
@@ -889,7 +888,10 @@ func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, 
 }
 
 // return tokenQuantity, tokenPriceInTOMO
-func (l *Lending) getCancelFee(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem) (*big.Int, *big.Int) {
+func (l *Lending) getCancelFee(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem, feeRate *big.Int) (*big.Int, *big.Int) {
+	if feeRate == nil || feeRate.Sign() == 0 {
+		return common.Big0, common.Big0
+	}
 	cancelFee, tokenPriceInTOMO := common.Big0, common.Big0
 	var err error
 	if order.Side == lendingstate.Investing {
