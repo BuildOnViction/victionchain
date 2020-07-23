@@ -634,7 +634,10 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 	}
 	log.Debug("ProcessCancelOrder", "baseToken", originOrder.BaseToken, "quoteToken", originOrder.QuoteToken)
 	feeRate := tradingstate.GetExRelayerFee(originOrder.ExchangeAddress, statedb)
-	tokenCancelFee := getCancelFee(baseTokenDecimal, feeRate, &originOrder)
+	tokenCancelFee, tokenPriceInTOMO := common.Big0, common.Big0
+	if feeRate != nil && feeRate.Sign() > 0 {
+		tokenCancelFee, tokenPriceInTOMO = tomox.getCancelFee(chain, statedb, tradingStateDB, &originOrder)
+	}
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
 		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "balance", tokenBalance, "fee", tokenCancelFee)
 		return nil, true
@@ -666,35 +669,30 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 	// update cancel fee
 	extraData, _ := json.Marshal(struct {
 		CancelFee string
+		TokenPriceInTOMO string
 	}{
 		CancelFee: tokenCancelFee.Text(10),
+		TokenPriceInTOMO: tokenPriceInTOMO.Text(10),
 	})
 	order.ExtraData = string(extraData)
 
 	return nil, false
 }
 
-func getCancelFee(baseTokenDecimal *big.Int, feeRate *big.Int, order *tradingstate.OrderItem) *big.Int {
+// return tokenQuantity, tokenPriceInTOMO
+func (tomox *TomoX) getCancelFee(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *tradingstate.OrderItem) (*big.Int, *big.Int) {
 	cancelFee := big.NewInt(0)
+	tokenPriceInTOMO := big.NewInt(0)
+	var err error
 	if order.Side == tradingstate.Ask {
-		// SELL 1 BTC => TOMO ,,
-		// order.Quantity =1 && fee rate =2
-		// ==> cancel fee = 2/10000
-		// order.Quantity already included baseToken decimal
-		cancelFee = new(big.Int).Mul(order.Quantity, feeRate)
-		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
+		cancelFee, tokenPriceInTOMO, err = tomox.ConvertTOMOToToken(chain, statedb, tradingStateDb, order.BaseToken, common.RelayerCancelFee)
 	} else {
-		// BUY 1 BTC => TOMO with Price : 10000
-		// quoteTokenQuantity = 10000 && fee rate =2
-		// => cancel fee =2
-		quoteTokenQuantity := new(big.Int).Mul(order.Quantity, order.Price)
-		quoteTokenQuantity = new(big.Int).Div(quoteTokenQuantity, baseTokenDecimal)
-		// Fee
-		// makerFee = quoteTokenQuantity * feeRate / baseFee = quantityToTrade * makerPrice / baseTokenDecimal * feeRate / baseFee
-		cancelFee = new(big.Int).Mul(quoteTokenQuantity, feeRate)
-		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
+		cancelFee, tokenPriceInTOMO, err = tomox.ConvertTOMOToToken(chain, statedb, tradingStateDb, order.QuoteToken, common.RelayerCancelFee)
 	}
-	return cancelFee
+	if err != nil {
+		return common.Big0, common.Big0
+	}
+	return cancelFee, tokenPriceInTOMO
 }
 
 func (tomox *TomoX) UpdateMediumPriceBeforeEpoch(epochNumber uint64, tradingStateDB *tradingstate.TradingStateDB, statedb *state.StateDB) error {
