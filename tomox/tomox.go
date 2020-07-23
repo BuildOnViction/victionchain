@@ -300,7 +300,7 @@ func (tomox *TomoX) ConvertTOMOToToken(chain consensus.ChainContext, statedb *st
 		return nil, nil, err
 	}
 
-	tokenDecimal , err := tomox.GetTokenDecimal(chain, statedb, token)
+	tokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, token)
 	if err != nil || tokenDecimal.Sign() == 0 {
 		return nil, nil, fmt.Errorf("fail to get tokenDecimal. Token: %v . Err: %v", token.String(), err)
 	}
@@ -410,7 +410,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		tradeRecord.UpdatedAt = txMatchTime
 		tradeRecord.Hash = tradeRecord.ComputeHash()
 
-		log.Debug("TRADE history",  "amount", tradeRecord.Amount, "pricepoint", tradeRecord.PricePoint,
+		log.Debug("TRADE history", "amount", tradeRecord.Amount, "pricepoint", tradeRecord.PricePoint,
 			"taker", tradeRecord.Taker.Hex(), "maker", tradeRecord.Maker.Hex(), "takerOrder", tradeRecord.TakerOrderHash.Hex(), "makerOrder", tradeRecord.MakerOrderHash.Hex(),
 			"takerFee", tradeRecord.TakeFee, "makerFee", tradeRecord.MakeFee)
 		if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {

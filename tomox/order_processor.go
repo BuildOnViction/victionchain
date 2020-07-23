@@ -330,7 +330,7 @@ func (tomox *TomoX) processOrderList(coinbase common.Address, chain consensus.Ch
 			oldAveragePrice, oldTotalQuantity := tradingStateDB.GetMediumPriceAndTotalAmount(orderBook)
 
 			var newAveragePrice, newTotalQuantity *big.Int
-			if oldAveragePrice == nil || oldAveragePrice.Sign() <= 0 || oldTotalQuantity == nil || oldTotalQuantity.Sign() <= 0{
+			if oldAveragePrice == nil || oldAveragePrice.Sign() <= 0 || oldTotalQuantity == nil || oldTotalQuantity.Sign() <= 0 {
 				newAveragePrice = price
 				newTotalQuantity = tradedQuantity
 			} else {
@@ -411,7 +411,7 @@ func (tomox *TomoX) getTradeQuantity(quotePrice *big.Int, coinbase common.Addres
 		if err == nil {
 			err = DoSettleBalance(coinbase, takerOrder, makerOrder, settleBalanceResult, statedb)
 		}
-		return quantity, rejectMaker,settleBalanceResult, err
+		return quantity, rejectMaker, settleBalanceResult, err
 	}
 	return quantity, rejectMaker, settleBalanceResult, nil
 }
@@ -668,10 +668,10 @@ func (tomox *TomoX) ProcessCancelOrder(tradingStateDB *tradingstate.TradingState
 	}
 	// update cancel fee
 	extraData, _ := json.Marshal(struct {
-		CancelFee string
+		CancelFee        string
 		TokenPriceInTOMO string
 	}{
-		CancelFee: tokenCancelFee.Text(10),
+		CancelFee:        tokenCancelFee.Text(10),
 		TokenPriceInTOMO: tokenPriceInTOMO.Text(10),
 	})
 	order.ExtraData = string(extraData)
