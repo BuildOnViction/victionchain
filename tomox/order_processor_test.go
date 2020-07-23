@@ -9,6 +9,84 @@ import (
 	"testing"
 )
 
+func Test_getCancelFeeV1(t *testing.T) {
+	type CancelFeeArg struct {
+		baseTokenDecimal *big.Int
+		feeRate          *big.Int
+		order            *tradingstate.OrderItem
+	}
+	tests := []struct {
+		name string
+		args CancelFeeArg
+		want *big.Int
+	}{
+		// zero fee test: SELL
+		{
+			"zero fee getCancelFeeV1: SELL",
+			CancelFeeArg{
+				baseTokenDecimal: common.Big1,
+				feeRate:          common.Big0,
+				order: &tradingstate.OrderItem{
+					Quantity: new(big.Int).SetUint64(10000),
+					Side:     tradingstate.Ask,
+				},
+			},
+			common.Big0,
+		},
+
+		// zero fee test: BUY
+		{
+			"zero fee getCancelFeeV1: BUY",
+			CancelFeeArg{
+				baseTokenDecimal: common.Big1,
+				feeRate:          common.Big0,
+				order: &tradingstate.OrderItem{
+					Quantity: new(big.Int).SetUint64(10000),
+					Price:    new(big.Int).SetUint64(1),
+					Side:     tradingstate.Bid,
+				},
+			},
+			common.Big0,
+		},
+
+		// test getCancelFee: SELL
+		{
+			"test getCancelFeeV1:: SELL",
+			CancelFeeArg{
+				baseTokenDecimal: common.Big1,
+				feeRate:          new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				order: &tradingstate.OrderItem{
+					Quantity: new(big.Int).SetUint64(10000),
+					Side:     tradingstate.Ask,
+				},
+			},
+			common.Big1,
+		},
+
+		// test getCancelFee:: BUY
+		{
+			"test getCancelFeeV1:: BUY",
+			CancelFeeArg{
+				baseTokenDecimal: common.Big1,
+				feeRate:          new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				order: &tradingstate.OrderItem{
+					Quantity: new(big.Int).SetUint64(10000),
+					Price:    new(big.Int).SetUint64(1),
+					Side:     tradingstate.Bid,
+				},
+			},
+			common.Big1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getCancelFeeV1(tt.args.baseTokenDecimal, tt.args.feeRate, tt.args.order); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getCancelFeeV1() = %v, quantity %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_getCancelFee(t *testing.T) {
 	tomox := New(&DefaultConfig)
 	db, _ := ethdb.NewMemDatabase()

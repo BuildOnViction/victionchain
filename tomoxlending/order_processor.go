@@ -720,8 +720,12 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 		}
 	}
 	feeRate := lendingstate.GetFee(statedb, originOrder.Relayer)
-
-	tokenCancelFee, tokenPriceInTOMO := l.getCancelFee(chain, statedb, tradingStateDb, &originOrder, feeRate)
+	tokenCancelFee, tokenPriceInTOMO := common.Big0, common.Big0
+	if !chain.Config().IsTIPTomoXCancellationFee(header.Number) {
+		tokenCancelFee = getCancelFeeV1(collateralTokenDecimal, collateralPrice, feeRate, &originOrder)
+	} else {
+		tokenCancelFee, tokenPriceInTOMO = l.getCancelFee(chain, statedb, tradingStateDb, &originOrder, feeRate)
+	}
 
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
 		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "Interest", originOrder.Interest, "Quantity", originOrder.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
@@ -885,6 +889,24 @@ func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, 
 		return nil, err
 	}
 	return &lendingTrade, nil
+}
+
+// cancellation fee = 1/10 borrowing fee
+// deprecated after hardfork at TIPTomoXCancellationFee
+func getCancelFeeV1(collateralTokenDecimal *big.Int, collateralPrice, borrowFee *big.Int, order *lendingstate.LendingItem) *big.Int {
+	cancelFee := big.NewInt(0)
+	if order.Side == lendingstate.Investing {
+		// cancel fee = quantityToLend*borrowFee/LendingCancelFee
+		cancelFee = new(big.Int).Mul(order.Quantity, borrowFee)
+		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
+	} else {
+		//Fee = quantityToLend * collateralTokenDecimal/collateralPrice *borrowFee/LendingCancelFee
+		cancelFee = new(big.Int).Mul(order.Quantity, collateralTokenDecimal)
+		cancelFee = new(big.Int).Mul(cancelFee, borrowFee)
+		cancelFee = new(big.Int).Div(cancelFee, collateralPrice)
+		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
+	}
+	return cancelFee
 }
 
 // return tokenQuantity, tokenPriceInTOMO
