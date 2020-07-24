@@ -99,12 +99,13 @@ func Test_getCancelFee(t *testing.T) {
 	// tokenA has decimal 10^18
 	tomox.SetTokenDecimal(testTokenA, common.BasePrice)
 	// tokenB has decimal 10^8
-	tomox.SetTokenDecimal(testTokenB, new(big.Int).Exp(big.NewInt(10), big.NewInt(8), nil))
+	tokenBDecimal := new(big.Int).Exp(big.NewInt(10), big.NewInt(8), nil)
+	tomox.SetTokenDecimal(testTokenB, tokenBDecimal)
 
 	// set tokenAPrice = 1 TOMO
 	tradingStateDb.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(testTokenA, common.HexToAddress(common.TomoNativeAddress)), common.BasePrice)
 	// set tokenBPrice = 1 TOMO
-	tradingStateDb.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(testTokenB, common.HexToAddress(common.TomoNativeAddress)), common.BasePrice)
+	tradingStateDb.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(common.HexToAddress(common.TomoNativeAddress), testTokenB), tokenBDecimal)
 
 	type CancelFeeArg struct {
 		feeRate *big.Int
