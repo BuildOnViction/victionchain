@@ -327,6 +327,23 @@ func Test_getCancelFee(t *testing.T) {
 	if fee, _ := tomox.getCancelFee(nil, nil, tradingStateDb, tokenCOrder.order, tokenCOrder.feeRate); fee != nil && fee.Sign() != 0 {
 		t.Errorf("getCancelFee() = %v, want %v", fee, common.Big0)
 	}
+
+	// testcase: invalid token decimal
+	testTokenD := common.HexToAddress("0x1300000000000000000000000000000000000005")
+	tomox.SetTokenDecimal(testTokenD, big.NewInt(0))
+	tokenDOrder := CancelFeeArg{
+		feeRate: new(big.Int).SetUint64(10), // 10/10000= 0.1%
+		order: &tradingstate.OrderItem{
+			Quantity:   new(big.Int).SetUint64(10000),
+			BaseToken:  testTokenD,
+			QuoteToken: testTokenA,
+			Side:       tradingstate.Ask,
+		},
+	}
+	if fee, _ := tomox.getCancelFee(nil, nil, tradingStateDb, tokenDOrder.order, tokenDOrder.feeRate); fee != nil && fee.Sign() != 0 {
+		t.Errorf("getCancelFee() = %v, want %v", fee, common.Big0)
+	}
+
 }
 
 func TestGetTradeQuantity(t *testing.T) {
