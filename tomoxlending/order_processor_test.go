@@ -59,7 +59,7 @@ func Test_getCancelFeeV1(t *testing.T) {
 			CancelFeeArg{
 				collateralTokenDecimal: common.Big1,
 				collateralPrice:        common.Big1,
-				borrowFeeRate:          new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate:          new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					Quantity: new(big.Int).SetUint64(10000),
 					Side:     tradingstate.Ask,
@@ -74,7 +74,7 @@ func Test_getCancelFeeV1(t *testing.T) {
 			CancelFeeArg{
 				collateralTokenDecimal: common.Big1,
 				collateralPrice:        common.Big1,
-				borrowFeeRate:          new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate:          new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					Quantity: new(big.Int).SetUint64(10000),
 					Side:     tradingstate.Bid,
@@ -92,15 +92,14 @@ func Test_getCancelFeeV1(t *testing.T) {
 	}
 }
 
-
 func Test_getCancelFee(t *testing.T) {
 	tomox := tomox.New(&tomox.DefaultConfig)
 	db, _ := ethdb.NewMemDatabase()
 	stateCache := tradingstate.NewDatabase(db)
 	tradingStateDb, _ := tradingstate.New(common.Hash{}, stateCache)
 
-	testTokenA := common.HexToAddress("0x0000000000000000000000000000000000000002")
-	testTokenB := common.HexToAddress("0x0000000000000000000000000000000000000003")
+	testTokenA := common.HexToAddress("0x1200000000000000000000000000000000000002")
+	testTokenB := common.HexToAddress("0x1300000000000000000000000000000000000003")
 	// set decimal
 	// tokenA has decimal 10^18
 	tomox.SetTokenDecimal(testTokenA, common.BasePrice)
@@ -160,7 +159,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TokenA/TOMO test getCancelFee:: LEND",
 			CancelFeeArg{
-				borrowFeeRate: new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					LendingToken:    testTokenA,
 					CollateralToken: common.HexToAddress(common.TomoNativeAddress),
@@ -175,7 +174,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TokenA/TOMO test getCancelFee:: BORROW",
 			CancelFeeArg{
-				borrowFeeRate: new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					LendingToken:    testTokenA,
 					CollateralToken: common.HexToAddress(common.TomoNativeAddress),
@@ -223,7 +222,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TOMO/TokenA  test getCancelFee:: LEND",
 			CancelFeeArg{
-				borrowFeeRate: new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					LendingToken:    common.HexToAddress(common.TomoNativeAddress),
 					CollateralToken: testTokenA,
@@ -238,7 +237,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TOMO/TokenA  test getCancelFee:: BORROW",
 			CancelFeeArg{
-				borrowFeeRate: new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					LendingToken:    common.HexToAddress(common.TomoNativeAddress),
 					CollateralToken: testTokenA,
@@ -286,7 +285,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TokenB/TokenA  test getCancelFee:: LEND",
 			CancelFeeArg{
-				borrowFeeRate: new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					LendingToken:    testTokenB,
 					CollateralToken: testTokenA,
@@ -301,7 +300,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TokenB/TokenA  test getCancelFee:: BORROW",
 			CancelFeeArg{
-				borrowFeeRate: new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					LendingToken:    testTokenB,
 					CollateralToken: testTokenA,
@@ -318,6 +317,22 @@ func Test_getCancelFee(t *testing.T) {
 				t.Errorf("getCancelFee() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+
+	// testcase: can't get price of token in TOMO
+	testTokenC := common.HexToAddress("0x1400000000000000000000000000000000000004")
+	tomox.SetTokenDecimal(testTokenC, big.NewInt(1))
+	tokenCOrder := CancelFeeArg{
+		borrowFeeRate: new(big.Int).SetUint64(100), // 100/10000= 1%
+		order: &lendingstate.LendingItem{
+			Quantity:        new(big.Int).SetUint64(10000),
+			CollateralToken: testTokenC,
+			LendingToken:    testTokenA,
+			Side:            lendingstate.Borrowing,
+		},
+	}
+	if fee, _ := l.getCancelFee(nil, nil, tradingStateDb, tokenCOrder.order, tokenCOrder.borrowFeeRate); fee != nil && fee.Sign() != 0 {
+		t.Errorf("getCancelFee() = %v, want %v", fee, common.Big0)
 	}
 }
 

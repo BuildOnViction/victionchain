@@ -54,7 +54,7 @@ func Test_getCancelFeeV1(t *testing.T) {
 			"test getCancelFeeV1:: SELL",
 			CancelFeeArg{
 				baseTokenDecimal: common.Big1,
-				feeRate:          new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				feeRate:          new(big.Int).SetUint64(10), // 10/10000= 0.1%
 				order: &tradingstate.OrderItem{
 					Quantity: new(big.Int).SetUint64(10000),
 					Side:     tradingstate.Ask,
@@ -68,7 +68,7 @@ func Test_getCancelFeeV1(t *testing.T) {
 			"test getCancelFeeV1:: BUY",
 			CancelFeeArg{
 				baseTokenDecimal: common.Big1,
-				feeRate:          new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				feeRate:          new(big.Int).SetUint64(10), // 10/10000= 0.1%
 				order: &tradingstate.OrderItem{
 					Quantity: new(big.Int).SetUint64(10000),
 					Price:    new(big.Int).SetUint64(1),
@@ -93,8 +93,8 @@ func Test_getCancelFee(t *testing.T) {
 	stateCache := tradingstate.NewDatabase(db)
 	tradingStateDb, _ := tradingstate.New(common.Hash{}, stateCache)
 
-	testTokenA := common.HexToAddress("0x0000000000000000000000000000000000000002")
-	testTokenB := common.HexToAddress("0x0000000000000000000000000000000000000003")
+	testTokenA := common.HexToAddress("0x1000000000000000000000000000000000000002")
+	testTokenB := common.HexToAddress("0x1100000000000000000000000000000000000003")
 	// set decimal
 	// tokenA has decimal 10^18
 	tomox.SetTokenDecimal(testTokenA, common.BasePrice)
@@ -103,8 +103,8 @@ func Test_getCancelFee(t *testing.T) {
 
 	// set tokenAPrice = 1 TOMO
 	tradingStateDb.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(testTokenA, common.HexToAddress(common.TomoNativeAddress)), common.BasePrice)
-	// set tokenBPrice = 1 tokenA
-	tradingStateDb.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(testTokenB, testTokenA), common.BasePrice)
+	// set tokenBPrice = 1 TOMO
+	tradingStateDb.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(testTokenB, common.HexToAddress(common.TomoNativeAddress)), common.BasePrice)
 
 	type CancelFeeArg struct {
 		feeRate *big.Int
@@ -153,7 +153,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TokenA/TOMO test getCancelFee:: SELL",
 			CancelFeeArg{
-				feeRate: new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				feeRate: new(big.Int).SetUint64(10), // 10/10000= 0.1%
 				order: &tradingstate.OrderItem{
 					BaseToken:  common.HexToAddress(common.TomoNativeAddress),
 					QuoteToken: testTokenA,
@@ -168,7 +168,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TokenA/TOMO test getCancelFee:: BUY",
 			CancelFeeArg{
-				feeRate: new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				feeRate: new(big.Int).SetUint64(10), // 10/10000= 0.1%
 				order: &tradingstate.OrderItem{
 					Quantity:   new(big.Int).SetUint64(10000),
 					BaseToken:  common.HexToAddress(common.TomoNativeAddress),
@@ -215,7 +215,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TOMO/TokenA test getCancelFee:: SELL",
 			CancelFeeArg{
-				feeRate: new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				feeRate: new(big.Int).SetUint64(10), // 10/10000= 0.1%
 				order: &tradingstate.OrderItem{
 					BaseToken:  common.HexToAddress(common.TomoNativeAddress),
 					QuoteToken: testTokenA,
@@ -230,7 +230,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TOMO/TokenA test getCancelFee:: BUY",
 			CancelFeeArg{
-				feeRate: new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				feeRate: new(big.Int).SetUint64(10), // 10/10000= 0.1%
 				order: &tradingstate.OrderItem{
 					Quantity:   new(big.Int).SetUint64(10000),
 					BaseToken:  common.HexToAddress(common.TomoNativeAddress),
@@ -277,7 +277,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TokenB/TokenA test getCancelFee:: SELL",
 			CancelFeeArg{
-				feeRate: new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				feeRate: new(big.Int).SetUint64(10), // 10/10000= 0.1%
 				order: &tradingstate.OrderItem{
 					BaseToken:  testTokenB,
 					QuoteToken: testTokenA,
@@ -292,7 +292,7 @@ func Test_getCancelFee(t *testing.T) {
 		{
 			"TokenB/TokenA test getCancelFee:: BUY",
 			CancelFeeArg{
-				feeRate: new(big.Int).SetUint64(10), // 10/1000 = 0.1%
+				feeRate: new(big.Int).SetUint64(10), // 10/10000= 0.1%
 				order: &tradingstate.OrderItem{
 					Quantity:   new(big.Int).SetUint64(10000),
 					BaseToken:  testTokenB,
@@ -309,6 +309,22 @@ func Test_getCancelFee(t *testing.T) {
 				t.Errorf("getCancelFee() = %v, quantity %v", got, tt.want)
 			}
 		})
+	}
+
+	// testcase: can't get price of token in TOMO
+	testTokenC := common.HexToAddress("0x1200000000000000000000000000000000000004")
+	tomox.SetTokenDecimal(testTokenC, big.NewInt(1))
+	tokenCOrder := CancelFeeArg{
+		feeRate: new(big.Int).SetUint64(10), // 10/10000= 0.1%
+		order: &tradingstate.OrderItem{
+			Quantity:   new(big.Int).SetUint64(10000),
+			BaseToken:  testTokenC,
+			QuoteToken: testTokenA,
+			Side:       tradingstate.Ask,
+		},
+	}
+	if fee, _ := tomox.getCancelFee(nil, nil, tradingStateDb, tokenCOrder.order, tokenCOrder.feeRate); fee != nil && fee.Sign() != 0 {
+		t.Errorf("getCancelFee() = %v, want %v", fee, common.Big0)
 	}
 }
 
