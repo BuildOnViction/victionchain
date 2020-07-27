@@ -639,7 +639,7 @@ func (tomox *TomoX) ProcessCancelOrder(header *types.Header, tradingStateDB *tra
 	if !chain.Config().IsTIPTomoXCancellationFee(header.Number) {
 		tokenCancelFee = getCancelFeeV1(baseTokenDecimal, feeRate, &originOrder)
 	} else {
-		tomox.getCancelFee(chain, statedb, tradingStateDB, &originOrder, feeRate)
+		tokenCancelFee, tokenPriceInTOMO = tomox.getCancelFee(chain, statedb, tradingStateDB, &originOrder, feeRate)
 	}
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
 		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "balance", tokenBalance, "fee", tokenCancelFee)
