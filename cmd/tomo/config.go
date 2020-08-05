@@ -160,6 +160,10 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 		cfg.Eth.NetworkId = 89
 		common.RelayerRegistrationSMC = common.RelayerRegistrationSMCTestnet
 		common.TIPTRC21Fee = common.TIPTomoXTestnet
+		common.TIPSigning = big.NewInt(0)
+		common.TIPRandomize = big.NewInt(0)
+		common.TIP2019Block = big.NewInt(0)
+		common.BlackListHFNumber = uint64(0)
 	}
 
 	// Rewound

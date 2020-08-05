@@ -35,9 +35,8 @@ var TIPSigning = big.NewInt(3000000)
 var TIPRandomize = big.NewInt(3464000)
 var BlackListHFNumber = uint64(9349100)
 var TIPTomoX = big.NewInt(20581700)
-var TIPTomoXTestnet = big.NewInt(11303000)
 var TIPTomoXLending = big.NewInt(21430200)
-
+var TIPTomoXTestnet = big.NewInt(0)
 var IsTestnet bool = false
 var StoreRewardFolder string
 var RollbackHash Hash

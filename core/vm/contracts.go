@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"math/big"
+	"github.com/tomochain/tomochain/core/vm/privacy"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
@@ -57,6 +58,8 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{6}): &bn256Add{},
 	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
 	common.BytesToAddress([]byte{8}): &bn256Pairing{},
+	common.BytesToAddress([]byte{30}): &ringSignatureVerifier{},
+	common.BytesToAddress([]byte{40}): &bulletproofVerifier{},
 	common.BytesToAddress([]byte{41}): &tomoxLastPrice{},
 	common.BytesToAddress([]byte{42}): &tomoxEpochPrice{},
 }
@@ -360,4 +363,40 @@ func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
 		return true32Byte, nil
 	}
 	return false32Byte, nil
+}
+
+type ringSignatureVerifier struct{}
+type bulletproofVerifier struct{}
+
+func (c *bulletproofVerifier) RequiredGas(input []byte) uint64 {
+	//the gas should depends on the ringsize
+	return 100000
+}
+
+func (c *ringSignatureVerifier) RequiredGas(input []byte) uint64 {
+	//the gas should depends on the ringsize
+	return 100000
+}
+
+func (c *ringSignatureVerifier) Run(proof []byte) ([]byte, error) {
+	der, err := privacy.Deserialize(proof)
+	if err != nil {
+		return []byte{}, errors.New("Fail to deserialize proof")
+	}
+	if !privacy.Verify(der, false) {
+		return []byte{}, errors.New("Fail to verify ring signature")
+	}
+	return []byte{}, nil
+}
+
+func (c *bulletproofVerifier) Run(proof []byte) ([]byte, error) {
+	mrp := new(privacy.MultiRangeProof)
+	if mrp.Deserialize(proof) != nil {
+		return []byte{}, errors.New("failed to deserialize bulletproofs")
+	}
+
+	if !privacy.MRPVerify(mrp) {
+		return []byte{}, errors.New("failed to verify bulletproof")
+	}
+	return []byte{}, nil
 }
