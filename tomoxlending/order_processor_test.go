@@ -2,6 +2,8 @@ package tomoxlending
 
 import (
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/tomox"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"math/big"
@@ -9,7 +11,7 @@ import (
 	"testing"
 )
 
-func Test_getCancelFee(t *testing.T) {
+func Test_getCancelFeeV1(t *testing.T) {
 	type CancelFeeArg struct {
 		collateralTokenDecimal *big.Int
 		collateralPrice        *big.Int
@@ -23,7 +25,7 @@ func Test_getCancelFee(t *testing.T) {
 	}{
 		// zero fee test: LEND
 		{
-			"zero fee test: LEND",
+			"zero fee getCancelFeeV1: LEND",
 			CancelFeeArg{
 				collateralTokenDecimal: common.Big1,
 				collateralPrice:        common.Big1,
@@ -38,7 +40,7 @@ func Test_getCancelFee(t *testing.T) {
 
 		// zero fee test: BORROW
 		{
-			"zero fee test: BORROW",
+			"zero fee getCancelFeeV1: BORROW",
 			CancelFeeArg{
 				collateralTokenDecimal: common.Big1,
 				collateralPrice:        common.Big1,
@@ -53,11 +55,11 @@ func Test_getCancelFee(t *testing.T) {
 
 		// test getCancelFee: LEND
 		{
-			"test getCancelFee:: LEND",
+			"test getCancelFeeV1:: LEND",
 			CancelFeeArg{
 				collateralTokenDecimal: common.Big1,
 				collateralPrice:        common.Big1,
-				borrowFeeRate:          new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate:          new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					Quantity: new(big.Int).SetUint64(10000),
 					Side:     tradingstate.Ask,
@@ -68,11 +70,11 @@ func Test_getCancelFee(t *testing.T) {
 
 		// test getCancelFee:: BORROW
 		{
-			"test getCancelFee:: BORROW",
+			"test getCancelFeeV1:: BORROW",
 			CancelFeeArg{
 				collateralTokenDecimal: common.Big1,
 				collateralPrice:        common.Big1,
-				borrowFeeRate:          new(big.Int).SetUint64(30), // 30/1000 = 0.3%
+				borrowFeeRate:          new(big.Int).SetUint64(30), // 30/10000= 0.3%
 				order: &lendingstate.LendingItem{
 					Quantity: new(big.Int).SetUint64(10000),
 					Side:     tradingstate.Bid,
@@ -83,10 +85,254 @@ func Test_getCancelFee(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getCancelFee(tt.args.collateralTokenDecimal, tt.args.collateralPrice, tt.args.borrowFeeRate, tt.args.order); !reflect.DeepEqual(got, tt.want) {
+			if got := getCancelFeeV1(tt.args.collateralTokenDecimal, tt.args.collateralPrice, tt.args.borrowFeeRate, tt.args.order); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getCancelFeeV1() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getCancelFee(t *testing.T) {
+	tomox := tomox.New(&tomox.DefaultConfig)
+	db, _ := ethdb.NewMemDatabase()
+	stateCache := tradingstate.NewDatabase(db)
+	tradingStateDb, _ := tradingstate.New(common.Hash{}, stateCache)
+
+	testTokenA := common.HexToAddress("0x1200000000000000000000000000000000000002")
+	testTokenB := common.HexToAddress("0x1300000000000000000000000000000000000003")
+	// set decimal
+	// tokenA has decimal 10^18
+	tomox.SetTokenDecimal(testTokenA, common.BasePrice)
+	// tokenB has decimal 10^8
+	tomox.SetTokenDecimal(testTokenB, new(big.Int).Exp(big.NewInt(10), big.NewInt(8), nil))
+
+	// set tokenAPrice = 1 TOMO
+	tradingStateDb.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(testTokenA, common.HexToAddress(common.TomoNativeAddress)), common.BasePrice)
+	// set tokenBPrice = 1 TOMO
+	tradingStateDb.SetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(testTokenB, common.HexToAddress(common.TomoNativeAddress)), common.BasePrice)
+
+	l := New(tomox)
+
+	type CancelFeeArg struct {
+		borrowFeeRate *big.Int
+		order         *lendingstate.LendingItem
+	}
+	tests := []struct {
+		name string
+		args CancelFeeArg
+		want *big.Int
+	}{
+		// LENDING TOKEN: testTokenA
+		// COLLATERAL TOKEN: TOMO
+
+		// zero fee test: LEND
+		{
+			"TokenA/TOMOzero fee test: LEND",
+			CancelFeeArg{
+				borrowFeeRate: common.Big0,
+				order: &lendingstate.LendingItem{
+					LendingToken:    testTokenA,
+					CollateralToken: common.HexToAddress(common.TomoNativeAddress),
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Investing,
+				},
+			},
+			common.Big0,
+		},
+
+		// zero fee test: BORROW
+		{
+			"TokenA/TOMO zero fee test: BORROW",
+			CancelFeeArg{
+				borrowFeeRate: common.Big0,
+				order: &lendingstate.LendingItem{
+					LendingToken:    testTokenA,
+					CollateralToken: common.HexToAddress(common.TomoNativeAddress),
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Borrowing,
+				},
+			},
+			common.Big0,
+		},
+
+		// test getCancelFee: LEND
+		{
+			"TokenA/TOMO test getCancelFee:: LEND",
+			CancelFeeArg{
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
+				order: &lendingstate.LendingItem{
+					LendingToken:    testTokenA,
+					CollateralToken: common.HexToAddress(common.TomoNativeAddress),
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Investing,
+				},
+			},
+			common.RelayerLendingCancelFee,
+		},
+
+		// test getCancelFee:: BORROW
+		{
+			"TokenA/TOMO test getCancelFee:: BORROW",
+			CancelFeeArg{
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
+				order: &lendingstate.LendingItem{
+					LendingToken:    testTokenA,
+					CollateralToken: common.HexToAddress(common.TomoNativeAddress),
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Borrowing,
+				},
+			},
+			common.RelayerLendingCancelFee,
+		},
+
+		// LENDING TOKEN: TOMO
+		// COLLATERAL TOKEN: testTokenA
+
+		// zero fee test: LEND
+		{
+			"TOMO/TokenA zero fee test: LEND",
+			CancelFeeArg{
+				borrowFeeRate: common.Big0,
+				order: &lendingstate.LendingItem{
+					LendingToken:    common.HexToAddress(common.TomoNativeAddress),
+					CollateralToken: testTokenA,
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Investing,
+				},
+			},
+			common.Big0,
+		},
+
+		// zero fee test: BORROW
+		{
+			"TOMO/TokenA zero fee test: BORROW",
+			CancelFeeArg{
+				borrowFeeRate: common.Big0,
+				order: &lendingstate.LendingItem{
+					LendingToken:    common.HexToAddress(common.TomoNativeAddress),
+					CollateralToken: testTokenA,
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Borrowing,
+				},
+			},
+			common.Big0,
+		},
+
+		// test getCancelFee: LEND
+		{
+			"TOMO/TokenA  test getCancelFee:: LEND",
+			CancelFeeArg{
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
+				order: &lendingstate.LendingItem{
+					LendingToken:    common.HexToAddress(common.TomoNativeAddress),
+					CollateralToken: testTokenA,
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Investing,
+				},
+			},
+			common.RelayerLendingCancelFee,
+		},
+
+		// test getCancelFee:: BORROW
+		{
+			"TOMO/TokenA  test getCancelFee:: BORROW",
+			CancelFeeArg{
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
+				order: &lendingstate.LendingItem{
+					LendingToken:    common.HexToAddress(common.TomoNativeAddress),
+					CollateralToken: testTokenA,
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Borrowing,
+				},
+			},
+			common.RelayerLendingCancelFee,
+		},
+
+		// LENDING TOKEN: testTokenB
+		// COLLATERAL TOKEN: testTokenA
+
+		// zero fee test: LEND
+		{
+			"TokenB/TokenA zero fee test: LEND",
+			CancelFeeArg{
+				borrowFeeRate: common.Big0,
+				order: &lendingstate.LendingItem{
+					LendingToken:    testTokenB,
+					CollateralToken: testTokenA,
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Investing,
+				},
+			},
+			common.Big0,
+		},
+
+		// zero fee test: BORROW
+		{
+			"TokenB/TokenA zero fee test: BORROW",
+			CancelFeeArg{
+				borrowFeeRate: common.Big0,
+				order: &lendingstate.LendingItem{
+					LendingToken:    testTokenB,
+					CollateralToken: testTokenA,
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Borrowing,
+				},
+			},
+			common.Big0,
+		},
+
+		// test getCancelFee: LEND
+		{
+			"TokenB/TokenA  test getCancelFee:: LEND",
+			CancelFeeArg{
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
+				order: &lendingstate.LendingItem{
+					LendingToken:    testTokenB,
+					CollateralToken: testTokenA,
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Investing,
+				},
+			},
+			new(big.Int).Exp(big.NewInt(10), big.NewInt(5), nil),
+		},
+
+		// test getCancelFee:: BORROW
+		{
+			"TokenB/TokenA  test getCancelFee:: BORROW",
+			CancelFeeArg{
+				borrowFeeRate: new(big.Int).SetUint64(30), // 30/10000= 0.3%
+				order: &lendingstate.LendingItem{
+					LendingToken:    testTokenB,
+					CollateralToken: testTokenA,
+					Quantity:        new(big.Int).SetUint64(10000),
+					Side:            lendingstate.Borrowing,
+				},
+			},
+			common.RelayerLendingCancelFee,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, _ := l.getCancelFee(nil, nil, tradingStateDb, tt.args.order, tt.args.borrowFeeRate); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getCancelFee() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+
+	// testcase: can't get price of token in TOMO
+	testTokenC := common.HexToAddress("0x1400000000000000000000000000000000000004")
+	tomox.SetTokenDecimal(testTokenC, big.NewInt(1))
+	tokenCOrder := CancelFeeArg{
+		borrowFeeRate: new(big.Int).SetUint64(100), // 100/10000= 1%
+		order: &lendingstate.LendingItem{
+			Quantity:        new(big.Int).SetUint64(10000),
+			CollateralToken: testTokenC,
+			LendingToken:    testTokenA,
+			Side:            lendingstate.Borrowing,
+		},
+	}
+	if fee, _ := l.getCancelFee(nil, nil, tradingStateDb, tokenCOrder.order, tokenCOrder.borrowFeeRate); fee != nil && fee.Sign() != 0 {
+		t.Errorf("getCancelFee() = %v, want %v", fee, common.Big0)
 	}
 }
 
@@ -106,10 +352,10 @@ func TestGetLendQuantity(t *testing.T) {
 		quantityToLend         *big.Int
 	}
 	tests := []struct {
-		name  string
-		args  GetLendQuantityArg
-		lendQuantity  *big.Int
-		rejectMaker bool
+		name         string
+		args         GetLendQuantityArg
+		lendQuantity *big.Int
+		rejectMaker  bool
 	}{
 		{
 			"taker: BORROW, takerBalance = 0, reject taker, makerBalance = 0",

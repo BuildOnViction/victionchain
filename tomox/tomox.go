@@ -154,7 +154,7 @@ func (tomox *TomoX) Version() uint64 {
 	return ProtocolVersion
 }
 
-func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tradingstate.TradingStateDB) ([]tradingstate.TxDataMatch, map[common.Hash]tradingstate.MatchingResult) {
+func (tomox *TomoX) ProcessOrderPending(header *types.Header, coinbase common.Address, chain consensus.ChainContext, pending map[common.Address]types.OrderTransactions, statedb *state.StateDB, tomoXstatedb *tradingstate.TradingStateDB) ([]tradingstate.TxDataMatch, map[common.Hash]tradingstate.MatchingResult) {
 	txMatches := []tradingstate.TxDataMatch{}
 	matchingResults := map[common.Hash]tradingstate.MatchingResult{}
 
@@ -212,7 +212,7 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 			order.Status = tradingstate.OrderStatusCancelled
 		}
 
-		newTrades, newRejectedOrders, err := tomox.CommitOrder(coinbase, chain, statedb, tomoXstatedb, tradingstate.GetTradingOrderBookHash(order.BaseToken, order.QuoteToken), order)
+		newTrades, newRejectedOrders, err := tomox.CommitOrder(header, coinbase, chain, statedb, tomoXstatedb, tradingstate.GetTradingOrderBookHash(order.BaseToken, order.QuoteToken), order)
 
 		for _, reject := range newRejectedOrders {
 			log.Debug("Reject order", "reject", *reject)
@@ -261,6 +261,52 @@ func (tomox *TomoX) ProcessOrderPending(coinbase common.Address, chain consensus
 		}
 	}
 	return txMatches, matchingResults
+}
+
+// return average price of the given pair in the last epoch
+func (tomox *TomoX) GetAveragePriceLastEpoch(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, baseToken common.Address, quoteToken common.Address) (*big.Int, error) {
+	price := tradingStateDb.GetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(baseToken, quoteToken))
+	if price != nil && price.Sign() > 0 {
+		log.Debug("GetAveragePriceLastEpoch", "baseToken", baseToken.Hex(), "quoteToken", quoteToken.Hex(), "price", price)
+		return price, nil
+	} else {
+		inversePrice := tradingStateDb.GetMediumPriceBeforeEpoch(tradingstate.GetTradingOrderBookHash(quoteToken, baseToken))
+		log.Debug("GetAveragePriceLastEpoch", "baseToken", baseToken.Hex(), "quoteToken", quoteToken.Hex(), "inversePrice", inversePrice)
+		if inversePrice != nil && inversePrice.Sign() > 0 {
+			quoteTokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, quoteToken)
+			if err != nil || quoteTokenDecimal.Sign() == 0 {
+				return nil, fmt.Errorf("fail to get tokenDecimal. Token: %v . Err: %v", quoteToken.String(), err)
+			}
+			baseTokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, baseToken)
+			if err != nil || baseTokenDecimal.Sign() == 0 {
+				return nil, fmt.Errorf("fail to get tokenDecimal. Token: %v . Err: %v", baseToken.String(), err)
+			}
+			price = new(big.Int).Mul(baseTokenDecimal, quoteTokenDecimal)
+			price = new(big.Int).Div(price, inversePrice)
+			log.Debug("GetAveragePriceLastEpoch", "baseToken", baseToken.Hex(), "quoteToken", quoteToken.Hex(), "baseTokenDecimal", baseTokenDecimal, "quoteTokenDecimal", quoteTokenDecimal, "inversePrice", inversePrice)
+			return price, nil
+		}
+	}
+	return nil, nil
+}
+
+// return tokenQuantity (after convert from TOMO to token), tokenPriceInTOMO, error
+func (tomox *TomoX) ConvertTOMOToToken(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, token common.Address, quantity *big.Int) (*big.Int, *big.Int, error) {
+	if token.String() == common.TomoNativeAddress {
+		return quantity, common.BasePrice, nil
+	}
+	tokenPriceInTomo, err := tomox.GetAveragePriceLastEpoch(chain, statedb, tradingStateDb, token, common.HexToAddress(common.TomoNativeAddress))
+	if err != nil || tokenPriceInTomo == nil || tokenPriceInTomo.Sign() <= 0 {
+		return nil, nil, err
+	}
+
+	tokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, token)
+	if err != nil || tokenDecimal.Sign() == 0 {
+		return nil, nil, fmt.Errorf("fail to get tokenDecimal. Token: %v . Err: %v", token.String(), err)
+	}
+	tokenQuantity := new(big.Int).Mul(quantity, tokenDecimal)
+	tokenQuantity = new(big.Int).Div(tokenQuantity, tokenPriceInTomo)
+	return tokenQuantity, tokenPriceInTomo, nil
 }
 
 // there are 3 tasks need to complete to update data in SDK nodes after matching
@@ -364,7 +410,7 @@ func (tomox *TomoX) SyncDataToSDKNode(takerOrderInTx *tradingstate.OrderItem, tx
 		tradeRecord.UpdatedAt = txMatchTime
 		tradeRecord.Hash = tradeRecord.ComputeHash()
 
-		log.Debug("TRADE history",  "amount", tradeRecord.Amount, "pricepoint", tradeRecord.PricePoint,
+		log.Debug("TRADE history", "amount", tradeRecord.Amount, "pricepoint", tradeRecord.PricePoint,
 			"taker", tradeRecord.Taker.Hex(), "maker", tradeRecord.Maker.Hex(), "takerOrder", tradeRecord.TakerOrderHash.Hex(), "makerOrder", tradeRecord.MakerOrderHash.Hex(),
 			"takerFee", tradeRecord.TakeFee, "makerFee", tradeRecord.MakeFee)
 		if err := db.PutObject(tradeRecord.Hash, tradeRecord); err != nil {

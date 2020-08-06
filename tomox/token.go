@@ -72,3 +72,8 @@ func (tomox *TomoX) GetTokenDecimal(chain consensus.ChainContext, statedb *state
 	tomox.tokenDecimalCache.Add(tokenAddr, tokenDecimal)
 	return tokenDecimal, nil
 }
+
+// FIXME: using in unit tests only
+func (tomox *TomoX) SetTokenDecimal(token common.Address, decimal *big.Int) {
+	tomox.tokenDecimalCache.Add(token, decimal)
+}
