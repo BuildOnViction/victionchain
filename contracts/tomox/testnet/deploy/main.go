@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/tomochain/tomochain/contracts/tomox/simulation"
 	"log"
 	"math/big"
 	"time"
@@ -162,13 +163,15 @@ func main() {
 
 func initTRC21(auth *bind.TransactOpts, client *ethclient.Client, nonce uint64, tokenNameList []string) []map[string]interface{} {
 	tokenListResult := []map[string]interface{}{}
+	depositFee := big.NewInt(0)
+	withdrawFee := big.NewInt(0)
 	for _, tokenName := range tokenNameList {
 		auth.Nonce = big.NewInt(int64(nonce))
 		d := uint8(18)
 		if tokenName == "USDT" {
 			d = 8
 		}
-		tokenAddr, _, err := tomox.DeployTRC21(auth, client, tokenName, tokenName, d, testnet.TRC21TokenCap, testnet.TRC21TokenFee)
+		tokenAddr, _, err := tomox.DeployTRC21(auth, client, simulation.Owners, simulation.Required, tokenName, tokenName, d, testnet.TRC21TokenCap, testnet.TRC21TokenFee, depositFee, withdrawFee)
 		if err != nil {
 			log.Fatal("DeployTRC21 ", tokenName, err)
 		}
