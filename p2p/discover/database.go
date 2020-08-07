@@ -27,15 +27,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 var (

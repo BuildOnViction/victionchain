@@ -59,8 +59,8 @@ type (
 		prevQuantity *big.Int
 	}
 	mediumPriceBeforeEpochChange struct {
-		hash         common.Hash
-		prevPrice    *big.Int
+		hash      common.Hash
+		prevPrice *big.Int
 	}
 	insertLiquidationPrice struct {
 		orderBook   common.Hash

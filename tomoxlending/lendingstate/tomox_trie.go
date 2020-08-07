@@ -53,7 +53,7 @@ type TomoXTrie struct {
 // Loaded nodes are kept around until their 'cache generation' expires.
 // A new cache generation is created by each call to Commit.
 // cachelimit sets the number of past cache generations to keep.
-func NewTomoXTrie(root common.Hash, db *trie.Database, cachelimit uint16) (*TomoXTrie, error) {
+func NewTomoXTrie(root common.Hash, db *trie.Database) (*TomoXTrie, error) {
 	if db == nil {
 		panic("trie.NewTomoXTrie called without a database")
 	}
@@ -61,7 +61,6 @@ func NewTomoXTrie(root common.Hash, db *trie.Database, cachelimit uint16) (*Tomo
 	if err != nil {
 		return nil, err
 	}
-	trie.SetCacheLimit(cachelimit)
 	return &TomoXTrie{trie: *trie}, nil
 }
 
@@ -171,10 +170,6 @@ func (t *TomoXTrie) Hash() common.Hash {
 	return t.trie.Hash()
 }
 
-func (t *TomoXTrie) Root() []byte {
-	return t.trie.Root()
-}
-
 func (t *TomoXTrie) Copy() *TomoXTrie {
 	cpy := *t
 	return &cpy
@@ -216,6 +211,6 @@ func (t *TomoXTrie) getSecKeyCache() map[string][]byte {
 // If the trie does not contain a value for key, the returned proof contains all
 // nodes of the longest existing prefix of the key (at least the root node), ending
 // with the node that proves the absence of the key.
-func (t *TomoXTrie) Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error {
+func (t *TomoXTrie) Prove(key []byte, fromLevel uint, proofDb ethdb.KeyValueWriter) error {
 	return t.trie.Prove(key, fromLevel, proofDb)
 }

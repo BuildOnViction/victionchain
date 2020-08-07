@@ -18,6 +18,7 @@ package core
 
 import (
 	"crypto/ecdsa"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -148,14 +149,14 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 	// Create the database in memory or in a temporary directory.
 	var db ethdb.Database
 	if !disk {
-		db, _ = ethdb.NewMemDatabase()
+		db = rawdb.NewMemoryDatabase()
 	} else {
 		dir, err := ioutil.TempDir("", "eth-core-bench")
 		if err != nil {
 			b.Fatalf("cannot create temporary directory: %v", err)
 		}
 		defer os.RemoveAll(dir)
-		db, err = ethdb.NewLDBDatabase(dir, 128, 128)
+		db, err = rawdb.NewLevelDBDatabase(dir, 128, 128, "")
 		if err != nil {
 			b.Fatalf("cannot create temporary database: %v", err)
 		}
@@ -251,7 +252,7 @@ func benchWriteChain(b *testing.B, full bool, count uint64) {
 		if err != nil {
 			b.Fatalf("cannot create temporary directory: %v", err)
 		}
-		db, err := ethdb.NewLDBDatabase(dir, 128, 1024)
+		db, err := rawdb.NewLevelDBDatabase(dir, 128, 1024, "")
 		if err != nil {
 			b.Fatalf("error opening database at %v: %v", dir, err)
 		}
@@ -268,7 +269,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 	}
 	defer os.RemoveAll(dir)
 
-	db, err := ethdb.NewLDBDatabase(dir, 128, 1024)
+	db, err := rawdb.NewLevelDBDatabase(dir, 128, 1024, "")
 	if err != nil {
 		b.Fatalf("error opening database at %v: %v", dir, err)
 	}
@@ -279,7 +280,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		db, err := ethdb.NewLDBDatabase(dir, 128, 1024)
+		db, err := rawdb.NewLevelDBDatabase(dir, 128, 1024, "")
 		if err != nil {
 			b.Fatalf("error opening database at %v: %v", dir, err)
 		}

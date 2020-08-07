@@ -18,6 +18,7 @@ package fetcher
 
 import (
 	"errors"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -29,12 +30,11 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/params"
 )
 
 var (
-	testdb, _    = ethdb.NewMemDatabase()
+	testdb       = rawdb.NewMemoryDatabase()
 	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
 	genesis      = core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))

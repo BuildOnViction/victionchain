@@ -22,10 +22,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/karalabe/hid"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/log"
-	"github.com/karalabe/hid"
 )
 
 // LedgerScheme is the protocol scheme prefixing account and wallet URLs.

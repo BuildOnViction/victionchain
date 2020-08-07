@@ -19,7 +19,7 @@ package lendingstate
 import (
 	"fmt"
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 )
@@ -37,7 +37,7 @@ func TestEchangeStates(t *testing.T) {
 		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(int64(2*i + 1)), Side: Borrowing, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
 	}
 	// Create an empty statedb database
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	stateCache := NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 
@@ -65,19 +65,23 @@ func TestEchangeStates(t *testing.T) {
 		statedb.InsertLiquidationTime(orderBook, big.NewInt(int64(i)), uint64(i))
 		order := LendingTrade{TradeId: uint64(i), Amount: big.NewInt(int64(i))}
 		statedb.InsertTradingItem(orderBook, order.TradeId, order)
-		root:=statedb.IntermediateRoot()
-		fmt.Println(i, "size", stateCache.TrieDB().Size())
+		root := statedb.IntermediateRoot()
+		size, _ := stateCache.TrieDB().Size()
+		fmt.Println(i, "size", size)
 		statedb.Commit()
-		fmt.Println(i, "size", stateCache.TrieDB().Size())
+		size, _ = stateCache.TrieDB().Size()
+		fmt.Println(i, "size", size)
 		statedb, _ = New(root, stateCache)
 	}
 	statedb.InsertLiquidationTime(orderBook, big.NewInt(1), 1)
 	order := LendingTrade{TradeId: 1, Amount: big.NewInt(2)}
 	statedb.InsertTradingItem(orderBook, 1, order)
 	root := statedb.IntermediateRoot()
-	fmt.Println("size", stateCache.TrieDB().Size())
+	size, _ := stateCache.TrieDB().Size()
+	fmt.Println("size", size)
 	statedb.Commit()
-	fmt.Println("size", stateCache.TrieDB().Size())
+	size, _ = stateCache.TrieDB().Size()
+	fmt.Println("size", size)
 	err := stateCache.TrieDB().Commit(root, false)
 	if err != nil {
 		t.Errorf("Error when commit into database: %v", err)
@@ -120,7 +124,7 @@ func TestRevertStates(t *testing.T) {
 		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(int64(2*i + 1)), Side: Borrowing, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
 	}
 	// Create an empty statedb database
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	stateCache := NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 
@@ -229,7 +233,7 @@ func TestDumpStates(t *testing.T) {
 		orderItems = append(orderItems, LendingItem{LendingId: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Interest: big.NewInt(1), Side: Borrowing, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
 	}
 	// Create an empty statedb database
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	stateCache := NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 	for i := 0; i < len(orderItems); i++ {

@@ -608,31 +608,31 @@ func (self *lendingExchangeState) deepCopy(db *LendingStateDB, onDirty func(hash
 	for key, value := range self.borrowingStates {
 		stateExchanges.borrowingStates[key] = value.deepCopy(db, self.MarkBorrowingDirty)
 	}
-	for key, _ := range self.borrowingStatesDirty {
+	for key := range self.borrowingStatesDirty {
 		stateExchanges.borrowingStatesDirty[key] = struct{}{}
 	}
 	for key, value := range self.investingStates {
 		stateExchanges.investingStates[key] = value.deepCopy(db, self.MarkInvestingDirty)
 	}
-	for key, _ := range self.investingStatesDirty {
+	for key := range self.investingStatesDirty {
 		stateExchanges.investingStatesDirty[key] = struct{}{}
 	}
 	for key, value := range self.lendingItemStates {
 		stateExchanges.lendingItemStates[key] = value.deepCopy(self.MarkLendingItemDirty)
 	}
-	for orderId, _ := range self.lendingItemStatesDirty {
+	for orderId := range self.lendingItemStatesDirty {
 		stateExchanges.lendingItemStatesDirty[orderId] = struct{}{}
 	}
 	for key, value := range self.lendingTradeStates {
 		stateExchanges.lendingTradeStates[key] = value.deepCopy(self.MarkLendingTradeDirty)
 	}
-	for orderId, _ := range self.lendingTradeStatesDirty {
+	for orderId := range self.lendingTradeStatesDirty {
 		stateExchanges.lendingTradeStatesDirty[orderId] = struct{}{}
 	}
 	for time, orderList := range self.liquidationTimeStates {
 		stateExchanges.liquidationTimeStates[time] = orderList.deepCopy(db, self.MarkLiquidationTimeDirty)
 	}
-	for time, _ := range self.liquidationTimestatesDirty {
+	for time := range self.liquidationTimestatesDirty {
 		stateExchanges.liquidationTimestatesDirty[time] = struct{}{}
 	}
 	return stateExchanges

@@ -17,7 +17,7 @@
 package runtime
 
 import (
-	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"strings"
 	"testing"
@@ -98,7 +98,7 @@ func TestExecute(t *testing.T) {
 }
 
 func TestCall(t *testing.T) {
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	state, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	address := common.HexToAddress("0x0a")
 	state.SetCode(address, []byte{
@@ -155,7 +155,7 @@ func BenchmarkCall(b *testing.B) {
 }
 func benchmarkEVM_Create(bench *testing.B, code string) {
 	var (
-		db, _      = ethdb.NewMemDatabase()
+		db         = rawdb.NewMemoryDatabase()
 		statedb, _ = state.New(common.Hash{}, state.NewDatabase(db))
 		sender     = common.BytesToAddress([]byte("sender"))
 		receiver   = common.BytesToAddress([]byte("receiver"))

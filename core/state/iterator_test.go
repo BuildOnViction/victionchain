@@ -51,7 +51,9 @@ func TestNodeIteratorCoverage(t *testing.T) {
 			t.Errorf("state entry not reported %x", hash)
 		}
 	}
-	for _, key := range db.TrieDB().DiskDB().(*ethdb.MemDatabase).Keys() {
+	it := db.TrieDB().DiskDB().(ethdb.Database).NewIterator(nil, nil)
+	for it.Next() {
+		key := it.Key()
 		if bytes.HasPrefix(key, []byte("secure-key-")) {
 			continue
 		}

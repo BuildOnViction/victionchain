@@ -25,8 +25,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/tomochain/tomochain/log"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/tomochain/tomochain/log"
 )
 
 const MetadataApi = "rpc"

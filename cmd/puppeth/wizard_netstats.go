@@ -23,9 +23,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/log"
-	"github.com/olekukonko/tablewriter"
 )
 
 // networkStats verifies the status of network components and generates a protip

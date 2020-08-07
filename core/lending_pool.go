@@ -431,7 +431,7 @@ func (pool *LendingPool) validateNewLending(cloneStateDb *state.StateDB, cloneLe
 		return ErrInvalidLendingType
 	}
 	if tx.Side() == lendingstate.Borrowing {
-		if tx.CollateralToken().String() ==  lendingstate.EmptyAddress || tx.CollateralToken().String() == tx.LendingToken().String(){
+		if tx.CollateralToken().String() == lendingstate.EmptyAddress || tx.CollateralToken().String() == tx.LendingToken().String() {
 			return ErrInvalidLendingCollateral
 		}
 		validCollateral := false
@@ -527,8 +527,8 @@ func (pool *LendingPool) validateBalance(cloneStateDb *state.StateDB, cloneLendi
 	if err != nil {
 		return fmt.Errorf("validateOrder: failed to get lendingTokenDecimal. err: %v", err)
 	}
-	author, err :=  pool.chain.Engine().Author(pool.chain.CurrentHeader())
-	if err!= nil {
+	author, err := pool.chain.Engine().Author(pool.chain.CurrentHeader())
+	if err != nil {
 		return err
 	}
 	tradingStateDb, err := tomoXServ.GetTradingState(pool.chain.CurrentBlock(), author)

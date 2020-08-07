@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"strings"
 
@@ -126,7 +127,7 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 		return nil, UnsupportedForkError{subtest.Fork}
 	}
 	block := t.genesis(config).ToBlock(nil)
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	statedb := MakePreState(db, t.json.Pre)
 
 	post := t.json.Post[subtest.Fork][subtest.Index]

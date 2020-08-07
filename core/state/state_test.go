@@ -18,6 +18,7 @@ package state
 
 import (
 	"bytes"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 
@@ -28,7 +29,7 @@ import (
 )
 
 type StateSuite struct {
-	db    *ethdb.MemDatabase
+	db    ethdb.Database
 	state *StateDB
 }
 
@@ -87,7 +88,7 @@ func (s *StateSuite) TestDump(c *checker.C) {
 }
 
 func (s *StateSuite) SetUpTest(c *checker.C) {
-	s.db, _ = ethdb.NewMemDatabase()
+	s.db= rawdb.NewMemoryDatabase()
 	s.state, _ = New(common.Hash{}, NewDatabase(s.db))
 }
 
@@ -133,7 +134,7 @@ func (s *StateSuite) TestSnapshotEmpty(c *checker.C) {
 // use testing instead of checker because checker does not support
 // printing/logging in tests (-check.vv does not work)
 func TestSnapshot2(t *testing.T) {
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	state, _ := New(common.Hash{}, NewDatabase(db))
 
 	stateobjaddr0 := toAddr([]byte("so0"))

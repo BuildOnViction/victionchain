@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/robertkrimen/otto"
 	"github.com/tomochain/tomochain/accounts/usbwallet"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rpc"
-	"github.com/robertkrimen/otto"
 )
 
 // bridge is a collection of JavaScript utility methods to bride the .js runtime

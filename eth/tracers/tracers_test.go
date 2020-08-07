@@ -20,14 +20,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/json"
-	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/common/math"
@@ -169,7 +168,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 		Code:    []byte{},
 		Balance: big.NewInt(500000000000000),
 	}
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	statedb := tests.MakePreState(db, alloc)
 
 	// Create the tracer, the EVM environment and run it
@@ -244,7 +243,7 @@ func TestCallTracer(t *testing.T) {
 				GasLimit:    uint64(test.Context.GasLimit),
 				GasPrice:    tx.GasPrice(),
 			}
-			db, _ := ethdb.NewMemDatabase()
+			db := rawdb.NewMemoryDatabase()
 			statedb := tests.MakePreState(db, test.Genesis.Alloc)
 
 			// Create the tracer, the EVM environment and run it
@@ -254,7 +253,7 @@ func TestCallTracer(t *testing.T) {
 			}
 			evm := vm.NewEVM(context, statedb, nil, test.Genesis.Config, vm.Config{Debug: true, Tracer: tracer})
 
-			msg, err := tx.AsMessage(signer, nil, nil)
+			msg, err := tx.AsMessage(signer, nil, common.Big0)
 			if err != nil {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
