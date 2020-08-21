@@ -297,12 +297,12 @@ func (tomox *TomoX) ConvertTOMOToToken(chain consensus.ChainContext, statedb *st
 	}
 	tokenPriceInTomo, err := tomox.GetAveragePriceLastEpoch(chain, statedb, tradingStateDb, token, common.HexToAddress(common.TomoNativeAddress))
 	if err != nil || tokenPriceInTomo == nil || tokenPriceInTomo.Sign() <= 0 {
-		return nil, nil, err
+		return common.Big0, common.Big0, err
 	}
 
 	tokenDecimal, err := tomox.GetTokenDecimal(chain, statedb, token)
 	if err != nil || tokenDecimal.Sign() == 0 {
-		return nil, nil, fmt.Errorf("fail to get tokenDecimal. Token: %v . Err: %v", token.String(), err)
+		return common.Big0, common.Big0, fmt.Errorf("fail to get tokenDecimal. Token: %v . Err: %v", token.String(), err)
 	}
 	tokenQuantity := new(big.Int).Mul(quantity, tokenDecimal)
 	tokenQuantity = new(big.Int).Div(tokenQuantity, tokenPriceInTomo)
