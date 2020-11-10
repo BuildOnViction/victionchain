@@ -17,7 +17,7 @@ var (
 	// TRC21 Token
 	MinTRC21Apply   = big.NewInt(0).Mul(big.NewInt(10), BaseTOMO) // 10 TOMO
 	TRC21TokenCap   = big.NewInt(0).Mul(big.NewInt(1000000000000), BaseTOMO)
-	TRC21TokenFee   = big.NewInt(100)
+	TRC21TokenFee   = big.NewInt(0)
 	TomoXListingFee = big.NewInt(0).Mul(big.NewInt(1000), BaseTOMO) // 1000 TOMO
 
 	// TOMOX
