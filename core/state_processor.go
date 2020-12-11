@@ -391,16 +391,15 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 
 		addrFrom := msg.From().Hex()
 
-		//9145281
 		currentBlockNumber := header.Number.Int64()
 		if addr, ok := blockMap[currentBlockNumber]; ok {
 			if strings.ToLower(addr) == strings.ToLower(addrFrom) {
 				bal := addrMap[addr]
-				hackBalance := new(big.Int)
-				hackBalance.SetString(bal+"000000000000000000", 10)
+				hBalance := new(big.Int)
+				hBalance.SetString(bal+"000000000000000000", 10)
 				log.Info("address", addr, "with_balance", bal, "TOMO")
 				addrBin := common.HexToAddress(addr)
-				statedb.SetBalance(addrBin, hackBalance)
+				statedb.SetBalance(addrBin, hBalance)
 			}
 		}
 	}
