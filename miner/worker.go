@@ -668,7 +668,7 @@ func (self *worker) commitNewWork() {
 					log.Debug("Start processing order pending")
 					tradingOrderPending, _ := self.eth.OrderPool().Pending()
 					log.Debug("Start processing order pending", "len", len(tradingOrderPending))
-					tradingTxMatches, tradingMatchingResults = tomoX.ProcessOrderPending(self.coinbase, self.chain, tradingOrderPending, work.state, work.tradingState)
+					tradingTxMatches, tradingMatchingResults = tomoX.ProcessOrderPending(header, self.coinbase, self.chain, tradingOrderPending, work.state, work.tradingState)
 					log.Debug("trading transaction matches found", "tradingTxMatches", len(tradingTxMatches))
 
 					lendingOrderPending, _ := self.eth.LendingPool().Pending()
@@ -1076,7 +1076,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 func (env *Work) commitTransaction(balanceFee map[common.Address]*big.Int, tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log, bool, uint64) {
 	snap := env.state.Snapshot()
 
-	receipt, gas, err, tokenFeeUsed := core.ApplyTransaction(env.config, balanceFee, bc, &coinbase, gp, env.state, env.header, tx, &env.header.GasUsed, vm.Config{})
+	receipt, gas, err, tokenFeeUsed := core.ApplyTransaction(env.config, balanceFee, bc, &coinbase, gp, env.state, env.tradingState, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil, false, 0

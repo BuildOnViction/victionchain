@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"sync"
 	"time"
@@ -66,7 +67,7 @@ type SimulatedBackend struct {
 // NewSimulatedBackend creates a new binding backend using a simulated blockchain
 // for testing purposes.
 func NewSimulatedBackend(alloc core.GenesisAlloc) *SimulatedBackend {
-	database, _ := ethdb.NewMemDatabase()
+	database := rawdb.NewMemoryDatabase()
 	genesis := core.Genesis{Config: params.AllEthashProtocolChanges, Alloc: alloc, GasLimit: 42000000}
 	genesis.MustCommit(database)
 	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{})
@@ -224,10 +225,10 @@ func (b *SimulatedBackend) CallContractWithState(call tomochain.CallMsg, chain c
 	evmContext := core.NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(evmContext, statedb, chain.Config(), vm.Config{})
+	vmenv := vm.NewEVM(evmContext, statedb, nil, chain.Config(), vm.Config{})
 	gaspool := new(core.GasPool).AddGas(1000000)
 	owner := common.Address{}
-	rval, _, _ , err :=  core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
+	rval, _, _, err := core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
 	if err != nil {
 		return nil, err
 	}
@@ -284,6 +285,7 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallM
 
 		snapshot := b.pendingState.Snapshot()
 		_, _, failed, err := b.callContract(ctx, call, b.pendingBlock, b.pendingState)
+		fmt.Println("EstimateGas",err,failed)
 		b.pendingState.RevertToSnapshot(snapshot)
 
 		if err != nil || failed {
@@ -336,7 +338,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call tomochain.Call
 	evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(evmContext, statedb, b.config, vm.Config{})
+	vmenv := vm.NewEVM(evmContext, statedb, nil, b.config, vm.Config{})
 	gaspool := new(core.GasPool).AddGas(math.MaxUint64)
 	owner := common.Address{}
 	return core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)

@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"reflect"
 	"testing"
@@ -140,7 +141,7 @@ func TestSetupGenesis(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		db, _ := ethdb.NewMemDatabase()
+		db := rawdb.NewMemoryDatabase()
 		config, hash, err := test.fn(db)
 		// Check the return values.
 		if !reflect.DeepEqual(err, test.wantErr) {

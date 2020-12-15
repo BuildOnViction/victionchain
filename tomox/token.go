@@ -14,7 +14,6 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 )
 
-
 // GetTokenAbi return token abi
 func GetTokenAbi() (*abi.ABI, error) {
 	contractABI, err := abi.JSON(strings.NewReader(contract.TRC21ABI))
@@ -71,4 +70,9 @@ func (tomox *TomoX) GetTokenDecimal(chain consensus.ChainContext, statedb *state
 	tokenDecimal := new(big.Int).SetUint64(0).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	tomox.tokenDecimalCache.Add(tokenAddr, tokenDecimal)
 	return tokenDecimal, nil
+}
+
+// FIXME: using in unit tests only
+func (tomox *TomoX) SetTokenDecimal(token common.Address, decimal *big.Int) {
+	tomox.tokenDecimalCache.Add(token, decimal)
 }

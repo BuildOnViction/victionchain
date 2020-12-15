@@ -76,7 +76,7 @@ func (self *TradingStateDB) DumpAskTrie(orderBook common.Hash) (map[*big.Int]Dum
 		}
 	}
 	listPrice := []*big.Int{}
-	for price, _ := range mapResult {
+	for price := range mapResult {
 		listPrice = append(listPrice, price)
 	}
 	sort.Slice(listPrice, func(i, j int) bool {
@@ -119,7 +119,7 @@ func (self *TradingStateDB) DumpBidTrie(orderBook common.Hash) (map[*big.Int]Dum
 		}
 	}
 	listPrice := []*big.Int{}
-	for price, _ := range mapResult {
+	for price := range mapResult {
 		listPrice = append(listPrice, price)
 	}
 	sort.Slice(listPrice, func(i, j int) bool {
@@ -162,7 +162,7 @@ func (self *TradingStateDB) GetBids(orderBook common.Hash) (map[*big.Int]*big.In
 		}
 	}
 	listPrice := []*big.Int{}
-	for price, _ := range mapResult {
+	for price := range mapResult {
 		listPrice = append(listPrice, price)
 	}
 	sort.Slice(listPrice, func(i, j int) bool {
@@ -205,7 +205,7 @@ func (self *TradingStateDB) GetAsks(orderBook common.Hash) (map[*big.Int]*big.In
 		}
 	}
 	listPrice := []*big.Int{}
-	for price, _ := range mapResult {
+	for price := range mapResult {
 		listPrice = append(listPrice, price)
 	}
 	sort.Slice(listPrice, func(i, j int) bool {
@@ -238,7 +238,7 @@ func (self *stateOrderList) DumpOrderList(db Database) DumpOrderList {
 		}
 	}
 	listIds := []*big.Int{}
-	for id, _ := range mapResult.Orders {
+	for id := range mapResult.Orders {
 		listIds = append(listIds, id)
 	}
 	sort.Slice(listIds, func(i, j int) bool {
@@ -291,7 +291,7 @@ func (self *stateLendingBook) DumpOrderList(db Database) DumpOrderList {
 		}
 	}
 	listIds := []*big.Int{}
-	for id, _ := range mapResult.Orders {
+	for id := range mapResult.Orders {
 		listIds = append(listIds, id)
 	}
 	sort.Slice(listIds, func(i, j int) bool {
@@ -369,7 +369,7 @@ func (self *TradingStateDB) DumpLiquidationPriceTrie(orderBook common.Hash) (map
 		}
 	}
 	listPrice := []*big.Int{}
-	for price, _ := range mapResult {
+	for price := range mapResult {
 		listPrice = append(listPrice, price)
 	}
 	sort.Slice(listPrice, func(i, j int) bool {

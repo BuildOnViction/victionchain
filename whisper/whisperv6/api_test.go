@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/tomochain/common"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/tomochain/tomochain/common"
 )
 
 func TestMultipleTopicCopyInNewMessageFilter(t *testing.T) {

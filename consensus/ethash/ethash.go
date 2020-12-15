@@ -33,11 +33,11 @@ import (
 	"unsafe"
 
 	mmap "github.com/edsrzf/mmap-go"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/rpc"
-	"github.com/hashicorp/golang-lru/simplelru"
 )
 
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")

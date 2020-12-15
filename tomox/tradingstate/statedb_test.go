@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
-	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 )
@@ -39,7 +39,7 @@ func TestEchangeStates(t *testing.T) {
 		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Bid, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
 	}
 	// Create an empty statedb database
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	stateCache := NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 
@@ -71,9 +71,7 @@ func TestEchangeStates(t *testing.T) {
 	statedb.InsertLiquidationPrice(orderBook, big.NewInt(2), orderBook, 3)
 	statedb.InsertLiquidationPrice(orderBook, big.NewInt(3), orderBook, 1)
 	root := statedb.IntermediateRoot()
-	fmt.Println("size", stateCache.TrieDB().Size())
 	statedb.Commit()
-	fmt.Println("size", stateCache.TrieDB().Size())
 	err := stateCache.TrieDB().Commit(root, false)
 	if err != nil {
 		t.Errorf("Error when commit into database: %v", err)
@@ -171,7 +169,7 @@ func TestRevertStates(t *testing.T) {
 		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 1)), Price: big.NewInt(int64(2*i + 1)), Side: Bid, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
 	}
 	// Create an empty statedb database
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	stateCache := NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 
@@ -276,7 +274,7 @@ func TestDumpState(t *testing.T) {
 		orderItems = append(orderItems, OrderItem{OrderID: id.Uint64(), Quantity: big.NewInt(int64(2*i + 2)), Price: big.NewInt(int64(2*i + 2)), Side: Bid, Signature: &Signature{V: 1, R: common.HexToHash("3333333333"), S: common.HexToHash("22222222222222222")}})
 	}
 	// Create an empty statedb database
-	db, _ := ethdb.NewMemDatabase()
+	db := rawdb.NewMemoryDatabase()
 	stateCache := NewDatabase(db)
 	statedb, _ := New(common.Hash{}, stateCache)
 

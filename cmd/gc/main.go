@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/ethdb/leveldb"
 	"os"
 	"os/signal"
 	"runtime"
@@ -10,17 +13,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/eth"
-	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
-	"github.com/hashicorp/golang-lru"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 var (
@@ -52,17 +52,18 @@ type ResultProcessNode struct {
 
 func main() {
 	flag.Parse()
-	lddb, _ := ethdb.NewLDBDatabase(*dir, eth.DefaultConfig.DatabaseCache, utils.MakeDatabaseHandles())
+	db, _ := leveldb.New(*dir, eth.DefaultConfig.DatabaseCache, utils.MakeDatabaseHandles(), "")
+	lddb := rawdb.NewDatabase(db)
 	head := core.GetHeadBlockHash(lddb)
 	currentHeader := core.GetHeader(lddb, head, core.GetBlockNumber(lddb, head))
 	tridb := trie.NewDatabase(lddb)
-	catchEventInterupt(lddb.LDB())
+	catchEventInterupt(db)
 	cache, _ = lru.New(*cacheSize)
 	go func() {
 		for i := uint64(1); i <= currentHeader.Number.Uint64(); i++ {
 			hash := core.GetCanonicalHash(lddb, i)
 			root := core.GetHeader(lddb, hash, i).Root
-			trieRoot, err := trie.NewSecure(root, tridb, 0)
+			trieRoot, err := trie.NewSecure(root, tridb)
 			if err != nil {
 				continue
 			}
@@ -84,21 +85,21 @@ func main() {
 				var data state.Account
 				rlp.DecodeBytes(enc, &data)
 				fmt.Println(time.Now().Format(time.RFC3339), "Start clean state address ", address.Hex(), " at block ", trieRoot.number)
-				signerRoot, err := resolveHash(data.Root[:], lddb.LDB())
+				signerRoot, err := resolveHash(data.Root[:], db)
 				if err != nil {
 					fmt.Println(time.Now().Format(time.RFC3339), "Not found clean state address ", address.Hex(), " at block ", trieRoot.number)
 					continue
 				}
-				batch := new(leveldb.Batch)
+				batch := db.NewBatch()
 				count := 1
 				list := []*StateNode{{node: signerRoot}}
 				for len(list) > 0 {
-					newList, total := findNewNodes(list, lddb.LDB(), batch)
+					newList, total := findNewNodes(list, db, batch)
 					count = count + 17*len(newList)
 					list = removeNodesNil(newList, total)
 				}
 				fmt.Println(time.Now().Format(time.RFC3339), "Finish clean state address ", address.Hex(), " at block ", trieRoot.number, " keys ", count)
-				err = lddb.LDB().Write(batch, nil)
+				err = batch.Write()
 				if err != nil {
 					fmt.Println(time.Now().Format(time.RFC3339), "Write batch leveldb error", err)
 					os.Exit(1)
@@ -110,7 +111,7 @@ func main() {
 		atomic.StoreInt32(&finish, 0)
 	}
 	fmt.Println(time.Now(), "compact")
-	lddb.LDB().CompactRange(util.Range{})
+	lddb.Compact(nil, nil)
 	lddb.Close()
 	fmt.Println(time.Now(), "end")
 }
@@ -128,7 +129,7 @@ func removeNodesNil(list [][17]*StateNode, length int) []*StateNode {
 	}
 	return results
 }
-func catchEventInterupt(db *leveldb.DB) {
+func catchEventInterupt(db *leveldb.Database) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -143,18 +144,18 @@ func catchEventInterupt(db *leveldb.DB) {
 		}
 	}()
 }
-func resolveHash(n trie.HashNode, db *leveldb.DB) (trie.Node, error) {
+func resolveHash(n trie.HashNode, db *leveldb.Database) (trie.Node, error) {
 	if cache.Contains(common.BytesToHash(n)) {
 		return nil, &trie.MissingNodeError{}
 	}
-	enc, err := db.Get(n, nil)
+	enc, err := db.Get(n)
 	if err != nil || enc == nil {
 		return nil, &trie.MissingNodeError{}
 	}
-	return trie.MustDecodeNode(n, enc, 0), nil
+	return trie.MustDecodeNode(n, enc), nil
 }
 
-func getAllChilds(n StateNode, db *leveldb.DB) ([17]*StateNode, error) {
+func getAllChilds(n StateNode, db *leveldb.Database) ([17]*StateNode, error) {
 	childs := [17]*StateNode{}
 	switch node := n.node.(type) {
 	case *trie.FullNode:
@@ -195,7 +196,7 @@ func getAllChilds(n StateNode, db *leveldb.DB) ([17]*StateNode, error) {
 	}
 	return childs, nil
 }
-func processNodes(node StateNode, db *leveldb.DB) ([17]*StateNode, [17]*[]byte, int) {
+func processNodes(node StateNode, db *leveldb.Database) ([17]*StateNode, [17]*[]byte, int) {
 	hash, _ := node.node.Cache()
 	commonHash := common.BytesToHash(hash)
 	newNodes := [17]*StateNode{}
@@ -226,7 +227,7 @@ func processNodes(node StateNode, db *leveldb.DB) ([17]*StateNode, [17]*[]byte, 
 	return newNodes, keys, number
 }
 
-func findNewNodes(nodes []*StateNode, db *leveldb.DB, batchlvdb *leveldb.Batch) ([][17]*StateNode, int) {
+func findNewNodes(nodes []*StateNode, db *leveldb.Database, batchlvdb ethdb.Batch) ([][17]*StateNode, int) {
 	length := len(nodes)
 	chunkSize := length / nWorker
 	if len(nodes)%nWorker != 0 {

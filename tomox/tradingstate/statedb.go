@@ -26,7 +26,6 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rlp"
-	"github.com/tomochain/tomochain/trie"
 )
 
 type revision struct {
@@ -604,7 +603,7 @@ func (s *TradingStateDB) Commit() (root common.Hash, err error) {
 		}
 		return nil
 	})
-	log.Debug("TomoX Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads(), "root", root.Hex())
+	log.Debug("Trading State Trie cache stats after commit", "root", root.Hex())
 	return root, err
 }
 
