@@ -484,3 +484,20 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 	}
 	return dirty, nil
 }
+
+func (api *PublicEthereumAPI) ChainId() hexutil.Uint64 {
+	chainID := new(big.Int)
+	if config := api.e.chainConfig; config.IsEIP155(api.e.blockchain.CurrentBlock().Number()) {
+		chainID = config.ChainId
+	}
+	return (hexutil.Uint64)(chainID.Uint64())
+}
+
+// GetOwner return masternode owner of the given coinbase address
+func (api *PublicEthereumAPI) GetOwnerByCoinbase(ctx context.Context, coinbase common.Address, blockNr rpc.BlockNumber) (common.Address,  error) {
+	statedb, _, err := api.e.ApiBackend.StateAndHeaderByNumber(ctx, blockNr)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return statedb.GetOwner(coinbase), nil
+}
