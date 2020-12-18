@@ -63,6 +63,7 @@ var (
 		common.HexToAddress("0xe36c1842365595D44854eEcd64B11c8115E133EF"), // USDTOMO
 		common.HexToAddress("0xaaC1959F6F0fb539F653409079Ec4146267B7555"), // BTCUSD
 		common.HexToAddress("0x726DA688e2e09f01A2e1aB4c10F25B7CEdD4a0f3"), // ETHUSD
+		common.HexToAddress("0xc70f010E8DB8bc436712A93D170C7c27Db1981Ea"), // rosetta-cli testing account
 	}
 
 	Required = big.NewInt(2)

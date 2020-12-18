@@ -510,7 +510,7 @@ func (s *PublicBlockChainAPI) BlockNumber() *big.Int {
 }
 
 // BlockNumber returns the block number of the chain head.
-func (s *PublicBlockChainAPI) GetRewardByHash(hash common.Hash) map[string]interface{} {
+func (s *PublicBlockChainAPI) GetRewardByHash(hash common.Hash) map[string]map[string]map[string]*big.Int {
 	return s.b.GetRewardByHash(hash)
 }
 

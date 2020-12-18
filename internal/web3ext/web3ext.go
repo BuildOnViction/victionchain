@@ -480,6 +480,12 @@ web3._extend({
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, web3._extend.utils.toHex]
 		}),
+		new web3._extend.Method({
+			name: 'GetOwnerByCoinbase',
+			call: 'eth_getOwnerByCoinbase',
+			params: 2,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter, web3._extend.formatters.inputBlockNumberFormatter]
+		}),
 	],
 	properties: [
 		new web3._extend.Property({

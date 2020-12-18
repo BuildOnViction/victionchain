@@ -85,7 +85,7 @@ type Backend interface {
 	CurrentBlock() *types.Block
 	GetIPCClient() (*ethclient.Client, error)
 	GetEngine() consensus.Engine
-	GetRewardByHash(hash common.Hash) map[string]interface{}
+	GetRewardByHash(hash common.Hash) map[string]map[string]map[string]*big.Int
 
 	GetVotersRewards(common.Address) map[common.Address]*big.Int
 	GetVotersCap(checkpoint *big.Int, masterAddr common.Address, voters []common.Address) map[common.Address]*big.Int
