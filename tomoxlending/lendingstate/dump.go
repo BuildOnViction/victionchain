@@ -69,7 +69,7 @@ func (self *LendingStateDB) DumpInvestingTrie(orderBook common.Hash) (map[*big.I
 		}
 	}
 	listInterest := []*big.Int{}
-	for interest, _ := range mapResult {
+	for interest := range mapResult {
 		listInterest = append(listInterest, interest)
 	}
 	sort.Slice(listInterest, func(i, j int) bool {
@@ -112,7 +112,7 @@ func (self *LendingStateDB) DumpBorrowingTrie(orderBook common.Hash) (map[*big.I
 		}
 	}
 	listInterest := []*big.Int{}
-	for interest, _ := range mapResult {
+	for interest := range mapResult {
 		listInterest = append(listInterest, interest)
 	}
 	sort.Slice(listInterest, func(i, j int) bool {
@@ -155,7 +155,7 @@ func (self *LendingStateDB) GetInvestings(orderBook common.Hash) (map[*big.Int]*
 		}
 	}
 	listInterest := []*big.Int{}
-	for interest, _ := range mapResult {
+	for interest := range mapResult {
 		listInterest = append(listInterest, interest)
 	}
 	sort.Slice(listInterest, func(i, j int) bool {
@@ -198,7 +198,7 @@ func (self *LendingStateDB) GetBorrowings(orderBook common.Hash) (map[*big.Int]*
 		}
 	}
 	listInterest := []*big.Int{}
-	for interest, _ := range mapResult {
+	for interest := range mapResult {
 		listInterest = append(listInterest, interest)
 	}
 	sort.Slice(listInterest, func(i, j int) bool {
@@ -232,7 +232,7 @@ func (self *itemListState) DumpItemList(db Database) DumpOrderList {
 		}
 	}
 	listIds := []*big.Int{}
-	for id, _ := range mapResult.Orders {
+	for id := range mapResult.Orders {
 		listIds = append(listIds, id)
 	}
 	sort.Slice(listIds, func(i, j int) bool {
@@ -281,7 +281,7 @@ func (self *liquidationTimeState) DumpItemList(db Database) DumpOrderList {
 		}
 	}
 	listIds := []*big.Int{}
-	for id, _ := range mapResult.Orders {
+	for id := range mapResult.Orders {
 		listIds = append(listIds, id)
 	}
 	sort.Slice(listIds, func(i, j int) bool {
@@ -323,7 +323,7 @@ func (self *LendingStateDB) DumpLiquidationTimeTrie(orderBook common.Hash) (map[
 		}
 	}
 	listUnixTime := []*big.Int{}
-	for unixTime, _ := range mapResult {
+	for unixTime := range mapResult {
 		listUnixTime = append(listUnixTime, unixTime)
 	}
 	sort.Slice(listUnixTime, func(i, j int) bool {
@@ -363,7 +363,7 @@ func (self *LendingStateDB) DumpLendingOrderTrie(orderBook common.Hash) (map[*bi
 		mapResult[new(big.Int).SetBytes(orderIdHash.Bytes())] = lendingOrder.data
 	}
 	listOrderId := []*big.Int{}
-	for orderId, _ := range mapResult {
+	for orderId := range mapResult {
 		listOrderId = append(listOrderId, orderId)
 	}
 	sort.Slice(listOrderId, func(i, j int) bool {
@@ -403,7 +403,7 @@ func (self *LendingStateDB) DumpLendingTradeTrie(orderBook common.Hash) (map[*bi
 		mapResult[new(big.Int).SetBytes(tradeIdHash.Bytes())] = lendingTrade.data
 	}
 	listTradeId := []*big.Int{}
-	for tradeId, _ := range mapResult {
+	for tradeId := range mapResult {
 		listTradeId = append(listTradeId, tradeId)
 	}
 	sort.Slice(listTradeId, func(i, j int) bool {

@@ -303,7 +303,7 @@ func (bc *BlockChain) loadLastState() error {
 		if ok {
 			tradingService := engine.GetTomoXService()
 			lendingService := engine.GetLendingService()
-			if bc.Config().IsTIPTomoX(currentBlock.Number()) && tradingService != nil && lendingService != nil {
+			if bc.Config().IsTIPTomoX(currentBlock.Number()) && bc.chainConfig.Posv != nil && currentBlock.NumberU64() > bc.chainConfig.Posv.Epoch && tradingService != nil && lendingService != nil {
 				tradingRoot, err := tradingService.GetTradingStateRoot(currentBlock, author)
 				if err != nil {
 					repair = true
@@ -437,7 +437,7 @@ func (bc *BlockChain) FastSyncCommitHead(hash common.Hash) error {
 	if block == nil {
 		return fmt.Errorf("non existent block [%x…]", hash[:4])
 	}
-	if _, err := trie.NewSecure(block.Root(), bc.stateCache.TrieDB(), 0); err != nil {
+	if _, err := trie.NewSecure(block.Root(), bc.stateCache.TrieDB()); err != nil {
 		return err
 	}
 	// If all checks out, manually set the head block
@@ -509,7 +509,7 @@ func (bc *BlockChain) OrderStateAt(block *types.Block) (*tradingstate.TradingSta
 	engine, ok := bc.Engine().(*posv.Posv)
 	if ok {
 		tomoXService := engine.GetTomoXService()
-		if bc.Config().IsTIPTomoX(block.Number()) && tomoXService != nil {
+		if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && tomoXService != nil {
 			author, _ := bc.Engine().Author(block.Header())
 			log.Debug("OrderStateAt", "blocknumber", block.Header().Number)
 			tomoxState, err := tomoXService.GetTradingState(block, author)
@@ -529,7 +529,7 @@ func (bc *BlockChain) LendingStateAt(block *types.Block) (*lendingstate.LendingS
 	engine, ok := bc.Engine().(*posv.Posv)
 	if ok {
 		lendingService := engine.GetLendingService()
-		if bc.Config().IsTIPTomoX(block.Number()) && lendingService != nil {
+		if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && lendingService != nil {
 			author, _ := bc.Engine().Author(block.Header())
 			log.Debug("LendingStateAt", "blocknumber", block.Header().Number)
 			lendingState, err := lendingService.GetLendingState(block, author)
@@ -591,7 +591,7 @@ func (bc *BlockChain) repair(head **types.Block) error {
 				if ok {
 					tradingService := engine.GetTomoXService()
 					lendingService := engine.GetLendingService()
-					if bc.Config().IsTIPTomoX((*head).Number()) && tradingService != nil && lendingService != nil {
+					if bc.Config().IsTIPTomoX((*head).Number()) && bc.chainConfig.Posv != nil && (*head).NumberU64() > bc.chainConfig.Posv.Epoch && tradingService != nil && lendingService != nil {
 						author, _ := bc.Engine().Author((*head).Header())
 						tradingRoot, err := tradingService.GetTradingStateRoot(*head, author)
 						if err == nil {
@@ -742,7 +742,7 @@ func (bc *BlockChain) HasFullState(block *types.Block) bool {
 		return false
 	}
 	engine, _ := bc.Engine().(*posv.Posv)
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
+	if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 		tradingService := engine.GetTomoXService()
 		lendingService := engine.GetLendingService()
 		author, _ := bc.Engine().Author(block.Header())
@@ -877,11 +877,15 @@ func (bc *BlockChain) SaveData() {
 		var lendingTriedb *trie.Database
 		engine, _ := bc.Engine().(*posv.Posv)
 		triedb := bc.stateCache.TrieDB()
-		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil {
-			if tradingService := engine.GetTomoXService(); tradingService != nil && tradingService.GetStateCache() != nil {
+		var tradingService posv.TradingService
+		var lendingService posv.LendingService
+		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && bc.chainConfig.Posv != nil && bc.CurrentBlock().NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
+			tradingService = engine.GetTomoXService()
+			if tradingService != nil && tradingService.GetStateCache() != nil {
 				tradingTriedb = tradingService.GetStateCache().TrieDB()
 			}
-			if lendingService := engine.GetLendingService(); lendingService != nil && lendingService.GetStateCache() != nil {
+			lendingService = engine.GetLendingService()
+			if lendingService != nil && lendingService.GetStateCache() != nil {
 				lendingTriedb = lendingService.GetStateCache().TrieDB()
 			}
 		}
@@ -893,9 +897,9 @@ func (bc *BlockChain) SaveData() {
 				if err := triedb.Commit(recent.Root(), true); err != nil {
 					log.Error("Failed to commit recent state trie", "err", err)
 				}
-				if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil {
+				if bc.Config().IsTIPTomoX(recent.Number()) && bc.chainConfig.Posv != nil && recent.NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
 					author, _ := bc.Engine().Author(recent.Header())
-					if tradingService := engine.GetTomoXService(); tradingService != nil {
+					if tradingService != nil {
 						tradingRoot, _ := tradingService.GetTradingStateRoot(recent, author)
 						if !common.EmptyHash(tradingRoot) && tradingTriedb != nil {
 							if err := tradingTriedb.Commit(tradingRoot, true); err != nil {
@@ -903,7 +907,7 @@ func (bc *BlockChain) SaveData() {
 							}
 						}
 					}
-					if lendingService := engine.GetLendingService(); lendingService != nil {
+					if lendingService != nil {
 						lendingRoot, _ := lendingService.GetLendingStateRoot(recent, author)
 						if !common.EmptyHash(lendingRoot) && lendingTriedb != nil {
 							if err := lendingTriedb.Commit(lendingRoot, true); err != nil {
@@ -915,21 +919,21 @@ func (bc *BlockChain) SaveData() {
 			}
 		}
 		for !bc.triegc.Empty() {
-			triedb.Dereference(bc.triegc.PopItem().(common.Hash), common.Hash{})
+			triedb.Dereference(bc.triegc.PopItem().(common.Hash))
 		}
-		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && engine != nil && tradingTriedb != nil && lendingTriedb != nil {
-			if tradingService := engine.GetTomoXService(); tradingService != nil && tradingService.GetTriegc() != nil {
+		if tradingTriedb != nil && lendingTriedb != nil {
+			if tradingService.GetTriegc() != nil {
 				for !tradingService.GetTriegc().Empty() {
-					tradingTriedb.Dereference(tradingService.GetTriegc().PopItem().(common.Hash), common.Hash{})
+					tradingTriedb.Dereference(tradingService.GetTriegc().PopItem().(common.Hash))
 				}
 			}
-			if lendingService := engine.GetLendingService(); lendingService != nil && lendingService.GetTriegc() != nil {
+			if lendingService.GetTriegc() != nil {
 				for !lendingService.GetTriegc().Empty() {
-					lendingTriedb.Dereference(lendingService.GetTriegc().PopItem().(common.Hash), common.Hash{})
+					lendingTriedb.Dereference(lendingService.GetTriegc().PopItem().(common.Hash))
 				}
 			}
 		}
-		if size := triedb.Size(); size != 0 {
+		if size, _ := triedb.Size(); size != 0 {
 			log.Error("Dangling trie nodes after full cleanup")
 		}
 	}
@@ -1197,15 +1201,16 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	}
 	engine, _ := bc.Engine().(*posv.Posv)
 	var tradingTrieDb *trie.Database
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-		if tradingService := engine.GetTomoXService(); tradingService != nil {
+	var tradingService posv.TradingService
+	var lendingTrieDb *trie.Database
+	var lendingService posv.LendingService
+	if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
+		tradingService = engine.GetTomoXService()
+		if tradingService != nil {
 			tradingTrieDb = tradingService.GetStateCache().TrieDB()
 		}
-	}
-
-	var lendingTrieDb *trie.Database
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-		if lendingService := engine.GetTomoXService(); lendingService != nil {
+		lendingService = engine.GetLendingService()
+		if lendingService != nil {
 			lendingTrieDb = lendingService.GetStateCache().TrieDB()
 		}
 	}
@@ -1229,65 +1234,60 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
-		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
-			if tradingTrieDb != nil {
-				tradingTrieDb.Reference(tradingRoot, common.Hash{})
-			}
-			if tradingService := engine.GetTomoXService(); tradingService != nil {
-				tradingService.GetTriegc().Push(tradingRoot, -float32(block.NumberU64()))
-			}
-			if lendingTrieDb != nil {
-				lendingTrieDb.Reference(lendingRoot, common.Hash{})
-			}
-			if lendingService := engine.GetLendingService(); lendingService != nil {
-				lendingService.GetTriegc().Push(lendingRoot, -float32(block.NumberU64()))
-			}
+		if tradingTrieDb != nil {
+			tradingTrieDb.Reference(tradingRoot, common.Hash{})
+		}
+		if tradingService != nil {
+			tradingService.GetTriegc().Push(tradingRoot, -float32(block.NumberU64()))
+		}
+		if lendingTrieDb != nil {
+			lendingTrieDb.Reference(lendingRoot, common.Hash{})
+		}
+		if lendingService != nil {
+			lendingService.GetTriegc().Push(lendingRoot, -float32(block.NumberU64()))
 		}
 		if current := block.NumberU64(); current > triesInMemory {
 			// Find the next state trie we need to commit
-			header := bc.GetHeaderByNumber(current - triesInMemory)
-			chosen := header.Number.Uint64()
+			chosen := current - triesInMemory
 			oldTradingRoot := common.Hash{}
 			oldLendingRoot := common.Hash{}
-			if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-				b := bc.GetBlock(header.Hash(), current-triesInMemory)
-				author, _ := bc.Engine().Author(b.Header())
-				if tradingService := engine.GetTomoXService(); tradingService != nil {
-					oldTradingRoot, _ = tradingService.GetTradingStateRoot(b, author)
-				}
-				if lendingService := engine.GetLendingService(); lendingService != nil {
-					oldLendingRoot, _ = lendingService.GetLendingStateRoot(b, author)
-				}
-			}
 			// Only write to disk if we exceeded our memory allowance *and* also have at
 			// least a given number of tries gapped.
+			//
+			//if tradingTrieDb != nil {
+			//	size = size + tradingTrieDb.Size()
+			//}
+			//if lendingTrieDb != nil {
+			//	size = size + lendingTrieDb.Size()
+			//}
 			var (
-				size  = triedb.Size()
-				limit = common.StorageSize(bc.cacheConfig.TrieNodeLimit) * 1024 * 1024
+				nodes, imgs = triedb.Size()
+				limit       = common.StorageSize(bc.cacheConfig.TrieNodeLimit) * 1024 * 1024
 			)
-			if tradingTrieDb != nil {
-				size = size + tradingTrieDb.Size()
+			if nodes > limit || imgs > 4*1024*1024 {
+				triedb.Cap(limit - ethdb.IdealBatchSize)
 			}
-			if lendingTrieDb != nil {
-				size = size + lendingTrieDb.Size()
-			}
-			if size > limit || bc.gcproc > bc.cacheConfig.TrieTimeLimit || chosen > lastWrite+triesInMemory {
-				// If we're exceeding limits but haven't reached a large enough memory gap,
-				// warn the user that the system is becoming unstable.
-				if chosen < lastWrite+triesInMemory {
-					switch {
-					case size >= 2*limit:
-						log.Warn("State memory usage too high, committing", "size", size, "limit", limit, "optimum", float64(chosen-lastWrite)/triesInMemory, "triedb", triedb.Size(), "tradingTrieDb", tradingTrieDb.Size(), "lendingTrieDb", lendingTrieDb.Size())
-					case bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit:
+			if bc.gcproc > bc.cacheConfig.TrieTimeLimit || chosen > lastWrite+triesInMemory {
+				// If the header is missing (canonical chain behind), we're reorging a low
+				// diff sidechain. Suspend committing until this operation is completed.
+				header := bc.GetHeaderByNumber(chosen)
+				if header == nil {
+					log.Warn("Reorg in progress, trie commit postponed", "number", chosen)
+				} else {
+					// If we're exceeding limits but haven't reached a large enough memory gap,
+					// warn the user that the system is becoming unstable.
+					if chosen < lastWrite+triesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
 						log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/triesInMemory)
 					}
-				}
-				// If optimum or critical limits reached, write to disk
-				if chosen >= lastWrite+triesInMemory || size >= 2*limit || bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
+					// Flush an entire trie and restart the counters
 					triedb.Commit(header.Root, true)
 					lastWrite = chosen
 					bc.gcproc = 0
-					if bc.Config().IsTIPTomoX(block.Number()) && tradingTrieDb != nil && lendingTrieDb != nil {
+					if tradingTrieDb != nil && lendingTrieDb != nil {
+						b := bc.GetBlock(header.Hash(), current-triesInMemory)
+						author, _ := bc.Engine().Author(b.Header())
+						oldTradingRoot, _ = tradingService.GetTradingStateRoot(b, author)
+						oldLendingRoot, _ = lendingService.GetLendingStateRoot(b, author)
 						tradingTrieDb.Commit(oldTradingRoot, true)
 						lendingTrieDb.Commit(oldLendingRoot, true)
 					}
@@ -1300,28 +1300,26 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 					bc.triegc.Push(root, number)
 					break
 				}
-				triedb.Dereference(root.(common.Hash), common.Hash{})
+				triedb.Dereference(root.(common.Hash))
 			}
-			if bc.Config().IsTIPTomoX(block.Number()) && engine != nil {
-				if tradingService := engine.GetTomoXService(); tradingService != nil {
-					for !tradingService.GetTriegc().Empty() {
-						tradingRoot, number := tradingService.GetTriegc().Pop()
-						if uint64(-number) > chosen {
-							tradingService.GetTriegc().Push(tradingRoot, number)
-							break
-						}
-						tradingTrieDb.Dereference(tradingRoot.(common.Hash), common.Hash{})
+			if tradingService != nil {
+				for !tradingService.GetTriegc().Empty() {
+					tradingRoot, number := tradingService.GetTriegc().Pop()
+					if uint64(-number) > chosen {
+						tradingService.GetTriegc().Push(tradingRoot, number)
+						break
 					}
+					tradingTrieDb.Dereference(tradingRoot.(common.Hash))
 				}
-				if lendingService := engine.GetLendingService(); lendingService != nil {
-					for !lendingService.GetTriegc().Empty() {
-						lendingRoot, number := lendingService.GetTriegc().Pop()
-						if uint64(-number) > chosen {
-							lendingService.GetTriegc().Push(lendingRoot, number)
-							break
-						}
-						lendingTrieDb.Dereference(lendingRoot.(common.Hash), common.Hash{})
+			}
+			if lendingService != nil {
+				for !lendingService.GetTriegc().Empty() {
+					lendingRoot, number := lendingService.GetTriegc().Pop()
+					if uint64(-number) > chosen {
+						lendingService.GetTriegc().Push(lendingRoot, number)
+						break
 					}
+					lendingTrieDb.Dereference(lendingRoot.(common.Hash))
 				}
 			}
 		}
@@ -1539,7 +1537,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		var tradingService posv.TradingService
 		var lendingService posv.LendingService
 		isSDKNode := false
-		if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
+		if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 			tradingService = engine.GetTomoXService()
 			lendingService = engine.GetLendingService()
 			if tradingService != nil && lendingService != nil {
@@ -1566,7 +1564,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				} else {
 					for _, txMatchBatch := range txMatchBatchData {
 						log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-						err := bc.Validator().ValidateTradingOrder(statedb, tradingState, txMatchBatch, author)
+						err := bc.Validator().ValidateTradingOrder(statedb, tradingState, txMatchBatch, author, block.Header())
 						if err != nil {
 							bc.reportBlock(block, nil, err)
 							return i, events, coalescedLogs, err
@@ -1589,7 +1587,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 					// liquidate / finalize open lendingTrades
 					if block.Number().Uint64()%bc.chainConfig.Posv.Epoch == common.LiquidateLendingTradeBlock {
 						finalizedTrades := map[common.Hash]*lendingstate.LendingTrade{}
-						finalizedTrades, _, _, _, _,  err = lendingService.ProcessLiquidationData(block.Header(), bc, statedb, tradingState, lendingState)
+						finalizedTrades, _, _, _, _, err = lendingService.ProcessLiquidationData(block.Header(), bc, statedb, tradingState, lendingState)
 						if err != nil {
 							return i, events, coalescedLogs, fmt.Errorf("failed to ProcessLiquidationData. Err: %v ", err)
 						}
@@ -1629,7 +1627,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 		// Process block using the parent state as reference point.
-		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig, feeCapacity)
+		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, tradingState, bc.vmConfig, feeCapacity)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
@@ -1675,7 +1673,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
 			bc.UpdateBlocksHashCache(block)
-			if bc.chainConfig.IsTIPTomoX(block.Number()) {
+			if bc.chainConfig.IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 				bc.logExchangeData(block)
 				bc.logLendingData(block)
 			}
@@ -1689,7 +1687,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		stats.processed++
 		stats.usedGas += usedGas
-		stats.report(chain, i, bc.stateCache.TrieDB().Size())
+		dirty, _ := bc.stateCache.TrieDB().Size()
+		stats.report(chain, i, dirty)
 		if bc.chainConfig.Posv != nil {
 			// epoch block
 			if (chain[i].NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
@@ -1831,7 +1830,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	var tradingService posv.TradingService
 	var lendingService posv.LendingService
 	isSDKNode := false
-	if bc.Config().IsTIPTomoX(block.Number()) && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
+	if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 		tradingService = engine.GetTomoXService()
 		lendingService = engine.GetLendingService()
 		if tradingService != nil && lendingService != nil {
@@ -1858,7 +1857,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 				}
 				for _, txMatchBatch := range txMatchBatchData {
 					log.Debug("Verify matching transaction", "txHash", txMatchBatch.TxHash.Hex())
-					err := bc.Validator().ValidateTradingOrder(statedb, tradingState, txMatchBatch, author)
+					err := bc.Validator().ValidateTradingOrder(statedb, tradingState, txMatchBatch, author, block.Header())
 					if err != nil {
 						bc.reportBlock(block, nil, err)
 						return nil, err
@@ -1919,7 +1918,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	// Process block using the parent state as reference point.
-	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, bc.vmConfig, feeCapacity)
+	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, tradingState, bc.vmConfig, feeCapacity)
 	process := time.Since(bstart)
 	if err != nil {
 		if err != ErrStopPreparingBlock {
@@ -2017,7 +2016,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		// Only count canonical blocks for GC processing time
 		bc.gcproc += result.proctime
 		bc.UpdateBlocksHashCache(block)
-		if bc.chainConfig.IsTIPTomoX(block.Number()) {
+		if bc.chainConfig.IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 			bc.logExchangeData(block)
 			bc.logLendingData(block)
 		}
@@ -2032,7 +2031,8 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	}
 	stats.processed++
 	stats.usedGas += result.usedGas
-	stats.report(types.Blocks{block}, 0, bc.stateCache.TrieDB().Size())
+	dirty, _ := bc.stateCache.TrieDB().Size()
+	stats.report(types.Blocks{block}, 0, dirty)
 	if bc.chainConfig.Posv != nil {
 		// epoch block
 		if (block.NumberU64() % bc.chainConfig.Posv.Epoch) == 0 {
@@ -2211,7 +2211,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 			}
 		}()
 	}
-	if bc.chainConfig.IsTIPTomoX(commonBlock.Number()) {
+	if bc.chainConfig.IsTIPTomoX(commonBlock.Number()) && bc.chainConfig.Posv != nil && commonBlock.NumberU64() > bc.chainConfig.Posv.Epoch {
 		bc.reorgTxMatches(deletedTxs, newChain)
 	}
 	return nil
@@ -2565,7 +2565,7 @@ func (bc *BlockChain) logExchangeData(block *types.Block) {
 			if ok && rejected != nil {
 				rejectedOrders = rejected.([]*tradingstate.OrderItem)
 			}
-			
+
 			txMatchTime := time.Unix(block.Header().Time.Int64(), 0).UTC()
 			if err := tomoXService.SyncDataToSDKNode(takerOrderInTx, txMatchBatch.TxHash, txMatchTime, currentState, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Crit("failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
@@ -2661,7 +2661,7 @@ func (bc *BlockChain) logLendingData(block *types.Block) {
 			txMatchTime := time.Unix(block.Header().Time.Int64(), 0).UTC()
 			statedb, _ := bc.State()
 
-			if err := lendingService.SyncDataToSDKNode(bc, statedb.Copy(),  block, item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
+			if err := lendingService.SyncDataToSDKNode(bc, statedb.Copy(), block, item, batch.TxHash, txMatchTime, trades, rejectedOrders, &dirtyOrderCount); err != nil {
 				log.Crit("lending: failed to SyncDataToSDKNode ", "blockNumber", block.Number(), "err", err)
 			}
 		}

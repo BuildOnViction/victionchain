@@ -106,7 +106,9 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 	if confOverride != nil {
 		confOverride(ethConf)
 	}
-	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return eth.New(ctx, ethConf, &tomox.TomoX{},&tomoxlending.Lending{}) }); err != nil {
+	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+		return eth.New(ctx, ethConf, &tomox.TomoX{}, &tomoxlending.Lending{})
+	}); err != nil {
 		t.Fatalf("failed to register Ethereum protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it

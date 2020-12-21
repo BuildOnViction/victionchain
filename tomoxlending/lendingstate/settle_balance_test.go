@@ -368,7 +368,6 @@ func TestCalculateTotalRepayValue(t *testing.T) {
 	totalRepay30DaysRepayEarly, _ := new(big.Int).SetString("1004246575300000000000", 10)
 	totalRepay30DaysRepayInTime, _ := new(big.Int).SetString("1008219178000000000000", 10)
 
-	
 	tradeAmount := new(big.Int).Mul(big.NewInt(1000), common.BasePrice)
 	tests := []struct {
 		name string
@@ -386,11 +385,11 @@ func TestCalculateTotalRepayValue(t *testing.T) {
 		{
 			"term 365 days, 1000 USDT: early repay",
 			CalculateTotalRepayValueArg{
-				finalizeTime:       86400,
+				finalizeTime:    86400,
 				liquidationTime: common.OneYear,
 				term:            common.OneYear,
 				apr:             10 * 1e8,
-				tradeAmount: tradeAmount,
+				tradeAmount:     tradeAmount,
 			},
 			totalRepayOneYearRepayEarly,
 		},
@@ -405,11 +404,11 @@ func TestCalculateTotalRepayValue(t *testing.T) {
 		{
 			"term 365 days: repay at the end",
 			CalculateTotalRepayValueArg{
-				finalizeTime:       common.OneYear,
+				finalizeTime:    common.OneYear,
 				liquidationTime: common.OneYear,
 				term:            common.OneYear,
 				apr:             10 * 1e8,
-				tradeAmount: tradeAmount,
+				tradeAmount:     tradeAmount,
 			},
 			totalRepayOneYearRepayInTime,
 		},
@@ -424,11 +423,11 @@ func TestCalculateTotalRepayValue(t *testing.T) {
 		{
 			"term 30 days: early repay",
 			CalculateTotalRepayValueArg{
-				finalizeTime:       86400,
+				finalizeTime:    86400,
 				liquidationTime: 30 * 86400,
 				term:            30 * 86400,
 				apr:             10 * 1e8,
-				tradeAmount: tradeAmount,
+				tradeAmount:     tradeAmount,
 			},
 			totalRepay30DaysRepayEarly,
 		},
@@ -443,11 +442,11 @@ func TestCalculateTotalRepayValue(t *testing.T) {
 		{
 			"term 30 days: repay at the end",
 			CalculateTotalRepayValueArg{
-				finalizeTime:       30 * 86400,
+				finalizeTime:    30 * 86400,
 				liquidationTime: 30 * 86400,
 				term:            30 * 86400,
 				apr:             10 * 1e8,
-				tradeAmount: tradeAmount,
+				tradeAmount:     tradeAmount,
 			},
 			totalRepay30DaysRepayInTime,
 		},

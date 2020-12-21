@@ -706,7 +706,6 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 		return nil, true
 	}
 	log.Debug("ProcessCancelOrder", "LendingToken", originOrder.LendingToken, "CollateralToken", originOrder.CollateralToken, "makerInterest", originOrder.Interest, "lendTokenDecimal", lendTokenDecimal, "quantity", originOrder.Quantity)
-	borrowFee := lendingstate.GetFee(statedb, originOrder.Relayer)
 	collateralPrice := common.BasePrice
 	collateralTokenDecimal := common.BasePrice
 	if originOrder.Side == lendingstate.Borrowing {
@@ -720,7 +719,14 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 			return err, false
 		}
 	}
-	tokenCancelFee := getCancelFee(collateralTokenDecimal, collateralPrice, borrowFee, &originOrder)
+	feeRate := lendingstate.GetFee(statedb, originOrder.Relayer)
+	tokenCancelFee, tokenPriceInTOMO := common.Big0, common.Big0
+	if !chain.Config().IsTIPTomoXCancellationFee(header.Number) {
+		tokenCancelFee = getCancelFeeV1(collateralTokenDecimal, collateralPrice, feeRate, &originOrder)
+	} else {
+		tokenCancelFee, tokenPriceInTOMO = l.getCancelFee(chain, statedb, tradingStateDb, &originOrder, feeRate)
+	}
+
 	if tokenBalance.Cmp(tokenCancelFee) < 0 {
 		log.Debug("User not enough balance when cancel order", "Side", originOrder.Side, "Interest", originOrder.Interest, "Quantity", originOrder.Quantity, "balance", tokenBalance, "fee", tokenCancelFee)
 		return nil, true
@@ -747,9 +753,11 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 	default:
 	}
 	extraData, _ := json.Marshal(struct {
-		CancelFee string
+		CancelFee        string
+		TokenPriceInTOMO string
 	}{
-		CancelFee: tokenCancelFee.Text(10),
+		CancelFee:        tokenCancelFee.Text(10),
+		TokenPriceInTOMO: tokenPriceInTOMO.Text(10),
 	})
 	order.ExtraData = string(extraData)
 
@@ -882,7 +890,10 @@ func (l *Lending) LiquidationTrade(lendingStateDB *lendingstate.LendingStateDB, 
 	}
 	return &lendingTrade, nil
 }
-func getCancelFee(collateralTokenDecimal *big.Int, collateralPrice, borrowFee *big.Int, order *lendingstate.LendingItem) *big.Int {
+
+// cancellation fee = 1/10 borrowing fee
+// deprecated after hardfork at TIPTomoXCancellationFee
+func getCancelFeeV1(collateralTokenDecimal *big.Int, collateralPrice, borrowFee *big.Int, order *lendingstate.LendingItem) *big.Int {
 	cancelFee := big.NewInt(0)
 	if order.Side == lendingstate.Investing {
 		// cancel fee = quantityToLend*borrowFee/LendingCancelFee
@@ -896,6 +907,24 @@ func getCancelFee(collateralTokenDecimal *big.Int, collateralPrice, borrowFee *b
 		cancelFee = new(big.Int).Div(cancelFee, common.TomoXBaseCancelFee)
 	}
 	return cancelFee
+}
+
+// return tokenQuantity, tokenPriceInTOMO
+func (l *Lending) getCancelFee(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, order *lendingstate.LendingItem, feeRate *big.Int) (*big.Int, *big.Int) {
+	if feeRate == nil || feeRate.Sign() == 0 {
+		return common.Big0, common.Big0
+	}
+	cancelFee, tokenPriceInTOMO := common.Big0, common.Big0
+	var err error
+	if order.Side == lendingstate.Investing {
+		cancelFee, tokenPriceInTOMO, err = l.tomox.ConvertTOMOToToken(chain, statedb, tradingStateDb, order.LendingToken, common.RelayerLendingCancelFee)
+	} else {
+		cancelFee, tokenPriceInTOMO, err = l.tomox.ConvertTOMOToToken(chain, statedb, tradingStateDb, order.CollateralToken, common.RelayerLendingCancelFee)
+	}
+	if err != nil {
+		return common.Big0, common.Big0
+	}
+	return cancelFee, tokenPriceInTOMO
 }
 
 func (l *Lending) GetMediumTradePriceBeforeEpoch(chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, baseToken common.Address, quoteToken common.Address) (*big.Int, error) {

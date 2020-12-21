@@ -35,12 +35,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/cors"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/swarm/api"
 	"github.com/tomochain/tomochain/swarm/storage"
-	"github.com/rs/cors"
 )
 
 //setup metrics

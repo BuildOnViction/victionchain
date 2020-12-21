@@ -26,8 +26,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tomochain/tomochain/common"
 	"github.com/stretchr/testify/require"
+	"github.com/tomochain/tomochain/common"
 )
 
 type unpackTest struct {

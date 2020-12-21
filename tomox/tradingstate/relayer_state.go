@@ -125,7 +125,7 @@ func GetAllTradingPairs(statedb *state.StateDB) (map[common.Hash]bool, error) {
 			allPairs[GetTradingOrderBookHash(fromTokens[i], toToken)] = true
 		}
 	}
-	log.Debug("GetAllTradingPairs", "coinbase", len(coinbases), "allPairs",len(allPairs))
+	log.Debug("GetAllTradingPairs", "coinbase", len(coinbases), "allPairs", len(allPairs))
 	return allPairs, nil
 }
 

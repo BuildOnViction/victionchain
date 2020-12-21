@@ -23,7 +23,7 @@ func TestTxMatchesBatch(t *testing.T) {
 	}
 
 	encodedData, err := EncodeTxMatchesBatch(TxMatchBatch{
-		Data:      originalTxMatchesBatch,
+		Data: originalTxMatchesBatch,
 	})
 	if err != nil {
 		t.Error("Failed to encode", err.Error())

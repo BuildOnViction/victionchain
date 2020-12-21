@@ -156,7 +156,6 @@ type OrderHistoryItem struct {
 	UpdatedAt    time.Time
 }
 
-
 // ToJSON : log json string
 func ToJSON(object interface{}, args ...string) string {
 	var str []byte
