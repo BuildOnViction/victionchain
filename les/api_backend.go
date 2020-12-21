@@ -221,12 +221,12 @@ func (b *LesApiBackend) GetIPCClient() (*ethclient.Client, error) {
 func (b *LesApiBackend) GetEngine() consensus.Engine {
 	return b.eth.engine
 }
-func (s *LesApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{} {
+func (s *LesApiBackend) GetRewardByHash(hash common.Hash) map[string]map[string]map[string]*big.Int {
 	header := s.eth.blockchain.GetHeaderByHash(hash)
 	if header != nil {
 		data, err := ioutil.ReadFile(filepath.Join(common.StoreRewardFolder, header.Number.String()+"."+header.Hash().Hex()))
 		if err == nil {
-			rewards := make(map[string]interface{})
+			rewards := make(map[string]map[string]map[string]*big.Int)
 			err = json.Unmarshal(data, &rewards)
 			if err == nil {
 				return rewards
@@ -234,7 +234,7 @@ func (s *LesApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{}
 		} else {
 			data, err = ioutil.ReadFile(filepath.Join(common.StoreRewardFolder, header.Number.String()+"."+header.HashNoValidator().Hex()))
 			if err == nil {
-				rewards := make(map[string]interface{})
+				rewards := make(map[string]map[string]map[string]*big.Int)
 				err = json.Unmarshal(data, &rewards)
 				if err == nil {
 					return rewards
@@ -242,7 +242,7 @@ func (s *LesApiBackend) GetRewardByHash(hash common.Hash) map[string]interface{}
 			}
 		}
 	}
-	return make(map[string]interface{})
+	return make(map[string]map[string]map[string]*big.Int)
 }
 
 // GetVotersRewards return a map of voters of snapshot at given block hash
