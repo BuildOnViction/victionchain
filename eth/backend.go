@@ -925,10 +925,10 @@ func GetValidators(bc *core.BlockChain, masternodes []common.Address) ([]byte, e
 }
 
 func rewardInflation(chainReward *big.Int, number uint64, blockPerYear uint64) *big.Int {
-	if blockPerYear*2 <= number && number < blockPerYear*6 {
+	if blockPerYear*2 <= number && number < blockPerYear*5 {
 		chainReward.Div(chainReward, new(big.Int).SetUint64(2))
 	}
-	if blockPerYear*6 <= number {
+	if blockPerYear*5 <= number {
 		chainReward.Div(chainReward, new(big.Int).SetUint64(4))
 	}
 
