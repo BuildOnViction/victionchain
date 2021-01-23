@@ -4,7 +4,7 @@
 accounts/usbwallet @karalabe
 consensus          @karalabe
 core/              @karalabe @holiman
-eth/               @karalabe
+eth/               @karalabe @Pipesan82998114 
 les/               @zsfelfoldi
 light/             @zsfelfoldi
 mobile/            @karalabe
