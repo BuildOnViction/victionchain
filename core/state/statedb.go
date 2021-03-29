@@ -83,23 +83,6 @@ type StateDB struct {
 	lock sync.Mutex
 }
 
-func (self *StateDB) SubRefund(gas uint64) {
-	self.journal = append(self.journal, refundChange{
-		prev: self.refund})
-	if gas > self.refund {
-		panic(fmt.Sprintf("Refund counter below zero (gas: %d > refund: %d)", gas, self.refund))
-	}
-	self.refund -= gas
-}
-
-func (self *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
-	stateObject := self.getStateObject(addr)
-	if stateObject != nil {
-		return stateObject.GetCommittedState(self.db, hash)
-	}
-	return common.Hash{}
-}
-
 // Create a new state from a given trie.
 func New(root common.Hash, db Database) (*StateDB, error) {
 	tr, err := db.OpenTrie(root)
@@ -460,10 +443,10 @@ func (self *StateDB) CreateAccount(addr common.Address) {
 	}
 }
 
-func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) error {
+func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) {
 	so := db.getStateObject(addr)
 	if so == nil {
-		return nil
+		return
 	}
 
 	// When iterating over the storage check the cache first
@@ -479,7 +462,6 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 			cb(key, common.BytesToHash(it.Value))
 		}
 	}
-	return nil
 }
 
 // Copy creates a deep, independent copy of the state.

@@ -625,7 +625,6 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 	for finished := false; !finished; {
 		select {
 		case <-d.cancelCh:
-
 			return 0, errCancelHeaderFetch
 
 		case packet := <-d.headerCh:

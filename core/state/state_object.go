@@ -168,24 +168,7 @@ func (c *stateObject) getTrie(db Database) Trie {
 	return c.trie
 }
 
-func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
-	value := common.Hash{}
-	// Load from DB in case it is missing.
-	enc, err := self.getTrie(db).TryGet(key[:])
-	if err != nil {
-		self.setError(err)
-		return common.Hash{}
-	}
-	if len(enc) > 0 {
-		_, content, _, err := rlp.Split(enc)
-		if err != nil {
-			self.setError(err)
-		}
-		value.SetBytes(content)
-	}
-	return value
-}
-
+// GetState returns a value in account storage.
 func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	value, exists := self.cachedStorage[key]
 	if exists {
