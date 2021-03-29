@@ -25,6 +25,7 @@ import (
 	"github.com/tomochain/tomochain/core/vm"
 )
 
+
 // NewEVMContext creates a new context for use in the EVM.
 func NewEVMContext(msg Message, header *types.Header, chain consensus.ChainContext, author *common.Address) vm.Context {
 	// If we don't have an explicit author (i.e. not mining), extract from the header

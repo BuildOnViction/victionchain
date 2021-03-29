@@ -3,10 +3,10 @@ package lendingstate
 import (
 	"fmt"
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/rpc"
 	"math/big"
 	"math/rand"
@@ -151,7 +151,7 @@ func SetCollateralDetail(statedb *state.StateDB, token common.Address, depositRa
 }
 
 func TestVerifyBalance(t *testing.T) {
-	db := rawdb.NewMemoryDatabase()
+	db, _ := ethdb.NewMemDatabase()
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	relayer := common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e")
 	uAddr := common.HexToAddress("0xDeE6238780f98c0ca2c2C28453149bEA49a3Abc9")
@@ -172,7 +172,7 @@ func TestVerifyBalance(t *testing.T) {
 	if err := SetTokenBalance(uAddr, EtherToWei(big.NewInt(2)), collateralToken, statedb); err != nil {
 		t.Error(err.Error())
 	}
-	lendingdb := rawdb.NewMemoryDatabase()
+	lendingdb, _ := ethdb.NewMemDatabase()
 	stateCache := NewDatabase(lendingdb)
 	lendingstatedb, _ := New(EmptyRoot, stateCache)
 

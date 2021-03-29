@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -28,16 +27,17 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
+	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/trie"
 )
 
 func TestNodeIterator(t *testing.T) {
 	var (
-		fulldb  = rawdb.NewMemoryDatabase()
-		lightdb = rawdb.NewMemoryDatabase()
-		gspec   = core.Genesis{Alloc: core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}}}
-		genesis = gspec.MustCommit(fulldb)
+		fulldb, _  = ethdb.NewMemDatabase()
+		lightdb, _ = ethdb.NewMemDatabase()
+		gspec      = core.Genesis{Alloc: core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}}}
+		genesis    = gspec.MustCommit(fulldb)
 	)
 	gspec.MustCommit(lightdb)
 	blockchain, _ := core.NewBlockChain(fulldb, nil, params.TestChainConfig, ethash.NewFullFaker(), vm.Config{})

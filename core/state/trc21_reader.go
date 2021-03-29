@@ -2,9 +2,10 @@ package state
 
 import (
 	"bytes"
-	"github.com/hashicorp/golang-lru"
-	"github.com/tomochain/tomochain/common"
 	"math/big"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/tomochain/tomochain/common"
 )
 
 var (

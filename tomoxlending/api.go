@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+
 // List of errors
 var (
 	ErrOrderNonceTooLow  = errors.New("OrderNonce too low")

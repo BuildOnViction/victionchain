@@ -27,13 +27,13 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/accounts/usbwallet/internal/trezor"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/log"
+	"github.com/golang/protobuf/proto"
 )
 
 // ErrTrezorPINNeeded is returned if opening the trezor requires a PIN code. In

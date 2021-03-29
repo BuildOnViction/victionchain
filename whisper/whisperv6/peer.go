@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/p2p"
 	"github.com/tomochain/tomochain/rlp"
+	mapset "github.com/deckarep/golang-set"
 )
 
 // Peer represents a whisper protocol peer connection.

@@ -2,7 +2,7 @@ package tomox
 
 import (
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"reflect"
@@ -89,7 +89,7 @@ func Test_getCancelFeeV1(t *testing.T) {
 
 func Test_getCancelFee(t *testing.T) {
 	tomox := New(&DefaultConfig)
-	db := rawdb.NewMemoryDatabase()
+	db, _ := ethdb.NewMemDatabase()
 	stateCache := tradingstate.NewDatabase(db)
 	tradingStateDb, _ := tradingstate.New(common.Hash{}, stateCache)
 

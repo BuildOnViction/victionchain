@@ -35,13 +35,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/snappy"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/ecies"
 	"github.com/tomochain/tomochain/crypto/secp256k1"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/rlp"
+	"github.com/golang/snappy"
 )
 
 const (

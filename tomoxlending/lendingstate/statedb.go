@@ -26,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/trie"
 )
 
 type revision struct {
@@ -595,7 +596,7 @@ func (s *LendingStateDB) Commit() (root common.Hash, err error) {
 		}
 		return nil
 	})
-	log.Debug("Lending State Trie cache stats after commit", "root", root.Hex())
+	log.Debug("Lending Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads(), "root", root.Hex())
 	return root, err
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 )
 
+
 // GetTokenAbi return token abi
 func GetTokenAbi() (*abi.ABI, error) {
 	contractABI, err := abi.JSON(strings.NewReader(contract.TRC21ABI))

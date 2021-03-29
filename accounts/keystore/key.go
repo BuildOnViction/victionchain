@@ -29,10 +29,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pborman/uuid"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/pborman/uuid"
 )
 
 const (

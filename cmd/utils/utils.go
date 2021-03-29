@@ -24,7 +24,7 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 			ctx.Service(&tomoXServ)
 			var lendingServ *tomoxlending.Lending
 			ctx.Service(&lendingServ)
-			fullNode, err := eth.New(ctx, cfg, tomoXServ, lendingServ)
+			fullNode, err := eth.New(ctx, cfg, tomoXServ,lendingServ)
 			if fullNode != nil && cfg.LightServ > 0 {
 				ls, _ := les.NewLesServer(fullNode, cfg)
 				fullNode.AddLesServer(ls)

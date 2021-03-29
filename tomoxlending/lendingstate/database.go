@@ -70,7 +70,7 @@ type Trie interface {
 	Hash() common.Hash
 	NodeIterator(startKey []byte) trie.NodeIterator
 	GetKey([]byte) []byte // TODO(fjl): remove this when TomoXTrie is removed
-	Prove(key []byte, fromLevel uint, proofDb ethdb.KeyValueWriter) error
+	Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error
 }
 
 // NewDatabase creates a backing store for state. The returned database is safe for
@@ -94,7 +94,19 @@ type cachingDB struct {
 
 // OpenTrie opens the main account trie.
 func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
-	return NewTomoXTrie(root, db.db)
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	for i := len(db.pastTries) - 1; i >= 0; i-- {
+		if db.pastTries[i].Hash() == root {
+			return cachedTrie{db.pastTries[i].Copy(), db}, nil
+		}
+	}
+	tr, err := NewTomoXTrie(root, db.db, MaxTrieCacheGen)
+	if err != nil {
+		return nil, err
+	}
+	return cachedTrie{tr, db}, nil
 }
 
 func (db *cachingDB) pushTrie(t *TomoXTrie) {
@@ -110,12 +122,14 @@ func (db *cachingDB) pushTrie(t *TomoXTrie) {
 
 // OpenStorageTrie opens the storage trie of an account.
 func (db *cachingDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
-	return NewTomoXTrie(root, db.db)
+	return NewTomoXTrie(root, db.db, 0)
 }
 
 // CopyTrie returns an independent copy of the given trie.
 func (db *cachingDB) CopyTrie(t Trie) Trie {
 	switch t := t.(type) {
+	case cachedTrie:
+		return cachedTrie{t.TomoXTrie.Copy(), db}
 	case *TomoXTrie:
 		return t.Copy()
 	default:
@@ -136,4 +150,22 @@ func (db *cachingDB) ContractCodeSize(addrHash, codeHash common.Hash) (int, erro
 // TrieDB retrieves any intermediate trie-node caching layer.
 func (db *cachingDB) TrieDB() *trie.Database {
 	return db.db
+}
+
+// cachedTrie inserts its trie into a cachingDB on commit.
+type cachedTrie struct {
+	*TomoXTrie
+	db *cachingDB
+}
+
+func (m cachedTrie) Commit(onleaf trie.LeafCallback) (common.Hash, error) {
+	root, err := m.TomoXTrie.Commit(onleaf)
+	if err == nil {
+		m.db.pushTrie(m.TomoXTrie)
+	}
+	return root, err
+}
+
+func (m cachedTrie) Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error {
+	return m.TomoXTrie.Prove(key, fromLevel, proofDb)
 }

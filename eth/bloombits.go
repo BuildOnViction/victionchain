@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
@@ -108,7 +107,7 @@ func NewBloomIndexer(db ethdb.Database, size uint64) *core.ChainIndexer {
 		db:   db,
 		size: size,
 	}
-	table := rawdb.NewTable(db, string(core.BloomBitsIndexPrefix))
+	table := ethdb.NewTable(db, string(core.BloomBitsIndexPrefix))
 
 	return core.NewChainIndexer(db, table, backend, size, bloomConfirms, bloomThrottling, "bloombits")
 }

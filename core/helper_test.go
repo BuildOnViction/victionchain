@@ -18,7 +18,7 @@ package core
 
 import (
 	"container/list"
-	"github.com/tomochain/tomochain/core/rawdb"
+	"fmt"
 
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
@@ -77,7 +77,11 @@ func (tm *TestManager) Db() ethdb.Database {
 }
 
 func NewTestManager() *TestManager {
-	db := rawdb.NewMemoryDatabase()
+	db, err := ethdb.NewMemDatabase()
+	if err != nil {
+		fmt.Println("Could not create mem-db, failing")
+		return nil
+	}
 
 	testManager := &TestManager{}
 	testManager.eventMux = new(event.TypeMux)

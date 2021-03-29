@@ -3,7 +3,7 @@ package tradingstate
 import (
 	"fmt"
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/ethdb"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -12,7 +12,7 @@ import (
 
 func TestTomoxTrieTest(t *testing.T) {
 	t.SkipNow()
-	db := rawdb.NewMemoryDatabase()
+	db, _ := ethdb.NewMemDatabase()
 	stateCache := NewDatabase(db)
 	trie, _ := stateCache.OpenStorageTrie(EmptyHash, EmptyHash)
 	max := 1000000

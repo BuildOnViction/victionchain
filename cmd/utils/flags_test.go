@@ -42,7 +42,7 @@ func TestWalkMatch(t *testing.T) {
 		{
 			"match test",
 			args{
-				root:    test1Dir,
+				root: test1Dir,
 				pattern: "*ldb",
 			},
 			[]string{filepath.Join(test1Dir, "test1.ldb")},
@@ -51,7 +51,7 @@ func TestWalkMatch(t *testing.T) {
 		{
 			"mismatch test",
 			args{
-				root:    test2Dir,
+				root: test2Dir,
 				pattern: "*ldb",
 			},
 			[]string{},

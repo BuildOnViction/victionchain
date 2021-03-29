@@ -17,7 +17,6 @@
 package node
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"reflect"
 
 	"github.com/tomochain/tomochain/accounts"
@@ -42,9 +41,9 @@ type ServiceContext struct {
 // node is an ephemeral one, a memory database is returned.
 func (ctx *ServiceContext) OpenDatabase(name string, cache int, handles int) (ethdb.Database, error) {
 	if ctx.config.DataDir == "" {
-		return rawdb.NewMemoryDatabase(), nil
+		return ethdb.NewMemDatabase()
 	}
-	db, err := rawdb.NewLevelDBDatabase(ctx.config.resolvePath(name), cache, handles, "")
+	db, err := ethdb.NewLDBDatabase(ctx.config.resolvePath(name), cache, handles)
 	if err != nil {
 		return nil, err
 	}

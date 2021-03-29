@@ -157,7 +157,7 @@ func (self *stateLendingBook) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
-		if value == EmptyHash {
+		if (value == EmptyHash) {
 			self.setError(tr.TryDelete(key[:]))
 			continue
 		}

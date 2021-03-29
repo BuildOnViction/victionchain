@@ -19,7 +19,6 @@ package light
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"time"
 
@@ -136,10 +135,10 @@ func NewChtIndexer(db ethdb.Database, clientMode bool) *core.ChainIndexer {
 		sectionSize = CHTFrequencyServer
 		confirmReq = HelperTrieProcessConfirmations
 	}
-	idb := rawdb.NewTable(db, "chtIndex-")
+	idb := ethdb.NewTable(db, "chtIndex-")
 	backend := &ChtIndexerBackend{
 		diskdb:      db,
-		triedb:      trie.NewDatabase(rawdb.NewTable(db, ChtTablePrefix)),
+		triedb:      trie.NewDatabase(ethdb.NewTable(db, ChtTablePrefix)),
 		sectionSize: sectionSize,
 	}
 	return core.NewChainIndexer(db, idb, backend, sectionSize, confirmReq, time.Millisecond*100, "cht")
@@ -226,9 +225,9 @@ type BloomTrieIndexerBackend struct {
 func NewBloomTrieIndexer(db ethdb.Database, clientMode bool) *core.ChainIndexer {
 	backend := &BloomTrieIndexerBackend{
 		diskdb: db,
-		triedb: trie.NewDatabase(rawdb.NewTable(db, BloomTrieTablePrefix)),
+		triedb: trie.NewDatabase(ethdb.NewTable(db, BloomTrieTablePrefix)),
 	}
-	idb := rawdb.NewTable(db, "bltIndex-")
+	idb := ethdb.NewTable(db, "bltIndex-")
 
 	var confirmReq uint64
 	if clientMode {

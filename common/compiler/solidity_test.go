@@ -39,7 +39,6 @@ func skipWithoutSolc(t *testing.T) {
 }
 
 func TestCompiler(t *testing.T) {
-	t.SkipNow()
 	skipWithoutSolc(t)
 
 	contracts, err := CompileSolidityString("", testSource)

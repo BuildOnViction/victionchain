@@ -30,28 +30,28 @@ import (
 //
 // Contrary to a regular trie, a SecureTrie can only be created with
 // New and must have an attached database. The database also stores
-// the Preimage of each key.
+// the preimage of each key.
 //
 // SecureTrie is not safe for concurrent use.
 type SecureTrie struct {
 	trie             Trie
 	hashKeyBuf       [common.HashLength]byte
 	secKeyCache      map[string][]byte
-	secKeyCacheOwner *SecureTrie // Pointer to self, replace the key Cache on mismatch
+	secKeyCacheOwner *SecureTrie // Pointer to self, replace the key cache on mismatch
 }
 
-// NewSecure creates a trie with an existing root Node from a backing database
-// and optional intermediate in-memory Node pool.
+// NewSecure creates a trie with an existing root node from a backing database
+// and optional intermediate in-memory node pool.
 //
 // If root is the zero hash or the sha3 hash of an empty string, the
-// trie is initially empty. Otherwise, New will panic if Db is nil
-// and returns MissingNodeError if the root Node cannot be found.
+// trie is initially empty. Otherwise, New will panic if db is nil
+// and returns MissingNodeError if the root node cannot be found.
 //
-// Accessing the trie loads nodes from the database or Node pool on demand.
-// Loaded nodes are kept around until their 'Cache generation' expires.
-// A new Cache generation is created by each call to Commit.
-// cachelimit sets the number of past Cache generations to keep.
-func NewSecure(root common.Hash, db *Database) (*SecureTrie, error) {
+// Accessing the trie loads nodes from the database or node pool on demand.
+// Loaded nodes are kept around until their 'cache generation' expires.
+// A new cache generation is created by each call to Commit.
+// cachelimit sets the number of past cache generations to keep.
+func NewSecure(root common.Hash, db *Database, cachelimit uint16) (*SecureTrie, error) {
 	if db == nil {
 		panic("trie.NewSecure called without a database")
 	}
@@ -59,6 +59,7 @@ func NewSecure(root common.Hash, db *Database) (*SecureTrie, error) {
 	if err != nil {
 		return nil, err
 	}
+	trie.SetCacheLimit(cachelimit)
 	return &SecureTrie{trie: *trie}, nil
 }
 
@@ -74,7 +75,7 @@ func (t *SecureTrie) Get(key []byte) []byte {
 
 // TryGet returns the value for key stored in the trie.
 // The value bytes must not be modified by the caller.
-// If a Node was not found in the database, a MissingNodeError is returned.
+// If a node was not found in the database, a MissingNodeError is returned.
 func (t *SecureTrie) TryGet(key []byte) ([]byte, error) {
 	return t.trie.TryGet(t.hashKey(key))
 }
@@ -98,7 +99,7 @@ func (t *SecureTrie) Update(key, value []byte) {
 // The value bytes must not be modified by the caller while they are
 // stored in the trie.
 //
-// If a Node was not found in the database, a MissingNodeError is returned.
+// If a node was not found in the database, a MissingNodeError is returned.
 func (t *SecureTrie) TryUpdate(key, value []byte) error {
 	hk := t.hashKey(key)
 	err := t.trie.TryUpdate(hk, value)
@@ -117,14 +118,14 @@ func (t *SecureTrie) Delete(key []byte) {
 }
 
 // TryDelete removes any existing value for key from the trie.
-// If a Node was not found in the database, a MissingNodeError is returned.
+// If a node was not found in the database, a MissingNodeError is returned.
 func (t *SecureTrie) TryDelete(key []byte) error {
 	hk := t.hashKey(key)
 	delete(t.getSecKeyCache(), string(hk))
 	return t.trie.TryDelete(hk)
 }
 
-// GetKey returns the sha3 Preimage of a hashed key that was
+// GetKey returns the sha3 preimage of a hashed key that was
 // previously used to store a value.
 func (t *SecureTrie) GetKey(shaKey []byte) []byte {
 	if key, ok := t.getSecKeyCache()[string(shaKey)]; ok {
@@ -150,17 +151,18 @@ func (t *SecureTrie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 
 		t.secKeyCache = make(map[string][]byte)
 	}
-	// Commit the trie to its intermediate Node database
+	// Commit the trie to its intermediate node database
 	return t.trie.Commit(onleaf)
 }
 
-// Hash returns the root hash of SecureTrie. It does not write to the
-// database and can be used even if the trie doesn't have one.
 func (t *SecureTrie) Hash() common.Hash {
 	return t.trie.Hash()
 }
 
-// Copy returns a copy of SecureTrie.
+func (t *SecureTrie) Root() []byte {
+	return t.trie.Root()
+}
+
 func (t *SecureTrie) Copy() *SecureTrie {
 	cpy := *t
 	return &cpy
@@ -176,7 +178,7 @@ func (t *SecureTrie) NodeIterator(start []byte) NodeIterator {
 // The caller must not hold onto the return value because it will become
 // invalid on the next call to hashKey or secKey.
 func (t *SecureTrie) hashKey(key []byte) []byte {
-	h := newHasher(false)
+	h := newHasher(0, 0, nil)
 	h.sha.Reset()
 	h.sha.Write(key)
 	buf := h.sha.Sum(t.hashKeyBuf[:0])
@@ -184,9 +186,9 @@ func (t *SecureTrie) hashKey(key []byte) []byte {
 	return buf
 }
 
-// getSecKeyCache returns the current secure key Cache, creating a new one if
+// getSecKeyCache returns the current secure key cache, creating a new one if
 // ownership changed (i.e. the current secure trie is a copy of another owning
-// the actual Cache).
+// the actual cache).
 func (t *SecureTrie) getSecKeyCache() map[string][]byte {
 	if t != t.secKeyCacheOwner {
 		t.secKeyCacheOwner = t

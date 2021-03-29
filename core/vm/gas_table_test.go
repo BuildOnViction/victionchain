@@ -17,7 +17,7 @@
 package vm
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/ethdb"
 	"math"
 	"math/big"
 	"testing"
@@ -80,7 +80,7 @@ var eip2200Tests = []struct {
 func TestEIP2200(t *testing.T) {
 	for i, tt := range eip2200Tests {
 		address := common.BytesToAddress([]byte("contract"))
-		db := rawdb.NewMemoryDatabase()
+		db, _ := ethdb.NewMemDatabase()
 		statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 		statedb.CreateAccount(address)
 		statedb.SetCode(address, hexutil.MustDecode(tt.input))

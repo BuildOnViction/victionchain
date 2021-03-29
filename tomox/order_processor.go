@@ -734,7 +734,7 @@ func (tomox *TomoX) UpdateMediumPriceBeforeEpoch(epochNumber uint64, tradingStat
 		return err
 	}
 	epochPriceResult := map[common.Hash]*big.Int{}
-	for orderbook := range mapPairs {
+	for orderbook, _ := range mapPairs {
 		oldMediumPriceBeforeEpoch := tradingStateDB.GetMediumPriceBeforeEpoch(orderbook)
 		mediumPriceCurrent, _ := tradingStateDB.GetMediumPriceAndTotalAmount(orderbook)
 

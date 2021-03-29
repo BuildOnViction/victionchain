@@ -685,7 +685,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// validate balance slot, token decimal for TomoX
 	if tx.IsTomoXApplyTransaction() {
 		copyState := pool.currentState.Copy()
-		return ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:]))
+		return ValidateTomoXApplyTransaction(pool.chain, nil,  copyState, common.BytesToAddress(tx.Data()[4:]))
 	}
 	return nil
 }

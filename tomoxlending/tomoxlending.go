@@ -650,7 +650,7 @@ func (l *Lending) UpdateLendingTrade(trades map[common.Hash]*lendingstate.Lendin
 			trade.Status = newTrade.Status
 			trade.LiquidationPrice = newTrade.LiquidationPrice
 			trade.ExtraData = newTrade.ExtraData
-
+			
 			if err := db.PutObject(trade.Hash, trade); err != nil {
 				return err
 			}
@@ -847,7 +847,7 @@ func (l *Lending) ProcessLiquidationData(header *types.Header, chain consensus.C
 	}
 
 	// liquidate trades by time
-	for lendingBook := range allLendingBooks {
+	for lendingBook, _ := range allLendingBooks {
 		lowestTime, tradingIds := lendingState.GetLowestLiquidationTime(lendingBook, time)
 		log.Debug("ProcessLiquidationData time", "tradeIds", len(tradingIds))
 		for lowestTime.Sign() > 0 && lowestTime.Cmp(time) < 0 {

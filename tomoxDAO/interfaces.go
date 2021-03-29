@@ -14,7 +14,7 @@ const defaultCacheLimit = 1024
 type TomoXDAO interface {
 	// for both leveldb and mongodb
 	IsEmptyKey(key []byte) bool
-	Close() error
+	Close()
 
 	// mongodb methods
 	HasObject(hash common.Hash, val interface{}) (bool, error)
@@ -25,13 +25,13 @@ type TomoXDAO interface {
 	GetListItemByHashes(hashes []string, val interface{}) interface{}
 	DeleteItemByTxHash(txhash common.Hash, val interface{})
 
-	// basic tomox
-	InitBulk()
-	CommitBulk() error
+		// basic tomox
+		InitBulk()
+		CommitBulk() error
 
-	// tomox lending
-	InitLendingBulk()
-	CommitLendingBulk() error
+		// tomox lending
+		InitLendingBulk()
+		CommitLendingBulk() error
 
 	// leveldb methods
 	Put(key []byte, value []byte) error
@@ -39,17 +39,6 @@ type TomoXDAO interface {
 	Has(key []byte) (bool, error)
 	Delete(key []byte) error
 	NewBatch() ethdb.Batch
-	HasAncient(kind string, number uint64) (bool, error)
-	Ancient(kind string, number uint64) ([]byte, error)
-	Ancients() (uint64, error)
-	AncientSize(kind string) (uint64, error)
-	AppendAncient(number uint64, hash, header, body, receipt, td []byte) error
-	TruncateAncients(n uint64) error
-	Sync() error
-	NewIterator(prefix []byte, start []byte) ethdb.Iterator
-
-	Stat(property string) (string, error)
-	Compact(start []byte, limit []byte) error
 }
 
 // use alloc to prevent reference manipulation

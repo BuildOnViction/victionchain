@@ -329,25 +329,25 @@ func (self *tradingExchanges) deepCopy(db *TradingStateDB, onDirty func(hash com
 	for price, bidObject := range self.stateBidObjects {
 		stateExchanges.stateBidObjects[price] = bidObject.deepCopy(db, self.MarkStateBidObjectDirty)
 	}
-	for price := range self.stateBidObjectsDirty {
+	for price, _ := range self.stateBidObjectsDirty {
 		stateExchanges.stateBidObjectsDirty[price] = struct{}{}
 	}
 	for price, askObject := range self.stateAskObjects {
 		stateExchanges.stateAskObjects[price] = askObject.deepCopy(db, self.MarkStateAskObjectDirty)
 	}
-	for price := range self.stateAskObjectsDirty {
+	for price, _ := range self.stateAskObjectsDirty {
 		stateExchanges.stateAskObjectsDirty[price] = struct{}{}
 	}
 	for orderId, orderItem := range self.stateOrderObjects {
 		stateExchanges.stateOrderObjects[orderId] = orderItem.deepCopy(self.MarkStateOrderObjectDirty)
 	}
-	for orderId := range self.stateOrderObjectsDirty {
+	for orderId, _ := range self.stateOrderObjectsDirty {
 		stateExchanges.stateOrderObjectsDirty[orderId] = struct{}{}
 	}
 	for price, liquidationPrice := range self.liquidationPriceStates {
 		stateExchanges.liquidationPriceStates[price] = liquidationPrice.deepCopy(db, self.MarkStateLiquidationPriceDirty)
 	}
-	for price := range self.liquidationPriceStatesDirty {
+	for price, _ := range self.liquidationPriceStatesDirty {
 		stateExchanges.liquidationPriceStatesDirty[price] = struct{}{}
 	}
 	return stateExchanges
@@ -446,7 +446,7 @@ func (self *tradingExchanges) MarkStateAskObjectDirty(price common.Hash) {
 // createStateOrderListObject creates a new state object. If there is an existing orderId with
 // the given address, it is overwritten and returned as the second return value.
 func (self *tradingExchanges) createStateOrderListAskObject(db Database, price common.Hash) (newobj *stateOrderList) {
-	newobj = newStateOrderList(self.db, Ask, self.orderBookHash, price, orderList{Volume: Zero}, self.MarkStateAskObjectDirty)
+	newobj = newStateOrderList(self.db, Ask, self.orderBookHash, price, orderList{Volume: Zero,}, self.MarkStateAskObjectDirty)
 	self.stateAskObjects[price] = newobj
 	self.stateAskObjectsDirty[price] = struct{}{}
 	data, err := rlp.EncodeToBytes(newobj)
@@ -696,7 +696,7 @@ func (self *tradingExchanges) getAllLowerLiquidationPrice(db Database, limit com
 		log.Debug("Not found get lower liquidation price trie ", "limit", limit)
 		return result
 	}
-	for i := range encKeys {
+	for i, _ := range encKeys {
 		price := common.BytesToHash(encKeys[i])
 		obj := self.liquidationPriceStates[price]
 		if obj == nil {

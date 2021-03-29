@@ -25,10 +25,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var jsonEventTransfer = []byte(`{

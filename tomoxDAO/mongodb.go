@@ -833,55 +833,8 @@ func (db *MongoDatabase) EnsureIndexes() error {
 	return nil
 }
 
-func (db *MongoDatabase) Close() error {
-	return db.Close()
-}
-
-// HasAncient returns an error as we don't have a backing chain freezer.
-func (db *MongoDatabase) HasAncient(kind string, number uint64) (bool, error) {
-	return false, errNotSupported
-}
-
-// Ancient returns an error as we don't have a backing chain freezer.
-func (db *MongoDatabase) Ancient(kind string, number uint64) ([]byte, error) {
-	return nil, errNotSupported
-}
-
-// Ancients returns an error as we don't have a backing chain freezer.
-func (db *MongoDatabase) Ancients() (uint64, error) {
-	return 0, errNotSupported
-}
-
-// AncientSize returns an error as we don't have a backing chain freezer.
-func (db *MongoDatabase) AncientSize(kind string) (uint64, error) {
-	return 0, errNotSupported
-}
-
-// AppendAncient returns an error as we don't have a backing chain freezer.
-func (db *MongoDatabase) AppendAncient(number uint64, hash, header, body, receipts, td []byte) error {
-	return errNotSupported
-}
-
-// TruncateAncients returns an error as we don't have a backing chain freezer.
-func (db *MongoDatabase) TruncateAncients(items uint64) error {
-	return errNotSupported
-}
-
-// Sync returns an error as we don't have a backing chain freezer.
-func (db *MongoDatabase) Sync() error {
-	return errNotSupported
-}
-
-func (db *MongoDatabase) NewIterator(prefix []byte, start []byte) ethdb.Iterator {
-	return db.NewIterator(prefix, start)
-}
-
-func (db *MongoDatabase) Stat(property string) (string, error) {
-	return db.Stat(property)
-}
-
-func (db *MongoDatabase) Compact(start []byte, limit []byte) error {
-	return db.Compact(start, limit)
+func (db *MongoDatabase) Close() {
+	db.Close()
 }
 
 func (db *MongoDatabase) NewBatch() ethdb.Batch {
