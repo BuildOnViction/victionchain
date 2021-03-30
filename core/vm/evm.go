@@ -349,7 +349,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in Homestead this also counts for code storage gas errors.
-	ret, err = run(evm, contract, input, true)
+	ret, err = run(evm, contract, input, evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber))
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != ErrExecutionReverted {
