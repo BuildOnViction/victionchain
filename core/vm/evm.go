@@ -62,19 +62,24 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			return RunPrecompiledContract(p, input, contract)
 		}
 	}
-	for _, interpreter := range evm.interpreters {
-		if interpreter.CanRun(contract.Code) {
-			if evm.interpreter != interpreter {
-				// Ensure that the interpreter pointer is set back
-				// to its current value upon return.
-				defer func(i Interpreter) {
-					evm.interpreter = i
-				}(evm.interpreter)
-				evm.interpreter = interpreter
+	if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+		for _, interpreter := range evm.interpreters {
+			if interpreter.CanRun(contract.Code) {
+				if evm.interpreter != interpreter {
+					// Ensure that the interpreter pointer is set back
+					// to its current value upon return.
+					defer func(i Interpreter) {
+						evm.interpreter = i
+					}(evm.interpreter)
+					evm.interpreter = interpreter
+				}
+				return interpreter.Run(contract, input, readOnly)
 			}
-			return interpreter.Run(contract, input, readOnly)
 		}
+	} else {
+		return evm.interpreter.Run(contract, input, false)
 	}
+
 	return nil, errors.New("no compatible interpreter")
 }
 
@@ -203,8 +208,10 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		if evm.chainRules.IsByzantium {
 			precompiles = PrecompiledContractsByzantium
 		}
-		if evm.chainRules.IsIstanbul {
-			precompiles = PrecompiledContractsIstanbul
+		if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+			if evm.chainRules.IsIstanbul {
+				precompiles = PrecompiledContractsIstanbul
+			}
 		}
 		if precompiles[addr] == nil && evm.chainRules.IsEIP158 && value.Sign() == 0 {
 			// Calling a non existing account, don't do anything, but ping the tracer
@@ -340,11 +347,14 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	contract := NewContract(caller, to, new(big.Int), gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
-	// We do an AddBalance of zero here, just in order to trigger a touch.
-	// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
-	// but is the correct thing to do and matters on other networks, in tests, and potential
-	// future scenarios
-	evm.StateDB.AddBalance(addr, bigZero)
+	if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+		// We do an AddBalance of zero here, just in order to trigger a touch.
+		// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
+		// but is the correct thing to do and matters on other networks, in tests, and potential
+		// future scenarios
+		evm.StateDB.AddBalance(addr, bigZero)
+	}
+
 
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
