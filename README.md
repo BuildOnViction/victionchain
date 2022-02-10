@@ -16,7 +16,7 @@ Security, stability, and chain finality are guaranteed via novel techniques such
 Tomochain supports all EVM-compatible smart-contracts, protocols, and atomic cross-chain token transfers.
 New scaling techniques such as sharding, private-chain generation, and hardware integration will be continuously researched and incorporated into Tomochain's masternode architecture. This architecture will be an ideal scalable smart-contract public blockchain for decentralized apps, token issuances, and token integrations for small and big businesses.
 
-More details can be found at our [technical white paper](https://tomochain.com/docs/technical-whitepaper---1.0.pdf)
+More details can be found at our [technical white paper](https://tomochain.com/wp-content/uploads/2020/07/technical-whitepaper-1.0.pdf)
 
 Read more about us on:
 
