@@ -23,7 +23,7 @@ Read more about us on:
 - our website: http://tomochain.com
 - our blogs and announcements: https://medium.com/tomochain
 - our documentation portal: https://docs.tomochain.com
-- our blockchain explorer: https://scan.tomochain.com/
+- our blockchain explorer: https://tomoscan.io
 
 ## Building the source
 
