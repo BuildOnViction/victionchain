@@ -24,6 +24,12 @@ type methodNotFoundError struct {
 	method  string
 }
 
+// A DataError contains some data in addition to the error message.
+type DataError interface {
+	Error() string          // returns the message
+	ErrorData() interface{} // returns the error data
+}
+
 func (e *methodNotFoundError) ErrorCode() int { return -32601 }
 
 func (e *methodNotFoundError) Error() string {
