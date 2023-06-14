@@ -17,77 +17,20 @@
 package tracers
 
 import (
-	"crypto/ecdsa"
-	"crypto/rand"
-	"encoding/json"
-	"github.com/tomochain/tomochain/core/rawdb"
-	"io/ioutil"
+	"github.com/tomochain/tomochain/eth/tracers/logger"
 	"math/big"
-	"path/filepath"
-	"reflect"
-	"strings"
 	"testing"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
-	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/tests"
 )
-
-// To generate a new callTracer test, copy paste the makeTest method below into
-// a Geth console and call it with a transaction hash you which to export.
-
-/*
-// makeTest generates a callTracer test by running a prestate reassembled and a
-// call trace run, assembling all the gathered information into a test case.
-var makeTest = function(tx, rewind) {
-  // Generate the genesis block from the block, transaction and prestate data
-  var block   = eth.getBlock(eth.getTransaction(tx).blockHash);
-  var genesis = eth.getBlock(block.parentHash);
-
-  delete genesis.gasUsed;
-  delete genesis.logsBloom;
-  delete genesis.parentHash;
-  delete genesis.receiptsRoot;
-  delete genesis.sha3Uncles;
-  delete genesis.size;
-  delete genesis.transactions;
-  delete genesis.transactionsRoot;
-  delete genesis.uncles;
-
-  genesis.gasLimit  = genesis.gasLimit.toString();
-  genesis.number    = genesis.number.toString();
-  genesis.timestamp = genesis.timestamp.toString();
-
-  genesis.alloc = debug.traceTransaction(tx, {tracer: "prestateTracer", rewind: rewind});
-  for (var key in genesis.alloc) {
-    genesis.alloc[key].nonce = genesis.alloc[key].nonce.toString();
-  }
-  genesis.config = admin.nodeInfo.protocols.eth.config;
-
-  // Generate the call trace and produce the test input
-  var result = debug.traceTransaction(tx, {tracer: "callTracer", rewind: rewind});
-  delete result.time;
-
-  console.log(JSON.stringify({
-    genesis: genesis,
-    context: {
-      number:     block.number.toString(),
-      difficulty: block.difficulty,
-      timestamp:  block.timestamp.toString(),
-      gasLimit:   block.gasLimit.toString(),
-      miner:      block.miner,
-    },
-    input:  eth.getRawTransaction(tx),
-    result: result,
-  }, null, 2));
-}
-*/
 
 // callTrace is the result of a callTracer run.
 type callTrace struct {
@@ -103,177 +46,71 @@ type callTrace struct {
 	Calls   []callTrace     `json:"calls,omitempty"`
 }
 
-type callContext struct {
-	Number     math.HexOrDecimal64   `json:"number"`
-	Difficulty *math.HexOrDecimal256 `json:"difficulty"`
-	Time       math.HexOrDecimal64   `json:"timestamp"`
-	GasLimit   math.HexOrDecimal64   `json:"gasLimit"`
-	Miner      common.Address        `json:"miner"`
-}
-
-// callTracerTest defines a single test to check the call tracer against.
-type callTracerTest struct {
-	Genesis *core.Genesis `json:"genesis"`
-	Context *callContext  `json:"context"`
-	Input   string        `json:"input"`
-	Result  *callTrace    `json:"result"`
-}
-
-func TestPrestateTracerCreate2(t *testing.T) {
-	common.TIPTomoXCancellationFee = big.NewInt(10000000000000)
-	unsignedTx := types.NewTransaction(1, common.HexToAddress("0x00000000000000000000000000000000deadbeef"),
-		new(big.Int), 5000000, big.NewInt(1), []byte{})
-
-	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+func BenchmarkTransactionTrace(b *testing.B) {
+	key, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	from := crypto.PubkeyToAddress(key.PublicKey)
+	gas := uint64(1000000) // 1M gas
+	to := common.HexToAddress("0x00000000000000000000000000000000deadbeef")
+	signer := types.HomesteadSigner{}
+	tx, err := types.SignTx(types.NewTransaction(1, to, big.NewInt(0), gas, big.NewInt(500), nil), signer, key)
 	if err != nil {
-		t.Fatalf("err %v", err)
+		b.Fatal(err)
 	}
-	signer := types.NewEIP155Signer(big.NewInt(1))
-	tx, err := types.SignTx(unsignedTx, signer, privateKeyECDSA)
-	if err != nil {
-		t.Fatalf("err %v", err)
-	}
-	/**
-		This comes from one of the test-vectors on the Skinny Create2 - EIP
-
-	    address 0x00000000000000000000000000000000deadbeef
-	    salt 0x00000000000000000000000000000000000000000000000000000000cafebabe
-	    init_code 0xdeadbeef
-	    gas (assuming no mem expansion): 32006
-	    result: 0x60f3f640a8508fC6a86d45DF051962668E1e8AC7
-	*/
-	origin, _ := signer.Sender(tx)
 	context := vm.Context{
+		Origin:      from,
+		GasPrice:    tx.GasPrice(),
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
-		Origin:      origin,
 		Coinbase:    common.Address{},
-		BlockNumber: new(big.Int).SetUint64(8000000),
-		Time:        new(big.Int).SetUint64(5),
-		Difficulty:  big.NewInt(0x30000),
-		GasLimit:    uint64(6000000),
-		GasPrice:    big.NewInt(1),
+		BlockNumber: new(big.Int).SetUint64(uint64(5)),
+		Time:        new(big.Int).SetUint64(uint64(5)),
+		GasLimit:    gas,
 	}
-	alloc := core.GenesisAlloc{}
-
+	alloc := make(map[common.Address]core.GenesisAccount)
 	// The code pushes 'deadbeef' into memory, then the other params, and calls CREATE2, then returns
 	// the address
+	loop := []byte{
+		byte(vm.JUMPDEST), //  [ count ]
+		byte(vm.PUSH1), 0, // jumpdestination
+		byte(vm.JUMP),
+	}
 	alloc[common.HexToAddress("0x00000000000000000000000000000000deadbeef")] = core.GenesisAccount{
 		Nonce:   1,
-		Code:    hexutil.MustDecode("0x63deadbeef60005263cafebabe6004601c6000F560005260206000F3"),
+		Code:    loop,
 		Balance: big.NewInt(1),
 	}
-	alloc[origin] = core.GenesisAccount{
+	alloc[from] = core.GenesisAccount{
 		Nonce:   1,
 		Code:    []byte{},
 		Balance: big.NewInt(500000000000000),
 	}
-	db := rawdb.NewMemoryDatabase()
-	statedb := tests.MakePreState(db, alloc)
-
+	statedb := tests.MakePreState(rawdb.NewMemoryDatabase(), alloc)
 	// Create the tracer, the EVM environment and run it
-	tracer, err := New("prestateTracer")
+	tracer := logger.NewStructLogger(&logger.Config{
+		Debug: false,
+		//DisableStorage: true,
+		//EnableMemory: false,
+		//EnableReturnData: false,
+	})
+	evm := vm.NewEVM(context, statedb, nil, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer})
+	msg, err := tx.AsMessage(signer, nil, context.BlockNumber)
 	if err != nil {
-		t.Fatalf("failed to create call tracer: %v", err)
+		b.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}
-	evm := vm.NewEVM(context, statedb, nil, params.MainnetChainConfig, vm.Config{Debug: true, Tracer: tracer})
+	b.ResetTimer()
+	b.ReportAllocs()
 
-	msg, err := tx.AsMessage(signer, nil, nil)
-	if err != nil {
-		t.Fatalf("failed to prepare transaction for tracing: %v", err)
-	}
-	st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
-	if _, _, _, err = st.TransitionDb(common.Address{}); err != nil {
-		t.Fatalf("failed to execute transaction: %v", err)
-	}
-	// Retrieve the trace result and compare against the etalon
-	res, err := tracer.GetResult()
-	if err != nil {
-		t.Fatalf("failed to retrieve trace result: %v", err)
-	}
-	ret := make(map[string]interface{})
-	if err := json.Unmarshal(res, &ret); err != nil {
-		t.Fatalf("failed to unmarshal trace result: %v", err)
-	}
-	if _, has := ret["0x60f3f640a8508fc6a86d45df051962668e1e8ac7"]; !has {
-		t.Fatalf("Expected 0x60f3f640a8508fc6a86d45df051962668e1e8ac7 in result")
-	}
-}
-
-// Iterates over all the input-output datasets in the tracer test harness and
-// runs the JavaScript tracers against them.
-func TestCallTracer(t *testing.T) {
-	files, err := ioutil.ReadDir("testdata")
-	if err != nil {
-		t.Fatalf("failed to retrieve tracer test suite: %v", err)
-	}
-	for _, file := range files {
-		if !strings.HasPrefix(file.Name(), "call_tracer_") {
-			continue
+	for i := 0; i < b.N; i++ {
+		snap := statedb.Snapshot()
+		st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
+		_, _, _, err = st.TransitionDb(common.Address{})
+		if err != nil {
+			b.Fatal(err)
 		}
-		file := file // capture range variable
-		t.Run(camel(strings.TrimSuffix(strings.TrimPrefix(file.Name(), "call_tracer_"), ".json")), func(t *testing.T) {
-			t.Parallel()
-
-			// Call tracer test found, read if from disk
-			blob, err := ioutil.ReadFile(filepath.Join("testdata", file.Name()))
-			if err != nil {
-				t.Fatalf("failed to read testcase: %v", err)
-			}
-			test := new(callTracerTest)
-			if err := json.Unmarshal(blob, test); err != nil {
-				t.Fatalf("failed to parse testcase: %v", err)
-			}
-			// Configure a blockchain with the given prestate
-			tx := new(types.Transaction)
-			if err := rlp.DecodeBytes(common.FromHex(test.Input), tx); err != nil {
-				t.Fatalf("failed to parse testcase input: %v", err)
-			}
-			signer := types.MakeSigner(test.Genesis.Config, new(big.Int).SetUint64(uint64(test.Context.Number)))
-			origin, _ := signer.Sender(tx)
-
-			context := vm.Context{
-				CanTransfer: core.CanTransfer,
-				Transfer:    core.Transfer,
-				Origin:      origin,
-				Coinbase:    test.Context.Miner,
-				BlockNumber: new(big.Int).SetUint64(uint64(test.Context.Number)),
-				Time:        new(big.Int).SetUint64(uint64(test.Context.Time)),
-				Difficulty:  (*big.Int)(test.Context.Difficulty),
-				GasLimit:    uint64(test.Context.GasLimit),
-				GasPrice:    tx.GasPrice(),
-			}
-			db := rawdb.NewMemoryDatabase()
-			statedb := tests.MakePreState(db, test.Genesis.Alloc)
-
-			// Create the tracer, the EVM environment and run it
-			tracer, err := New("callTracer")
-			if err != nil {
-				t.Fatalf("failed to create call tracer: %v", err)
-			}
-			evm := vm.NewEVM(context, statedb, nil, test.Genesis.Config, vm.Config{Debug: true, Tracer: tracer})
-
-			msg, err := tx.AsMessage(signer, nil, common.Big0)
-			if err != nil {
-				t.Fatalf("failed to prepare transaction for tracing: %v", err)
-			}
-			st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
-			if _, _, _, err = st.TransitionDb(common.Address{}); err != nil {
-				t.Fatalf("failed to execute transaction: %v", err)
-			}
-			// Retrieve the trace result and compare against the etalon
-			res, err := tracer.GetResult()
-			if err != nil {
-				t.Fatalf("failed to retrieve trace result: %v", err)
-			}
-			ret := new(callTrace)
-			if err := json.Unmarshal(res, ret); err != nil {
-				t.Fatalf("failed to unmarshal trace result: %v", err)
-			}
-
-			if !reflect.DeepEqual(ret, test.Result) {
-				t.Fatalf("trace mismatch: \nhave %+v\nwant %+v", ret, test.Result)
-			}
-		})
+		statedb.RevertToSnapshot(snap)
+		if have, want := len(tracer.StructLogs()), 244752; have != want {
+			b.Fatalf("trace wrong, want %d steps, have %d", want, have)
+		}
+		tracer.Reset()
 	}
 }
