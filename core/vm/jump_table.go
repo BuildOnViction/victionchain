@@ -21,7 +21,7 @@ import (
 )
 
 type (
-	executionFunc func(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error)
+	executionFunc func(pc *uint64, interpreter *EVMInterpreter, callContext *CallCtx) ([]byte, error)
 	gasFunc       func(*EVM, *Contract, *Stack, *Memory, uint64) (uint64, error) // last parameter is the requested memory size as a uint64
 	// memorySizeFunc returns the required size, and whether the operation overflowed a uint64
 	memorySizeFunc func(*Stack) (size uint64, overflow bool)
@@ -1143,7 +1143,7 @@ func newFrontierInstructionSet() JumpTable {
 			valid:      true,
 		},
 		SELFDESTRUCT: {
-			execute:    opSuicide,
+			execute:    opSelfdestruct,
 			dynamicGas: gasSelfdestruct,
 			minStack:   minStack(1, 0),
 			maxStack:   maxStack(1, 0),
