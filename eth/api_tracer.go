@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"io/ioutil"
 	"math/big"
 	"runtime"
@@ -35,10 +34,12 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/eth/tracers"
+	"github.com/tomochain/tomochain/eth/tracers/logger"
 	"github.com/tomochain/tomochain/internal/ethapi"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/trie"
 )
 
@@ -55,7 +56,7 @@ const (
 
 // TraceConfig holds extra parameters to trace functions.
 type TraceConfig struct {
-	*vm.LogConfig
+	*logger.Config
 	Tracer  *string
 	Timeout *string
 	Reexec  *uint64
@@ -567,7 +568,7 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 	}
 	size, _ := database.TrieDB().Size()
 	log.Info("Historical state regenerated", "block", block.NumberU64(), "elapsed", time.Since(start), "size", size)
-	return statedb,tomoxState, nil
+	return statedb, tomoxState, nil
 }
 
 // TraceTransaction returns the structured logs created during the execution of EVM
@@ -596,11 +597,13 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, vmctx vm.Context, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
-		tracer vm.Tracer
+		tracer tracers.Tracer
 		err    error
 	)
 	switch {
-	case config != nil && config.Tracer != nil:
+	case config == nil:
+		tracer = logger.NewStructLogger(nil)
+	case config.Tracer != nil:
 		// Define a meaningful timeout of a single transaction trace
 		timeout := defaultTraceTimeout
 		if config.Timeout != nil {
@@ -608,23 +611,21 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 				return nil, err
 			}
 		}
-		// Constuct the JavaScript tracer to execute with
-		if tracer, err = tracers.New(*config.Tracer); err != nil {
+		if t, err := tracers.New(*config.Tracer, &vmctx); err != nil {
 			return nil, err
+		} else {
+			deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
+			go func() {
+				<-deadlineCtx.Done()
+				if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
+					t.Stop(errors.New("execution timeout"))
+				}
+			}()
+			defer cancel()
+			tracer = t
 		}
-		// Handle timeouts and RPC cancellations
-		deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
-		go func() {
-			<-deadlineCtx.Done()
-			tracer.(*tracers.Tracer).Stop(errors.New("execution timeout"))
-		}()
-		defer cancel()
-
-	case config == nil:
-		tracer = vm.NewStructLogger(nil)
-
 	default:
-		tracer = vm.NewStructLogger(config.LogConfig)
+		tracer = logger.NewStructLogger(config.Config)
 	}
 	// Run the transaction with tracing enabled.
 	vmenv := vm.NewEVM(vmctx, statedb, nil, api.config, vm.Config{Debug: true, Tracer: tracer})
@@ -636,15 +637,15 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 	}
 	// Depending on the tracer type, format and return the output
 	switch tracer := tracer.(type) {
-	case *vm.StructLogger:
+	case *logger.StructLogger:
 		return &ethapi.ExecutionResult{
 			Gas:         gas,
 			Failed:      failed,
-			ReturnValue: fmt.Sprintf("%x", ret),
+			ReturnValue: string(ret[:]),
 			StructLogs:  ethapi.FormatLogs(tracer.StructLogs()),
 		}, nil
 
-	case *tracers.Tracer:
+	case tracers.Tracer:
 		return tracer.GetResult()
 
 	default:
