@@ -14,25 +14,49 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tracers
+package js
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
-	"sync/atomic"
-	"unsafe"
-
-	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/vm"
+	"math/big"
+	"strings"
+	"sync/atomic"
+	"unicode"
+	"unsafe"
+
+	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
+	tracers2 "github.com/tomochain/tomochain/eth/tracers"
+	"github.com/tomochain/tomochain/eth/tracers/js/internal/tracers"
 	"github.com/tomochain/tomochain/log"
 
 	"gopkg.in/olebedev/go-duktape.v3"
 )
+
+// camel converts a snake cased input string into a camel cased output.
+func camel(str string) string {
+	pieces := strings.Split(str, "_")
+	for i := 1; i < len(pieces); i++ {
+		pieces[i] = string(unicode.ToUpper(rune(pieces[i][0]))) + pieces[i][1:]
+	}
+	return strings.Join(pieces, "")
+}
+
+var assetTracers = make(map[string]string)
+
+// init retrieves the JavaScript transaction tracers included in go-kardia.
+func init() {
+	for _, file := range tracers.AssetNames() {
+		name := camel(strings.TrimSuffix(file, ".js"))
+		assetTracers[name] = string(tracers.MustAsset(file))
+	}
+	tracers2.RegisterLookup(true, newJsTracer)
+}
 
 // makeSlice convert an unsafe memory pointer with the given type into a Go byte
 // slice.
@@ -57,7 +81,7 @@ func popSlice(ctx *duktape.Context) []byte {
 	return blob
 }
 
-// pushBigInt create a JavaScript BigInteger in the VM.
+// pushBigInt create a JavaScript BigInteger in the vm.
 func pushBigInt(n *big.Int, ctx *duktape.Context) {
 	ctx.GetGlobalString("bigInt")
 	ctx.PushString(n.String())
@@ -95,13 +119,13 @@ func (mw *memoryWrapper) slice(begin, end int64) []byte {
 		return []byte{}
 	}
 	if end < begin || begin < 0 {
-		// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
+		// TODO: We can't js-throw from Go inside duktape inside Go. The Go
 		// runtime goes belly up https://github.com/golang/go/issues/15639.
 		log.Warn("Tracer accessed out of bound memory", "offset", begin, "end", end)
 		return nil
 	}
 	if mw.memory.Len() < int(end) {
-		// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
+		// TODO: We can't js-throw from Go inside duktape inside Go. The Go
 		// runtime goes belly up https://github.com/golang/go/issues/15639.
 		log.Warn("Tracer accessed out of bound memory", "available", mw.memory.Len(), "offset", begin, "size", end-begin)
 		return nil
@@ -112,7 +136,7 @@ func (mw *memoryWrapper) slice(begin, end int64) []byte {
 // getUint returns the 32 bytes at the specified address interpreted as a uint.
 func (mw *memoryWrapper) getUint(addr int64) *big.Int {
 	if mw.memory.Len() < int(addr)+32 || addr < 0 {
-		// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
+		// TODO: We can't js-throw from Go inside duktape inside Go. The Go
 		// runtime goes belly up https://github.com/golang/go/issues/15639.
 		log.Warn("Tracer accessed out of bound memory", "available", mw.memory.Len(), "offset", addr, "size", 32)
 		return new(big.Int)
@@ -155,7 +179,7 @@ type stackWrapper struct {
 // peek returns the nth-from-the-top element of the stack.
 func (sw *stackWrapper) peek(idx int) *big.Int {
 	if len(sw.stack.Data()) <= idx || idx < 0 {
-		// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
+		// TODO: We can't js-throw from Go inside duktape inside Go. The Go
 		// runtime goes belly up https://github.com/golang/go/issues/15639.
 		log.Warn("Tracer accessed out of bound stack", "size", len(sw.stack.Data()), "index", idx)
 		return new(big.Int)
@@ -399,9 +423,12 @@ type jsTracer struct {
 // New instantiates a new tracer instance. code specifies a Javascript snippet,
 // which must evaluate to an expression returning an object with 'step', 'fault'
 // and 'result' functions.
-func New(code string) (Tracer, error) {
-	if _, ok := all[code]; ok {
-		code = all[code]
+func newJsTracer(code string, ctx *tracers2.Context) (tracers2.Tracer, error) {
+	if c, ok := assetTracers[code]; ok {
+		code = c
+	}
+	if ctx == nil {
+		ctx = new(tracers2.Context)
 	}
 	tracer := &jsTracer{
 		vm:              duktape.New(),
@@ -418,6 +445,14 @@ func New(code string) (Tracer, error) {
 		refundValue:     new(uint),
 		frame:           newFrame(),
 		frameResult:     newFrameResult(),
+	}
+	if ctx.BlockHash != (common.Hash{}) {
+		tracer.ctx["blockHash"] = ctx.BlockHash
+
+		if ctx.TxHash != (common.Hash{}) {
+			tracer.ctx["txIndex"] = ctx.TxIndex
+			tracer.ctx["txHash"] = ctx.TxHash
+		}
 	}
 	// Set up builtins for this environment
 	tracer.vm.PushGlobalGoFunction("toHex", func(ctx *duktape.Context) int {
@@ -483,8 +518,14 @@ func New(code string) (Tracer, error) {
 		return 1
 	})
 	tracer.vm.PushGlobalGoFunction("isPrecompiled", func(ctx *duktape.Context) int {
-		_, ok := vm.PrecompiledContractsIstanbul[common.BytesToAddress(popSlice(ctx))]
-		ctx.PushBoolean(ok)
+		addr := common.BytesToAddress(popSlice(ctx))
+		for _, p := range tracer.activePrecompiles {
+			if p == addr {
+				ctx.PushBoolean(true)
+				return 1
+			}
+		}
+		ctx.PushBoolean(false)
 		return 1
 	})
 	tracer.vm.PushGlobalGoFunction("slice", func(ctx *duktape.Context) int {
@@ -495,7 +536,7 @@ func New(code string) (Tracer, error) {
 		size := end - start
 
 		if start < 0 || start > end || end > len(blob) {
-			// TODO(karalabe): We can't js-throw from Go inside duktape inside Go. The Go
+			// TODO: We can't js-throw from Go inside duktape inside Go. The Go
 			// runtime goes belly up https://github.com/golang/go/issues/15639.
 			log.Warn("Tracer accessed out of bound memory", "available", len(blob), "offset", start, "size", size)
 			ctx.PushFixedBuffer(0)
@@ -621,7 +662,7 @@ func (jst *jsTracer) call(noret bool, method string, args ...string) (json.RawMe
 	}
 	// Push a JSON marshaller onto the stack. We can't marshal from the out-
 	// side because duktape can crash on large nestings and we can't catch
-	// C++ exceptions ourselves from Go. TODO(karalabe): Yuck, why wrap?!
+	// C++ exceptions ourselves from Go.
 	jst.vm.PushString("(JSON.stringify)")
 	jst.vm.Eval()
 
@@ -655,7 +696,7 @@ func (jst *jsTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Ad
 	jst.ctx["value"] = value
 
 	// Initialize the context
-	jst.ctx["block"] = env.Context.BlockNumber.Uint64()
+	jst.ctx["block"] = env.Context.BlockNumber
 	jst.dbWrapper.db = env.StateDB
 	// Update list of precompiles based on current block
 	PrecompiledContractsIstanbulAddresses := make([]common.Address, 0, len(vm.PrecompiledContractsIstanbul))
