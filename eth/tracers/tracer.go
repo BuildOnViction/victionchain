@@ -400,7 +400,7 @@ type jsTracer struct {
 // which must evaluate to an expression returning an object with 'step', 'fault'
 // and 'result' functions.
 func New(code string) (Tracer, error) {
-	if code, ok := all[code]; ok {
+	if _, ok := all[code]; ok {
 		code = all[code]
 	}
 	tracer := &jsTracer{
