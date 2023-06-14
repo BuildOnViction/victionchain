@@ -52,12 +52,21 @@ type dummyStatedb struct {
 func (*dummyStatedb) GetRefund() uint64 { return 1337 }
 
 func runTrace(tracer Tracer) (json.RawMessage, error) {
-	env := vm.NewEVM(vm.Context{BlockNumber: big.NewInt(1)}, &dummyStatedb{}, nil, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer})
-
-	contract := vm.NewContract(account{}, account{}, big.NewInt(0), 10000)
+	var (
+		env             = vm.NewEVM(vm.Context{BlockNumber: big.NewInt(1)}, &dummyStatedb{}, nil, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer})
+		gasLimit uint64 = 31000
+		startGas uint64 = 10000
+		value           = big.NewInt(0)
+		contract        = vm.NewContract(account{}, account{}, value, startGas)
+	)
 	contract.Code = []byte{byte(vm.PUSH1), 0x1, byte(vm.PUSH1), 0x1, 0x0}
 
-	_, err := env.Interpreter().Run(contract, []byte{}, false)
+	tracer.CaptureTxStart(gasLimit)
+	tracer.CaptureStart(env, contract.Caller(), contract.Address(), false, []byte{}, startGas, value)
+	ret, err := env.Interpreter().Run(contract, []byte{}, false)
+	tracer.CaptureEnd(ret, startGas-contract.Gas, err)
+	// Rest gas assumes no refund
+	tracer.CaptureTxEnd(contract.Gas)
 	if err != nil {
 		return nil, err
 	}
