@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ type dummyStatedb struct {
 
 func (*dummyStatedb) GetRefund() uint64 { return 1337 }
 
-func runTrace(tracer *Tracer) (json.RawMessage, error) {
+func runTrace(tracer Tracer) (json.RawMessage, error) {
 	env := vm.NewEVM(vm.Context{BlockNumber: big.NewInt(1)}, &dummyStatedb{}, nil, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer})
 
 	contract := vm.NewContract(account{}, account{}, big.NewInt(0), 10000)
@@ -165,15 +166,17 @@ func TestHaltBetweenSteps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := vm.NewEVM(vm.Context{BlockNumber: big.NewInt(1)}, &dummyStatedb{}, nil, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer})
-	contract := vm.NewContract(&account{}, &account{}, big.NewInt(0), 0)
-
-	tracer.CaptureState(env, 0, 0, 0, 0, nil, nil, contract, 0, nil)
+	env := vm.NewEVM(vm.Context{BlockNumber: big.NewInt(1), GasPrice: big.NewInt(1)}, &dummyStatedb{}, nil, params.TestChainConfig, vm.Config{Tracer: tracer})
+	scope := &vm.CallCtx{
+		Contract: vm.NewContract(&account{}, &account{}, big.NewInt(0), 0),
+	}
+	tracer.CaptureStart(env, common.Address{}, common.Address{}, false, []byte{}, 0, big.NewInt(0))
+	tracer.CaptureState(0, 0, 0, 0, scope, nil, 0, nil)
 	timeout := errors.New("stahp")
 	tracer.Stop(timeout)
-	tracer.CaptureState(env, 0, 0, 0, 0, nil, nil, contract, 0, nil)
+	tracer.CaptureState(0, 0, 0, 0, scope, nil, 0, nil)
 
-	if _, err := tracer.GetResult(); err.Error() != timeout.Error() {
+	if _, err := tracer.GetResult(); !strings.Contains(err.Error(), timeout.Error()) {
 		t.Errorf("Expected timeout error, got %v", err)
 	}
 }

@@ -399,9 +399,9 @@ type jsTracer struct {
 // New instantiates a new tracer instance. code specifies a Javascript snippet,
 // which must evaluate to an expression returning an object with 'step', 'fault'
 // and 'result' functions.
-func New(code string, ctx *vm.Context) (Tracer, error) {
-	if ctx == nil {
-		ctx = new(vm.Context)
+func New(code string) (Tracer, error) {
+	if code, ok := all[code]; ok {
+		code = all[code]
 	}
 	tracer := &jsTracer{
 		vm:              duktape.New(),
