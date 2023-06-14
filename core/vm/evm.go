@@ -17,15 +17,15 @@
 package vm
 
 import (
-	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"errors"
-	"github.com/tomochain/tomochain/params"
 	"math/big"
 	"sync/atomic"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -150,13 +150,13 @@ type EVM struct {
 // only ever be used *once*.
 func NewEVM(ctx Context, statedb StateDB, tradingStateDB *tradingstate.TradingStateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
 	evm := &EVM{
-		Context:      ctx,
-		StateDB:      statedb,
+		Context:        ctx,
+		StateDB:        statedb,
 		tradingStateDB: tradingStateDB,
-		vmConfig:     vmConfig,
-		chainConfig:  chainConfig,
-		chainRules:   chainConfig.Rules(ctx.BlockNumber),
-		interpreters: make([]Interpreter, 0, 1),
+		vmConfig:       vmConfig,
+		chainConfig:    chainConfig,
+		chainRules:     chainConfig.Rules(ctx.BlockNumber),
+		interpreters:   make([]Interpreter, 0, 1),
 	}
 
 	// vmConfig.EVMInterpreter will be used by EVM-C, it won't be checked here
@@ -354,7 +354,6 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 		// future scenarios
 		evm.StateDB.AddBalance(addr, bigZero)
 	}
-
 
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
