@@ -17,18 +17,15 @@
 package tracers
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"math/big"
-	"strings"
-	"testing"
-	"time"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/params"
+	"math/big"
+	"strings"
+	"testing"
 )
 
 type account struct{}
@@ -73,103 +70,6 @@ func runTrace(tracer Tracer) (json.RawMessage, error) {
 	return tracer.GetResult()
 }
 
-// TestRegressionPanicSlice tests that we don't panic on bad arguments to memory access
-func TestRegressionPanicSlice(t *testing.T) {
-	tracer, err := New("{depths: [], step: function(log) { this.depths.push(log.memory.slice(-1,-2)); }, fault: function() {}, result: function() { return this.depths; }}")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = runTrace(tracer); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// TestRegressionPanicSlice tests that we don't panic on bad arguments to stack peeks
-func TestRegressionPanicPeek(t *testing.T) {
-	tracer, err := New("{depths: [], step: function(log) { this.depths.push(log.stack.peek(-1)); }, fault: function() {}, result: function() { return this.depths; }}")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = runTrace(tracer); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// TestRegressionPanicSlice tests that we don't panic on bad arguments to memory getUint
-func TestRegressionPanicGetUint(t *testing.T) {
-	tracer, err := New("{ depths: [], step: function(log, db) { this.depths.push(log.memory.getUint(-64));}, fault: function() {}, result: function() { return this.depths; }}")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = runTrace(tracer); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestTracing(t *testing.T) {
-	tracer, err := New("{count: 0, step: function() { this.count += 1; }, fault: function() {}, result: function() { return this.count; }}")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ret, err := runTrace(tracer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(ret, []byte("3")) {
-		t.Errorf("Expected return value to be 3, got %s", string(ret))
-	}
-}
-
-func TestStack(t *testing.T) {
-	tracer, err := New("{depths: [], step: function(log) { this.depths.push(log.stack.length()); }, fault: function() {}, result: function() { return this.depths; }}")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ret, err := runTrace(tracer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(ret, []byte("[0,1,2]")) {
-		t.Errorf("Expected return value to be [0,1,2], got %s", string(ret))
-	}
-}
-
-func TestOpcodes(t *testing.T) {
-	tracer, err := New("{opcodes: [], step: function(log) { this.opcodes.push(log.op.toString()); }, fault: function() {}, result: function() { return this.opcodes; }}")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ret, err := runTrace(tracer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(ret, []byte("[\"PUSH1\",\"PUSH1\",\"STOP\"]")) {
-		t.Errorf("Expected return value to be [\"PUSH1\",\"PUSH1\",\"STOP\"], got %s", string(ret))
-	}
-}
-
-func TestHalt(t *testing.T) {
-	t.Skip("duktape doesn't support abortion")
-
-	timeout := errors.New("stahp")
-	tracer, err := New("{step: function() { while(1); }, result: function() { return null; }}")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	go func() {
-		time.Sleep(1 * time.Second)
-		tracer.Stop(timeout)
-	}()
-
-	if _, err = runTrace(tracer); err.Error() != "stahp    in server-side tracer function 'step'" {
-		t.Errorf("Expected timeout error, got %v", err)
-	}
-}
-
 func TestHaltBetweenSteps(t *testing.T) {
 	tracer, err := New("{step: function() {}, fault: function() {}, result: function() { return null; }}")
 	if err != nil {
@@ -187,5 +87,73 @@ func TestHaltBetweenSteps(t *testing.T) {
 
 	if _, err := tracer.GetResult(); !strings.Contains(err.Error(), timeout.Error()) {
 		t.Errorf("Expected timeout error, got %v", err)
+	}
+}
+
+type tracerCtor = func(string) (Tracer, error)
+
+func TestDuktapeTracer(t *testing.T) {
+	testTracer(t, New)
+}
+
+func testTracer(t *testing.T, newTracer tracerCtor) {
+	execTracer := func(code string) ([]byte, string) {
+		t.Helper()
+		tracer, err := newTracer(code)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ret, err := runTrace(tracer)
+		if err != nil {
+			return nil, err.Error() // Stringify to allow comparison without nil checks
+		}
+		return ret, ""
+	}
+	for i, tt := range []struct {
+		code string
+		want string
+		fail string
+	}{
+		{ // tests that we don't panic on bad arguments to memory access
+			code: "{depths: [], step: function(log) { this.depths.push(log.memory.slice(-1,-2)); }, fault: function() {}, result: function() { return this.depths; }}",
+			want: `[{},{},{}]`,
+		}, { // tests that we don't panic on bad arguments to stack peeks
+			code: "{depths: [], step: function(log) { this.depths.push(log.stack.peek(-1)); }, fault: function() {}, result: function() { return this.depths; }}",
+			want: `["0","0","0"]`,
+		}, { //  tests that we don't panic on bad arguments to memory getUint
+			code: "{ depths: [], step: function(log, db) { this.depths.push(log.memory.getUint(-64));}, fault: function() {}, result: function() { return this.depths; }}",
+			want: `["0","0","0"]`,
+		}, { // tests some general counting
+			code: "{count: 0, step: function() { this.count += 1; }, fault: function() {}, result: function() { return this.count; }}",
+			want: `3`,
+		}, { // tests that depth is reported correctly
+			code: "{depths: [], step: function(log) { this.depths.push(log.stack.length()); }, fault: function() {}, result: function() { return this.depths; }}",
+			want: `[0,1,2]`,
+		}, { // tests memory length
+			code: "{lengths: [], step: function(log) { this.lengths.push(log.memory.length()); }, fault: function() {}, result: function() { return this.lengths; }}",
+			want: `[0,0,0]`,
+		}, { // tests to-string of opcodes
+			code: "{opcodes: [], step: function(log) { this.opcodes.push(log.op.toString()); }, fault: function() {}, result: function() { return this.opcodes; }}",
+			want: `["PUSH1","PUSH1","STOP"]`,
+		}, { // tests intrinsic gas
+			code: "{depths: [], step: function() {}, fault: function() {}, result: function(ctx) { return ctx.gasPrice+'.'+ctx.gasUsed+'.'+ctx.intrinsicGas; }}",
+			want: `"100000.6.21000"`,
+		}, {
+			code: "{res: null, step: function(log) {}, fault: function() {}, result: function() { return toWord('0xffaa') }}",
+			want: `{"0":0,"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0,"16":0,"17":0,"18":0,"19":0,"20":0,"21":0,"22":0,"23":0,"24":0,"25":0,"26":0,"27":0,"28":0,"29":0,"30":255,"31":170}`,
+		}, { // test feeding a buffer back into go
+			code: "{res: null, step: function(log) { var address = log.contract.getAddress(); this.res = toAddress(address); }, fault: function() {}, result: function() { return this.res }}",
+			want: `{"0":0,"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0,"16":0,"17":0,"18":0,"19":0}`,
+		}, {
+			code: "{res: null, step: function(log) { var address = '0x0000000000000000000000000000000000000000'; this.res = toAddress(address); }, fault: function() {}, result: function() { return this.res }}",
+			want: `{"0":0,"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0,"16":0,"17":0,"18":0,"19":0}`,
+		}, {
+			code: "{res: null, step: function(log) { var address = Array.prototype.slice.call(log.contract.getAddress()); this.res = toAddress(address); }, fault: function() {}, result: function() { return this.res }}",
+			want: `{"0":0,"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0,"16":0,"17":0,"18":0,"19":0}`,
+		},
+	} {
+		if have, err := execTracer(tt.code); tt.want != string(have) || tt.fail != err {
+			t.Errorf("testcase %d: expected return value to be '%s' got '%s', error to be '%s' got '%s'\n\tcode: %v", i, tt.want, string(have), tt.fail, err, tt.code)
+		}
 	}
 }
