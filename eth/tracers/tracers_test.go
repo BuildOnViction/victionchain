@@ -17,7 +17,6 @@
 package tracers
 
 import (
-	"github.com/tomochain/tomochain/eth/tracers/logger"
 	"math/big"
 	"testing"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/eth/tracers/logger"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tests"
 )
