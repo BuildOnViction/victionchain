@@ -611,7 +611,7 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 				return nil, err
 			}
 		}
-		if t, err := tracers.New(*config.Tracer, &vmctx); err != nil {
+		if t, err := tracers.New(*config.Tracer); err != nil {
 			return nil, err
 		} else {
 			deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
