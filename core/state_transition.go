@@ -42,8 +42,10 @@ The state transitioning model does all all the necessary work to work out a vali
 3) Create a new state object if the recipient is \0*32
 4) Value transfer
 == If contract creation ==
-  4a) Attempt to run transaction data
-  4b) If valid, use result as code for the new state object
+
+	4a) Attempt to run transaction data
+	4b) If valid, use result as code for the new state object
+
 == end ==
 5) Run Script section
 6) Derive new state root
@@ -219,6 +221,12 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	if err = st.preCheck(); err != nil {
 		return
 	}
+
+	if tracer := st.evm.Config.Tracer; tracer != nil {
+		tracer.CaptureTxStart(st.initialGas)
+		// TODO(trinhdn): defer the CaptureTxEnd with remaining gas
+	}
+
 	msg := st.msg
 	sender := st.from() // err checked in preCheck
 
