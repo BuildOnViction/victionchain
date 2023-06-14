@@ -18,9 +18,11 @@
 package tracers
 
 import (
+	"encoding/json"
 	"strings"
 	"unicode"
 
+	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/eth/tracers/internal/tracers"
 )
 
@@ -50,4 +52,13 @@ func tracer(name string) (string, bool) {
 		return tracer, true
 	}
 	return "", false
+}
+
+// Tracer interface extends vm.EVMLogger and additionally
+// allows collecting the tracing result.
+type Tracer interface {
+	vm.EVMLogger
+	GetResult() (json.RawMessage, error)
+	// Stop terminates execution of the tracer at the first opportune moment.
+	Stop(err error)
 }
