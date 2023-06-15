@@ -18,10 +18,10 @@ var _ = (*structLogMarshaling)(nil)
 func (s StructLog) MarshalJSON() ([]byte, error) {
 	type StructLog struct {
 		Pc            uint64                      `json:"pc"`
-		Op            vm.OpCode                      `json:"op"`
+		Op            vm.OpCode                   `json:"op"`
 		Gas           math.HexOrDecimal64         `json:"gas"`
 		GasCost       math.HexOrDecimal64         `json:"gasCost"`
-		Memory        hexutil.Bytes               `json:"memory"`
+		Memory        hexutil.Bytes               `json:"memory,omitempty"`
 		MemorySize    int                         `json:"memSize"`
 		Stack         []*math.HexOrDecimal256     `json:"stack"`
 		Storage       map[common.Hash]common.Hash `json:"-"`
@@ -29,7 +29,7 @@ func (s StructLog) MarshalJSON() ([]byte, error) {
 		RefundCounter uint64                      `json:"refund"`
 		Err           error                       `json:"-"`
 		OpName        string                      `json:"opName"`
-		ErrorString   string                      `json:"error"`
+		ErrorString   string                      `json:"error,omitempty"`
 	}
 	var enc StructLog
 	enc.Pc = s.Pc
@@ -57,7 +57,7 @@ func (s StructLog) MarshalJSON() ([]byte, error) {
 func (s *StructLog) UnmarshalJSON(input []byte) error {
 	type StructLog struct {
 		Pc            *uint64                     `json:"pc"`
-		Op            *vm.OpCode                     `json:"op"`
+		Op            *vm.OpCode                  `json:"op"`
 		Gas           *math.HexOrDecimal64        `json:"gas"`
 		GasCost       *math.HexOrDecimal64        `json:"gasCost"`
 		Memory        *hexutil.Bytes              `json:"memory"`
