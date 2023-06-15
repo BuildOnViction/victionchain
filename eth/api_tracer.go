@@ -595,15 +595,7 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 	if config != nil && config.Reexec != nil {
 		reexec = *config.Reexec
 	}
-	msg, vmctx, statedb, err := api.computeTxEnv(blockHash, int(index), reexec)
-	if err != nil {
-		return nil, err
-	}
-	parent := api.eth.blockchain.GetBlockByNumber(blockNumber - 1)
-	if parent == nil {
-		return nil, fmt.Errorf("parent %d not found", blockNumber-1)
-	}
-	_, tomoxState, err := api.computeStateDB(parent, reexec)
+	msg, vmctx, statedb, tomoxState, err := api.computeTxEnv(blockHash, int(index), reexec)
 	if err != nil {
 		return nil, err
 	}
@@ -681,19 +673,19 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 }
 
 // computeTxEnv returns the execution environment of a certain transaction.
-func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (core.Message, vm.Context, *state.StateDB, error) {
+func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (core.Message, vm.Context, *state.StateDB, *tradingstate.TradingStateDB, error) {
 	// Create the parent state database
 	block := api.eth.blockchain.GetBlockByHash(blockHash)
 	if block == nil {
-		return nil, vm.Context{}, nil, fmt.Errorf("block %x not found", blockHash)
+		return nil, vm.Context{}, nil, nil, fmt.Errorf("block %x not found", blockHash)
 	}
 	parent := api.eth.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
-		return nil, vm.Context{}, nil, fmt.Errorf("parent %x not found", block.ParentHash())
+		return nil, vm.Context{}, nil, nil, fmt.Errorf("parent %x not found", block.ParentHash())
 	}
 	statedb, tomoxState, err := api.computeStateDB(parent, reexec)
 	if err != nil {
-		return nil, vm.Context{}, nil, err
+		return nil, vm.Context{}, nil, nil, err
 	}
 	// Recompute transactions up to the target index.
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
@@ -717,14 +709,14 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 			}
 			msg, err := tx.AsMessage(types.MakeSigner(api.config, block.Header().Number), balanceFee, block.Number())
 			if err != nil {
-				return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
+				return nil, vm.Context{}, nil, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 			}
 			context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
-			return msg, context, statedb, nil
+			return msg, context, statedb, tomoxState, nil
 		}
 		_, gas, err, tokenFeeUsed := core.ApplyTransaction(api.config, feeCapacity, api.eth.blockchain, nil, gp, statedb, tomoxState, block.Header(), tx, usedGas, vm.Config{})
 		if err != nil {
-			return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
+			return nil, vm.Context{}, nil, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 		}
 
 		if tokenFeeUsed {
@@ -738,5 +730,5 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 		}
 	}
 	statedb.DeleteSuicides()
-	return nil, vm.Context{}, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
+	return nil, vm.Context{}, nil, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
 }
