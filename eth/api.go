@@ -368,7 +368,7 @@ type storageEntry struct {
 
 // StorageRangeAt returns the storage at the given block height and transaction index.
 func (api *PrivateDebugAPI) StorageRangeAt(ctx context.Context, blockHash common.Hash, txIndex int, contractAddress common.Address, keyStart hexutil.Bytes, maxResult int) (StorageRangeResult, error) {
-	_, _, statedb, err := api.computeTxEnv(blockHash, txIndex, 0)
+	_, _, statedb, _, err := api.computeTxEnv(blockHash, txIndex, 0)
 	if err != nil {
 		return StorageRangeResult{}, err
 	}
@@ -494,11 +494,10 @@ func (api *PublicEthereumAPI) ChainId() hexutil.Uint64 {
 }
 
 // GetOwner return masternode owner of the given coinbase address
-func (api *PublicEthereumAPI) GetOwnerByCoinbase(ctx context.Context, coinbase common.Address, blockNr rpc.BlockNumber) (common.Address,  error) {
+func (api *PublicEthereumAPI) GetOwnerByCoinbase(ctx context.Context, coinbase common.Address, blockNr rpc.BlockNumber) (common.Address, error) {
 	statedb, _, err := api.e.ApiBackend.StateAndHeaderByNumber(ctx, blockNr)
 	if err != nil {
 		return common.Address{}, err
 	}
 	return statedb.GetOwner(coinbase), nil
 }
-
