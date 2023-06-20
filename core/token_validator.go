@@ -17,7 +17,11 @@ package core
 
 import (
 	"fmt"
-	ethereum "github.com/tomochain/tomochain"
+	"math/big"
+	"math/rand"
+	"strings"
+
+	tomochain "github.com/tomochain/tomochain"
 	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -25,9 +29,6 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/log"
-	"math/big"
-	"math/rand"
-	"strings"
 )
 
 const (
@@ -38,7 +39,7 @@ const (
 
 // callmsg implements core.Message to allow passing it as a transaction simulator.
 type callmsg struct {
-	ethereum.CallMsg
+	tomochain.CallMsg
 }
 
 func (m callmsg) From() common.Address      { return m.CallMsg.From }
@@ -52,7 +53,7 @@ func (m callmsg) Data() []byte              { return m.CallMsg.Data }
 func (m callmsg) BalanceTokenFee() *big.Int { return m.CallMsg.BalanceTokenFee }
 
 type SimulatedBackend interface {
-	CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error)
+	CallContractWithState(call tomochain.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error)
 }
 
 // GetTokenAbi return token abi
@@ -72,7 +73,7 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, contractA
 	}
 	fakeCaller := common.HexToAddress("0x0000000000000000000000000000000000000001")
 	statedb.SetBalance(fakeCaller, common.BasePrice)
-	msg := ethereum.CallMsg{To: &contractAddr, Data: input, From: fakeCaller}
+	msg := tomochain.CallMsg{To: &contractAddr, Data: input, From: fakeCaller}
 	result, err := CallContractWithState(msg, chain, statedb)
 	if err != nil {
 		return nil, err
@@ -85,9 +86,9 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, contractA
 	return unpackResult, nil
 }
 
-//FIXME: please use copyState for this function
+// FIXME: please use copyState for this function
 // CallContractWithState executes a contract call at the given state.
-func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
+func CallContractWithState(call tomochain.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
 	// Ensure message is initialized properly.
 	call.GasPrice = big.NewInt(0)
 
@@ -98,11 +99,22 @@ func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, 
 		call.Value = new(big.Int)
 	}
 	// Execute the call.
-	msg := callmsg{call}
+	msg := &Message{
+		To:                call.To,
+		From:              call.From,
+		Value:             call.Value,
+		GasLimit:          call.Gas,
+		GasPrice:          call.GasPrice,
+		GasFeeCap:         call.GasFeeCap,
+		GasTipCap:         call.GasTipCap,
+		Data:              call.Data,
+		AccessList:        call.AccessList,
+		SkipAccountChecks: false,
+	}
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-	if msg.To() != nil {
-		if value, ok := feeCapacity[*msg.To()]; ok {
-			msg.CallMsg.BalanceTokenFee = value
+	if msg.To != nil {
+		if value, ok := feeCapacity[*msg.To]; ok {
+			msg.BalanceTokenFee = value
 		}
 	}
 	evmContext := NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
