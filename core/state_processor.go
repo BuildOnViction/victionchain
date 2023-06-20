@@ -19,8 +19,6 @@ package core
 import (
 	"fmt"
 
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"runtime"
 	"strings"
@@ -33,7 +31,9 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -243,7 +243,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 			balanceFee = value
 		}
 	}
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number)
+	msg, err := TransactionToMessage(tx, types.MakeSigner(config, header.Number), balanceFee, header.BaseFee)
 	if err != nil {
 		return nil, 0, err, false
 	}
@@ -391,7 +391,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 		blockMap[9147453] = "0x3538a544021c07869c16b764424c5987409cba48"
 		blockMap[9147459] = "0xe187cf86c2274b1f16e8225a7da9a75aba4f1f5f"
 
-		addrFrom := msg.From().Hex()
+		addrFrom := msg.From.Hex()
 
 		currentBlockNumber := header.Number.Int64()
 		if addr, ok := blockMap[currentBlockNumber]; ok {
@@ -428,14 +428,14 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = gas
 	// if the transaction created a contract, store the creation address in the receipt.
-	if msg.To() == nil {
+	if msg.To == nil {
 		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
 	}
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 	if balanceFee != nil && failed {
-		state.PayFeeWithTRC21TxFail(statedb, msg.From(), *tx.To())
+		state.PayFeeWithTRC21TxFail(statedb, msg.From, *tx.To())
 	}
 	return receipt, gas, err, balanceFee != nil
 }

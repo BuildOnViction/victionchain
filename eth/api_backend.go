@@ -21,11 +21,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending"
 
 	"github.com/tomochain/tomochain/tomox"
 
@@ -136,8 +137,8 @@ func (b *EthApiBackend) GetTd(blockHash common.Hash) *big.Int {
 	return b.eth.blockchain.GetTdByHash(blockHash)
 }
 
-func (b *EthApiBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	state.SetBalance(msg.From(), math.MaxBig256)
+func (b *EthApiBackend) GetEVM(ctx context.Context, msg *core.Message, state *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
+	state.SetBalance(msg.From, math.MaxBig256)
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg, header, b.eth.BlockChain(), nil)

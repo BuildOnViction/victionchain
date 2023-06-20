@@ -20,13 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
-
-	"github.com/tomochain/tomochain/tomox"
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
@@ -45,6 +41,9 @@ import (
 	"github.com/tomochain/tomochain/light"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending"
 )
 
 type LesApiBackend struct {
@@ -105,8 +104,8 @@ func (b *LesApiBackend) GetTd(blockHash common.Hash) *big.Int {
 	return b.eth.blockchain.GetTdByHash(blockHash)
 }
 
-func (b *LesApiBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	state.SetBalance(msg.From(), math.MaxBig256)
+func (b *LesApiBackend) GetEVM(ctx context.Context, msg *core.Message, state *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
+	state.SetBalance(msg.From, math.MaxBig256)
 	context := core.NewEVMContext(msg, header, b.eth.blockchain, nil)
 	return vm.NewEVM(context, state, tomoxState, b.eth.chainConfig, vmCfg), state.Error, nil
 }
