@@ -19,7 +19,6 @@ package les
 import (
 	"bytes"
 	"context"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
@@ -110,7 +110,7 @@ func odrAccounts(ctx context.Context, db ethdb.Database, config *params.ChainCon
 //func TestOdrContractCallLes2(t *testing.T) { testOdr(t, 2, 2, odrContractCall) }
 
 type callmsg struct {
-	types.Message
+	core.Message
 }
 
 func (callmsg) CheckNonce() bool { return false }
@@ -133,6 +133,18 @@ func odrContractCall(ctx context.Context, db ethdb.Database, config *params.Chai
 				if value, ok := feeCapacity[testContractAddr]; ok {
 					balanceTokenFee = value
 				}
+				//msg := &Message{
+				//	To:                call.To,
+				//	From:              call.From,
+				//	Value:             call.Value,
+				//	GasLimit:          call.Gas,
+				//	GasPrice:          call.GasPrice,
+				//	GasFeeCap:         call.GasFeeCap,
+				//	GasTipCap:         call.GasTipCap,
+				//	Data:              call.Data,
+				//	AccessList:        call.AccessList,
+				//	SkipAccountChecks: false,
+				//}
 				msg := callmsg{types.NewMessage(from.Address(), &testContractAddr, 0, new(big.Int), 100000, new(big.Int), data, false, balanceTokenFee)}
 
 				context := core.NewEVMContext(msg, header, bc, nil)

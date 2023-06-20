@@ -26,11 +26,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tomochain/tomochain/crypto"
-
-	"github.com/tomochain/tomochain/common/math"
-
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
 )
 
