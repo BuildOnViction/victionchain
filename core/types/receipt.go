@@ -32,7 +32,7 @@ import (
 	"github.com/tomochain/tomochain/rlp"
 )
 
-//go:generate gencodec -type Receipt -field-override receiptMarshaling -out gen_receipt_json.go
+//go:generate go run github.com/fjl/gencodec -type Receipt -field-override receiptMarshaling -out gen_receipt_json.go
 
 var (
 	receiptStatusFailedRLP     = []byte{}
@@ -74,7 +74,7 @@ type Receipt struct {
 
 type receiptMarshaling struct {
 	PostState         hexutil.Bytes
-	Status            hexutil.Uint
+	Status            hexutil.Uint64
 	CumulativeGasUsed hexutil.Uint64
 	GasUsed           hexutil.Uint64
 }
