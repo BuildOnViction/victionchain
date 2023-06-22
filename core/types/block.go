@@ -171,6 +171,16 @@ func rlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
+// prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
+// It's used for typed transactions.
+func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
+	hw := sha3.NewKeccak256()
+	hw.Write([]byte{prefix})
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
+}
+
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
 type Body struct {

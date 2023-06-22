@@ -103,6 +103,99 @@ type Signer interface {
 	Equal(Signer) bool
 }
 
+type eip2930Signer struct{ EIP155Signer }
+
+// NewEIP2930Signer returns a signer that accepts EIP-2930 access list transactions,
+// EIP-155 replay protected transactions, and legacy Homestead transactions.
+func NewEIP2930Signer(chainId *big.Int) Signer {
+	return eip2930Signer{NewEIP155Signer(chainId)}
+}
+
+func (s eip2930Signer) ChainID() *big.Int {
+	return s.chainId
+}
+
+func (s eip2930Signer) Equal(s2 Signer) bool {
+	x, ok := s2.(eip2930Signer)
+	return ok && x.chainId.Cmp(s.chainId) == 0
+}
+
+func (s eip2930Signer) Sender(tx *Transaction) (common.Address, error) {
+	V, R, S := tx.RawSignatureValues()
+	switch tx.Type() {
+	case LegacyTxType:
+		if !tx.Protected() {
+			return HomesteadSigner{}.Sender(tx)
+		}
+		V = new(big.Int).Sub(V, s.chainIdMul)
+		V.Sub(V, big8)
+	case AccessListTxType:
+		// AL txs are defined to use 0 and 1 as their recovery
+		// id, add 27 to become equivalent to unprotected Homestead signatures.
+		V = new(big.Int).Add(V, big.NewInt(27))
+	default:
+		return common.Address{}, ErrTxTypeNotSupported
+	}
+	if tx.ChainId().Cmp(s.chainId) != 0 {
+		return common.Address{}, fmt.Errorf("%w: have %d want %d", ErrInvalidChainId, tx.ChainId(), s.chainId)
+	}
+	return recoverPlain(s.Hash(tx), R, S, V, true)
+}
+
+func (s eip2930Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
+	switch txdata := tx.inner.(type) {
+	case *LegacyTx:
+		return s.EIP155Signer.SignatureValues(tx, sig)
+	case *AccessListTx:
+		// Check that chain ID of tx matches the signer. We also accept ID zero here,
+		// because it indicates that the chain ID was not specified in the tx.
+		if txdata.ChainID.Sign() != 0 && txdata.ChainID.Cmp(s.chainId) != 0 {
+			return nil, nil, nil, fmt.Errorf("%w: have %d want %d", ErrInvalidChainId, txdata.ChainID, s.chainId)
+		}
+		R, S, _ = decodeSignature(sig)
+		V = big.NewInt(int64(sig[64]))
+	default:
+		return nil, nil, nil, ErrTxTypeNotSupported
+	}
+	return R, S, V, nil
+}
+
+// Hash returns the hash to be signed by the sender.
+// It does not uniquely identify the transaction.
+func (s eip2930Signer) Hash(tx *Transaction) common.Hash {
+	switch tx.Type() {
+	case LegacyTxType:
+		return rlpHash([]interface{}{
+			tx.Nonce(),
+			tx.GasPrice(),
+			tx.Gas(),
+			tx.To(),
+			tx.Value(),
+			tx.Data(),
+			s.chainId, uint(0), uint(0),
+		})
+	case AccessListTxType:
+		return prefixedRlpHash(
+			tx.Type(),
+			[]interface{}{
+				s.chainId,
+				tx.Nonce(),
+				tx.GasPrice(),
+				tx.Gas(),
+				tx.To(),
+				tx.Value(),
+				tx.Data(),
+				tx.AccessList(),
+			})
+	default:
+		// This _should_ not happen, but in case someone sends in a bad
+		// json struct via RPC, it's probably more prudent to return an
+		// empty hash instead of killing the node with a panic
+		//panic("Unsupported transaction type: %d", tx.typ)
+		return common.Hash{}
+	}
+}
+
 // EIP155Transaction implements Signer using the EIP155 rules.
 type EIP155Signer struct {
 	chainId, chainIdMul *big.Int
