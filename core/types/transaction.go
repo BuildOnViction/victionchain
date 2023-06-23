@@ -778,9 +778,9 @@ func (s TxByPriceAndTime) Less(i, j int) bool {
 	}
 	// If the prices are equal, use the time the transaction was first seen for
 	// deterministic sorting
-	priceCmp := i_price.Cmp(j_price) > 0
-	if priceCmp {
-		return priceCmp
+	priceCmp := i_price.Cmp(j_price)
+	if priceCmp != 0 {
+		return priceCmp > 0
 	}
 	return s.txs[i].tx.time.Before(s.txs[j].tx.time)
 }
