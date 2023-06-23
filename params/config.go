@@ -246,6 +246,11 @@ func (c *ChainConfig) IsIstanbul(num *big.Int) bool {
 	return isForked(common.TIPTomoXCancellationFee, num)
 }
 
+// IsLondon returns whether num is either equal to the London fork block or greater.
+func (c *ChainConfig) IsLondon(num *big.Int) bool {
+	return isBlockForked(c.LondonBlock, num)
+}
+
 func (c *ChainConfig) IsTIP2019(num *big.Int) bool {
 	return isForked(common.TIP2019Block, num)
 }
@@ -348,6 +353,16 @@ func isForkIncompatible(s1, s2, head *big.Int) bool {
 
 // isForked returns whether a fork scheduled at block s is active at the given head block.
 func isForked(s, head *big.Int) bool {
+	if s == nil || head == nil {
+		return false
+	}
+	return s.Cmp(head) <= 0
+}
+
+// isBlockForked returns whether a fork scheduled at block s is active at the
+// given head block. Whilst this method is the same as isTimestampForked, they
+// are explicitly separate for clearer reading.
+func isBlockForked(s, head *big.Int) bool {
 	if s == nil || head == nil {
 		return false
 	}
