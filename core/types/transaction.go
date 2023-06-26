@@ -295,7 +295,7 @@ func (tx *Transaction) setDecoded(inner TxData, size uint64) {
 	tx.inner = inner
 	tx.time = time.Now()
 	if size > 0 {
-		tx.size.Store(size)
+		tx.size.Store(common.StorageSize(size))
 	}
 }
 

@@ -19,7 +19,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/consensus"
 	"math"
 	"math/big"
 	"sort"
@@ -27,6 +26,7 @@ import (
 	"time"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/event"
