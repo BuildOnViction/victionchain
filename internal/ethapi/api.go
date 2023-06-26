@@ -1036,7 +1036,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, 
 	if gasPrice.Sign() == 0 {
 		gasPrice = new(big.Int).SetUint64(defaultGasPrice)
 	}
-	balanceTokenFee, _ := big.NewInt(0).SetString(args.Gas.String(), 10)
+	balanceTokenFee, _ := big.NewInt(0).SetString(args.Gas.String(), 16)
 	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
 	// Create new call message
 
