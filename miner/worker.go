@@ -586,6 +586,13 @@ func (self *worker) commitNewWork() {
 		Extra:      self.extra,
 		Time:       big.NewInt(tstamp),
 	}
+	// Set baseFee and GasLimit if we are on an EIP-1559 chain
+	if self.config.IsLondon(header.Number) {
+		header.BaseFee = misc.CalcBaseFee(self.config, parent.Header())
+		if !self.config.IsLondon(parent.Number()) {
+			header.GasLimit = core.CalcGasLimit(parent)
+		}
+	}
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase

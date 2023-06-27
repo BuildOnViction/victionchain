@@ -1047,8 +1047,11 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, 
 			}
 		}
 	}
-	// Set default gas price if none were set
+	// Set default gas price if none were set.
 	gasPrice := args.GasPrice.ToInt()
+	if gasPrice == nil {
+		gasPrice = args.MaxFeePerGas.ToInt()
+	}
 	if gasPrice.Sign() == 0 {
 		gasPrice = new(big.Int).SetUint64(defaultGasPrice)
 	}
@@ -1124,6 +1127,10 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args TransactionA
 		hi  uint64
 		cap uint64
 	)
+	// Use zero address if sender unspecified.
+	if args.From == nil {
+		args.From = new(common.Address)
+	}
 	// Determine the highest gas limit can be used during the estimation.
 	if args.Gas != nil && uint64(*args.Gas) >= params.TxGas {
 		hi = uint64(*args.Gas)
@@ -1292,6 +1299,10 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 		"validators":       hexutil.Bytes(head.Validators),
 		"validator":        hexutil.Bytes(head.Validator),
 		"penalties":        hexutil.Bytes(head.Penalties),
+	}
+
+	if head.BaseFee != nil {
+		fields["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
 	}
 
 	if inclTx {
