@@ -271,6 +271,12 @@ func (b *SimulatedBackend) SuggestGasPrice(ctx context.Context) (*big.Int, error
 	return big.NewInt(1), nil
 }
 
+// SuggestGasTipCap implements ContractTransactor.SuggestGasTipCap. Since the simulated
+// chain doesn't have miners, we just return a gas tip of 1 for any call.
+func (b *SimulatedBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(1), nil
+}
+
 // EstimateGas executes the requested code against the currently pending block/state and
 // returns the used amount of gas.
 func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallMsg) (uint64, error) {

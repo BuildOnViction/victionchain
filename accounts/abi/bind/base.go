@@ -30,6 +30,8 @@ import (
 	"github.com/tomochain/tomochain/event"
 )
 
+const basefeeWiggleMultiplier = 2
+
 // SignerFn is a signer function callback when a contract requires a method to
 // sign the transaction before submission.
 type SignerFn func(types.Signer, common.Address, *types.Transaction) (*types.Transaction, error)
@@ -49,9 +51,11 @@ type TransactOpts struct {
 	Nonce  *big.Int       // Nonce to use for the transaction execution (nil = use pending state)
 	Signer SignerFn       // Method to use for signing the transaction (mandatory)
 
-	Value    *big.Int // Funds to transfer along along the transaction (nil = 0 = no funds)
-	GasPrice *big.Int // Gas price to use for the transaction execution (nil = gas price oracle)
-	GasLimit uint64   // Gas limit to set for the transaction execution (0 = estimate)
+	Value     *big.Int // Funds to transfer along along the transaction (nil = 0 = no funds)
+	GasPrice  *big.Int // Gas price to use for the transaction execution (nil = gas price oracle)
+	GasFeeCap *big.Int // Gas fee cap to use for the 1559 transaction execution (nil = gas price oracle)
+	GasTipCap *big.Int // Gas priority fee cap to use for the 1559 transaction execution (nil = gas price oracle)
+	GasLimit  uint64   // Gas limit to set for the transaction execution (0 = estimate)
 
 	Context context.Context // Network context to support cancellation and timeouts (nil = no timeout)
 }
@@ -178,6 +182,130 @@ func (c *BoundContract) Transact(opts *TransactOpts, method string, params ...in
 // its default method if one is available.
 func (c *BoundContract) Transfer(opts *TransactOpts) (*types.Transaction, error) {
 	return c.transact(opts, &c.address, nil)
+}
+
+func (c *BoundContract) createDynamicTx(opts *TransactOpts, contract *common.Address, input []byte, head *types.Header) (*types.Transaction, error) {
+	// Normalize value
+	value := opts.Value
+	if value == nil {
+		value = new(big.Int)
+	}
+	// Estimate TipCap
+	gasTipCap := opts.GasTipCap
+	if gasTipCap == nil {
+		tip, err := c.transactor.SuggestGasTipCap(ensureContext(opts.Context))
+		if err != nil {
+			return nil, err
+		}
+		gasTipCap = tip
+	}
+	// Estimate FeeCap
+	gasFeeCap := opts.GasFeeCap
+	if gasFeeCap == nil {
+		gasFeeCap = new(big.Int).Add(
+			gasTipCap,
+			new(big.Int).Mul(head.BaseFee, big.NewInt(basefeeWiggleMultiplier)),
+		)
+	}
+	if gasFeeCap.Cmp(gasTipCap) < 0 {
+		return nil, fmt.Errorf("maxFeePerGas (%v) < maxPriorityFeePerGas (%v)", gasFeeCap, gasTipCap)
+	}
+	// Estimate GasLimit
+	gasLimit := opts.GasLimit
+	if opts.GasLimit == 0 {
+		var err error
+		gasLimit, err = c.estimateGasLimit(opts, contract, input, nil, gasTipCap, gasFeeCap, value)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// create the transaction
+	nonce, err := c.getNonce(opts)
+	if err != nil {
+		return nil, err
+	}
+	baseTx := &types.DynamicFeeTx{
+		To:        contract,
+		Nonce:     nonce,
+		GasFeeCap: gasFeeCap,
+		GasTipCap: gasTipCap,
+		Gas:       gasLimit,
+		Value:     value,
+		Data:      input,
+	}
+	return types.NewTx(baseTx), nil
+}
+
+func (c *BoundContract) createLegacyTx(opts *TransactOpts, contract *common.Address, input []byte) (*types.Transaction, error) {
+	if opts.GasFeeCap != nil || opts.GasTipCap != nil {
+		return nil, errors.New("maxFeePerGas or maxPriorityFeePerGas specified but london is not active yet")
+	}
+	// Normalize value
+	value := opts.Value
+	if value == nil {
+		value = new(big.Int)
+	}
+	// Estimate GasPrice
+	gasPrice := opts.GasPrice
+	if gasPrice == nil {
+		price, err := c.transactor.SuggestGasPrice(ensureContext(opts.Context))
+		if err != nil {
+			return nil, err
+		}
+		gasPrice = price
+	}
+	// Estimate GasLimit
+	gasLimit := opts.GasLimit
+	if opts.GasLimit == 0 {
+		var err error
+		gasLimit, err = c.estimateGasLimit(opts, contract, input, gasPrice, nil, nil, value)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// create the transaction
+	nonce, err := c.getNonce(opts)
+	if err != nil {
+		return nil, err
+	}
+	baseTx := &types.LegacyTx{
+		To:       contract,
+		Nonce:    nonce,
+		GasPrice: gasPrice,
+		Gas:      gasLimit,
+		Value:    value,
+		Data:     input,
+	}
+	return types.NewTx(baseTx), nil
+}
+
+func (c *BoundContract) estimateGasLimit(opts *TransactOpts, contract *common.Address, input []byte, gasPrice, gasTipCap, gasFeeCap, value *big.Int) (uint64, error) {
+	if contract != nil {
+		// Gas estimation cannot succeed without code for method invocations.
+		if code, err := c.transactor.PendingCodeAt(ensureContext(opts.Context), c.address); err != nil {
+			return 0, err
+		} else if len(code) == 0 {
+			return 0, ErrNoCode
+		}
+	}
+	msg := tomochain.CallMsg{
+		From:      opts.From,
+		To:        contract,
+		GasPrice:  gasPrice,
+		GasTipCap: gasTipCap,
+		GasFeeCap: gasFeeCap,
+		Value:     value,
+		Data:      input,
+	}
+	return c.transactor.EstimateGas(ensureContext(opts.Context), msg)
+}
+
+func (c *BoundContract) getNonce(opts *TransactOpts) (uint64, error) {
+	if opts.Nonce == nil {
+		return c.transactor.PendingNonceAt(ensureContext(opts.Context), opts.From)
+	} else {
+		return opts.Nonce.Uint64(), nil
+	}
 }
 
 // transact executes an actual transaction invocation, first deriving any missing
