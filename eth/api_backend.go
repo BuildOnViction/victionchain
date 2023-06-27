@@ -218,16 +218,16 @@ func (b *EthApiBackend) SubscribeTxPreEvent(ch chan<- core.TxPreEvent) event.Sub
 	return b.eth.TxPool().SubscribeTxPreEvent(ch)
 }
 
+func (b *EthApiBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+	return b.gpo.SuggestTipCap(ctx)
+}
+
 func (b *EthApiBackend) Downloader() *downloader.Downloader {
 	return b.eth.Downloader()
 }
 
 func (b *EthApiBackend) ProtocolVersion() int {
 	return b.eth.EthVersion()
-}
-
-func (b *EthApiBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
-	return b.gpo.SuggestPrice(ctx)
 }
 
 func (b *EthApiBackend) ChainDb() ethdb.Database {
@@ -264,6 +264,10 @@ func (b *EthApiBackend) GetIPCClient() (*ethclient.Client, error) {
 
 func (b *EthApiBackend) GetEngine() consensus.Engine {
 	return b.eth.engine
+}
+
+func (b *EthApiBackend) CurrentHeader() *types.Header {
+	return b.eth.blockchain.CurrentHeader()
 }
 
 func (s *EthApiBackend) GetRewardByHash(hash common.Hash) map[string]map[string]map[string]*big.Int {
