@@ -254,16 +254,20 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
 	}
 
-	// Verify that the gas limit remains within allowed bounds
-	diff := int64(parent.GasLimit) - int64(header.GasLimit)
-	if diff < 0 {
-		diff *= -1
+	// Verify the block's gas usage and (if applicable) verify the base fee.
+	if !chain.Config().IsLondon(header.Number) {
+		// Verify BaseFee not present before EIP-1559 fork.
+		if header.BaseFee != nil {
+			return fmt.Errorf("invalid baseFee before fork: have %d, expected 'nil'", header.BaseFee)
+		}
+		if err := misc.VerifyGaslimit(parent.GasLimit, header.GasLimit); err != nil {
+			return err
+		}
+	} else if err := misc.VerifyEIP1559Header(chain.Config(), parent, header); err != nil {
+		// Verify the header's EIP-1559 attributes.
+		return err
 	}
-	limit := parent.GasLimit / params.GasLimitBoundDivisor
 
-	if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
-		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
-	}
 	// Verify that the block number is parent's +1
 	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
 		return consensus.ErrInvalidNumber
