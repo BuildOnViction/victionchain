@@ -37,6 +37,7 @@ type Config struct {
 	EWASMInterpreter string // External EWASM interpreter options
 	EVMInterpreter   string // External EVM interpreter options
 
+	NoBaseFee bool  // Forces the EIP-1559 baseFee to 0 (needed for 0 price calls)
 	ExtraEips []int // Additional EIPS that are to be enabled
 }
 
@@ -100,6 +101,8 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	if !cfg.JumpTable[STOP].valid {
 		var jt JumpTable
 		switch {
+		case evm.chainRules.IsLondon:
+			jt = londonInstructionSet
 		case evm.chainRules.IsIstanbul:
 			jt = istanbulInstructionSet
 		case evm.chainRules.IsConstantinople:

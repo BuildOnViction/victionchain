@@ -366,7 +366,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call tomochain.Call
 	evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(evmContext, statedb, nil, b.config, vm.Config{})
+	vmenv := vm.NewEVM(evmContext, statedb, nil, b.config, vm.Config{NoBaseFee: true})
 	gaspool := new(core.GasPool).AddGas(math.MaxUint64)
 	owner := common.Address{}
 	return core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)

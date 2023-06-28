@@ -253,6 +253,32 @@ func (st *StateTransition) preCheck() error {
 				msg.From.Hex(), codeHash)
 		}
 	}
+
+	// Make sure that transaction gasFeeCap is greater than the baseFee (post london)
+	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
+		// Skip the checks if gas fields are zero and baseFee was explicitly disabled (eth_call)
+		if !st.evm.Config.NoBaseFee || msg.GasFeeCap.BitLen() > 0 || msg.GasTipCap.BitLen() > 0 {
+			if l := msg.GasFeeCap.BitLen(); l > 256 {
+				return fmt.Errorf("%w: address %v, maxFeePerGas bit length: %d", ErrFeeCapVeryHigh,
+					msg.From.Hex(), l)
+			}
+			if l := msg.GasTipCap.BitLen(); l > 256 {
+				return fmt.Errorf("%w: address %v, maxPriorityFeePerGas bit length: %d", ErrTipVeryHigh,
+					msg.From.Hex(), l)
+			}
+			if msg.GasFeeCap.Cmp(msg.GasTipCap) < 0 {
+				return fmt.Errorf("%w: address %v, maxPriorityFeePerGas: %s, maxFeePerGas: %s", ErrTipAboveFeeCap,
+					msg.From.Hex(), msg.GasTipCap, msg.GasFeeCap)
+			}
+			// This will panic if baseFee is nil, but basefee presence is verified
+			// as part of header validation.
+			if msg.GasFeeCap.Cmp(st.evm.Context.BaseFee) < 0 {
+				return fmt.Errorf("%w: address %v, maxFeePerGas: %s baseFee: %s", ErrFeeCapTooLow,
+					msg.From.Hex(), msg.GasFeeCap, st.evm.Context.BaseFee)
+			}
+		}
+	}
+
 	return st.buyGas()
 }
 
@@ -284,6 +310,7 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 		// not assigned to err, except for insufficient balance
 		// error.
 		vmerr error
+		rules = st.evm.ChainConfig().Rules(st.evm.Context.BlockNumber)
 	)
 	// for debugging purpose
 	// TODO: clean it after fixing the issue https://github.com/tomochain/tomochain/issues/401
@@ -309,6 +336,20 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 		}
 	}
 	st.refundGas()
+	effectiveTip := msg.GasPrice
+	if rules.IsLondon {
+		effectiveTip = cmath.BigMin(msg.GasTipCap, new(big.Int).Sub(msg.GasFeeCap, st.evm.Context.BaseFee))
+	}
+
+	if st.evm.Config.NoBaseFee && msg.GasFeeCap.Sign() == 0 && msg.GasTipCap.Sign() == 0 {
+		// Skip fee payment when NoBaseFee is set and the fee fields
+		// are 0. This avoids a negative effectiveTip being applied to
+		// the coinbase when simulating calls.
+	} else {
+		fee := new(big.Int).SetUint64(st.gasUsed())
+		fee.Mul(fee, effectiveTip)
+		st.state.AddBalance(st.evm.Context.Coinbase, fee)
+	}
 
 	if st.evm.BlockNumber.Cmp(common.TIPTRC21Fee) > 0 {
 		if (owner != common.Address{}) {

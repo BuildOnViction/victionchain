@@ -33,6 +33,7 @@ func NewEnv(cfg *Config) *vm.EVM {
 		Difficulty:  cfg.Difficulty,
 		GasLimit:    cfg.GasLimit,
 		GasPrice:    cfg.GasPrice,
+		BaseFee:     cfg.BaseFee,
 	}
 
 	return vm.NewEVM(context, cfg.State, nil, cfg.ChainConfig, cfg.EVMConfig)
