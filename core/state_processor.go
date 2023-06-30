@@ -517,7 +517,6 @@ func InitSignerInTransactions(config *params.ChainConfig, header *types.Header, 
 		go func(from int, to int) {
 			for j := from; j < to; j++ {
 				types.CacheSigner(signer, txs[j])
-				txs[j].CacheHash()
 			}
 			wg.Done()
 		}(from, to)
