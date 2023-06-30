@@ -87,7 +87,7 @@ type Message struct {
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
-func IntrinsicGas(data []byte, contractCreation, homestead bool) (uint64, error) {
+func IntrinsicGas(data []byte, accessList types.AccessList, contractCreation, homestead bool) (uint64, error) {
 	// Set the starting gas for the raw transaction
 	var gas uint64
 	if contractCreation && homestead {
@@ -115,6 +115,10 @@ func IntrinsicGas(data []byte, contractCreation, homestead bool) (uint64, error)
 			return 0, vm.ErrOutOfGas
 		}
 		gas += z * params.TxDataZeroGas
+	}
+	if accessList != nil {
+		gas += uint64(len(accessList)) * params.TxAccessListAddressGas
+		gas += uint64(accessList.StorageKeys()) * params.TxAccessListStorageKeyGas
 	}
 	return gas, nil
 }
@@ -296,7 +300,7 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	contractCreation := msg.To == nil
 
 	// Pay intrinsic gas
-	gas, err := IntrinsicGas(st.data, contractCreation, homestead)
+	gas, err := IntrinsicGas(st.data, msg.AccessList, contractCreation, homestead)
 	if err != nil {
 		return nil, 0, false, err
 	}

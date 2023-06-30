@@ -18,7 +18,6 @@ package core
 
 import (
 	"crypto/ecdsa"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
@@ -85,7 +85,7 @@ func genValueTx(nbytes int) func(int, *BlockGen) {
 	return func(i int, gen *BlockGen) {
 		toaddr := common.Address{}
 		data := make([]byte, nbytes)
-		gas, _ := IntrinsicGas(data, false, false)
+		gas, _ := IntrinsicGas(data, nil, false, false)
 		tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(benchRootAddr), toaddr, big.NewInt(1), gas, nil, data), types.HomesteadSigner{}, benchRootKey)
 		gen.AddTx(tx)
 	}
