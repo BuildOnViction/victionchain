@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
@@ -205,7 +206,7 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 // two states over time as they are received and processed.
 type TxPool struct {
 	config       TxPoolConfig
-	chainconfig  *params.ChainConfig
+	chainConfig  *params.ChainConfig
 	chain        blockChain
 	gasPrice     *big.Int
 	txFeed       event.Feed
@@ -215,9 +216,9 @@ type TxPool struct {
 	signer       types.Signer
 	mu           sync.RWMutex
 
-	currentState  *state.StateDB      // Current state in the blockchain head
-	pendingState  *state.ManagedState // Pending state tracking virtual nonces
-	currentMaxGas uint64              // Current gas limit for transaction caps
+	currentHead  atomic.Pointer[types.Header] // Current head of the blockchain
+	currentState *state.StateDB               // Current state in the blockchain head
+	pendingState *state.ManagedState          // Pending state tracking virtual nonces
 
 	locals  *accountSet // Set of local transaction to exempt from eviction rules
 	journal *txJournal  // Journal of local transaction to back up to disk
@@ -244,7 +245,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
 		config:           config,
-		chainconfig:      chainconfig,
+		chainConfig:      chainconfig,
 		chain:            chain,
 		signer:           types.LatestSigner(chainconfig),
 		pending:          make(map[common.Address]*txList),
@@ -308,7 +309,7 @@ func (pool *TxPool) loop() {
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
 				pool.mu.Lock()
-				if pool.chainconfig.IsHomestead(ev.Block.Number()) {
+				if pool.chainConfig.IsHomestead(ev.Block.Number()) {
 					pool.homestead = true
 				}
 				pool.reset(head.Header(), ev.Block.Header())
@@ -430,10 +431,10 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 		log.Error("Failed to reset txpool state", "err", err)
 		return
 	}
+	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.trc21FeeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(newHead.Root, statedb)
 	pool.pendingState = state.ManageState(statedb)
-	pool.currentMaxGas = newHead.GasLimit
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -586,6 +587,7 @@ func (pool *TxPool) GetSender(tx *types.Transaction) (common.Address, error) {
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
+	head := pool.currentHead.Load()
 	// check if sender is in black list
 	if tx.From() != nil && common.Blacklist[*tx.From()] {
 		return fmt.Errorf("Reject transaction with sender in black-list: %v", tx.From().Hex())
@@ -599,14 +601,28 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.Size() > 32*1024 {
 		return ErrOversizedData
 	}
+	if !pool.chainConfig.IsLondon(head.Number) && tx.Type() != types.LegacyTxType {
+		return fmt.Errorf("%w: type %d rejected, pool not yet in London", types.ErrTxTypeNotSupported, tx.Type())
+	}
 	// Transactions can't be negative. This may never happen using RLP decoded
 	// transactions but may occur if you create a transaction using the RPC.
 	if tx.Value().Sign() < 0 {
 		return ErrNegativeValue
 	}
 	// Ensure the transaction doesn't exceed the current block limit gas.
-	if pool.currentMaxGas < tx.Gas() {
+	if head.GasLimit < tx.Gas() {
 		return ErrGasLimit
+	}
+	// Sanity check for extremely large numbers (supported by RLP or RPC)
+	if tx.GasFeeCap().BitLen() > 256 {
+		return ErrFeeCapVeryHigh
+	}
+	if tx.GasTipCap().BitLen() > 256 {
+		return ErrTipVeryHigh
+	}
+	// Ensure gasFeeCap is greater than or equal to gasTipCap
+	if tx.GasFeeCapIntCmp(tx.GasTipCap()) < 0 {
+		return ErrTipAboveFeeCap
 	}
 	// Make sure the transaction is signed properly
 	from, err := types.Sender(pool.signer, tx)
@@ -1052,6 +1068,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 		}
 	}
 	// Iterate over all accounts and promote any executable transactions
+	gasLimit := pool.currentHead.Load().GasLimit
 	for _, addr := range accounts {
 		list := pool.queue[addr]
 		if list == nil {
@@ -1065,7 +1082,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), gasLimit, pool.trc21FeeCapacity)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -1212,6 +1229,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 // are moved back into the future queue.
 func (pool *TxPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
+	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
 
@@ -1223,7 +1241,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), gasLimit, pool.trc21FeeCapacity)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
