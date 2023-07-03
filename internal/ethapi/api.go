@@ -1053,7 +1053,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, 
 	if gasPrice == nil {
 		gasPrice = args.MaxFeePerGas.ToInt()
 	}
-	if gasPrice.Sign() == 0 {
+	if gasPrice == nil || gasPrice.Sign() == 0 {
 		gasPrice = new(big.Int).SetUint64(defaultGasPrice)
 	}
 	balanceTokenFee := big.NewInt(0).SetUint64(uint64(*args.Gas))
@@ -1605,6 +1605,97 @@ func newRPCRawTransactionFromBlockIndex(b *types.Block, index uint64) hexutil.By
 	}
 	blob, _ := txs[index].MarshalBinary()
 	return blob
+}
+
+// accessListResult returns an optional accesslist
+// It's the result of the `debug_createAccessList` RPC call.
+// It contains an error if the transaction itself failed.
+type accessListResult struct {
+	Accesslist *types.AccessList `json:"accessList"`
+	Error      string            `json:"error,omitempty"`
+	GasUsed    hexutil.Uint64    `json:"gasUsed"`
+}
+
+// CreateAccessList creates an EIP-2930 type AccessList for the given transaction.
+// Reexec and BlockNrOrHash can be specified to create the accessList on top of a certain state.
+func (s *PublicBlockChainAPI) CreateAccessList(ctx context.Context, args TransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash) (*accessListResult, error) {
+	bNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	if blockNrOrHash != nil {
+		bNrOrHash = *blockNrOrHash
+	}
+	acl, gasUsed, vmerr, err := AccessList(ctx, s.b, bNrOrHash, args)
+	if err != nil {
+		return nil, err
+	}
+	result := &accessListResult{Accesslist: &acl, GasUsed: hexutil.Uint64(gasUsed)}
+	if vmerr != nil {
+		result.Error = vmerr.Error()
+	}
+	return result, nil
+}
+
+// AccessList creates an access list for the given transaction.
+// If the accesslist creation fails an error is returned.
+// If the transaction itself fails, an vmErr is returned.
+func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrHash, args TransactionArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
+	return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", args.toTransaction().Hash(), err)
+	//// Retrieve the execution context
+	//db, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	//if db == nil || err != nil {
+	//	return nil, 0, nil, err
+	//}
+	//// If the gas amount is not set, default to RPC gas cap.
+	//if args.Gas == nil {
+	//	tmp := hexutil.Uint64(params.MinGasLimit)
+	//	args.Gas = &tmp
+	//}
+	//
+	//// Ensure any missing fields are filled, extract the recipient and input data
+	//if err := args.setDefaults(ctx, b); err != nil {
+	//	return nil, 0, nil, err
+	//}
+	//var to common.Address
+	//if args.To != nil {
+	//	to = *args.To
+	//} else {
+	//	to = crypto.CreateAddress(args.from(), uint64(*args.Nonce))
+	//}
+	//isPostMerge := header.Difficulty.Cmp(common.Big0) == 0
+	//// Retrieve the precompiles since they don't need to be added to the access list
+	//precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isPostMerge, header.Time))
+	//
+	//// Create an initial tracer
+	//prevTracer := logger.NewAccessListTracer(nil, args.from(), to, precompiles)
+	//if args.AccessList != nil {
+	//	prevTracer = logger.NewAccessListTracer(*args.AccessList, args.from(), to, precompiles)
+	//}
+	//for {
+	//	// Retrieve the current access list to expand
+	//	accessList := prevTracer.AccessList()
+	//	log.Trace("Creating access list", "input", accessList)
+	//
+	//	// Copy the original db so we don't modify it
+	//	statedb := db.Copy()
+	//	// Set the accesslist to the last al
+	//	args.AccessList = &accessList
+	//	msg, err := args.ToMessage(header.BaseFee)
+	//	if err != nil {
+	//		return nil, 0, nil, err
+	//	}
+	//
+	//	// Apply the transaction with the access list tracer
+	//	tracer := logger.NewAccessListTracer(accessList, args.from(), to, precompiles)
+	//	config := vm.Config{Tracer: tracer, NoBaseFee: true}
+	//	vmenv, _ := b.GetEVM(ctx, msg, statedb, header, &config, nil)
+	//	res, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit))
+	//	if err != nil {
+	//		return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", args.toTransaction().Hash(), err)
+	//	}
+	//	if tracer.Equal(prevTracer) {
+	//		return accessList, res.UsedGas, res.Err, nil
+	//	}
+	//	prevTracer = tracer
+	//}
 }
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
@@ -2159,6 +2250,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := tx.UnmarshalBinary(encodedTx); err != nil {
 		return common.Hash{}, err
 	}
+	fmt.Printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@ SendRawTransaction: %+v\n", tx.Hash().Hex())
 	return submitTransaction(ctx, s.b, tx)
 }
 
