@@ -17,16 +17,25 @@
 package bind
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"io"
 	"io/ioutil"
+	"math/big"
 
 	"github.com/tomochain/tomochain/accounts/keystore"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
 )
+
+// ErrNoChainID is returned whenever the user failed to specify a chain id.
+var ErrNoChainID = errors.New("no chain id specified")
+
+// ErrNotAuthorized is returned when an account is not properly unlocked.
+var ErrNotAuthorized = errors.New("not authorized to sign this account")
 
 // NewTransactor is a utility method to easily create a transaction signer from
 // an encrypted json key stream and the associated passphrase.
@@ -44,13 +53,17 @@ func NewTransactor(keyin io.Reader, passphrase string) (*TransactOpts, error) {
 
 // NewKeyedTransactor is a utility method to easily create a transaction signer
 // from a single private key.
+//
+// Deprecated: Use NewKeyedTransactorWithChainID instead.
 func NewKeyedTransactor(key *ecdsa.PrivateKey) *TransactOpts {
+	log.Warn("WARNING: NewKeyedTransactor has been deprecated in favour of NewKeyedTransactorWithChainID")
 	keyAddr := crypto.PubkeyToAddress(key.PublicKey)
+	signer := types.HomesteadSigner{}
 	return &TransactOpts{
 		From: keyAddr,
-		Signer: func(signer types.Signer, address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
 			if address != keyAddr {
-				return nil, errors.New("not authorized to sign this account")
+				return nil, ErrNotAuthorized
 			}
 			signature, err := crypto.Sign(signer.Hash(tx).Bytes(), key)
 			if err != nil {
@@ -58,5 +71,30 @@ func NewKeyedTransactor(key *ecdsa.PrivateKey) *TransactOpts {
 			}
 			return tx.WithSignature(signer, signature)
 		},
+		Context: context.Background(),
 	}
+}
+
+// NewKeyedTransactorWithChainID is a utility method to easily create a transaction signer
+// from a single private key.
+func NewKeyedTransactorWithChainID(key *ecdsa.PrivateKey, chainID *big.Int) (*TransactOpts, error) {
+	keyAddr := crypto.PubkeyToAddress(key.PublicKey)
+	if chainID == nil {
+		return nil, ErrNoChainID
+	}
+	signer := types.LatestSignerForChainID(chainID)
+	return &TransactOpts{
+		From: keyAddr,
+		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+			if address != keyAddr {
+				return nil, ErrNotAuthorized
+			}
+			signature, err := crypto.Sign(signer.Hash(tx).Bytes(), key)
+			if err != nil {
+				return nil, err
+			}
+			return tx.WithSignature(signer, signature)
+		},
+		Context: context.Background(),
+	}, nil
 }

@@ -34,7 +34,7 @@ const basefeeWiggleMultiplier = 2
 
 // SignerFn is a signer function callback when a contract requires a method to
 // sign the transaction before submission.
-type SignerFn func(types.Signer, common.Address, *types.Transaction) (*types.Transaction, error)
+type SignerFn func(common.Address, *types.Transaction) (*types.Transaction, error)
 
 // CallOpts is the collection of options to fine tune a contract call request.
 type CallOpts struct {
@@ -58,6 +58,8 @@ type TransactOpts struct {
 	GasLimit  uint64   // Gas limit to set for the transaction execution (0 = estimate)
 
 	Context context.Context // Network context to support cancellation and timeouts (nil = no timeout)
+
+	NoSend bool // Do all transact steps but do not send the transaction
 }
 
 // FilterOpts is the collection of options to fine tune filtering for events
@@ -81,9 +83,9 @@ type WatchOpts struct {
 // higher level contract bindings to operate.
 type BoundContract struct {
 	address    common.Address     // Deployment address of the contract on the Ethereum blockchain
+	transactor ContractTransactor // Write interface to interact with the blockchain
 	abi        abi.ABI            // Reflect based ABI to access the correct Ethereum methods
 	caller     ContractCaller     // Read interface to interact with the blockchain
-	transactor ContractTransactor // Write interface to interact with the blockchain
 	filterer   ContractFilterer   // Event filtering to interact with the blockchain
 }
 
@@ -311,60 +313,42 @@ func (c *BoundContract) getNonce(opts *TransactOpts) (uint64, error) {
 // transact executes an actual transaction invocation, first deriving any missing
 // authorization fields, and then scheduling the transaction for execution.
 func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, input []byte) (*types.Transaction, error) {
-	var err error
-
-	// Ensure a valid value field and resolve the account nonce
-	value := opts.Value
-	if value == nil {
-		value = new(big.Int)
+	if opts.GasPrice != nil && (opts.GasFeeCap != nil || opts.GasTipCap != nil) {
+		return nil, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	}
-	var nonce uint64
-	if opts.Nonce == nil {
-		nonce, err = c.transactor.PendingNonceAt(ensureContext(opts.Context), opts.From)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve account nonce: %v", err)
-		}
+	// Create the transaction
+	var (
+		rawTx *types.Transaction
+		err   error
+	)
+	if opts.GasPrice != nil {
+		rawTx, err = c.createLegacyTx(opts, contract, input)
+	} else if opts.GasFeeCap != nil && opts.GasTipCap != nil {
+		rawTx, err = c.createDynamicTx(opts, contract, input, nil)
 	} else {
-		nonce = opts.Nonce.Uint64()
-	}
-	// Figure out the gas allowance and gas price values
-	gasPrice := opts.GasPrice
-	if gasPrice == nil {
-		gasPrice, err = c.transactor.SuggestGasPrice(ensureContext(opts.Context))
-		if err != nil {
-			return nil, fmt.Errorf("failed to suggest gas price: %v", err)
+		// Only query for basefee if gasPrice not specified
+		if head, errHead := c.transactor.HeaderByNumber(ensureContext(opts.Context), nil); errHead != nil {
+			return nil, errHead
+		} else if head.BaseFee != nil {
+			rawTx, err = c.createDynamicTx(opts, contract, input, head)
+		} else {
+			// Chain is not London ready -> use legacy transaction
+			rawTx, err = c.createLegacyTx(opts, contract, input)
 		}
 	}
-	gasLimit := opts.GasLimit
-	if gasLimit == 0 {
-		// Gas estimation cannot succeed without code for method invocations
-		if contract != nil {
-			if code, err := c.transactor.PendingCodeAt(ensureContext(opts.Context), c.address); err != nil {
-				return nil, err
-			} else if len(code) == 0 {
-				return nil, ErrNoCode
-			}
-		}
-		// If the contract surely has code (or code is not needed), estimate the transaction
-		msg := tomochain.CallMsg{From: opts.From, To: contract, Value: value, Data: input}
-		gasLimit, err = c.transactor.EstimateGas(ensureContext(opts.Context), msg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to estimate gas needed: %v", err)
-		}
+	if err != nil {
+		return nil, err
 	}
-	// Create the transaction, sign it and schedule it for execution
-	var rawTx *types.Transaction
-	if contract == nil {
-		rawTx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, input)
-	} else {
-		rawTx = types.NewTransaction(nonce, c.address, value, gasLimit, gasPrice, input)
-	}
+	// Sign the transaction and schedule it for execution
 	if opts.Signer == nil {
 		return nil, errors.New("no signer to authorize the transaction with")
 	}
-	signedTx, err := opts.Signer(types.HomesteadSigner{}, opts.From, rawTx)
+	signedTx, err := opts.Signer(opts.From, rawTx)
 	if err != nil {
 		return nil, err
+	}
+	if opts.NoSend {
+		return signedTx, nil
 	}
 	if err := c.transactor.SendTransaction(ensureContext(opts.Context), signedTx); err != nil {
 		return nil, err
