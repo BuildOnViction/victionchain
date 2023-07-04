@@ -409,7 +409,6 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp, coinbaseOwner)
-
 	if err != nil {
 		return nil, 0, err, false
 	}

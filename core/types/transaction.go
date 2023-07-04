@@ -831,7 +831,7 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 		acc, _ := Sender(signer, accTxs[0])
 		wrapped, err := NewTxWithMinerFee(accTxs[0], baseFee)
 		// Remove transaction if sender doesn't match from, or if wrapping fails.
-		if acc != from || err != nil {
+		if (acc != from || err != nil) && !accTxs[0].IsSpecialTransaction() {
 			delete(txs, from)
 			continue
 		}
@@ -853,13 +853,12 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 		//	heads.Push(wrapped)
 		//	txs[from] = accTxs[1:]
 		//}
+		// TODO(trinhdn2): remove the for loop
 		for _, tx := range accTxs {
 			if tx.IsSpecialTransaction() {
 				specialTxs = append(specialTxs, tx)
-				fmt.Printf("@@@@@@@@@@@@@@@@@@@@ append special tx %v\n", tx.Hash().Hex())
 			} else {
 				heads.Push(wrapped)
-				fmt.Printf("@@@@@@@@@@@@@@@@@@@@ append normal tx %v\n", tx.Hash().Hex())
 			}
 			txs[from] = accTxs[1:]
 		}

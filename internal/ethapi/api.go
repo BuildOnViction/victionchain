@@ -87,6 +87,9 @@ func (s *PublicEthereumAPI) GasPrice(ctx context.Context) (*big.Int, error) {
 	if head := s.b.CurrentHeader(); head.BaseFee != nil {
 		tipcap.Add(tipcap, head.BaseFee)
 	}
+	if tipcap.Cmp(common.MinGasPrice) < 0 {
+		tipcap = common.MinGasPrice
+	}
 	return tipcap, err
 }
 
@@ -1145,6 +1148,9 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args TransactionA
 			return 0, errors.New("block not found")
 		}
 		hi = block.GasLimit()
+		if s.b.ChainConfig().IsLondon(block.Header().Number) && args.MaxFeePerGas == nil && args.GasPrice == nil {
+			args.MaxFeePerGas = (*hexutil.Big)(block.BaseFee())
+		}
 	}
 
 	// Normalize the max fee per gas the call is willing to spend.
@@ -1779,7 +1785,9 @@ func (s *PublicTransactionPoolAPI) GetRawTransactionByBlockHashAndIndex(ctx cont
 func (s *PublicTransactionPoolAPI) GetTransactionCount(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
-		return nil, err
+		if state, _, err = s.b.StateAndHeaderByNumber(ctx, rpc.LatestBlockNumber); state == nil || err != nil {
+			return nil, err
+		}
 	}
 	nonce := state.GetNonce(address)
 	return (*hexutil.Uint64)(&nonce), state.Error()
