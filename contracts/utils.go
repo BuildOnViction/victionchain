@@ -169,7 +169,14 @@ func CreateTxSign(blockNumber *big.Int, blockHash common.Hash, nonce uint64, blo
 	data := common.Hex2Bytes(common.HexSignMethod)
 	inputData := append(data, common.LeftPadBytes(blockNumber.Bytes(), 32)...)
 	inputData = append(inputData, common.LeftPadBytes(blockHash.Bytes(), 32)...)
-	tx := types.NewTransaction(nonce, blockSigner, big.NewInt(0), 200000, big.NewInt(0), inputData)
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    nonce,
+		To:       &blockSigner,
+		Value:    big.NewInt(0),
+		Gas:      200000,
+		GasPrice: big.NewInt(0),
+		Data:     inputData,
+	})
 
 	return tx
 }

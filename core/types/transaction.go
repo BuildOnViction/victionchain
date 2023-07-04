@@ -835,22 +835,32 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 			delete(txs, from)
 			continue
 		}
-		lastSpecialTx := -1
-		if len(signers) > 0 {
-			if _, ok := signers[from]; ok {
-				for i, tx := range accTxs {
-					if tx.IsSpecialTransaction() {
-						lastSpecialTx = i
-					}
-				}
+		//lastSpecialTx := -1
+		//if len(signers) > 0 {
+		//	if _, ok := signers[from]; ok {
+		//		for i, tx := range accTxs {
+		//			if tx.IsSpecialTransaction() {
+		//				lastSpecialTx = i
+		//			}
+		//		}
+		//	}
+		//}
+		//if lastSpecialTx >= 0 {
+		//	for i := 0; i <= lastSpecialTx; i++ {
+		//		specialTxs = append(specialTxs, accTxs[i])
+		//	}
+		//} else {
+		//	heads.Push(wrapped)
+		//	txs[from] = accTxs[1:]
+		//}
+		for _, tx := range accTxs {
+			if tx.IsSpecialTransaction() {
+				specialTxs = append(specialTxs, tx)
+				fmt.Printf("@@@@@@@@@@@@@@@@@@@@ append special tx %v\n", tx.Hash().Hex())
+			} else {
+				heads.Push(wrapped)
+				fmt.Printf("@@@@@@@@@@@@@@@@@@@@ append normal tx %v\n", tx.Hash().Hex())
 			}
-		}
-		if lastSpecialTx >= 0 {
-			for i := 0; i <= lastSpecialTx; i++ {
-				specialTxs = append(specialTxs, accTxs[i])
-			}
-		} else {
-			heads.Push(wrapped)
 			txs[from] = accTxs[1:]
 		}
 	}
