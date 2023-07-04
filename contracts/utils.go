@@ -343,7 +343,7 @@ func GetRewardForCheckpoint(c *posv.Posv, chain consensus.ChainReader, header *t
 			block := chain.GetBlock(header.Hash(), i)
 			txs := block.Transactions()
 			if !chain.Config().IsTIPSigning(header.Number) {
-				receipts := core.GetBlockReceipts(c.GetDb(), header.Hash(), i)
+				receipts := core.GetBlockReceipts(c.GetDb(), header.Hash(), i, chain.Config())
 				signData = c.CacheData(header, txs, receipts)
 			} else {
 				signData = c.CacheSigner(header.Hash(), txs)
