@@ -51,21 +51,8 @@ const (
 )
 
 var (
-	hashT                  = reflect.TypeOf(Hash{})
-	addressT               = reflect.TypeOf(Address{})
-	SpecialSMCAddressesMap = map[string]bool{
-		BlockSigners:                      true,
-		MasternodeVotingSMC:               true,
-		RandomizeSMC:                      true,
-		FoudationAddr:                     true,
-		TeamAddr:                          true,
-		TomoXAddr:                         true,
-		TradingStateAddr:                  true,
-		TomoXLendingAddress:               true,
-		TomoXLendingFinalizedTradeAddress: true,
-		TomoNativeAddress:                 true,
-		LendingLockAddress:                true,
-	}
+	hashT    = reflect.TypeOf(Hash{})
+	addressT = reflect.TypeOf(Address{})
 )
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
