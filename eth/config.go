@@ -55,6 +55,9 @@ var DefaultConfig = Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
+	RPCGasCap:     50000000,
+	RPCEVMTimeout: 5 * time.Second,
+	RPCTxFeeCap:   1, // 1 ether
 }
 
 func init() {
@@ -71,7 +74,7 @@ func init() {
 	}
 }
 
-//go:generate gencodec -type Config -field-override configMarshaling -formats toml -out gen_config.go
+//go:generate go run github.com/fjl/gencodec -type Config -field-override configMarshaling -formats toml -out gen_config.go
 
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
@@ -114,6 +117,16 @@ type Config struct {
 
 	// Miscellaneous options
 	DocRoot string `toml:"-"`
+
+	// RPCGasCap is the global gas cap for eth-call variants.
+	RPCGasCap uint64
+
+	// RPCEVMTimeout is the global timeout for eth-call.
+	RPCEVMTimeout time.Duration
+
+	// RPCTxFeeCap is the global transaction fee(price * gaslimit) cap for
+	// send-transaction variants. The unit is ether.
+	RPCTxFeeCap float64
 }
 
 type configMarshaling struct {

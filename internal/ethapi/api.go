@@ -1059,21 +1059,11 @@ func (s *PublicBlockChainAPI) getCandidatesFromSmartContract() ([]posv.Masternod
 	return candidatesWithStakeInfo, nil
 }
 
-func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, blockNr rpc.BlockNumber, timeout time.Duration) ([]byte, uint64, bool, error) {
+func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, blockNr rpc.BlockNumber, timeout time.Duration, globalGasCap uint64) ([]byte, uint64, bool, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
-
 	statedb, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if statedb == nil || err != nil {
 		return nil, 0, false, err
-	}
-	// Set sender address or use a default if none specified
-	addr := args.From
-	if *addr == (common.Address{}) {
-		if wallets := s.b.AccountManager().Wallets(); len(wallets) > 0 {
-			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
-				addr = &accounts[0].Address
-			}
-		}
 	}
 	// Set default gas price if none were set.
 	gasPrice := args.GasPrice.ToInt()
@@ -1082,6 +1072,9 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, 
 	}
 	if gasPrice == nil || gasPrice.Sign() == 0 {
 		gasPrice = new(big.Int).SetUint64(defaultGasPrice)
+	}
+	if args.Gas == nil {
+		args.Gas = (*hexutil.Uint64)(&globalGasCap)
 	}
 	balanceTokenFee := big.NewInt(0).SetUint64(uint64(*args.Gas))
 	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
@@ -1142,7 +1135,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, 
 // Call executes the given transaction on the state for the given block number.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args TransactionArgs, blockNr rpc.BlockNumber) (hexutil.Bytes, error) {
-	result, _, _, err := s.doCall(ctx, args, blockNr, 5*time.Second)
+	result, _, _, err := s.doCall(ctx, args, blockNr, s.b.RPCEVMTimeout(), s.b.RPCGasCap())
 	return (hexutil.Bytes)(result), err
 }
 
@@ -1218,7 +1211,7 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args TransactionA
 	executable := func(gas uint64) bool {
 		args.Gas = (*hexutil.Uint64)(&gas)
 
-		_, _, failed, err := s.doCall(ctx, args, rpc.LatestBlockNumber, 0)
+		_, _, failed, err := s.doCall(ctx, args, rpc.LatestBlockNumber, 0, s.b.RPCGasCap())
 		if err != nil || failed {
 			return false
 		}

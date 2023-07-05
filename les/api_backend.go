@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+	"time"
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
@@ -218,6 +219,18 @@ func (b *LesApiBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEven
 
 func (b *LesApiBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestTipCap(ctx)
+}
+
+func (b *LesApiBackend) RPCGasCap() uint64 {
+	return b.eth.config.RPCGasCap
+}
+
+func (b *LesApiBackend) RPCEVMTimeout() time.Duration {
+	return b.eth.config.RPCEVMTimeout
+}
+
+func (b *LesApiBackend) RPCTxFeeCap() float64 {
+	return b.eth.config.RPCTxFeeCap
 }
 
 func (b *LesApiBackend) Downloader() *downloader.Downloader {

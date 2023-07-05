@@ -20,6 +20,7 @@ package ethapi
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
@@ -50,6 +51,9 @@ type Backend interface {
 	AccountManager() *accounts.Manager
 	TomoxService() *tomox.TomoX
 	LendingService() *tomoxlending.Lending
+	RPCGasCap() uint64            // global gas cap for eth_call over rpc: DoS protection
+	RPCEVMTimeout() time.Duration // global timeout for eth_call over rpc: DoS protection
+	RPCTxFeeCap() float64         // global tx fee cap for all transaction related APIs
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 
 	// BlockChain API

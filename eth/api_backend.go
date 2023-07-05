@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+	"time"
 
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending"
@@ -262,6 +263,19 @@ func (b *EthApiBackend) SubscribeTxPreEvent(ch chan<- core.TxPreEvent) event.Sub
 
 func (b *EthApiBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestTipCap(ctx)
+}
+
+func (b *EthApiBackend) RPCGasCap() uint64 {
+	return b.eth.config.RPCGasCap
+}
+
+func (b *EthApiBackend) RPCEVMTimeout() time.Duration {
+	return b.eth.config.RPCEVMTimeout
+}
+
+func (b *EthApiBackend) RPCTxFeeCap() float64 {
+	return b.eth.config.RPCTxFeeCap
+
 }
 
 func (b *EthApiBackend) Downloader() *downloader.Downloader {

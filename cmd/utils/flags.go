@@ -367,6 +367,22 @@ var (
 		Name:  "nocompaction",
 		Usage: "Disables db compaction after import",
 	}
+	// API options.
+	RPCGlobalGasCapFlag = &cli.Uint64Flag{
+		Name:  "rpc.gascap",
+		Usage: "Sets a cap on gas that can be used in eth_call/estimateGas (0=infinite)",
+		Value: eth.DefaultConfig.RPCGasCap,
+	}
+	RPCGlobalEVMTimeoutFlag = &cli.DurationFlag{
+		Name:  "rpc.evmtimeout",
+		Usage: "Sets a timeout used for eth_call (0=infinite)",
+		Value: eth.DefaultConfig.RPCEVMTimeout,
+	}
+	RPCGlobalTxFeeCapFlag = &cli.Float64Flag{
+		Name:  "rpc.txfeecap",
+		Usage: "Sets a cap on transaction fee (in ether) that can be sent via the RPC APIs (0 = no cap)",
+		Value: eth.DefaultConfig.RPCTxFeeCap,
+	}
 	// RPC settings
 	RPCEnabledFlag = cli.BoolFlag{
 		Name:  "rpc",
