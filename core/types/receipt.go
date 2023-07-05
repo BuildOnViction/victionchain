@@ -24,11 +24,10 @@ import (
 	"math/big"
 	"unsafe"
 
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/params"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -73,10 +72,14 @@ type Receipt struct {
 }
 
 type receiptMarshaling struct {
+	Type              hexutil.Uint64
 	PostState         hexutil.Bytes
 	Status            hexutil.Uint64
 	CumulativeGasUsed hexutil.Uint64
 	GasUsed           hexutil.Uint64
+	EffectiveGasPrice *hexutil.Big
+	BlockNumber       *hexutil.Big
+	TransactionIndex  hexutil.Uint
 }
 
 // receiptRLP is the consensus encoding of a receipt.
@@ -361,7 +364,7 @@ func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, nu
 	return nil
 }
 
-// GetRlp returns the RLP encoding of one receipt from the list.
+// GetRlp returns the RLP encoding of one receipt from the list..
 func (r Receipts) GetRlp(i int) []byte {
 	bytes, err := rlp.EncodeToBytes(r[i])
 	if err != nil {
