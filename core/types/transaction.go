@@ -835,33 +835,25 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 			delete(txs, from)
 			continue
 		}
-		//lastSpecialTx := -1
-		//if len(signers) > 0 {
-		//	if _, ok := signers[from]; ok {
-		//		for i, tx := range accTxs {
-		//			if tx.IsSpecialTransaction() {
-		//				lastSpecialTx = i
-		//			}
-		//		}
-		//	}
-		//}
-		//if lastSpecialTx >= 0 {
-		//	for i := 0; i <= lastSpecialTx; i++ {
-		//		specialTxs = append(specialTxs, accTxs[i])
-		//	}
-		//} else {
-		//	heads.Push(wrapped)
-		//	txs[from] = accTxs[1:]
-		//}
-		// TODO(trinhdn2): remove the for loop
-		for _, tx := range accTxs {
-			if tx.IsSpecialTransaction() {
-				specialTxs = append(specialTxs, tx)
-			} else {
-				heads.Push(wrapped)
+		// Exclude special transactions from accTxs of each address
+		lastSpecialTx := -1
+		if len(signers) > 0 {
+			if _, ok := signers[from]; ok {
+				for i, tx := range accTxs {
+					if tx.IsSpecialTransaction() {
+						lastSpecialTx = i
+					}
+				}
 			}
-			txs[from] = accTxs[1:]
 		}
+		if lastSpecialTx >= 0 {
+			for i := 0; i <= lastSpecialTx; i++ {
+				specialTxs = append(specialTxs, accTxs[i])
+			}
+			accTxs = accTxs[lastSpecialTx+1:]
+		}
+		heads.Push(wrapped)
+		txs[from] = accTxs[1:]
 	}
 	heap.Init(&heads)
 
