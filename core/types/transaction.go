@@ -827,15 +827,9 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 		payersSwap: payersSwap,
 	}
 	specialTxs := Transactions{}
-	for from, accTxs := range txs {
-		acc, _ := Sender(signer, accTxs[0])
-		wrapped, err := NewTxWithMinerFee(accTxs[0], baseFee)
-		// Remove transaction if sender doesn't match from, or if wrapping fails.
-		if (acc != from || err != nil) && !accTxs[0].IsSpecialTransaction() {
-			delete(txs, from)
-			continue
-		}
-		// Exclude special transactions from accTxs of each address
+	for _, accTxs := range txs {
+		from, _ := Sender(signer, accTxs[0])
+		var normalTxs Transactions
 		lastSpecialTx := -1
 		if len(signers) > 0 {
 			if _, ok := signers[from]; ok {
@@ -850,10 +844,21 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 			for i := 0; i <= lastSpecialTx; i++ {
 				specialTxs = append(specialTxs, accTxs[i])
 			}
-			accTxs = accTxs[lastSpecialTx+1:]
+			normalTxs = accTxs[lastSpecialTx+1:]
+		} else {
+			normalTxs = accTxs
 		}
-		heads.Push(wrapped)
-		txs[from] = accTxs[1:]
+		if len(normalTxs) > 0 {
+			wrapped, err := NewTxWithMinerFee(accTxs[0], baseFee)
+			// Remove transaction if sender doesn't match from, or if wrapping fails.
+			if err != nil {
+				delete(txs, from)
+				continue
+			}
+			heads.txs = append(heads.txs, wrapped)
+			// Ensure the sender address is from the signer
+			txs[from] = normalTxs[1:]
+		}
 	}
 	heap.Init(&heads)
 
