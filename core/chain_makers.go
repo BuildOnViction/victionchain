@@ -299,7 +299,10 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 // header only chain.
 func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
 	// Initialize a fresh chain with only a genesis block
-	gspec := new(Genesis)
+	gspec := &Genesis{
+		BaseFee: big.NewInt(params.InitialBaseFee),
+		Config:  params.AllEthashProtocolChanges,
+	}
 	db := rawdb.NewMemoryDatabase()
 	genesis := gspec.MustCommit(db)
 

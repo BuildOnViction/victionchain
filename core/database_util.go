@@ -252,7 +252,7 @@ func ReadRawReceipts(db DatabaseReader, hash common.Hash, number uint64) types.R
 	if len(data) == 0 {
 		return nil
 	}
-	storageReceipts := []*types.ReceiptForStorage{}
+	var storageReceipts []*types.ReceiptForStorage
 	if err := rlp.DecodeBytes(data, &storageReceipts); err != nil {
 		log.Error("Invalid receipt array RLP", "hash", hash, "err", err)
 		return nil
@@ -273,9 +273,9 @@ func GetBlockReceipts(db DatabaseReader, hash common.Hash, number uint64, config
 		return nil
 	}
 
-	block := GetBlock(db, hash, number)
-	if block == nil {
-		log.Error("Missing block body but have receipt", "hash", hash, "number", number)
+	body := GetBody(db, hash, number)
+	if body == nil {
+		log.Error("Missing body but have receipt", "hash", hash, "number", number)
 		return nil
 	}
 	header := GetHeader(db, hash, number)
@@ -285,7 +285,7 @@ func GetBlockReceipts(db DatabaseReader, hash common.Hash, number uint64, config
 	} else {
 		baseFee = header.BaseFee
 	}
-	if err := receipts.DeriveFields(config, hash, number, baseFee, ([]*types.Transaction)(block.Transactions())); err != nil {
+	if err := receipts.DeriveFields(config, hash, number, baseFee, ([]*types.Transaction)(body.Transactions)); err != nil {
 		log.Error("Failed to derive block receipts fields", "hash", hash, "number", number, "err", err)
 		return nil
 	}

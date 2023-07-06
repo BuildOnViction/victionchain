@@ -18,6 +18,7 @@ package blocksigner
 import (
 	"context"
 	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/crypto"
-	"math/rand"
 )
 
 var (
