@@ -1079,8 +1079,6 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, 
 	balanceTokenFee := big.NewInt(0).SetUint64(uint64(*args.Gas))
 	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
 	// Create new call message
-
-	// Get a new instance of the EVM.
 	msg, err := args.ToMessage(header.BaseFee, balanceTokenFee)
 	if err != nil {
 		return nil, 0, false, err
