@@ -828,7 +828,8 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 	}
 	specialTxs := Transactions{}
 	for _, accTxs := range txs {
-		if len(accTxs) == 0 {
+		// check because sometimes the map value can be null
+		if accTxs == nil || len(accTxs) == 0 {
 			continue
 		}
 		from, _ := Sender(signer, accTxs[0])

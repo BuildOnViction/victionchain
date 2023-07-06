@@ -18,7 +18,6 @@ package les
 
 import (
 	"encoding/binary"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/eth/downloader"
@@ -253,8 +253,9 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 }
 
 // Tests that the contract codes can be retrieved based on account addresses.
-func TestGetCodeLes1(t *testing.T) { testGetCode(t, 1) }
 func TestGetCodeLes2(t *testing.T) { testGetCode(t, 2) }
+func TestGetCodeLes3(t *testing.T) { testGetCode(t, 3) }
+func TestGetCodeLes4(t *testing.T) { testGetCode(t, 4) }
 
 func testGetCode(t *testing.T, protocol int) {
 	// Assemble the test environment
@@ -304,7 +305,7 @@ func testGetReceipt(t *testing.T, protocol int) {
 		block := bc.GetBlockByNumber(i)
 
 		hashes = append(hashes, block.Hash())
-		receipts = append(receipts, core.GetBlockReceipts(db, block.Hash(), block.NumberU64()))
+		receipts = append(receipts, core.GetBlockReceipts(db, block.Hash(), block.NumberU64(), bc.Config()))
 	}
 	// Send the hash request and verify the response
 	cost := peer.GetRequestCost(GetReceiptsMsg, len(hashes))

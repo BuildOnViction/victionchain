@@ -52,8 +52,12 @@ var DefaultConfig = Config{
 
 	TxPool: core.DefaultTxPoolConfig,
 	GPO: gasprice.Config{
-		Blocks:     20,
-		Percentile: 60,
+		Blocks:           20,
+		Percentile:       60,
+		MaxHeaderHistory: 1024,
+		MaxBlockHistory:  1024,
+		MaxPrice:         gasprice.DefaultMaxPrice,
+		IgnorePrice:      gasprice.DefaultIgnorePrice,
 	},
 	RPCGasCap:     50000000,
 	RPCEVMTimeout: 5 * time.Second,
