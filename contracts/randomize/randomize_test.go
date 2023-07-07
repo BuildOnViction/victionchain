@@ -57,7 +57,6 @@ func TestRandomize(t *testing.T) {
 	transactOpts.GasLimit = 1000000
 
 	randomizeAddress, randomize, err := DeployRandomize(transactOpts, contractBackend)
-	t.Log("contract address", randomizeAddress.String())
 	if err != nil {
 		t.Fatalf("can't deploy root registry: %v", err)
 	}
@@ -66,18 +65,15 @@ func TestRandomize(t *testing.T) {
 	d := time.Now().Add(1000 * time.Millisecond)
 	ctx, cancel := context.WithDeadline(context.Background(), d)
 	defer cancel()
-	code, _ := contractBackend.CodeAt(ctx, randomizeAddress, nil)
-	t.Log("contract code", common.ToHex(code))
+	contractBackend.CodeAt(ctx, randomizeAddress, nil)
 	f := func(key, val common.Hash) bool {
-		t.Log(key.Hex(), val.Hex())
 		return true
 	}
 	contractBackend.ForEachStorageAt(ctx, randomizeAddress, nil, f)
-	s, err := randomize.SetSecret(byte0)
+	_, err = randomize.SetSecret(byte0)
 	if err != nil {
 		t.Fatalf("can't set secret: %v", err)
 	}
-	t.Log("tx data", s)
 	contractBackend.Commit()
 }
 
@@ -151,8 +147,7 @@ func TestSendTxRandomizeSecretAndOpening(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Can't get secret from SC: %v", err)
 			}
-			randomize, err := contracts.DecryptRandomizeFromSecretsAndOpening(secrets, opening)
-			t.Log("randomize", randomize)
+			_, err = contracts.DecryptRandomizeFromSecretsAndOpening(secrets, opening)
 			if err != nil {
 				t.Error("Can't decrypt secret and opening", err)
 			}

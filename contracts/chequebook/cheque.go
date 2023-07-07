@@ -344,7 +344,14 @@ func (self *Chequebook) Deposit(amount *big.Int) (string, error) {
 // The caller must hold self.lock.
 func (self *Chequebook) deposit(amount *big.Int) (string, error) {
 	// since the amount is variable here, we do not use sessions
-	depositTransactor := bind.NewKeyedTransactor(self.prvKey)
+	chainID, err := self.backend.ChainID(context.Background())
+	if err != nil {
+		return "", err
+	}
+	depositTransactor, err := bind.NewKeyedTransactorWithChainID(self.prvKey, chainID)
+	if err != nil {
+		return "", err
+	}
 	depositTransactor.Value = amount
 	chbookRaw := &contract.ChequebookRaw{Contract: self.contract}
 	tx, err := chbookRaw.Transfer(depositTransactor)

@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"os"
 	"testing"
@@ -38,15 +37,12 @@ func TestPriceFeed(t *testing.T) {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}
 	// deploy payer swap SMC
-	addr, contract, err := DeployMyInherited(transactOpts, contractBackend)
+	_, contract, err := DeployMyInherited(transactOpts, contractBackend)
 	if err != nil {
 		t.Fatal("can't deploy smart contract: ", err)
 	}
-	fmt.Println("addr", addr.Hex())
-	tx, err := contract.Foo()
+	_, err = contract.Foo()
 	if err != nil {
 		t.Fatal("can't run function Foo() in  smart contract: ", err)
 	}
-	fmt.Println("tx", tx)
-
 }
