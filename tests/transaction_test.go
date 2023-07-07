@@ -24,6 +24,9 @@ import (
 )
 
 func TestTransaction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
 	t.Parallel()
 
 	txt := new(testMatcher)

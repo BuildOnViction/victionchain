@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
@@ -31,6 +30,7 @@ import (
 
 	"context"
 	"math/big"
+	"math/rand"
 
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
@@ -80,6 +80,12 @@ func (w *wizard) makeGenesis() {
 			Period: 15,
 			Epoch:  30000,
 		}
+
+		// Query the user for some custom extras
+		fmt.Println()
+		fmt.Println("Specify your chain/network ID if you want an explicit one (default = random)")
+		genesis.Config.ChainId = new(big.Int).SetUint64(uint64(w.readDefaultInt(rand.Intn(65536))))
+
 		fmt.Println()
 		fmt.Println("How many seconds should blocks take? (default = 15)")
 		genesis.Config.Clique.Period = uint64(w.readDefaultInt(15))
@@ -179,7 +185,10 @@ func (w *wizard) makeGenesis() {
 		pKey, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr := crypto.PubkeyToAddress(pKey.PublicKey)
 		contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(1000000000)}})
-		transactOpts := bind.NewKeyedTransactor(pKey)
+		transactOpts, err := bind.NewKeyedTransactorWithChainID(pKey, genesis.Config.ChainId)
+		if err != nil {
+			fmt.Println("Can't create TransactionOpts:", err)
+		}
 
 		validatorAddress, _, err := validatorContract.DeployValidator(transactOpts, contractBackend, signers, validatorCaps, owner)
 		if err != nil {
@@ -342,10 +351,6 @@ func (w *wizard) makeGenesis() {
 	for i := int64(0); i < 2; i++ {
 		genesis.Alloc[common.BigToAddress(big.NewInt(i))] = core.GenesisAccount{Balance: big.NewInt(0)}
 	}
-	// Query the user for some custom extras
-	fmt.Println()
-	fmt.Println("Specify your chain/network ID if you want an explicit one (default = random)")
-	genesis.Config.ChainId = new(big.Int).SetUint64(uint64(w.readDefaultInt(rand.Intn(65536))))
 
 	// All done, store the genesis and flush to disk
 	log.Info("Configured new genesis block")
