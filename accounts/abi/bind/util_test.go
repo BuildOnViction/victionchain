@@ -54,11 +54,12 @@ var waitDeployedTests = map[string]struct {
 func TestWaitDeployed(t *testing.T) {
 	for name, test := range waitDeployedTests {
 		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
-			crypto.PubkeyToAddress(testKey.PublicKey): {Balance: big.NewInt(10000000000)},
+			crypto.PubkeyToAddress(testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
 		})
 
 		// Create the transaction.
-		tx := types.NewContractCreation(0, big.NewInt(0), test.gas, big.NewInt(1), common.FromHex(test.code))
+		head, _ := backend.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
+		tx := types.NewContractCreation(0, big.NewInt(0), test.gas, new(big.Int).Add(head.BaseFee, big.NewInt(1)), common.FromHex(test.code))
 		tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
 
 		// Wait for it to get mined in the background.
