@@ -142,7 +142,11 @@ func NewSwap(local *SwapParams, remote *SwapProfile, backend chequebook.Backend,
 		log.Info(fmt.Sprintf("invalid contract %v for peer %v: %v)", remote.Contract.Hex()[:8], proto, err))
 	} else {
 		// remote contract valid, create inbox
-		in, err = chequebook.NewInbox(local.privateKey, remote.Contract, local.Beneficiary, crypto.ToECDSAPub(common.FromHex(remote.PublicKey)), backend, backend.Blockchain().Config())
+		chainID, err := backend.ChainID(ctx)
+		if err != nil {
+			log.Warn(fmt.Sprintf("unable to get chainID for peer %v: %v)", proto, err))
+		}
+		in, err = chequebook.NewInbox(local.privateKey, remote.Contract, local.Beneficiary, crypto.ToECDSAPub(common.FromHex(remote.PublicKey)), backend, chainID)
 		if err != nil {
 			log.Warn(fmt.Sprintf("unable to set up inbox for chequebook contract %v for peer %v: %v)", remote.Contract.Hex()[:8], proto, err))
 		}

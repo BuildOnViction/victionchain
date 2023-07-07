@@ -17,6 +17,7 @@
 package ens
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -36,7 +37,11 @@ var (
 
 func TestENS(t *testing.T) {
 	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(10_000_000_000_000_000)}})
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, contractBackend.Blockchain().Config().ChainId)
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("can't get chainID: %v", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}

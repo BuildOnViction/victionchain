@@ -51,7 +51,11 @@ func TestValidator(t *testing.T) {
 			Balance: big.NewInt(10_000_000_000_000_000),
 		},
 	})
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, contractBackend.Blockchain().Config().ChainId)
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}
@@ -95,16 +99,20 @@ func TestRewardBalance(t *testing.T) {
 		acc4Addr: {Balance: new(big.Int).SetUint64(10_000_000_000_000_000)},
 	})
 
-	acc1Opts, err := bind.NewKeyedTransactorWithChainID(acc1Key, contractBackend.Blockchain().Config().ChainId)
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	acc1Opts, err := bind.NewKeyedTransactorWithChainID(acc1Key, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}
-	acc2Opts, err := bind.NewKeyedTransactorWithChainID(acc2Key, contractBackend.Blockchain().Config().ChainId)
+	acc2Opts, err := bind.NewKeyedTransactorWithChainID(acc2Key, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}
 	accounts := []*bind.TransactOpts{acc1Opts, acc2Opts}
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(acc1Key, contractBackend.Blockchain().Config().ChainId)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(acc1Key, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}
@@ -130,7 +138,7 @@ func TestRewardBalance(t *testing.T) {
 	contractBackend.Commit()
 
 	// Propose master node acc3Addr.
-	opts, err := bind.NewKeyedTransactorWithChainID(acc4Key, contractBackend.Blockchain().Config().ChainId)
+	opts, err := bind.NewKeyedTransactorWithChainID(acc4Key, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}

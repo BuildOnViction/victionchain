@@ -1,6 +1,7 @@
 package trc21issuer
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -33,7 +34,11 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
 		mainAddr: {Balance: big.NewInt(0).Mul(big.NewInt(10000000000000), big.NewInt(10000000000000))},
 	})
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(mainKey, contractBackend.Blockchain().Config().ChainId)
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(mainKey, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}
@@ -109,7 +114,7 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 	}
 
 	// access to address which received token trc21 but dont have tomo
-	key1TransactOpts, err := bind.NewKeyedTransactorWithChainID(airdropKey, contractBackend.Blockchain().Config().ChainId)
+	key1TransactOpts, err := bind.NewKeyedTransactorWithChainID(airdropKey, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}

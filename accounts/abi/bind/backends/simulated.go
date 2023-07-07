@@ -638,9 +638,9 @@ func (b *SimulatedBackend) AdjustTime(adjustment time.Duration) error {
 	return nil
 }
 
-// Blockchain returns the underlying blockchain.
-func (b *SimulatedBackend) Blockchain() *core.BlockChain {
-	return b.blockchain
+// ChainID returns the underlying blockchain.
+func (b *SimulatedBackend) ChainID(ctx context.Context) (*big.Int, error) {
+	return b.blockchain.Config().ChainId, nil
 }
 
 // filterBackend implements filters.Backend to support filtering for logs without

@@ -46,7 +46,11 @@ func TestRandomize(t *testing.T) {
 			Balance: big.NewInt(10_000_000_000_000_000),
 		},
 	})
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, contractBackend.Blockchain().Config().ChainId)
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}
@@ -81,10 +85,14 @@ func TestSendTxRandomizeSecretAndOpening(t *testing.T) {
 	genesis := core.GenesisAlloc{acc1Addr: {Balance: big.NewInt(100_000_000_000_000_000)}}
 	backend := backends.NewSimulatedBackend(genesis)
 	backend.Commit()
-	signer := types.LatestSignerForChainID(backend.Blockchain().Config().ChainId)
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	signer := types.LatestSignerForChainID(chainID)
 	ctx := context.Background()
 
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(acc1Key, backend.Blockchain().Config().ChainId)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(acc1Key, chainID)
 	if err != nil {
 		t.Fatalf("can't create TransactOpts: %v", err)
 	}

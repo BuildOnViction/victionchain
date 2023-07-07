@@ -17,6 +17,7 @@
 package chequebook
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"math/big"
 	"os"
@@ -50,7 +51,11 @@ func newTestBackend() *backends.SimulatedBackend {
 }
 
 func deploy(prvKey *ecdsa.PrivateKey, amount *big.Int, backend *backends.SimulatedBackend) (common.Address, error) {
-	deployTransactor, err := bind.NewKeyedTransactorWithChainID(prvKey, backend.Blockchain().Config().ChainId)
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		return common.Address{}, err
+	}
+	deployTransactor, err := bind.NewKeyedTransactorWithChainID(prvKey, chainID)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -96,7 +101,11 @@ func TestIssueAndReceive(t *testing.T) {
 		t.Errorf("expected: %v, got %v", "0", chbook.Balance())
 	}
 
-	chbox, err := NewInbox(key1, addr0, addr1, &key0.PublicKey, backend, backend.Blockchain().Config())
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	chbox, err := NewInbox(key1, addr0, addr1, &key0.PublicKey, backend, chainID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -174,7 +183,11 @@ func TestVerifyErrors(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	chbox, err := NewInbox(key1, contr0, addr1, &key0.PublicKey, backend, backend.Blockchain().Config())
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	chbox, err := NewInbox(key1, contr0, addr1, &key0.PublicKey, backend, chainID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -379,7 +392,12 @@ func TestCash(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	backend.Commit()
-	chbox, err := NewInbox(key1, contr0, addr1, &key0.PublicKey, backend, backend.Blockchain().Config())
+
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	chbox, err := NewInbox(key1, contr0, addr1, &key0.PublicKey, backend, chainID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

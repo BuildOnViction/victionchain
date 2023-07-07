@@ -36,10 +36,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/params"
-
-	"github.com/tomochain/tomochain/core"
-
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
@@ -69,7 +65,7 @@ type Backend interface {
 	bind.ContractBackend
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BalanceAt(ctx context.Context, address common.Address, blockNum *big.Int) (*big.Int, error)
-	Blockchain() *core.BlockChain
+	ChainID(ctx context.Context) (*big.Int, error)
 }
 
 // Cheque represents a payment promise to a single beneficiary.
@@ -127,7 +123,11 @@ func NewChequebook(path string, contractAddr common.Address, prvKey *ecdsa.Priva
 	if err != nil {
 		return nil, err
 	}
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(prvKey, backend.Blockchain().Config().ChainId)
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(prvKey, chainID)
 	if err != nil {
 		return nil, err
 	}
@@ -453,7 +453,7 @@ type Inbox struct {
 
 // NewInbox creates an Inbox. An Inboxes is not persisted, the cumulative sum is updated
 // from blockchain when first cheque is received.
-func NewInbox(prvKey *ecdsa.PrivateKey, contractAddr, beneficiary common.Address, signer *ecdsa.PublicKey, abigen bind.ContractBackend, chainConfig *params.ChainConfig) (self *Inbox, err error) {
+func NewInbox(prvKey *ecdsa.PrivateKey, contractAddr, beneficiary common.Address, signer *ecdsa.PublicKey, abigen bind.ContractBackend, chainID *big.Int) (self *Inbox, err error) {
 	if signer == nil {
 		return nil, fmt.Errorf("signer is null")
 	}
@@ -461,7 +461,7 @@ func NewInbox(prvKey *ecdsa.PrivateKey, contractAddr, beneficiary common.Address
 	if err != nil {
 		return nil, err
 	}
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(prvKey, chainConfig.ChainId)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(prvKey, chainID)
 	if err != nil {
 		return nil, err
 	}
