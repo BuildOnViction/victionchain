@@ -80,7 +80,7 @@ type PayProfile struct {
 	lock        sync.RWMutex
 }
 
-//create params with default values
+// create params with default values
 func NewDefaultSwapParams() *SwapParams {
 	return &SwapParams{
 		PayProfile: &PayProfile{},
@@ -102,8 +102,8 @@ func NewDefaultSwapParams() *SwapParams {
 	}
 }
 
-//this can only finally be set after all config options (file, cmd line, env vars)
-//have been evaluated
+// this can only finally be set after all config options (file, cmd line, env vars)
+// have been evaluated
 func (self *SwapParams) Init(contract common.Address, prvkey *ecdsa.PrivateKey) {
 	pubkey := &prvkey.PublicKey
 
@@ -142,7 +142,7 @@ func NewSwap(local *SwapParams, remote *SwapProfile, backend chequebook.Backend,
 		log.Info(fmt.Sprintf("invalid contract %v for peer %v: %v)", remote.Contract.Hex()[:8], proto, err))
 	} else {
 		// remote contract valid, create inbox
-		in, err = chequebook.NewInbox(local.privateKey, remote.Contract, local.Beneficiary, crypto.ToECDSAPub(common.FromHex(remote.PublicKey)), backend)
+		in, err = chequebook.NewInbox(local.privateKey, remote.Contract, local.Beneficiary, crypto.ToECDSAPub(common.FromHex(remote.PublicKey)), backend, backend.Blockchain().Config())
 		if err != nil {
 			log.Warn(fmt.Sprintf("unable to set up inbox for chequebook contract %v for peer %v: %v)", remote.Contract.Hex()[:8], proto, err))
 		}

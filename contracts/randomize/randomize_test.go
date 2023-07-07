@@ -28,6 +28,7 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/params"
 )
 
 var (
@@ -40,8 +41,15 @@ var (
 )
 
 func TestRandomize(t *testing.T) {
-	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(100000000000000)}})
-	transactOpts := bind.NewKeyedTransactor(key)
+	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
+		addr: {
+			Balance: big.NewInt(10_000_000_000_000_000),
+		},
+	})
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, contractBackend.Blockchain().Config().ChainId)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 	transactOpts.GasLimit = 1000000
 
 	randomizeAddress, randomize, err := DeployRandomize(transactOpts, contractBackend)
@@ -70,13 +78,16 @@ func TestRandomize(t *testing.T) {
 }
 
 func TestSendTxRandomizeSecretAndOpening(t *testing.T) {
-	genesis := core.GenesisAlloc{acc1Addr: {Balance: big.NewInt(1000000000000)}}
+	genesis := core.GenesisAlloc{acc1Addr: {Balance: big.NewInt(100_000_000_000_000_000)}}
 	backend := backends.NewSimulatedBackend(genesis)
 	backend.Commit()
-	signer := types.HomesteadSigner{}
+	signer := types.LatestSignerForChainID(backend.Blockchain().Config().ChainId)
 	ctx := context.Background()
 
-	transactOpts := bind.NewKeyedTransactor(acc1Key)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(acc1Key, backend.Blockchain().Config().ChainId)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 	transactOpts.GasLimit = 4200000
 	epocNumber := uint64(900)
 	randomizeAddr, randomizeContract, err := DeployRandomize(transactOpts, backend)
@@ -138,7 +149,7 @@ func TestSendTxRandomizeSecretAndOpening(t *testing.T) {
 				t.Error("Can't decrypt secret and opening", err)
 			}
 		default:
-			tx, err := types.SignTx(types.NewTransaction(nonce, common.Address{}, new(big.Int), 21000, new(big.Int), nil), signer, acc1Key)
+			tx, err := types.SignTx(types.NewTransaction(nonce, common.Address{}, new(big.Int), 21000, big.NewInt(params.InitialBaseFee), nil), signer, acc1Key)
 			if err != nil {
 				t.Fatalf("Can't sign tx randomize: %v", err)
 			}

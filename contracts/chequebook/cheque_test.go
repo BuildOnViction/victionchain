@@ -43,15 +43,19 @@ var (
 
 func newTestBackend() *backends.SimulatedBackend {
 	return backends.NewSimulatedBackend(core.GenesisAlloc{
-		addr0: {Balance: big.NewInt(1000000000)},
-		addr1: {Balance: big.NewInt(1000000000)},
-		addr2: {Balance: big.NewInt(1000000000)},
+		addr0: {Balance: big.NewInt(10_000_000_000_000_000)},
+		addr1: {Balance: big.NewInt(10_000_000_000_000_000)},
+		addr2: {Balance: big.NewInt(10_000_000_000_000_000)},
 	})
 }
 
 func deploy(prvKey *ecdsa.PrivateKey, amount *big.Int, backend *backends.SimulatedBackend) (common.Address, error) {
-	deployTransactor := bind.NewKeyedTransactor(prvKey)
+	deployTransactor, err := bind.NewKeyedTransactorWithChainID(prvKey, backend.Blockchain().Config().ChainId)
+	if err != nil {
+		return common.Address{}, err
+	}
 	deployTransactor.Value = amount
+	deployTransactor.GasLimit = 1000000
 	addr, _, _, err := contract.DeployChequebook(deployTransactor, backend)
 	if err != nil {
 		return common.Address{}, err
@@ -92,7 +96,7 @@ func TestIssueAndReceive(t *testing.T) {
 		t.Errorf("expected: %v, got %v", "0", chbook.Balance())
 	}
 
-	chbox, err := NewInbox(key1, addr0, addr1, &key0.PublicKey, backend)
+	chbox, err := NewInbox(key1, addr0, addr1, &key0.PublicKey, backend, backend.Blockchain().Config())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -170,7 +174,7 @@ func TestVerifyErrors(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	chbox, err := NewInbox(key1, contr0, addr1, &key0.PublicKey, backend)
+	chbox, err := NewInbox(key1, contr0, addr1, &key0.PublicKey, backend, backend.Blockchain().Config())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -375,7 +379,7 @@ func TestCash(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	backend.Commit()
-	chbox, err := NewInbox(key1, contr0, addr1, &key0.PublicKey, backend)
+	chbox, err := NewInbox(key1, contr0, addr1, &key0.PublicKey, backend, backend.Blockchain().Config())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

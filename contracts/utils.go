@@ -200,7 +200,7 @@ func BuildTxSecretRandomize(nonce uint64, randomizeAddr common.Address, epocNumb
 		encryptSecret := Encrypt(randomizeKey, new(big.Int).SetInt64(secret).String())
 		inputData = append(inputData, common.LeftPadBytes([]byte(encryptSecret), int(sizeOfArray))...)
 	}
-	tx := types.NewTransaction(nonce, randomizeAddr, big.NewInt(0), 200000, big.NewInt(0), inputData)
+	tx := types.NewTransaction(nonce, randomizeAddr, big.NewInt(0), 200000, big.NewInt(params.InitialBaseFee), inputData)
 
 	return tx, nil
 }
@@ -209,7 +209,7 @@ func BuildTxSecretRandomize(nonce uint64, randomizeAddr common.Address, epocNumb
 func BuildTxOpeningRandomize(nonce uint64, randomizeAddr common.Address, randomizeKey []byte) (*types.Transaction, error) {
 	data := common.Hex2Bytes(common.HexSetOpening)
 	inputData := append(data, randomizeKey...)
-	tx := types.NewTransaction(nonce, randomizeAddr, big.NewInt(0), 200000, big.NewInt(0), inputData)
+	tx := types.NewTransaction(nonce, randomizeAddr, big.NewInt(0), 200000, big.NewInt(params.InitialBaseFee), inputData)
 
 	return tx, nil
 }

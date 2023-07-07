@@ -38,7 +38,6 @@ func TestBlockSigner(t *testing.T) {
 	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
 		addr: {
 			Balance: big.NewInt(10_000_000_000_000_000),
-			Nonce:   1,
 		},
 	})
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, contractBackend.Blockchain().Config().ChainId)
