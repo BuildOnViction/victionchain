@@ -56,7 +56,8 @@ func (w *wizard) makeGenesis() {
 			EIP155Block:    big.NewInt(3),
 			EIP158Block:    big.NewInt(3),
 			ByzantiumBlock: big.NewInt(4),
-			LondonBlock:    big.NewInt(50),
+			// TODO(trinhdn2): test precompiled contracts pre-London and post-London
+			LondonBlock: big.NewInt(0),
 		},
 	}
 	// Figure out which consensus engine to choose
@@ -125,6 +126,10 @@ func (w *wizard) makeGenesis() {
 			Reward: 0,
 		}
 		fmt.Println()
+		fmt.Println("Specify your chain/network ID if you want an explicit one (default = random)")
+		genesis.Config.ChainId = new(big.Int).SetUint64(uint64(w.readDefaultInt(rand.Intn(65536))))
+
+		fmt.Println()
 		fmt.Println("How many seconds should blocks take? (default = 2)")
 		genesis.Config.Posv.Period = uint64(w.readDefaultInt(2))
 
@@ -184,7 +189,7 @@ func (w *wizard) makeGenesis() {
 		// Validator Smart Contract Code
 		pKey, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr := crypto.PubkeyToAddress(pKey.PublicKey)
-		contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(1000000000)}})
+		contractBackend := backends.NewSimulatedBackendWithChainConfig(core.GenesisAlloc{addr: {Balance: big.NewInt(1000000000)}}, genesis.Config)
 		transactOpts, err := bind.NewKeyedTransactorWithChainID(pKey, genesis.Config.ChainId)
 		if err != nil {
 			fmt.Println("Can't create TransactionOpts:", err)

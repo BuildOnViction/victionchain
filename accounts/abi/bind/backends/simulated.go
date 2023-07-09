@@ -71,12 +71,21 @@ type SimulatedBackend struct {
 // NewSimulatedBackend creates a new binding backend using a simulated blockchain
 // for testing purposes.
 func NewSimulatedBackend(alloc core.GenesisAlloc) *SimulatedBackend {
+	return NewSimulatedBackendWithChainConfig(alloc, nil)
+}
+
+// NewSimulatedBackendWithChainConfig creates a new binding backend using a simulated blockchain
+// with custom chain config for testing purposes.
+func NewSimulatedBackendWithChainConfig(alloc core.GenesisAlloc, config *params.ChainConfig) *SimulatedBackend {
 	database := rawdb.NewMemoryDatabase()
 	genesis := core.Genesis{
 		Config:   params.AllEthashProtocolChanges,
 		Alloc:    alloc,
 		GasLimit: 42000000,
 		BaseFee:  big.NewInt(params.InitialBaseFee),
+	}
+	if config != nil {
+		genesis.Config = config
 	}
 	genesis.MustCommit(database)
 	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{})
