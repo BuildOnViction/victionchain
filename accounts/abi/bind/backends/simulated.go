@@ -431,7 +431,7 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallM
 	cap = hi
 
 	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(gas uint64) bool {
+	executable := func(gas uint64) (bool, error) {
 		call.Gas = gas
 
 		snapshot := b.pendingState.Snapshot()
@@ -439,14 +439,21 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallM
 		b.pendingState.RevertToSnapshot(snapshot)
 
 		if err != nil || failed {
-			return false
+			return true, err
 		}
-		return true
+		return false, nil
 	}
 	// Execute the binary search and hone in on an executable gas limit
 	for lo+1 < hi {
 		mid := (hi + lo) / 2
-		if !executable(mid) {
+		failed, err := executable(mid)
+		// If the error is not nil(consensus error), it means the provided message
+		// call or transaction will never be accepted no matter how much gas it is
+		// assigned. Return the error directly, don't struggle anymore
+		if err != nil {
+			return 0, err
+		}
+		if failed {
 			lo = mid
 		} else {
 			hi = mid
@@ -454,8 +461,16 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallM
 	}
 	// Reject the transaction as invalid if it still fails at the highest allowance
 	if hi == cap {
-		if !executable(hi) {
-			return 0, errGasEstimationFailed
+		failed, err := executable(hi)
+		if err != nil {
+			return 0, err
+		}
+		if failed {
+			if err != vm.ErrOutOfGas {
+				return 0, err
+			}
+			// Otherwise, the specified gas cap is too low
+			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
 		}
 	}
 	return hi, nil
