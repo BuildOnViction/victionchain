@@ -32,7 +32,8 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 
 	// init genesis
 	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
-		mainAddr: {Balance: big.NewInt(0).Mul(big.NewInt(10000000000000), big.NewInt(10000000000000))},
+		mainAddr:    {Balance: big.NewInt(0).Mul(big.NewInt(10000000000000), big.NewInt(10000000000000))},
+		airdropAddr: {Balance: big.NewInt(0).Mul(big.NewInt(10000000000000), big.NewInt(10000000000000))},
 	})
 	chainID, err := contractBackend.ChainID(context.Background())
 	if err != nil {

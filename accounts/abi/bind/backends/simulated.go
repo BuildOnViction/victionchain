@@ -444,7 +444,7 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallM
 			}
 			return true, err // Bail out
 		}
-		return failed, err
+		return false, err
 	}
 	// Execute the binary search and hone in on an executable gas limit
 	for lo+1 < hi {
