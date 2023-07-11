@@ -122,14 +122,21 @@ type callTracerTest struct {
 
 func TestPrestateTracerCreate2(t *testing.T) {
 	common.TIPTomoXCancellationFee = big.NewInt(10000000000000)
-	unsignedTx := types.NewTransaction(1, common.HexToAddress("0x00000000000000000000000000000000deadbeef"),
-		new(big.Int), 5000000, big.NewInt(1), []byte{})
+	to := common.HexToAddress("0x00000000000000000000000000000000deadbeef")
+	unsignedTx := types.NewTx(&types.LegacyTx{
+		Nonce:    1,
+		To:       &to,
+		Value:    new(big.Int),
+		Gas:      5000000,
+		GasPrice: big.NewInt(1),
+		Data:     []byte{},
+	})
 
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("err %v", err)
 	}
-	signer := types.NewEIP155Signer(big.NewInt(1))
+	signer := types.LatestSignerForChainID(big.NewInt(1))
 	tx, err := types.SignTx(unsignedTx, signer, privateKeyECDSA)
 	if err != nil {
 		t.Fatalf("err %v", err)
@@ -154,6 +161,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 		Difficulty:  big.NewInt(0x30000),
 		GasLimit:    uint64(6000000),
 		GasPrice:    big.NewInt(1),
+		BaseFee:     big.NewInt(0),
 	}
 	alloc := core.GenesisAlloc{}
 
@@ -177,7 +185,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create call tracer: %v", err)
 	}
-	evm := vm.NewEVM(context, statedb, nil, params.MainnetChainConfig, vm.Config{Debug: true, Tracer: tracer})
+	evm := vm.NewEVM(context, statedb, nil, params.TestChainConfig, vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true})
 
 	msg, err := core.TransactionToMessage(tx, signer, nil, nil)
 	if err != nil {
