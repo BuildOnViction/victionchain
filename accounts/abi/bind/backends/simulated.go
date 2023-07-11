@@ -133,7 +133,7 @@ func (b *SimulatedBackend) rollback(parent *types.Block) {
 	blocks, _ := core.GenerateChain(b.config, parent, ethash.NewFaker(), b.database, 1, func(int, *core.BlockGen) {})
 
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), state.NewDatabase(b.database))
+	b.pendingState, _ = state.New(b.pendingBlock.Root(), b.blockchain.StateCache())
 }
 
 // CodeAt returns the code associated with a certain account in the blockchain.
@@ -438,10 +438,13 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallM
 		_, _, failed, err := b.callContract(ctx, call, b.pendingBlock, b.pendingState)
 		b.pendingState.RevertToSnapshot(snapshot)
 
-		if err != nil || failed {
-			return true, err
+		if err != nil {
+			if errors.Is(err, core.ErrIntrinsicGas) || errors.Is(err, vm.ErrCodeStoreOutOfGas) || errors.Is(err, vm.ErrOutOfGas) {
+				return true, nil // Special cases, raise gas limit
+			}
+			return true, err // Bail out
 		}
-		return false, nil
+		return failed, err
 	}
 	// Execute the binary search and hone in on an executable gas limit
 	for lo+1 < hi {
@@ -530,7 +533,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call tomochain.Call
 		GasTipCap:         call.GasTipCap,
 		Data:              call.Data,
 		AccessList:        call.AccessList,
-		SkipAccountChecks: false,
+		SkipAccountChecks: true,
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
 	if msg.To != nil {

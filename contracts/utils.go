@@ -174,7 +174,7 @@ func CreateTxSign(blockNumber *big.Int, blockHash common.Hash, nonce uint64, blo
 		To:       &blockSigner,
 		Value:    big.NewInt(0),
 		Gas:      200000,
-		GasPrice: big.NewInt(0),
+		GasPrice: big.NewInt(params.InitialBaseFee),
 		Data:     inputData,
 	})
 
