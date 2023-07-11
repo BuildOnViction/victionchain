@@ -46,8 +46,19 @@ var (
 )
 
 func TestValidator(t *testing.T) {
-	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(1000000000)}})
-	transactOpts := bind.NewKeyedTransactor(key)
+	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
+		addr: {
+			Balance: big.NewInt(10_000_000_000_000_000),
+		},
+	})
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 
 	validatorCap := new(big.Int)
 	validatorCap.SetString("50000000000000000000000", 10)
@@ -83,14 +94,28 @@ func TestValidator(t *testing.T) {
 
 func TestRewardBalance(t *testing.T) {
 	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
-		acc1Addr: {Balance: new(big.Int).SetUint64(10000000)},
-		acc2Addr: {Balance: new(big.Int).SetUint64(10000000)},
-		acc4Addr: {Balance: new(big.Int).SetUint64(10000000)},
+		acc1Addr: {Balance: new(big.Int).SetUint64(10_000_000_000_000_000)},
+		acc2Addr: {Balance: new(big.Int).SetUint64(10_000_000_000_000_000)},
+		acc4Addr: {Balance: new(big.Int).SetUint64(10_000_000_000_000_000)},
 	})
-	acc1Opts := bind.NewKeyedTransactor(acc1Key)
-	acc2Opts := bind.NewKeyedTransactor(acc2Key)
+
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	acc1Opts, err := bind.NewKeyedTransactorWithChainID(acc1Key, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
+	acc2Opts, err := bind.NewKeyedTransactorWithChainID(acc2Key, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 	accounts := []*bind.TransactOpts{acc1Opts, acc2Opts}
-	transactOpts := bind.NewKeyedTransactor(acc1Key)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(acc1Key, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 
 	// validatorAddr, _, baseValidator, err := contract.DeployTomoValidator(transactOpts, contractBackend, big.NewInt(50000), big.NewInt(99), big.NewInt(100), big.NewInt(100))
 	validatorCap := new(big.Int)
@@ -113,7 +138,10 @@ func TestRewardBalance(t *testing.T) {
 	contractBackend.Commit()
 
 	// Propose master node acc3Addr.
-	opts := bind.NewKeyedTransactor(acc4Key)
+	opts, err := bind.NewKeyedTransactorWithChainID(acc4Key, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 	opts.Value = new(big.Int).SetUint64(50000)
 	acc4Validator, _ := NewValidator(opts, validatorAddr, contractBackend)
 	acc4Validator.Propose(acc3Addr)

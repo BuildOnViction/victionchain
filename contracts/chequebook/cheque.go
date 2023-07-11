@@ -65,6 +65,7 @@ type Backend interface {
 	bind.ContractBackend
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BalanceAt(ctx context.Context, address common.Address, blockNum *big.Int) (*big.Int, error)
+	ChainID(ctx context.Context) (*big.Int, error)
 }
 
 // Cheque represents a payment promise to a single beneficiary.
@@ -122,7 +123,14 @@ func NewChequebook(path string, contractAddr common.Address, prvKey *ecdsa.Priva
 	if err != nil {
 		return nil, err
 	}
-	transactOpts := bind.NewKeyedTransactor(prvKey)
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(prvKey, chainID)
+	if err != nil {
+		return nil, err
+	}
 	session := &contract.ChequebookSession{
 		Contract:     chbook,
 		TransactOpts: *transactOpts,
@@ -336,7 +344,14 @@ func (self *Chequebook) Deposit(amount *big.Int) (string, error) {
 // The caller must hold self.lock.
 func (self *Chequebook) deposit(amount *big.Int) (string, error) {
 	// since the amount is variable here, we do not use sessions
-	depositTransactor := bind.NewKeyedTransactor(self.prvKey)
+	chainID, err := self.backend.ChainID(context.Background())
+	if err != nil {
+		return "", err
+	}
+	depositTransactor, err := bind.NewKeyedTransactorWithChainID(self.prvKey, chainID)
+	if err != nil {
+		return "", err
+	}
 	depositTransactor.Value = amount
 	chbookRaw := &contract.ChequebookRaw{Contract: self.contract}
 	tx, err := chbookRaw.Transfer(depositTransactor)
@@ -445,7 +460,7 @@ type Inbox struct {
 
 // NewInbox creates an Inbox. An Inboxes is not persisted, the cumulative sum is updated
 // from blockchain when first cheque is received.
-func NewInbox(prvKey *ecdsa.PrivateKey, contractAddr, beneficiary common.Address, signer *ecdsa.PublicKey, abigen bind.ContractBackend) (self *Inbox, err error) {
+func NewInbox(prvKey *ecdsa.PrivateKey, contractAddr, beneficiary common.Address, signer *ecdsa.PublicKey, abigen bind.ContractBackend, chainID *big.Int) (self *Inbox, err error) {
 	if signer == nil {
 		return nil, fmt.Errorf("signer is null")
 	}
@@ -453,7 +468,10 @@ func NewInbox(prvKey *ecdsa.PrivateKey, contractAddr, beneficiary common.Address
 	if err != nil {
 		return nil, err
 	}
-	transactOpts := bind.NewKeyedTransactor(prvKey)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(prvKey, chainID)
+	if err != nil {
+		return nil, err
+	}
 	transactOpts.GasLimit = gasToCash
 	session := &contract.ChequebookSession{
 		Contract:     chbook,

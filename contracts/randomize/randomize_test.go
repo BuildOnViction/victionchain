@@ -28,6 +28,7 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/params"
 )
 
 var (
@@ -40,12 +41,22 @@ var (
 )
 
 func TestRandomize(t *testing.T) {
-	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(100000000000000)}})
-	transactOpts := bind.NewKeyedTransactor(key)
+	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
+		addr: {
+			Balance: big.NewInt(10_000_000_000_000_000),
+		},
+	})
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 	transactOpts.GasLimit = 1000000
 
 	randomizeAddress, randomize, err := DeployRandomize(transactOpts, contractBackend)
-	t.Log("contract address", randomizeAddress.String())
 	if err != nil {
 		t.Fatalf("can't deploy root registry: %v", err)
 	}
@@ -54,29 +65,33 @@ func TestRandomize(t *testing.T) {
 	d := time.Now().Add(1000 * time.Millisecond)
 	ctx, cancel := context.WithDeadline(context.Background(), d)
 	defer cancel()
-	code, _ := contractBackend.CodeAt(ctx, randomizeAddress, nil)
-	t.Log("contract code", common.ToHex(code))
+	contractBackend.CodeAt(ctx, randomizeAddress, nil)
 	f := func(key, val common.Hash) bool {
-		t.Log(key.Hex(), val.Hex())
 		return true
 	}
 	contractBackend.ForEachStorageAt(ctx, randomizeAddress, nil, f)
-	s, err := randomize.SetSecret(byte0)
+	_, err = randomize.SetSecret(byte0)
 	if err != nil {
 		t.Fatalf("can't set secret: %v", err)
 	}
-	t.Log("tx data", s)
 	contractBackend.Commit()
 }
 
 func TestSendTxRandomizeSecretAndOpening(t *testing.T) {
-	genesis := core.GenesisAlloc{acc1Addr: {Balance: big.NewInt(1000000000000)}}
+	genesis := core.GenesisAlloc{acc1Addr: {Balance: big.NewInt(100_000_000_000_000_000)}}
 	backend := backends.NewSimulatedBackend(genesis)
 	backend.Commit()
-	signer := types.HomesteadSigner{}
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	signer := types.LatestSignerForChainID(chainID)
 	ctx := context.Background()
 
-	transactOpts := bind.NewKeyedTransactor(acc1Key)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(acc1Key, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 	transactOpts.GasLimit = 4200000
 	epocNumber := uint64(900)
 	randomizeAddr, randomizeContract, err := DeployRandomize(transactOpts, backend)
@@ -132,13 +147,12 @@ func TestSendTxRandomizeSecretAndOpening(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Can't get secret from SC: %v", err)
 			}
-			randomize, err := contracts.DecryptRandomizeFromSecretsAndOpening(secrets, opening)
-			t.Log("randomize", randomize)
+			_, err = contracts.DecryptRandomizeFromSecretsAndOpening(secrets, opening)
 			if err != nil {
 				t.Error("Can't decrypt secret and opening", err)
 			}
 		default:
-			tx, err := types.SignTx(types.NewTransaction(nonce, common.Address{}, new(big.Int), 21000, new(big.Int), nil), signer, acc1Key)
+			tx, err := types.SignTx(types.NewTransaction(nonce, common.Address{}, new(big.Int), 21000, big.NewInt(params.InitialBaseFee), nil), signer, acc1Key)
 			if err != nil {
 				t.Fatalf("Can't sign tx randomize: %v", err)
 			}

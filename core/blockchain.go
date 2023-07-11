@@ -58,6 +58,7 @@ var (
 	blockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
 	CheckpointCh     = make(chan int)
 	ErrNoGenesis     = errors.New("Genesis not found in chain")
+	errChainStopped  = errors.New("blockchain is stopped")
 )
 
 const (
@@ -492,6 +493,11 @@ func (bc *BlockChain) Processor() Processor {
 	bc.procmu.RLock()
 	defer bc.procmu.RUnlock()
 	return bc.processor
+}
+
+// StateCache returns the caching database underpinning the blockchain instance.
+func (bc *BlockChain) StateCache() state.Database {
+	return bc.stateCache
 }
 
 // State returns a new mutable state based on the current HEAD block.
@@ -1390,6 +1396,10 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
 func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*types.Log, error) {
+	// Sanity check that we have something meaningful to import
+	if len(chain) == 0 {
+		return 0, nil, nil, nil
+	}
 	engine, _ := bc.Engine().(*posv.Posv)
 
 	// Do a sanity check that the provided chain is actually ordered and linked
@@ -1407,7 +1417,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	bc.chainmu.Lock()
+	// Pre-checks passed, start the full block imports
+	if !bc.chainmu.TryLock() {
+		return 0, nil, nil, errChainStopped
+	}
 	defer bc.chainmu.Unlock()
 
 	// A queued approach to delivering events. This is generally

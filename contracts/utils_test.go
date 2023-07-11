@@ -19,6 +19,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
 	"github.com/tomochain/tomochain/common"
@@ -27,10 +32,6 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 var (
@@ -45,7 +46,12 @@ var (
 )
 
 func getCommonBackend() *backends.SimulatedBackend {
-	genesis := core.GenesisAlloc{acc1Addr: {Balance: big.NewInt(1000000000000)}}
+	genesis := core.GenesisAlloc{
+		acc1Addr: {Balance: big.NewInt(10_000_000_000_000_000)},
+		acc2Addr: {Balance: big.NewInt(10_000_000_000_000_000)},
+		acc3Addr: {Balance: big.NewInt(10_000_000_000_000_000)},
+		acc4Addr: {Balance: big.NewInt(10_000_000_000_000_000)},
+	}
 	backend := backends.NewSimulatedBackend(genesis)
 	backend.Commit()
 
@@ -59,7 +65,14 @@ func TestSendTxSign(t *testing.T) {
 	signer := types.HomesteadSigner{}
 	ctx := context.Background()
 
-	transactOpts := bind.NewKeyedTransactor(acc1Key)
+	chainID, err := backend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(acc1Key, chainID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	blockSignerAddr, blockSigner, err := blocksigner.DeployBlockSigner(transactOpts, backend, big.NewInt(99))
 	if err != nil {
 		t.Fatalf("Can't get block signer: %v", err)

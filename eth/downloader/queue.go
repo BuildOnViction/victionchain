@@ -33,6 +33,7 @@ import (
 )
 
 var (
+	blockCacheMaxItems   = 8192             // Maximum number of blocks to cache before throttling the download
 	blockCacheItems      = 8192             // Maximum number of blocks to cache before throttling the download
 	blockCacheMemory     = 64 * 1024 * 1024 // Maximum amount of memory to use for block caching
 	blockCacheSizeWeight = 0.1              // Multiplier to approximate the average block size based on past ones

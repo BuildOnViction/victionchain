@@ -26,6 +26,9 @@ import (
 )
 
 func TestState(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
 	t.Parallel()
 
 	st := new(testMatcher)

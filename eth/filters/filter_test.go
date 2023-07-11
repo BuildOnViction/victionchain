@@ -18,15 +18,17 @@ package filters
 
 import (
 	"context"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/event"
@@ -50,7 +52,7 @@ func BenchmarkFilters(b *testing.B) {
 	defer os.RemoveAll(dir)
 
 	var (
-		db, _      = rawdb.NewLevelDBDatabase(dir, 0, 0,"")
+		db, _      = rawdb.NewLevelDBDatabase(dir, 0, 0, "")
 		mux        = new(event.TypeMux)
 		txFeed     = new(event.Feed)
 		rmLogsFeed = new(event.Feed)
@@ -115,7 +117,7 @@ func TestFilters(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	var (
-		db, _      = rawdb.NewLevelDBDatabase(dir, 0, 0,"")
+		db, _      = rawdb.NewLevelDBDatabase(dir, 0, 0, "")
 		mux        = new(event.TypeMux)
 		txFeed     = new(event.Feed)
 		rmLogsFeed = new(event.Feed)
@@ -124,6 +126,12 @@ func TestFilters(t *testing.T) {
 		backend    = &testBackend{mux, db, 0, txFeed, rmLogsFeed, logsFeed, chainFeed}
 		key1, _    = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr       = crypto.PubkeyToAddress(key1.PublicKey)
+		signer     = types.NewLondonSigner(big.NewInt(1))
+
+		// Logging contract
+		contract  = common.Address{0xfe}
+		contract2 = common.Address{0xff}
+		abiStr    = `[{"inputs":[],"name":"log0","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"t1","type":"uint256"}],"name":"log1","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"t1","type":"uint256"},{"internalType":"uint256","name":"t2","type":"uint256"}],"name":"log2","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"t1","type":"uint256"},{"internalType":"uint256","name":"t2","type":"uint256"},{"internalType":"uint256","name":"t3","type":"uint256"}],"name":"log3","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"t1","type":"uint256"},{"internalType":"uint256","name":"t2","type":"uint256"},{"internalType":"uint256","name":"t3","type":"uint256"},{"internalType":"uint256","name":"t4","type":"uint256"}],"name":"log4","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
 
 		hash1 = common.BytesToHash([]byte("topic1"))
 		hash2 = common.BytesToHash([]byte("topic2"))
@@ -132,45 +140,85 @@ func TestFilters(t *testing.T) {
 	)
 	defer db.Close()
 
-	genesis := core.GenesisBlockForTesting(db, addr, big.NewInt(1000000))
-	chain, receipts := core.GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 1000, func(i int, gen *core.BlockGen) {
+	g := &core.Genesis{
+		Config:  params.TestChainConfig,
+		BaseFee: big.NewInt(params.InitialBaseFee),
+		Alloc:   core.GenesisAlloc{addr: {Balance: big.NewInt(0).Mul(big.NewInt(100), big.NewInt(params.Ether))}},
+	}
+
+	contractABI, err := abi.JSON(strings.NewReader(abiStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Hack: GenerateChainWithGenesis creates a new db.
+	// Commit the genesis manually and use GenerateChain.
+	_, err = g.Commit(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chain, receipts := core.GenerateChain(g.Config, g.ToBlock(db), ethash.NewFaker(), db, 1000, func(i int, gen *core.BlockGen) {
 		switch i {
 		case 1:
-			receipt := types.NewReceipt(nil, false, 0)
-			receipt.Logs = []*types.Log{
-				{
-					Address: addr,
-					Topics:  []common.Hash{hash1},
-				},
+			data, err := contractABI.Pack("log1", hash1.Big())
+			if err != nil {
+				t.Fatal(err)
 			}
-			gen.AddUncheckedReceipt(receipt)
+			tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{
+				Nonce:    0,
+				GasPrice: gen.BaseFee(),
+				Gas:      30000,
+				To:       &contract,
+				Data:     data,
+			}), signer, key1)
+			gen.AddTx(tx)
+			tx2, _ := types.SignTx(types.NewTx(&types.LegacyTx{
+				Nonce:    1,
+				GasPrice: gen.BaseFee(),
+				Gas:      30000,
+				To:       &contract2,
+				Data:     data,
+			}), signer, key1)
+			gen.AddTx(tx2)
 		case 2:
-			receipt := types.NewReceipt(nil, false, 0)
-			receipt.Logs = []*types.Log{
-				{
-					Address: addr,
-					Topics:  []common.Hash{hash2},
-				},
+			data, err := contractABI.Pack("log2", hash2.Big(), hash1.Big())
+			if err != nil {
+				t.Fatal(err)
 			}
-			gen.AddUncheckedReceipt(receipt)
+			tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{
+				Nonce:    2,
+				GasPrice: gen.BaseFee(),
+				Gas:      30000,
+				To:       &contract,
+				Data:     data,
+			}), signer, key1)
+			gen.AddTx(tx)
 		case 998:
-			receipt := types.NewReceipt(nil, false, 0)
-			receipt.Logs = []*types.Log{
-				{
-					Address: addr,
-					Topics:  []common.Hash{hash3},
-				},
+			data, err := contractABI.Pack("log1", hash3.Big())
+			if err != nil {
+				t.Fatal(err)
 			}
-			gen.AddUncheckedReceipt(receipt)
+			tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{
+				Nonce:    3,
+				GasPrice: gen.BaseFee(),
+				Gas:      30000,
+				To:       &contract2,
+				Data:     data,
+			}), signer, key1)
+			gen.AddTx(tx)
 		case 999:
-			receipt := types.NewReceipt(nil, false, 0)
-			receipt.Logs = []*types.Log{
-				{
-					Address: addr,
-					Topics:  []common.Hash{hash4},
-				},
+			data, err := contractABI.Pack("log1", hash4.Big())
+			if err != nil {
+				t.Fatal(err)
 			}
-			gen.AddUncheckedReceipt(receipt)
+			tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{
+				Nonce:    4,
+				GasPrice: gen.BaseFee(),
+				Gas:      30000,
+				To:       &contract,
+				Data:     data,
+			}), signer, key1)
+			gen.AddTx(tx)
 		}
 	})
 	for i, block := range chain {

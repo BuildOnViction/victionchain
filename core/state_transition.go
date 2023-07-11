@@ -276,6 +276,7 @@ func (st *StateTransition) preCheck() error {
 			}
 			// This will panic if baseFee is nil, but BaseFee presence is verified
 			// as part of header validation.
+			// TODO(trinhdn2): Instead of ignoring BaseFee check of special transactions, set a proper gas limit for them
 			if msg.GasFeeCap.Cmp(st.evm.Context.BaseFee) < 0 && !common.SpecialSMCAddressesMap[st.to().Address().String()] {
 				return fmt.Errorf("%w: address %v, maxFeePerGas: %s baseFee: %s", ErrFeeCapTooLow,
 					msg.From.Hex(), msg.GasFeeCap, st.evm.Context.BaseFee)
@@ -363,7 +364,7 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 		st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 	}
 
-	return ret, st.gasUsed(), vmerr != nil, err
+	return ret, st.gasUsed(), vmerr != nil, vmerr
 }
 
 func (st *StateTransition) refundGas() {

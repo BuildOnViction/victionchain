@@ -1,13 +1,15 @@
 package trc21issuer
 
 import (
+	"context"
+	"math/big"
+	"testing"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/crypto"
-	"math/big"
-	"testing"
 )
 
 var (
@@ -30,9 +32,17 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 
 	// init genesis
 	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
-		mainAddr: {Balance: big.NewInt(0).Mul(big.NewInt(10000000000000), big.NewInt(10000000000000))},
+		mainAddr:    {Balance: big.NewInt(0).Mul(big.NewInt(10000000000000), big.NewInt(10000000000000))},
+		airdropAddr: {Balance: big.NewInt(0).Mul(big.NewInt(10000000000000), big.NewInt(10000000000000))},
 	})
-	transactOpts := bind.NewKeyedTransactor(mainKey)
+	chainID, err := contractBackend.ChainID(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(mainKey, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 	// deploy payer swap SMC
 	trc21IssuerAddr, trc21Issuer, err := DeployTRC21Issuer(transactOpts, contractBackend, minApply)
 
@@ -105,7 +115,10 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 	}
 
 	// access to address which received token trc21 but dont have tomo
-	key1TransactOpts := bind.NewKeyedTransactor(airdropKey)
+	key1TransactOpts, err := bind.NewKeyedTransactorWithChainID(airdropKey, chainID)
+	if err != nil {
+		t.Fatalf("can't create TransactOpts: %v", err)
+	}
 	key1Trc20, _ := NewTRC21(key1TransactOpts, trc21TokenAddr, contractBackend)
 
 	transferAmount := big.NewInt(100000)
