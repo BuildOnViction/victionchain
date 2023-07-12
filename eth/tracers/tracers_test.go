@@ -251,6 +251,7 @@ func TestCallTracer(t *testing.T) {
 				Difficulty:  (*big.Int)(test.Context.Difficulty),
 				GasLimit:    uint64(test.Context.GasLimit),
 				GasPrice:    tx.GasPrice(),
+				BaseFee:     new(big.Int).SetUint64(0),
 			}
 			db := rawdb.NewMemoryDatabase()
 			statedb := tests.MakePreState(db, test.Genesis.Alloc)
