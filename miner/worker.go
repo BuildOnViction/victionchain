@@ -224,6 +224,14 @@ func (self *worker) pendingBlock() *types.Block {
 	return self.current.Block
 }
 
+// pendingBlockAndReceipts returns pending block and corresponding receipts.
+// The returned values can be nil in case the pending block is not initialized.
+func (self *worker) pendingBlockAndReceipts() (*types.Block, types.Receipts) {
+	self.currentMu.Lock()
+	defer self.currentMu.Unlock()
+	return self.current.Block, self.current.receipts
+}
+
 func (self *worker) start() {
 	self.mu.Lock()
 	defer self.mu.Unlock()

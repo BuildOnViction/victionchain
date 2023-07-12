@@ -662,6 +662,10 @@ func (s *Ethereum) APIs() []rpc.API {
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
+	filterSystem := filters.NewFilterSystem(s.ApiBackend, filters.Config{
+		LogCacheSize: s.config.FilterLogCacheSize,
+	})
+
 	// Append all the local APIs and return
 	return append(apis, []rpc.API{
 		{
@@ -687,7 +691,7 @@ func (s *Ethereum) APIs() []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.ApiBackend, false),
+			Service:   filters.NewPublicFilterAPI(filterSystem, false),
 			Public:    true,
 		}, {
 			Namespace: "admin",

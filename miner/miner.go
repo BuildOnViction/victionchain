@@ -19,7 +19,6 @@ package miner
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/tomoxlending"
 	"sync/atomic"
 
 	"github.com/tomochain/tomochain/accounts"
@@ -34,6 +33,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomoxlending"
 )
 
 // Backend wraps all methods required for mining.
@@ -177,7 +177,19 @@ func (self *Miner) PendingBlock() *types.Block {
 	return self.worker.pendingBlock()
 }
 
+// PendingBlockAndReceipts returns the currently pending block and corresponding receipts.
+// The returned values can be nil in case the pending block is not initialized.
+func (self *Miner) PendingBlockAndReceipts() (*types.Block, types.Receipts) {
+	return self.worker.pendingBlockAndReceipts()
+}
+
 func (self *Miner) SetEtherbase(addr common.Address) {
 	self.coinbase = addr
 	self.worker.setEtherbase(addr)
+}
+
+// SubscribePendingLogs starts delivering logs from pending transactions
+// to the given channel.
+func (self *Miner) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscription {
+	return self.worker.mux.Subscribe(ch)
 }

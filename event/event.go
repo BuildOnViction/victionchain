@@ -158,6 +158,8 @@ type TypeMuxSubscription struct {
 	postMu sync.RWMutex
 	readC  <-chan *TypeMuxEvent
 	postC  chan<- *TypeMuxEvent
+
+	err chan error
 }
 
 func newsub(mux *TypeMux) *TypeMuxSubscription {
@@ -208,4 +210,9 @@ func (s *TypeMuxSubscription) deliver(event *TypeMuxEvent) {
 	case s.postC <- event:
 	case <-s.closing:
 	}
+}
+
+// Err returns a channel that is closed when unsubscribed.
+func (s *TypeMuxSubscription) Err() <-chan error {
+	return s.err
 }

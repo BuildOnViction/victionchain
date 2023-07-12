@@ -59,11 +59,13 @@ type SimulatedBackend struct {
 	database   ethdb.Database   // In memory database to store our testing data
 	blockchain *core.BlockChain // Ethereum blockchain to handle the consensus
 
-	mu           sync.Mutex
-	pendingBlock *types.Block   // Currently pending block that will be imported on request
-	pendingState *state.StateDB // Currently pending state that will be the active on request
+	mu              sync.Mutex
+	pendingBlock    *types.Block   // Currently pending block that will be imported on request
+	pendingState    *state.StateDB // Currently pending state that will be the active on request
+	pendingReceipts types.Receipts // Currently receipts for the pending block
 
-	events *filters.EventSystem // Event system for filtering log events live
+	events       *filters.EventSystem  // Event system for filtering log events live
+	filterSystem *filters.FilterSystem // for filtering database logs
 
 	config *params.ChainConfig
 }
@@ -95,7 +97,9 @@ func NewSimulatedBackendWithChainConfig(alloc core.GenesisAlloc, config *params.
 		blockchain: blockchain,
 		config:     genesis.Config,
 	}
-	backend.events = filters.NewEventSystem(new(event.TypeMux), &filterBackend{database, blockchain, backend}, false)
+	filterBackend := &filterBackend{database, blockchain, backend}
+	backend.filterSystem = filters.NewFilterSystem(filterBackend, filters.Config{})
+	backend.events = filters.NewEventSystem(backend.filterSystem, false)
 
 	header := backend.blockchain.CurrentBlock()
 	block := backend.blockchain.GetBlock(header.Hash(), header.Number().Uint64())
@@ -573,25 +577,31 @@ func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transa
 //
 // TODO(karalabe): Deprecate when the subscription one can return past data too.
 func (b *SimulatedBackend) FilterLogs(ctx context.Context, query tomochain.FilterQuery) ([]types.Log, error) {
-	// Initialize unset filter boundaried to run from genesis to chain head
-	from := int64(0)
-	if query.FromBlock != nil {
-		from = query.FromBlock.Int64()
+	var filter *filters.Filter
+	if query.BlockHash != nil {
+		// Block filter requested, construct a single-shot filter
+		filter = b.filterSystem.NewBlockFilter(*query.BlockHash, query.Addresses, query.Topics)
+	} else {
+		// Initialize unset filter boundaries to run from genesis to chain head
+		from := int64(0)
+		if query.FromBlock != nil {
+			from = query.FromBlock.Int64()
+		}
+		to := int64(-1)
+		if query.ToBlock != nil {
+			to = query.ToBlock.Int64()
+		}
+		// Construct the range filter
+		filter = b.filterSystem.NewRangeFilter(from, to, query.Addresses, query.Topics)
 	}
-	to := int64(-1)
-	if query.ToBlock != nil {
-		to = query.ToBlock.Int64()
-	}
-	// Construct and execute the filter
-	filter := filters.New(&filterBackend{b.database, b.blockchain, b}, from, to, query.Addresses, query.Topics)
-
+	// Run the filter and return all the logs
 	logs, err := filter.Logs(ctx)
 	if err != nil {
 		return nil, err
 	}
 	res := make([]types.Log, len(logs))
-	for i, log := range logs {
-		res[i] = *log
+	for i, nLog := range logs {
+		res[i] = *nLog
 	}
 	return res, nil
 }
@@ -671,19 +681,27 @@ func (fb *filterBackend) HeaderByNumber(ctx context.Context, block rpc.BlockNumb
 	return fb.bc.GetHeaderByNumber(uint64(block.Int64())), nil
 }
 
+func (fb *filterBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	return fb.bc.GetHeaderByHash(hash), nil
+}
+
+func (fb *filterBackend) GetBody(ctx context.Context, hash common.Hash, number rpc.BlockNumber) (*types.Body, error) {
+	if body := fb.bc.GetBody(hash); body != nil {
+		return body, nil
+	}
+	return nil, errors.New("block body not found")
+}
+
+func (fb *filterBackend) PendingBlockAndReceipts() (*types.Block, types.Receipts) {
+	return fb.backend.pendingBlock, fb.backend.pendingReceipts
+}
+
 func (fb *filterBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	return core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash), fb.ChainConfig()), nil
 }
 
-func (fb *filterBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
-	receipts := core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash), fb.bc.Config())
-	if receipts == nil {
-		return nil, nil
-	}
-	logs := make([][]*types.Log, len(receipts))
-	for i, receipt := range receipts {
-		logs[i] = receipt.Logs
-	}
+func (fb *filterBackend) GetLogs(ctx context.Context, hash common.Hash, number uint64) ([][]*types.Log, error) {
+	logs := core.ReadLogs(fb.db, hash, number, fb.bc.Config())
 	return logs, nil
 }
 
@@ -702,6 +720,9 @@ func (fb *filterBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEve
 func (fb *filterBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return fb.bc.SubscribeLogsEvent(ch)
 }
+func (fb *filterBackend) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription {
+	return nullSubscription()
+}
 
 func (fb *filterBackend) BloomStatus() (uint64, uint64) { return 4096, 0 }
 func (fb *filterBackend) ServiceFilter(ctx context.Context, ms *bloombits.MatcherSession) {
@@ -709,4 +730,13 @@ func (fb *filterBackend) ServiceFilter(ctx context.Context, ms *bloombits.Matche
 }
 func (fb *filterBackend) ChainConfig() *params.ChainConfig {
 	panic("not supported")
+}
+func (fb *filterBackend) CurrentHeader() *types.Header {
+	panic("not supported")
+}
+func nullSubscription() event.Subscription {
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		<-quit
+		return nil
+	})
 }

@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"testing"
 	"time"
 
@@ -28,9 +27,9 @@ import (
 	"github.com/tomochain/tomochain/common/bitutil"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/bloombits"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/node"
 )
 
@@ -68,7 +67,7 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 	benchDataDir := node.DefaultDataDir() + "/geth/chaindata"
 	fmt.Println("Running bloombits benchmark   section size:", sectionSize)
 
-	db, err := rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024,"")
+	db, err := rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024, "")
 	if err != nil {
 		b.Fatalf("error opening database at %v: %v", benchDataDir, err)
 	}
@@ -124,21 +123,24 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 
 	fmt.Println("Running filter benchmarks...")
 	start = time.Now()
-	mux := new(event.TypeMux)
-	var backend *testBackend
+	var (
+		backend *testBackend
+		sys     *FilterSystem
+	)
 
 	for i := 0; i < benchFilterCnt; i++ {
 		if i%20 == 0 {
 			db.Close()
-			db, _ = rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024,"")
-			backend = &testBackend{mux, db, cnt, new(event.Feed), new(event.Feed), new(event.Feed), new(event.Feed)}
+			db, _ = rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024, "")
+			backend = &testBackend{db: db, sections: cnt}
+			sys = NewFilterSystem(backend, Config{})
 		}
 		var addr common.Address
 		addr[0] = byte(i)
 		addr[1] = byte(i / 256)
-		filter := New(backend, 0, int64(cnt*sectionSize-1), []common.Address{addr}, nil)
+		filter := sys.NewRangeFilter(0, int64(cnt*sectionSize-1), []common.Address{addr}, nil)
 		if _, err := filter.Logs(context.Background()); err != nil {
-			b.Error("filter.Find error:", err)
+			b.Error("filter.Logs error:", err)
 		}
 	}
 	d = time.Since(start)
@@ -148,7 +150,7 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 }
 
 func forEachKey(db ethdb.Database, startPrefix, endPrefix []byte, fn func(key []byte)) {
-	it := db.NewIterator(startPrefix,nil)
+	it := db.NewIterator(startPrefix, nil)
 	for it.Next() {
 		key := it.Key()
 		cmpLen := len(key)
@@ -176,7 +178,7 @@ func clearBloomBits(db ethdb.Database) {
 func BenchmarkNoBloomBits(b *testing.B) {
 	benchDataDir := node.DefaultDataDir() + "/geth/chaindata"
 	fmt.Println("Running benchmark without bloombits")
-	db, err := rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024,"")
+	db, err := rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024, "")
 	if err != nil {
 		b.Fatalf("error opening database at %v: %v", benchDataDir, err)
 	}
@@ -188,11 +190,10 @@ func BenchmarkNoBloomBits(b *testing.B) {
 
 	clearBloomBits(db)
 
-	fmt.Println("Running filter benchmarks...")
+	_, sys := newTestFilterSystem(b, db, Config{})
+	b.Log("Running filter benchmarks...")
 	start := time.Now()
-	mux := new(event.TypeMux)
-	backend := &testBackend{mux, db, 0, new(event.Feed), new(event.Feed), new(event.Feed), new(event.Feed)}
-	filter := New(backend, 0, int64(headNum), []common.Address{{}}, nil)
+	filter := sys.NewRangeFilter(0, int64(headNum), []common.Address{{}}, nil)
 	filter.Logs(context.Background())
 	d := time.Since(start)
 	fmt.Println("Finished running filter benchmarks")

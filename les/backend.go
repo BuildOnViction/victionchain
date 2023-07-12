@@ -176,6 +176,9 @@ func (s *LightDummyAPI) Mining() bool {
 // APIs returns the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *LightEthereum) APIs() []rpc.API {
+	filterSystem := filters.NewFilterSystem(s.ApiBackend, filters.Config{
+		LogCacheSize: s.config.FilterLogCacheSize,
+	})
 	return append(ethapi.GetAPIs(s.ApiBackend), []rpc.API{
 		{
 			Namespace: "eth",
@@ -190,7 +193,7 @@ func (s *LightEthereum) APIs() []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.ApiBackend, true),
+			Service:   filters.NewPublicFilterAPI(filterSystem, true),
 			Public:    true,
 		}, {
 			Namespace: "net",
