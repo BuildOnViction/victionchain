@@ -30,6 +30,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		DatabaseCache           int
 		TrieCache               int
 		TrieTimeout             time.Duration
+		FilterLogCacheSize      int
 		Etherbase               common.Address `toml:",omitempty"`
 		MinerThreads            int            `toml:",omitempty"`
 		ExtraData               hexutil.Bytes  `toml:",omitempty"`
@@ -55,6 +56,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.DatabaseCache = c.DatabaseCache
 	enc.TrieCache = c.TrieCache
 	enc.TrieTimeout = c.TrieTimeout
+	enc.FilterLogCacheSize = c.FilterLogCacheSize
 	enc.Etherbase = c.Etherbase
 	enc.MinerThreads = c.MinerThreads
 	enc.ExtraData = c.ExtraData
@@ -84,6 +86,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		DatabaseCache           *int
 		TrieCache               *int
 		TrieTimeout             *time.Duration
+		FilterLogCacheSize      *int
 		Etherbase               *common.Address `toml:",omitempty"`
 		MinerThreads            *int            `toml:",omitempty"`
 		ExtraData               *hexutil.Bytes  `toml:",omitempty"`
@@ -133,6 +136,9 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.TrieTimeout != nil {
 		c.TrieTimeout = *dec.TrieTimeout
+	}
+	if dec.FilterLogCacheSize != nil {
+		c.FilterLogCacheSize = *dec.FilterLogCacheSize
 	}
 	if dec.Etherbase != nil {
 		c.Etherbase = *dec.Etherbase

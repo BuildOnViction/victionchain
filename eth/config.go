@@ -43,14 +43,14 @@ var DefaultConfig = Config{
 		DatasetsInMem:  1,
 		DatasetsOnDisk: 2,
 	},
-	NetworkId:     88,
-	LightPeers:    100,
-	DatabaseCache: 768,
-	TrieCache:     256,
-	TrieTimeout:   5 * time.Minute,
-	GasPrice:      big.NewInt(0.25 * params.Shannon),
-
-	TxPool: core.DefaultTxPoolConfig,
+	NetworkId:          88,
+	LightPeers:         100,
+	DatabaseCache:      768,
+	TrieCache:          256,
+	TrieTimeout:        5 * time.Minute,
+	GasPrice:           big.NewInt(0.25 * params.Shannon),
+	FilterLogCacheSize: 32,
+	TxPool:             core.DefaultTxPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:           20,
 		Percentile:       60,
@@ -100,6 +100,9 @@ type Config struct {
 	DatabaseCache      int
 	TrieCache          int
 	TrieTimeout        time.Duration
+
+	// This is the number of blocks for which logs will be cached in the filter system.
+	FilterLogCacheSize int
 
 	// Mining-related options
 	Etherbase    common.Address `toml:",omitempty"`

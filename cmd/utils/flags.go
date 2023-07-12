@@ -305,6 +305,11 @@ var (
 		Usage: "Percentage of cache memory allowance to use for trie pruning",
 		Value: 25,
 	}
+	CacheLogSizeFlag = &cli.IntFlag{
+		Name:  "cache.blocklogs",
+		Usage: "Size (in number of blocks) of the log cache for filtering",
+		Value: eth.DefaultConfig.FilterLogCacheSize,
+	}
 	// Miner settings
 	StakingEnabledFlag = cli.BoolFlag{
 		Name:  "mine",
@@ -1141,13 +1146,16 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cfg.TrieCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
+	if ctx.GlobalIsSet(CacheLogSizeFlag.Name) {
+		cfg.FilterLogCacheSize = ctx.Int(CacheLogSizeFlag.Name)
+	}
 	if ctx.GlobalIsSet(StakerThreadsFlag.Name) {
 		cfg.MinerThreads = ctx.GlobalInt(StakerThreadsFlag.Name)
 	}
 	if ctx.GlobalIsSet(DocRootFlag.Name) {
 		cfg.DocRoot = ctx.GlobalString(DocRootFlag.Name)
 	}
-	if ctx.IsSet(RPCGlobalGasCapFlag.Name) {
+	if ctx.GlobalIsSet(RPCGlobalGasCapFlag.Name) {
 		cfg.RPCGasCap = ctx.Uint64(RPCGlobalGasCapFlag.Name)
 	}
 	if cfg.RPCGasCap != 0 {
@@ -1155,10 +1163,10 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	} else {
 		log.Info("Global gas cap disabled")
 	}
-	if ctx.IsSet(RPCGlobalEVMTimeoutFlag.Name) {
+	if ctx.GlobalIsSet(RPCGlobalEVMTimeoutFlag.Name) {
 		cfg.RPCEVMTimeout = ctx.Duration(RPCGlobalEVMTimeoutFlag.Name)
 	}
-	if ctx.IsSet(RPCGlobalTxFeeCapFlag.Name) {
+	if ctx.GlobalIsSet(RPCGlobalTxFeeCapFlag.Name) {
 		cfg.RPCTxFeeCap = ctx.Float64(RPCGlobalTxFeeCapFlag.Name)
 	}
 	if ctx.GlobalIsSet(ExtraDataFlag.Name) {
