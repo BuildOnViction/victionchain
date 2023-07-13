@@ -1,4 +1,4 @@
-name: Build and test
+name: Tomochain CI
 
 on:
   pull_request:
