@@ -24,7 +24,7 @@ jobs:
         env:
           GOPATH: /home/runner/work/woodpecker/go
       - name: Lint code
-        run: golangci-lint run --disable-all --enable=vet --enable=gofmt --enable=misspell --enable=goconst --min-occurrences=6
+        run: ${GOPATH}/bin/golangci-lint run --disable-all --enable=vet --enable=gofmt --enable=misspell --enable=goconst --min-occurrences=6
         env:
           GOPATH: /home/runner/work/woodpecker/go
       - name: Build tomo
