@@ -23,7 +23,8 @@ jobs:
           version: v1.53
           timeout: 30m
       - name: Install golangci-lint
-        run:
+        run: |
+          go version
           go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.18.0
         env:
           GOPATH: /home/runner/work/woodpecker/go
