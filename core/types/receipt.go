@@ -103,7 +103,7 @@ type legacyStoredReceiptRLP struct {
 	Bloom             Bloom
 	TxHash            common.Hash
 	ContractAddress   common.Address
-	Logs              []*Log
+	Logs              []*LogForStorage
 	GasUsed           uint64
 }
 
@@ -328,7 +328,10 @@ func decodeLegacyStoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
 	r.TxHash = stored.TxHash
 	r.ContractAddress = stored.ContractAddress
 	r.GasUsed = stored.GasUsed
-	r.Logs = stored.Logs
+	r.Logs = make([]*Log, len(stored.Logs))
+	for i, log := range stored.Logs {
+		r.Logs[i] = (*Log)(log)
+	}
 	r.Bloom = CreateBloom(Receipts{(*Receipt)(r)})
 
 	return nil
