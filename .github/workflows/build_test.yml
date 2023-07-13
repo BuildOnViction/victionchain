@@ -21,6 +21,7 @@ jobs:
         run: go run build/ci.go lint
         env:
           GOPATH: /home/runner/work/woodpecker/go
+          GOBIN: /home/runner/work/woodpecker/go
       - name: Build tomo
         run: go run build/ci.go install
       - name: Test tomo
