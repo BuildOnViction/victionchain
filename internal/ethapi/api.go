@@ -1108,7 +1108,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args TransactionArgs, 
 		return nil, 0, false, err
 	}
 	// Get a new instance of the EVM.
-	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, tomoxState, header, vm.Config{NoBaseFee: true})
+	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, tomoxState, header, &vm.Config{NoBaseFee: true})
 	if err != nil {
 		return nil, 0, false, err
 	}
