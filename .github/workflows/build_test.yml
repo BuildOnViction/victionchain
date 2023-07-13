@@ -17,12 +17,10 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.20.0-rc.1' # The Go version to download (if necessary) and use.
-      - name: setup env
-        run: |
-          export GOPATH=$HOME/go
-        shell: bash
       - name: Lint code
-        run: export GOROOT=$HOME/usr/local/go | export GOPATH=$HOME/go | go run build/ci.go lint
+        run: go run build/ci.go lint
+        env:
+          GOPATH: /home/runner/work/woodpecker/go
       - name: Build tomo
         run: go run build/ci.go install
       - name: Test tomo
