@@ -18,9 +18,11 @@ jobs:
         with:
           go-version: '1.20.0-rc.1' # The Go version to download (if necessary) and use.
       - name: Lint code
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.53
+        run:
+          go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.18.0
+          | go run build/ci.go lint
+        env:
+          GOPATH: /home/runner/work/woodpecker/go
       - name: Build tomo
         run: go run build/ci.go install
       - name: Test tomo
