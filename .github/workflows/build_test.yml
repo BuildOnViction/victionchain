@@ -11,12 +11,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GOPATH: ${{ github.workspace }}
+      GOBIN: ${{ github.workspace }}/bin
     steps:
       - uses: actions/checkout@v3
       - name: Setup golang
         uses: actions/setup-go@v4
         with:
           go-version: '1.20.0-rc.1' # The Go version to download (if necessary) and use.
-      - name: Setup golang
-        run: make tomo
+      - name: Lint code
+        run: go run build/ci.go lint
+      - name: Build tomo
+        run: go run build/ci.go install
+      - name: Test tomo
+        run: go run build/ci.go test -coverage
     
