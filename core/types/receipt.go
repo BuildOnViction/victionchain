@@ -97,6 +97,16 @@ type StoredReceiptRLP struct {
 	Logs              []*Log
 }
 
+type legacyStoredReceiptRLP struct {
+	PostStateOrStatus []byte
+	CumulativeGasUsed uint64
+	Bloom             Bloom
+	TxHash            common.Hash
+	ContractAddress   common.Address
+	Logs              []*Log
+	GasUsed           uint64
+}
+
 // NewReceipt creates a barebone transaction receipt, copying the init fields.
 func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 	r := &Receipt{PostState: common.CopyBytes(root), CumulativeGasUsed: cumulativeGasUsed}
@@ -275,14 +285,49 @@ func (r *ReceiptForStorage) EncodeRLP(_w io.Writer) error {
 // DecodeRLP implements rlp.Decoder, and loads both consensus and implementation
 // fields of a receipt from an RLP stream.
 func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
+	// Retrieve the entire receipt blob as we need to try multiple decoders
+	blob, err := s.Raw()
+	if err != nil {
+		return err
+	}
+
+	// Try decoding from the newest format for future proofness, then the older one
+	// for old nodes that just upgraded. V4 was an intermediate unreleased format so
+	// we do need to decode it, but it's not common (try last).
+	if err := decodeStoredReceiptRLP(r, blob); err == nil {
+		return nil
+	}
+
+	return decodeLegacyStoredReceiptRLP(r, blob)
+}
+
+func decodeStoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
 	var stored StoredReceiptRLP
-	if err := s.Decode(&stored); err != nil {
+	if err := rlp.DecodeBytes(blob, &stored); err != nil {
 		return err
 	}
 	if err := (*Receipt)(r).setStatus(stored.PostStateOrStatus); err != nil {
 		return err
 	}
 	r.CumulativeGasUsed = stored.CumulativeGasUsed
+	r.Logs = stored.Logs
+	r.Bloom = CreateBloom(Receipts{(*Receipt)(r)})
+
+	return nil
+}
+
+func decodeLegacyStoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
+	var stored legacyStoredReceiptRLP
+	if err := rlp.DecodeBytes(blob, &stored); err != nil {
+		return err
+	}
+	if err := (*Receipt)(r).setStatus(stored.PostStateOrStatus); err != nil {
+		return err
+	}
+	r.CumulativeGasUsed = stored.CumulativeGasUsed
+	r.TxHash = stored.TxHash
+	r.ContractAddress = stored.ContractAddress
+	r.GasUsed = stored.GasUsed
 	r.Logs = stored.Logs
 	r.Bloom = CreateBloom(Receipts{(*Receipt)(r)})
 
