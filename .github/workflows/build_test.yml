@@ -24,12 +24,6 @@ jobs:
           # When `install-mode` is `binary` (default) the value can be v1.2 or v1.2.3 or `latest` to use the latest version.
           # When `install-mode` is `goinstall` the value can be v1.2.3, `latest`, or the hash of a commit.
           version: v1.53
-      - name: Install golangci-lint
-        run: |
-          go version
-          go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.18.0
-        env:
-          GOPATH: /home/runner/work/woodpecker/go
       - name: Lint code
         run: ${GOPATH}/bin/golangci-lint run --disable-all --enable=vet --enable=gofmt --enable=misspell --enable=goconst --min-occurrences=6
         env:
@@ -49,5 +43,7 @@ jobs:
           GOPATH: /home/runner/go
       - name: Test tomo
         run: go run build/ci.go test -coverage
+        env:
+          GOPATH: /home/runner/go
     
 
