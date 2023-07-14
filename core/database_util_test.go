@@ -18,9 +18,11 @@ package core
 
 import (
 	"bytes"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
+
+	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/params"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
@@ -361,14 +363,14 @@ func TestBlockReceiptStorage(t *testing.T) {
 
 	// Check that no receipt entries are in a pristine database
 	hash := common.BytesToHash([]byte{0x03, 0x14})
-	if rs := GetBlockReceipts(db, hash, 0); len(rs) != 0 {
+	if rs := GetBlockReceipts(db, hash, 0, params.TestChainConfig); len(rs) != 0 {
 		t.Fatalf("non existent receipts returned: %v", rs)
 	}
 	// Insert the receipt slice into the database and check presence
 	if err := WriteBlockReceipts(db, hash, 0, receipts); err != nil {
 		t.Fatalf("failed to write block receipts: %v", err)
 	}
-	if rs := GetBlockReceipts(db, hash, 0); len(rs) == 0 {
+	if rs := GetBlockReceipts(db, hash, 0, params.TestChainConfig); len(rs) == 0 {
 		t.Fatalf("no receipts returned")
 	} else {
 		for i := 0; i < len(receipts); i++ {
@@ -382,7 +384,7 @@ func TestBlockReceiptStorage(t *testing.T) {
 	}
 	// Delete the receipt slice and check purge
 	DeleteBlockReceipts(db, hash, 0)
-	if rs := GetBlockReceipts(db, hash, 0); len(rs) != 0 {
+	if rs := GetBlockReceipts(db, hash, 0, params.TestChainConfig); len(rs) != 0 {
 		t.Fatalf("deleted receipts returned: %v", rs)
 	}
 }

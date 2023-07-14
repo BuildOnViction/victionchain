@@ -20,16 +20,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
@@ -74,7 +74,10 @@ func (odr *testOdr) Retrieve(ctx context.Context, req OdrRequest) error {
 	case *BlockRequest:
 		req.Rlp = core.GetBodyRLP(odr.sdb, req.Hash, core.GetBlockNumber(odr.sdb, req.Hash))
 	case *ReceiptsRequest:
-		req.Receipts = core.GetBlockReceipts(odr.sdb, req.Hash, core.GetBlockNumber(odr.sdb, req.Hash))
+		number := core.GetBlockNumber(odr.sdb, req.Hash)
+		if number != core.MissingNumber {
+			req.Receipts = core.ReadRawReceipts(odr.sdb, req.Hash, number)
+		}
 	case *TrieRequest:
 		t, _ := trie.New(req.Id.Root, trie.NewDatabase(odr.sdb))
 		nodes := NewNodeSet()
@@ -110,9 +113,12 @@ func TestOdrGetReceiptsLes1(t *testing.T) { testChainOdr(t, 1, odrGetReceipts) }
 func odrGetReceipts(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc *LightChain, bhash common.Hash) ([]byte, error) {
 	var receipts types.Receipts
 	if bc != nil {
-		receipts = core.GetBlockReceipts(db, bhash, core.GetBlockNumber(db, bhash))
+		receipts = core.GetBlockReceipts(db, bhash, core.GetBlockNumber(db, bhash), bc.Config())
 	} else {
-		receipts, _ = GetBlockReceipts(ctx, lc.Odr(), bhash, core.GetBlockNumber(db, bhash))
+		number := core.GetBlockNumber(db, bhash)
+		if number != core.MissingNumber {
+			receipts, _ = GetBlockReceipts(ctx, lc.Odr(), bhash, number, lc.Config())
+		}
 	}
 	if receipts == nil {
 		return nil, nil

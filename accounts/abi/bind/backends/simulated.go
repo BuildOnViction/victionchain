@@ -285,7 +285,6 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallM
 
 		snapshot := b.pendingState.Snapshot()
 		_, _, failed, err := b.callContract(ctx, call, b.pendingBlock, b.pendingState)
-		fmt.Println("EstimateGas", err, failed)
 		b.pendingState.RevertToSnapshot(snapshot)
 
 		if err != nil || failed {
