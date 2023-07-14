@@ -5,11 +5,8 @@
 
 package types
 
-import (
-	"io"
-
-	"github.com/tomochain/tomochain/rlp"
-)
+import "github.com/tomochain/tomochain/rlp"
+import "io"
 
 func (obj *rlpLog) EncodeRLP(_w io.Writer) error {
 	w := rlp.NewEncoderBuffer(_w)
