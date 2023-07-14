@@ -56,6 +56,8 @@ type jsonError struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+
+
 type jsonErrResponse struct {
 	Version string      `json:"jsonrpc"`
 	Id      interface{} `json:"id,omitempty"`
@@ -95,6 +97,10 @@ func (err *jsonError) Error() string {
 func (err *jsonError) ErrorCode() int {
 	return err.Code
 }
+
+func (err *jsonError) ErrorData() interface{} {
+ 	return err.Data
+ }
 
 // NewCodec creates a new RPC server codec with support for JSON-RPC 2.0 based
 // on explicitly given encoding and decoding methods.
