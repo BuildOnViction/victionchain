@@ -170,7 +170,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 		Balance: big.NewInt(500000000000000),
 	}
 	db := rawdb.NewMemoryDatabase()
-	statedb := tests.MakePreState(db, alloc)
+	statedb := tests.MakePreState(db, alloc, false)
 
 	// Create the tracer, the EVM environment and run it
 	tracer, err := New("prestateTracer")
@@ -245,7 +245,7 @@ func TestCallTracer(t *testing.T) {
 				GasPrice:    tx.GasPrice(),
 			}
 			db := rawdb.NewMemoryDatabase()
-			statedb := tests.MakePreState(db, test.Genesis.Alloc)
+			statedb := tests.MakePreState(db, test.Genesis.Alloc, false)
 
 			// Create the tracer, the EVM environment and run it
 			tracer, err := New("callTracer")

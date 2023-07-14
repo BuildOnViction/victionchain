@@ -26,22 +26,42 @@ import (
 )
 
 var (
+	// databaseVersionKey tracks the current database version.
+	databaseVersionKey = []byte("DatabaseVersion")
+
+	// headFastBlockKey tracks the latest known incomplete block's hash during fast sync.
+	headFastBlockKey = []byte("LastFast")
+
+	// fastTrieProgressKey tracks the number of trie entries imported during fast sync.
+	fastTrieProgressKey = []byte("TrieSync")
+
+	// snapshotRootKey tracks the hash of the last snapshot.
+	snapshotRootKey = []byte("SnapshotRoot")
+
+	// snapshotJournalKey tracks the in-memory diff layers across restarts.
+	snapshotJournalKey = []byte("SnapshotJournal")
+
+	// snapshotGeneratorKey tracks the snapshot generation marker across restarts.
+	snapshotGeneratorKey = []byte("SnapshotGenerator")
+
 	headHeaderKey = []byte("LastHeader")
 	headBlockKey  = []byte("LastBlock")
 	headFastKey   = []byte("LastFast")
 	trieSyncKey   = []byte("TrieSync")
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`).
-	headerPrefix        = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
-	headerTDSuffix      = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
-	headerHashSuffix    = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
-	headerNumberPrefix  = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
-	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
-	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
-	txLookupPrefix      = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
-	bloomBitsPrefix     = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
+	headerPrefix          = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
+	headerTDSuffix        = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
+	headerHashSuffix      = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	headerNumberPrefix    = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
+	blockBodyPrefix       = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
+	blockReceiptsPrefix   = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
+	txLookupPrefix        = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
+	bloomBitsPrefix       = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
+	SnapshotAccountPrefix = []byte("a") // SnapshotAccountPrefix + account hash -> account trie value
+	SnapshotStoragePrefix = []byte("o") // SnapshotStoragePrefix + account hash + storage hash -> storage trie value
 
-	preimagePrefix = "secure-key-"              // preimagePrefix + hash -> preimage
+	PreimagePrefix = "secure-key-"              // PreimagePrefix + hash -> preimage
 	configPrefix   = []byte("ethereum-config-") // config prefix for the db
 
 	// BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
@@ -128,4 +148,19 @@ func oldTxMetaKey(hash common.Hash) []byte {
 // oldReceiptsKey = oldReceiptsPrefix + hash
 func oldReceiptsKey(hash common.Hash) []byte {
 	return append(oldReceiptsPrefix, hash[:]...)
+}
+
+// accountSnapshotKey = SnapshotAccountPrefix + hash
+func accountSnapshotKey(hash common.Hash) []byte {
+	return append(SnapshotAccountPrefix, hash.Bytes()...)
+}
+
+// storageSnapshotKey = SnapshotStoragePrefix + account hash + storage hash
+func storageSnapshotKey(accountHash, storageHash common.Hash) []byte {
+	return append(append(SnapshotStoragePrefix, accountHash.Bytes()...), storageHash.Bytes()...)
+}
+
+// storageSnapshotsKey = SnapshotStoragePrefix + account hash + storage hash
+func storageSnapshotsKey(accountHash common.Hash) []byte {
+	return append(SnapshotStoragePrefix, accountHash.Bytes()...)
 }

@@ -25,7 +25,7 @@ import (
 
 // PreimageTable returns a Database instance with the key prefix for preimage entries.
 func PreimageTable(db ethdb.Database) ethdb.Database {
-	return NewTable(db, preimagePrefix)
+	return NewTable(db, PreimagePrefix)
 }
 
 // ReadPreimage retrieves a single preimage of the provided hash.

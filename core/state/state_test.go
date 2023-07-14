@@ -138,7 +138,7 @@ func (s *StateSuite) TestSnapshotEmpty(c *checker.C) {
 // printing/logging in tests (-check.vv does not work)
 func TestSnapshot2(t *testing.T) {
 	db := rawdb.NewMemoryDatabase()
-	state, _ := New(common.Hash{}, NewDatabase(db))
+	state, _ := New(common.Hash{}, NewDatabase(db), nil)
 
 	stateobjaddr0 := toAddr([]byte("so0"))
 	stateobjaddr1 := toAddr([]byte("so1"))

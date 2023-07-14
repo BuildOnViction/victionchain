@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tomochain/tomochain/core/state/snapshot"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
@@ -57,9 +59,8 @@ type StateDB struct {
 	db   Database
 	trie Trie
 
-	snapDestructs map[common.Hash]struct{}
-	snapAccounts  map[common.Hash][]byte
-	snapStorage   map[common.Hash]map[common.Hash][]byte
+	snaps *snapshot.Tree    // Nil if snapshot is not available
+	snap  snapshot.Snapshot // Nil if snapshot is not available
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects      map[common.Address]*stateObject
@@ -122,7 +123,7 @@ func (self *StateDB) GetCommittedState(addr common.Address, hash common.Hash) co
 }
 
 // Create a new state from a given trie.
-func New(root common.Hash, db Database) (*StateDB, error) {
+func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
 		return nil, err
@@ -130,11 +131,15 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 	sdb := &StateDB{
 		db:                db,
 		trie:              tr,
+		snaps:             snaps,
 		stateObjects:      make(map[common.Address]*stateObject),
 		stateObjectsDirty: make(map[common.Address]struct{}),
 		logs:              make(map[common.Hash][]*types.Log),
 		preimages:         make(map[common.Hash][]byte),
 		journal:           newJournal(),
+	}
+	if sdb.snaps != nil {
+		sdb.snap = sdb.snaps.Snapshot(root)
 	}
 	return sdb, nil
 }
