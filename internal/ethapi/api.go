@@ -1102,6 +1102,36 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	return result, err
 }
 
+func newRevertError(result *core.ExecutionResult) *revertError {
+ 	reason, errUnpack := abi.UnpackRevert(result.Revert())
+ 	err := errors.New("execution reverted")
+ 	if errUnpack == nil {
+ 		err = fmt.Errorf("execution reverted: %v", reason)
+ 	}
+ 	return &revertError{
+ 		error:  err,
+ 		reason: hexutil.Encode(result.Revert()),
+ 	}
+ }
+
+ // revertError is an API error that encompassas an EVM revertal with JSON error
+ // code and a binary data blob.
+ type revertError struct {
+ 	error
+ 	reason string // revert reason hex encoded
+ }
+
+ // ErrorCode returns the JSON error code for a revertal.
+ // See: https://github.com/ethereum/wiki/wiki/JSON-RPC-Error-Codes-Improvement-Proposal
+ func (e *revertError) ErrorCode() int {
+ 	return 3
+ }
+
+ // ErrorData returns the hex encoded revert reason.
+ func (e *revertError) ErrorData() interface{} {
+ 	return e.reason
+ }
+
 // Call executes the given transaction on the state for the given block number.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber) (hexutil.Bytes, error) {
@@ -1109,24 +1139,11 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr r
         if err != nil {
                 return nil, err
         }
-	return result.Return(), nil
-}
 
-type EstimateGasError struct {
-        error string // Concrete error type if it's failed to estimate gas usage
-        vmerr error // Additional field, it's non-nil if the given transaction is invalid
-        revert string // Additional field, it's non-empty if the transaction is reverted and reason is provided
-}
-
-func (e EstimateGasError) Error() string {
- 	errMsg := e.error
- 	if e.vmerr != nil {
- 		errMsg += fmt.Sprintf(" (%v)", e.vmerr)
- 	}
- 	if e.revert != "" {
- 		errMsg += fmt.Sprintf(" (%s)", e.revert)
- 	}
- 	return errMsg
+        if len(result.Revert()) > 0 {
+                return nil, newRevertError(result)
+        }
+	return result.Return(), result.Err
 }
 
 // EstimateGas returns an estimate of the amount of gas needed to execute the
@@ -1185,23 +1202,12 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 
                 if failed {
                         if result != nil && result.Err != vm.ErrOutOfGas {
-                                var revert string
-
                                 if len(result.Revert()) > 0 {
-                                        ret, err := abi.UnpackRevert(result.Revert())
-                                        if err != nil {
-                                                revert = hexutil.Encode(result.Revert())
-                                        } else {
-                                                revert = ret
-                                        }
+                                        return 0, newRevertError(result)
                                 }
-                                return 0, EstimateGasError {
-                                        error:  "always failing transaction",
-                                        vmerr:  result.Err,
-                                        revert: revert,
-                                }
+                                return 0, result.Err
                         }
-                        return 0, EstimateGasError{error: fmt.Sprintf("gas required exceeds allowance (%d)", cap)}
+                        return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
                 }
 	}
 	return hexutil.Uint64(hi), nil
