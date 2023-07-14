@@ -129,7 +129,7 @@ func NewStateTransition(evm *vm.EVM, msg *Message, gp *GasPool) *StateTransition
 }
 
 // TransactionToMessage converts a transaction into a Message.
-func TransactionToMessage(tx *types.Transaction, s types.Signer, balanceFee *big.Int) (*Message, error) {
+func TransactionToMessage(tx *types.Transaction, s types.Signer, balanceFee *big.Int, number *big.Int) (*Message, error) {
 	msg := &Message{
 		Nonce:             tx.Nonce(),
 		GasLimit:          tx.Gas(),
@@ -142,6 +142,13 @@ func TransactionToMessage(tx *types.Transaction, s types.Signer, balanceFee *big
 	}
 	var err error
 	msg.From, err = types.Sender(s, tx)
+	if balanceFee != nil {
+		if number.Cmp(common.TIPTRC21Fee) > 0 {
+			msg.GasPrice = common.TRC21GasPrice
+		} else {
+			msg.GasPrice = common.TRC21GasPriceBefore
+		}
+	}
 	return msg, err
 }
 
