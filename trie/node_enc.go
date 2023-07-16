@@ -62,3 +62,11 @@ func (n ValueNode) encode(w rlp.EncoderBuffer) {
 func (n rawNode) encode(w rlp.EncoderBuffer) {
 	w.Write(n)
 }
+
+func (n rawShortNode) encode(w rlp.EncoderBuffer) {
+	panic("this should never end up in a live trie")
+}
+
+func (n rawFullNode) encode(w rlp.EncoderBuffer) {
+	panic("this should never end up in a live trie")
+}
