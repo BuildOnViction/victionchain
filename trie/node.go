@@ -30,6 +30,7 @@ var indices = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b
 type Node interface {
 	fstring(string) string
 	Cache() (HashNode, bool)
+	encode(w rlp.EncoderBuffer)
 }
 
 type (
@@ -52,16 +53,9 @@ var nilValueNode = ValueNode(nil)
 
 // EncodeRLP encodes a full Node into the consensus RLP format.
 func (n *FullNode) EncodeRLP(w io.Writer) error {
-	var nodes [17]Node
-
-	for i, child := range &n.Children {
-		if child != nil {
-			nodes[i] = child
-		} else {
-			nodes[i] = nilValueNode
-		}
-	}
-	return rlp.Encode(w, nodes)
+	eb := rlp.NewEncoderBuffer(w)
+	n.encode(eb)
+	return eb.Flush()
 }
 
 func (n *FullNode) copy() *FullNode   { copy := *n; return &copy }
