@@ -49,7 +49,6 @@ import (
 	"github.com/tomochain/tomochain/rpc"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
