@@ -28,11 +28,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 )
 
-var (
-	emptyRootHash = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-
-	ErrCommitDisabled = errors.New("no database for committing")
-)
+var ErrCommitDisabled = errors.New("no database for committing")
 
 var stPool = sync.Pool{
 	New: func() interface{} {
@@ -417,7 +413,7 @@ func (st *StackTrie) hashRec(hasher *hasher, path []byte) {
 		return
 
 	case emptyNode:
-		st.val = emptyRootHash.Bytes()
+		st.val = emptyRoot.Bytes()
 		st.key = st.key[:0]
 		st.nodeType = hashedNode
 		return
