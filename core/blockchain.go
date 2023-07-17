@@ -28,17 +28,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
+	lru "github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/mclock"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/posv"
 	contractValidator "github.com/tomochain/tomochain/contracts/validator/contract"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/state/snapshot"
 	"github.com/tomochain/tomochain/core/types"
@@ -52,6 +51,7 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"github.com/tomochain/tomochain/trie"
 )
 
