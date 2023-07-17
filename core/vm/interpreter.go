@@ -75,8 +75,6 @@ type EVMInterpreter struct {
 	evm *EVM
 	cfg Config
 
-	intPool *intPool
-
 	hasher    crypto.KeccakState // Keccak256 hasher instance shared across opcodes
 	hasherBuf common.Hash        // Keccak256 hasher result array shared across opcodes
 
