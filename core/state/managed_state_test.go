@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
 )
 
 var addr = common.BytesToAddress([]byte("test"))
