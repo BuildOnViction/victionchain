@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/tomochain/core/rawdb"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core/rawdb"

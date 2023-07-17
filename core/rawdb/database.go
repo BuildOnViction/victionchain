@@ -23,12 +23,11 @@ import (
 	"time"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/tomochain/tomochain/log"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/ethdb/leveldb"
 	"github.com/tomochain/tomochain/ethdb/memorydb"
+	"github.com/tomochain/tomochain/log"
 )
 
 // freezerdb is a database wrapper that enabled freezer data retrievals.

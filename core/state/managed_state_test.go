@@ -19,8 +19,6 @@ package state
 import (
 	"testing"
 
-	"github.com/tomochain/tomochain/core/rawdb"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/rawdb"
 )

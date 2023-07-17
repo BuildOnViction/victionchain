@@ -92,7 +92,7 @@ func (s *StateSuite) TestDump(c *checker.C) {
 func (s *StateSuite) SetUpTest(c *checker.C) {
 	s.db = rawdb.NewMemoryDatabase()
 	tdb := NewDatabaseWithConfig(s.db, &trie.Config{Preimages: true})
-	s.state, _ = New(common.Hash{}, tdb)
+	s.state, _ = New(common.Hash{}, tdb, nil)
 }
 
 func (s *StateSuite) TestNull(c *checker.C) {
