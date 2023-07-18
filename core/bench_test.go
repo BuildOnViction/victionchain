@@ -18,7 +18,6 @@ package core
 
 import (
 	"crypto/ecdsa"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
@@ -238,10 +238,16 @@ func makeChainForBench(db ethdb.Database, full bool, count uint64) {
 		WriteHeader(db, header)
 		WriteCanonicalHash(db, hash, n)
 		WriteTd(db, hash, n, big.NewInt(int64(n+1)))
+		if n == 0 {
+			WriteChainConfig(db, hash, params.AllEthashProtocolChanges)
+		}
+		WriteHeadHeaderHash(db, hash)
+
 		if full || n == 0 {
 			block := types.NewBlockWithHeader(header)
 			WriteBody(db, hash, n, block.Body())
 			WriteBlockReceipts(db, hash, n, nil)
+			WriteHeadBlockHash(db, hash)
 		}
 	}
 }
@@ -275,6 +281,8 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 	}
 	makeChainForBench(db, full, count)
 	db.Close()
+	cacheConfig := defaultCacheConfig
+	cacheConfig.Disabled = true
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -284,7 +292,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 		if err != nil {
 			b.Fatalf("error opening database at %v: %v", dir, err)
 		}
-		chain, err := NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{})
+		chain, err := NewBlockChain(db, cacheConfig, params.TestChainConfig, ethash.NewFaker(), vm.Config{})
 		if err != nil {
 			b.Fatalf("error creating chain: %v", err)
 		}
