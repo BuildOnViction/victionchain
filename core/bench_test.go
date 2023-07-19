@@ -243,6 +243,7 @@ func makeChainForBench(db ethdb.Database, full bool, count uint64) {
 			WriteChainConfig(db, hash, params.AllEthashProtocolChanges)
 		}
 		WriteHeadHeaderHash(db, hash)
+
 		if full || n == 0 {
 			block := types.NewBlockWithHeader(header)
 			WriteBody(db, hash, n, block.Body())

@@ -79,8 +79,6 @@ func EncodeToBytes(val interface{}) ([]byte, error) {
 	buf := getEncBuffer()
 	defer encBufferPool.Put(buf)
 
-	fmt.Println("val: ", val)
-
 	if err := buf.encode(val); err != nil {
 		return nil, err
 	}
