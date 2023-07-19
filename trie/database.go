@@ -107,11 +107,11 @@ func (n rawNode) Cache() (HashNode, bool)   { panic("this should never end up in
 func (n rawNode) fstring(ind string) string { panic("this should never end up in a live trie") }
 
 func (n rawNode) EncodeRLP(w io.Writer) error {
-	_, err := w.Write(n)
+	_, err := w.Write([]byte(n))
 	return err
 }
 
-// rawFullNode represents only the useful data content of a full Node, with the
+// rawFullNode represents only the useful data content of a full node, with the
 // caches and flags stripped out to minimize its data storage. This type honors
 // the same RLP encoding as the original parent.
 type rawFullNode [17]Node
@@ -171,6 +171,7 @@ func (n *cachedNode) rlp() []byte {
 	if node, ok := n.node.(rawNode); ok {
 		return node
 	}
+	fmt.Println("cachedNode rlp", n.node)
 	blob, err := rlp.EncodeToBytes(n.node)
 	if err != nil {
 		panic(err)
@@ -790,6 +791,7 @@ func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleane
 	if err != nil {
 		return err
 	}
+	fmt.Println("commit", node)
 	if err := batch.Put(hash[:], node.rlp()); err != nil {
 		return err
 	}

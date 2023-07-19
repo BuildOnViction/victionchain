@@ -637,3 +637,9 @@ func (t *Trie) hashRoot(db *Database) (Node, Node, error) {
 	t.unhashed = 0
 	return hashed, cached, nil
 }
+
+// Reset drops the referenced root node and cleans all internal state.
+func (t *Trie) Reset() {
+	t.root = nil
+	t.unhashed = 0
+}

@@ -23,10 +23,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/tomochain/tomochain/core/rawdb"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/consensus/ethash"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
@@ -242,7 +243,6 @@ func makeChainForBench(db ethdb.Database, full bool, count uint64) {
 			WriteChainConfig(db, hash, params.AllEthashProtocolChanges)
 		}
 		WriteHeadHeaderHash(db, hash)
-
 		if full || n == 0 {
 			block := types.NewBlockWithHeader(header)
 			WriteBody(db, hash, n, block.Body())
