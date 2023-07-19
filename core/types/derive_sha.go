@@ -32,7 +32,7 @@ type DerivableList interface {
 // Hasher is the tool used to calculate the hash of derivable list.
 type Hasher interface {
 	Reset()
-	Update([]byte, []byte)
+	Update([]byte, []byte) error
 	Hash() common.Hash
 }
 

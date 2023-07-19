@@ -316,10 +316,13 @@ func (t *Trie) tryGetBestRightKeyAndValue(origNode Node, prefix []byte) (key []b
 //
 // The value bytes must not be modified by the caller while they are
 // stored in the trie.
-func (t *Trie) Update(key, value []byte) {
+func (t *Trie) Update(key, value []byte) error {
 	if err := t.TryUpdate(key, value); err != nil {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+		return err
 	}
+
+	return nil
 }
 
 // TryUpdate associates key with value in the trie. Subsequent calls to
