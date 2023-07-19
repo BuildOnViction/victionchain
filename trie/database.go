@@ -171,7 +171,6 @@ func (n *cachedNode) rlp() []byte {
 	if node, ok := n.node.(rawNode); ok {
 		return node
 	}
-	fmt.Println("cachedNode rlp", n.node)
 	blob, err := rlp.EncodeToBytes(n.node)
 	if err != nil {
 		panic(err)

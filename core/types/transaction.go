@@ -17,6 +17,7 @@
 package types
 
 import (
+	"bytes"
 	"container/heap"
 	"errors"
 	"fmt"
@@ -523,14 +524,16 @@ type Transactions []*Transaction
 // Len returns the length of s.
 func (s Transactions) Len() int { return len(s) }
 
+// EncodeIndex encodes the i'th transaction to w. Note that this does not check for errors
+// because we assume that *Transaction will only ever contain valid txs that were either
+// constructed by decoding or via public API in this package.
+func (s Transactions) EncodeIndex(i int, w *bytes.Buffer) {
+	tx := s[i]
+	rlp.Encode(w, tx.data)
+}
+
 // Swap swaps the i'th and the j'th element in s.
 func (s Transactions) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-
-// GetRlp implements Rlpable and returns the i'th element of s in rlp.
-func (s Transactions) GetRlp(i int) []byte {
-	enc, _ := rlp.EncodeToBytes(s[i])
-	return enc
-}
 
 // TxDifference returns a new set t which is the difference between a to b.
 func TxDifference(a, b Transactions) (keep Transactions) {

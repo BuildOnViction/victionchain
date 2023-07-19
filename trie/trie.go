@@ -321,7 +321,6 @@ func (t *Trie) Update(key, value []byte) error {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 		return err
 	}
-
 	return nil
 }
 
