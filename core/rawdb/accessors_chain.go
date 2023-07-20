@@ -19,7 +19,6 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -27,7 +26,6 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -39,14 +37,6 @@ type DatabaseReader interface {
 // DatabaseDeleter wraps the Delete method of a backing data store.
 type DatabaseDeleter interface {
 	Delete(key []byte) error
-}
-
-// TxLookupEntry is a positional metadata to help looking up the data content of
-// a transaction or receipt given only its hash.
-type TxLookupEntry struct {
-	BlockHash  common.Hash
-	BlockIndex uint64
-	Index      uint64
 }
 
 // encodeBlockNumber encodes a block number as big endian uint64
@@ -220,91 +210,6 @@ func GetBlockReceipts(db DatabaseReader, hash common.Hash, number uint64) types.
 	return receipts
 }
 
-// GetTxLookupEntry retrieves the positional metadata associated with a transaction
-// hash to allow retrieving the transaction or receipt by hash.
-func GetTxLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
-	// Load the positional metadata from disk and bail if it fails
-	data, _ := db.Get(txLookupKey(hash))
-	if len(data) == 0 {
-		return common.Hash{}, 0, 0
-	}
-	// Parse and return the contents of the lookup entry
-	var entry TxLookupEntry
-	if err := rlp.DecodeBytes(data, &entry); err != nil {
-		log.Error("Invalid lookup entry RLP", "hash", hash, "err", err)
-		return common.Hash{}, 0, 0
-	}
-	return entry.BlockHash, entry.BlockIndex, entry.Index
-}
-
-// GetTransaction retrieves a specific transaction from the database, along with
-// its added positional metadata.
-func GetTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
-	// Retrieve the lookup metadata and resolve the transaction from the body
-	blockHash, blockNumber, txIndex := GetTxLookupEntry(db, hash)
-
-	if blockHash != (common.Hash{}) {
-		body := GetBody(db, blockHash, blockNumber)
-		if body == nil || len(body.Transactions) <= int(txIndex) {
-			log.Error("Transaction referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
-			return nil, common.Hash{}, 0, 0
-		}
-		return body.Transactions[txIndex], blockHash, blockNumber, txIndex
-	}
-	// Old transaction representation, load the transaction and its metadata separately
-	data, _ := db.Get(hash.Bytes())
-	if len(data) == 0 {
-		return nil, common.Hash{}, 0, 0
-	}
-	var tx types.Transaction
-	if err := rlp.DecodeBytes(data, &tx); err != nil {
-		return nil, common.Hash{}, 0, 0
-	}
-	// Retrieve the blockchain positional metadata
-	data, _ = db.Get(oldTxMetaKey(hash))
-	if len(data) == 0 {
-		return nil, common.Hash{}, 0, 0
-	}
-	var entry TxLookupEntry
-	if err := rlp.DecodeBytes(data, &entry); err != nil {
-		return nil, common.Hash{}, 0, 0
-	}
-	return &tx, entry.BlockHash, entry.BlockIndex, entry.Index
-}
-
-// GetReceipt retrieves a specific transaction receipt from the database, along with
-// its added positional metadata.
-func GetReceipt(db DatabaseReader, hash common.Hash) (*types.Receipt, common.Hash, uint64, uint64) {
-	// Retrieve the lookup metadata and resolve the receipt from the receipts
-	blockHash, blockNumber, receiptIndex := GetTxLookupEntry(db, hash)
-
-	if blockHash != (common.Hash{}) {
-		receipts := GetBlockReceipts(db, blockHash, blockNumber)
-		if len(receipts) <= int(receiptIndex) {
-			log.Error("Receipt referenced missing", "number", blockNumber, "hash", blockHash, "index", receiptIndex)
-			return nil, common.Hash{}, 0, 0
-		}
-		return receipts[receiptIndex], blockHash, blockNumber, receiptIndex
-	}
-	// Old receipt representation, load the receipt and set an unknown metadata
-	data, _ := db.Get(oldReceiptsKey(hash))
-	if len(data) == 0 {
-		return nil, common.Hash{}, 0, 0
-	}
-	var receipt types.ReceiptForStorage
-	err := rlp.DecodeBytes(data, &receipt)
-	if err != nil {
-		log.Error("Invalid receipt RLP", "hash", hash, "err", err)
-	}
-	return (*types.Receipt)(&receipt), common.Hash{}, 0, 0
-}
-
-// GetBloomBits retrieves the compressed bloom bit vector belonging to the given
-// bit index and section indexes.
-func GetBloomBits(db DatabaseReader, bit uint, section uint64, head common.Hash) ([]byte, error) {
-	return db.Get(bloomBitsKey(bit, section, head))
-}
-
 // WriteCanonicalHash stores the canonical hash for the given block number.
 func WriteCanonicalHash(db ethdb.KeyValueWriter, hash common.Hash, number uint64) error {
 	if err := db.Put(headerHashKey(number), hash.Bytes()); err != nil {
@@ -426,35 +331,6 @@ func WriteBlockReceipts(db ethdb.KeyValueWriter, hash common.Hash, number uint64
 	return nil
 }
 
-// WriteTxLookupEntries stores a positional metadata for every transaction from
-// a block, enabling hash based transaction and receipt lookups.
-func WriteTxLookupEntries(db ethdb.KeyValueWriter, block *types.Block) error {
-	// Iterate over each transaction and encode its metadata
-	for i, tx := range block.Transactions() {
-		entry := TxLookupEntry{
-			BlockHash:  block.Hash(),
-			BlockIndex: block.NumberU64(),
-			Index:      uint64(i),
-		}
-		data, err := rlp.EncodeToBytes(entry)
-		if err != nil {
-			return err
-		}
-		if err := db.Put(txLookupKey(tx.Hash()), data); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// WriteBloomBits writes the compressed bloom bits vector belonging to the given
-// section and bit index.
-func WriteBloomBits(db ethdb.KeyValueWriter, bit uint, section uint64, head common.Hash, bits []byte) {
-	if err := db.Put(bloomBitsKey(bit, section, head), bits); err != nil {
-		log.Crit("Failed to store bloom bits", "err", err)
-	}
-}
-
 // DeleteCanonicalHash removes the number to hash canonical mapping.
 func DeleteCanonicalHash(db DatabaseDeleter, number uint64) {
 	db.Delete(headerHashKey(number))
@@ -463,7 +339,7 @@ func DeleteCanonicalHash(db DatabaseDeleter, number uint64) {
 // DeleteHeader removes all block header data associated with a hash.
 func DeleteHeader(db DatabaseDeleter, hash common.Hash, number uint64) {
 	db.Delete(headerNumberKey(hash))
-	db.Delete(headerHashKey(number))
+	db.Delete(headerKey(number, hash))
 }
 
 // DeleteBody removes all block body data associated with a hash.
@@ -487,11 +363,6 @@ func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
 // DeleteBlockReceipts removes all receipt data associated with a block hash.
 func DeleteBlockReceipts(db DatabaseDeleter, hash common.Hash, number uint64) {
 	db.Delete(blockReceiptsKey(number, hash))
-}
-
-// DeleteTxLookupEntry removes all transaction data associated with a hash.
-func DeleteTxLookupEntry(db DatabaseDeleter, hash common.Hash) {
-	db.Delete(txLookupKey(hash))
 }
 
 // PreimageTable returns a Database instance with the key prefix for preimage entries.
@@ -519,51 +390,6 @@ func WritePreimages(db ethdb.Database, number uint64, preimages map[common.Hash]
 		}
 	}
 	return nil
-}
-
-// GetBlockChainVersion reads the version number from db.
-func GetBlockChainVersion(db DatabaseReader) int {
-	var vsn uint
-	enc, _ := db.Get([]byte("BlockchainVersion"))
-	rlp.DecodeBytes(enc, &vsn)
-	return int(vsn)
-}
-
-// WriteBlockChainVersion writes vsn as the version number to db.
-func WriteBlockChainVersion(db ethdb.KeyValueWriter, vsn int) {
-	enc, _ := rlp.EncodeToBytes(uint(vsn))
-	db.Put([]byte("BlockchainVersion"), enc)
-}
-
-// WriteChainConfig writes the chain config settings to the database.
-func WriteChainConfig(db ethdb.KeyValueWriter, hash common.Hash, cfg *params.ChainConfig) error {
-	// short circuit and ignore if nil config. GetChainConfig
-	// will return a default.
-	if cfg == nil {
-		return nil
-	}
-
-	jsonChainConfig, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	return db.Put(configKey(hash), jsonChainConfig)
-}
-
-// GetChainConfig will fetch the network settings based on the given hash.
-func GetChainConfig(db DatabaseReader, hash common.Hash) (*params.ChainConfig, error) {
-	jsonChainConfig, _ := db.Get(configKey(hash))
-	if len(jsonChainConfig) == 0 {
-		return nil, ErrChainConfigNotFound
-	}
-
-	var config params.ChainConfig
-	if err := json.Unmarshal(jsonChainConfig, &config); err != nil {
-		return nil, err
-	}
-
-	return &config, nil
 }
 
 // FindCommonAncestor returns the last common ancestor of two block headers
