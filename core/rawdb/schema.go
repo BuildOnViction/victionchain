@@ -33,12 +33,12 @@ var (
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`).
 	headerPrefix        = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
-	tdSuffix            = []byte("t") // headerPrefix + num (uint64 big endian) + hash + tdSuffix -> td
-	numSuffix           = []byte("n") // headerPrefix + num (uint64 big endian) + numSuffix -> hash
-	blockHashPrefix     = []byte("H") // blockHashPrefix + hash -> num (uint64 big endian)
-	bodyPrefix          = []byte("b") // bodyPrefix + num (uint64 big endian) + hash -> block body
+	headerTDSuffix      = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
+	headerHashSuffix    = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	headerNumberPrefix  = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
+	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
-	lookupPrefix        = []byte("l") // lookupPrefix + hash -> transaction/receipt lookup metadata
+	txLookupPrefix      = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
 	bloomBitsPrefix     = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
 	preimagePrefix = "secure-key-"              // preimagePrefix + hash -> preimage
@@ -62,9 +62,19 @@ func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
 }
 
-// headerTDKey = headerPrefix + num (uint64 big endian) + hash + tdSuffix
+// headerKey = headerPrefix + num (uint64 big endian) + hash
+func headerKey(number uint64, hash common.Hash) []byte {
+	return append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+}
+
+// headerTDKey = headerPrefix + num (uint64 big endian) + hash + headerTDSuffix
 func headerTDKey(number uint64, hash common.Hash) []byte {
-	return append(HeaderKey(number, hash), tdSuffix...)
+	return append(HeaderKey(number, hash), headerTDSuffix...)
+}
+
+// headerHashKey = headerPrefix + num (uint64 big endian) + headerHashSuffix
+func headerHashKey(number uint64) []byte {
+	return append(append(headerPrefix, encodeBlockNumber(number)...), headerHashSuffix...)
 }
 
 // HeaderKey = headerPrefix + num (uint64 big endian) + hash
@@ -72,9 +82,14 @@ func HeaderKey(number uint64, hash common.Hash) []byte {
 	return append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
 }
 
-// BlockBodyKey = bodyPrefix + num (uint64 big endian) + hash
+// headerNumberKey = headerNumberPrefix + hash
+func headerNumberKey(hash common.Hash) []byte {
+	return append(headerNumberPrefix, hash.Bytes()...)
+}
+
+// BlockBodyKey = blockBodyPrefix + num (uint64 big endian) + hash
 func BlockBodyKey(number uint64, hash common.Hash) []byte {
-	return append(append(bodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+	return append(append(blockBodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
 }
 
 // blockReceiptsKey = blockReceiptsPrefix + num (uint64 big endian) + hash
@@ -82,9 +97,9 @@ func blockReceiptsKey(number uint64, hash common.Hash) []byte {
 	return append(append(blockReceiptsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
 }
 
-// txLookupKey = lookupPrefix + hash
+// txLookupKey = txLookupPrefix + hash
 func txLookupKey(hash common.Hash) []byte {
-	return append(lookupPrefix, hash.Bytes()...)
+	return append(txLookupPrefix, hash.Bytes()...)
 }
 
 // bloomBitsKey = bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash
@@ -95,4 +110,14 @@ func bloomBitsKey(bit uint, section uint64, hash common.Hash) []byte {
 	binary.BigEndian.PutUint64(key[3:], section)
 
 	return key
+}
+
+// oldTxMetaKey = hash + oldTxMetaSuffix
+func oldTxMetaKey(hash common.Hash) []byte {
+	return append(hash.Bytes(), oldTxMetaSuffix...)
+}
+
+// oldReceiptsKey = oldReceiptsPrefix + hash
+func oldReceiptsKey(hash common.Hash) []byte {
+	return append(oldReceiptsPrefix, hash[:]...)
 }

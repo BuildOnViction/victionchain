@@ -58,7 +58,7 @@ func encodeBlockNumber(number uint64) []byte {
 
 // GetCanonicalHash retrieves a hash assigned to a canonical block number.
 func GetCanonicalHash(db DatabaseReader, number uint64) common.Hash {
-	data, _ := db.Get(append(append(headerPrefix, encodeBlockNumber(number)...), numSuffix...))
+	data, _ := db.Get(headerHashKey(number))
 	if len(data) == 0 {
 		return common.Hash{}
 	}
@@ -72,7 +72,7 @@ const MissingNumber = uint64(0xffffffffffffffff)
 // GetBlockNumber returns the block number assigned to a block hash
 // if the corresponding header is present in the database
 func GetBlockNumber(db DatabaseReader, hash common.Hash) uint64 {
-	data, _ := db.Get(append(blockHashPrefix, hash.Bytes()...))
+	data, _ := db.Get(headerNumberKey(hash))
 	if len(data) != 8 {
 		return MissingNumber
 	}
@@ -114,7 +114,7 @@ func GetHeadFastBlockHash(db DatabaseReader) common.Hash {
 }
 
 // GetTrieSyncProgress retrieves the number of tries nodes fast synced to allow
-// reportinc correct numbers across restarts.
+// reporting correct numbers across restarts.
 func GetTrieSyncProgress(db DatabaseReader) uint64 {
 	data, _ := db.Get(trieSyncKey)
 	if len(data) == 0 {
@@ -151,7 +151,7 @@ func GetBodyRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue
 	return data
 }
 
-// GetBody retrieves the block body (transactons, uncles) corresponding to the
+// GetBody retrieves the block body (transactions, uncles) corresponding to the
 // hash, nil if none found.
 func GetBody(db DatabaseReader, hash common.Hash, number uint64) *types.Body {
 	data := GetBodyRLP(db, hash, number)
@@ -208,7 +208,7 @@ func GetBlockReceipts(db DatabaseReader, hash common.Hash, number uint64) types.
 	if len(data) == 0 {
 		return nil
 	}
-	storageReceipts := []*types.ReceiptForStorage{}
+	var storageReceipts []*types.ReceiptForStorage
 	if err := rlp.DecodeBytes(data, &storageReceipts); err != nil {
 		log.Error("Invalid receipt array RLP", "hash", hash, "err", err)
 		return nil
@@ -251,7 +251,7 @@ func GetTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, co
 		}
 		return body.Transactions[txIndex], blockHash, blockNumber, txIndex
 	}
-	// Old transaction representation, load the transaction and it's metadata separately
+	// Old transaction representation, load the transaction and its metadata separately
 	data, _ := db.Get(hash.Bytes())
 	if len(data) == 0 {
 		return nil, common.Hash{}, 0, 0
@@ -261,7 +261,7 @@ func GetTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, co
 		return nil, common.Hash{}, 0, 0
 	}
 	// Retrieve the blockchain positional metadata
-	data, _ = db.Get(append(hash.Bytes(), oldTxMetaSuffix...))
+	data, _ = db.Get(oldTxMetaKey(hash))
 	if len(data) == 0 {
 		return nil, common.Hash{}, 0, 0
 	}
@@ -281,13 +281,13 @@ func GetReceipt(db DatabaseReader, hash common.Hash) (*types.Receipt, common.Has
 	if blockHash != (common.Hash{}) {
 		receipts := GetBlockReceipts(db, blockHash, blockNumber)
 		if len(receipts) <= int(receiptIndex) {
-			log.Error("Receipt refereced missing", "number", blockNumber, "hash", blockHash, "index", receiptIndex)
+			log.Error("Receipt referenced missing", "number", blockNumber, "hash", blockHash, "index", receiptIndex)
 			return nil, common.Hash{}, 0, 0
 		}
 		return receipts[receiptIndex], blockHash, blockNumber, receiptIndex
 	}
 	// Old receipt representation, load the receipt and set an unknown metadata
-	data, _ := db.Get(append(oldReceiptsPrefix, hash[:]...))
+	data, _ := db.Get(oldReceiptsKey(hash))
 	if len(data) == 0 {
 		return nil, common.Hash{}, 0, 0
 	}
@@ -300,15 +300,14 @@ func GetReceipt(db DatabaseReader, hash common.Hash) (*types.Receipt, common.Has
 }
 
 // GetBloomBits retrieves the compressed bloom bit vector belonging to the given
-// section and bit index from the.
+// bit index and section indexes.
 func GetBloomBits(db DatabaseReader, bit uint, section uint64, head common.Hash) ([]byte, error) {
 	return db.Get(bloomBitsKey(bit, section, head))
 }
 
 // WriteCanonicalHash stores the canonical hash for the given block number.
 func WriteCanonicalHash(db ethdb.KeyValueWriter, hash common.Hash, number uint64) error {
-	key := append(append(headerPrefix, encodeBlockNumber(number)...), numSuffix...)
-	if err := db.Put(key, hash.Bytes()); err != nil {
+	if err := db.Put(headerHashKey(number), hash.Bytes()); err != nil {
 		log.Crit("Failed to store number to hash mapping", "err", err)
 	}
 	return nil
@@ -353,15 +352,13 @@ func WriteHeader(db ethdb.KeyValueWriter, header *types.Header) error {
 	if err != nil {
 		return err
 	}
-	hash := header.Hash().Bytes()
+	hash := header.Hash()
 	num := header.Number.Uint64()
 	encNum := encodeBlockNumber(num)
-	key := append(blockHashPrefix, hash...)
-	if err := db.Put(key, encNum); err != nil {
+	if err := db.Put(headerNumberKey(hash), encNum); err != nil {
 		log.Crit("Failed to store hash to number mapping", "err", err)
 	}
-	key = append(append(headerPrefix, encNum...), hash...)
-	if err := db.Put(key, data); err != nil {
+	if err := db.Put(headerKey(num, hash), data); err != nil {
 		log.Crit("Failed to store header", "err", err)
 	}
 	return nil
@@ -453,25 +450,20 @@ func WriteTxLookupEntries(db ethdb.KeyValueWriter, block *types.Block) error {
 // WriteBloomBits writes the compressed bloom bits vector belonging to the given
 // section and bit index.
 func WriteBloomBits(db ethdb.KeyValueWriter, bit uint, section uint64, head common.Hash, bits []byte) {
-	key := append(append(bloomBitsPrefix, make([]byte, 10)...), head.Bytes()...)
-
-	binary.BigEndian.PutUint16(key[1:], uint16(bit))
-	binary.BigEndian.PutUint64(key[3:], section)
-
-	if err := db.Put(key, bits); err != nil {
+	if err := db.Put(bloomBitsKey(bit, section, head), bits); err != nil {
 		log.Crit("Failed to store bloom bits", "err", err)
 	}
 }
 
 // DeleteCanonicalHash removes the number to hash canonical mapping.
 func DeleteCanonicalHash(db DatabaseDeleter, number uint64) {
-	db.Delete(append(append(headerPrefix, encodeBlockNumber(number)...), numSuffix...))
+	db.Delete(headerHashKey(number))
 }
 
 // DeleteHeader removes all block header data associated with a hash.
 func DeleteHeader(db DatabaseDeleter, hash common.Hash, number uint64) {
-	db.Delete(append(blockHashPrefix, hash.Bytes()...))
-	db.Delete(append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...))
+	db.Delete(headerNumberKey(hash))
+	db.Delete(headerHashKey(number))
 }
 
 // DeleteBody removes all block body data associated with a hash.
