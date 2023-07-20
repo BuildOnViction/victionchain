@@ -371,7 +371,7 @@ func (hc *HeaderChain) HasHeader(hash common.Hash, number uint64) bool {
 	if hc.numberCache.Contains(hash) || hc.headerCache.Contains(hash) {
 		return true
 	}
-	ok, _ := hc.chainDb.Has(rawdb.HeaderKey(hash, number))
+	ok, _ := hc.chainDb.Has(rawdb.HeaderKey(number, hash))
 	return ok
 }
 
