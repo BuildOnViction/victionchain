@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/eth/downloader"
 	"github.com/tomochain/tomochain/light"
 )
@@ -61,7 +61,7 @@ func (pm *ProtocolManager) syncer() {
 
 func (pm *ProtocolManager) needToSync(peerHead blockInfo) bool {
 	head := pm.blockchain.CurrentHeader()
-	currentTd := core.GetTd(pm.chainDb, head.Hash(), head.Number.Uint64())
+	currentTd := rawdb.GetTd(pm.chainDb, head.Hash(), head.Number.Uint64())
 	return currentTd != nil && peerHead.Td.Cmp(currentTd) > 0
 }
 

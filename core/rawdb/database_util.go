@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package rawdb
 
 import (
 	"bytes"
@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
@@ -100,16 +99,16 @@ func GetCanonicalHash(db DatabaseReader, number uint64) common.Hash {
 	return common.BytesToHash(data)
 }
 
-// missingNumber is returned by GetBlockNumber if no header with the
+// MissingNumber is returned by GetBlockNumber if no header with the
 // given block hash has been stored in the database
-const missingNumber = uint64(0xffffffffffffffff)
+const MissingNumber = uint64(0xffffffffffffffff)
 
 // GetBlockNumber returns the block number assigned to a block hash
 // if the corresponding header is present in the database
 func GetBlockNumber(db DatabaseReader, hash common.Hash) uint64 {
 	data, _ := db.Get(append(blockHashPrefix, hash.Bytes()...))
 	if len(data) != 8 {
-		return missingNumber
+		return MissingNumber
 	}
 	return binary.BigEndian.Uint64(data)
 }
@@ -161,7 +160,7 @@ func GetTrieSyncProgress(db DatabaseReader) uint64 {
 // GetHeaderRLP retrieves a block header in its raw RLP database encoding, or nil
 // if the header's not found.
 func GetHeaderRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
-	data, _ := db.Get(headerKey(hash, number))
+	data, _ := db.Get(HeaderKey(hash, number))
 	return data
 }
 
@@ -182,15 +181,15 @@ func GetHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Header
 
 // GetBodyRLP retrieves the block body (transactions and uncles) in RLP encoding.
 func GetBodyRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
-	data, _ := db.Get(blockBodyKey(hash, number))
+	data, _ := db.Get(BlockBodyKey(hash, number))
 	return data
 }
 
-func headerKey(hash common.Hash, number uint64) []byte {
+func HeaderKey(hash common.Hash, number uint64) []byte {
 	return append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
 }
 
-func blockBodyKey(hash common.Hash, number uint64) []byte {
+func BlockBodyKey(hash common.Hash, number uint64) []byte {
 	return append(append(bodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
 }
 
@@ -555,7 +554,7 @@ func DeleteTxLookupEntry(db DatabaseDeleter, hash common.Hash) {
 
 // PreimageTable returns a Database instance with the key prefix for preimage entries.
 func PreimageTable(db ethdb.Database) ethdb.Database {
-	return rawdb.NewTable(db, preimagePrefix)
+	return NewTable(db, preimagePrefix)
 }
 
 // WritePreimages writes the provided set of preimages to the database. `number` is the

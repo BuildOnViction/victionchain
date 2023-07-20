@@ -18,6 +18,7 @@
 package eth
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -27,18 +28,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tomochain/tomochain/tomoxlending"
-
-	"github.com/tomochain/tomochain/accounts/abi/bind"
-	"github.com/tomochain/tomochain/common/hexutil"
-	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/eth/filters"
-	"github.com/tomochain/tomochain/rlp"
-
-	"bytes"
-
 	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/consensus/posv"
@@ -46,11 +39,12 @@ import (
 	contractValidator "github.com/tomochain/tomochain/contracts/validator/contract"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/bloombits"
-
-	//"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/eth/downloader"
+	"github.com/tomochain/tomochain/eth/filters"
 	"github.com/tomochain/tomochain/eth/gasprice"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/event"
@@ -60,8 +54,10 @@ import (
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/rpc"
 	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomoxlending"
 )
 
 type LesServer interface {
@@ -160,11 +156,11 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
-		bcVersion := core.GetBlockChainVersion(chainDb)
+		bcVersion := rawdb.GetBlockChainVersion(chainDb)
 		if bcVersion != core.BlockChainVersion && bcVersion != 0 {
 			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run geth upgradedb.\n", bcVersion, core.BlockChainVersion)
 		}
-		core.WriteBlockChainVersion(chainDb, core.BlockChainVersion)
+		rawdb.WriteBlockChainVersion(chainDb, core.BlockChainVersion)
 	}
 	var (
 		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
@@ -187,7 +183,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
 		eth.blockchain.SetHead(compat.RewindTo)
-		core.WriteChainConfig(chainDb, genesisHash, chainConfig)
+		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 	eth.bloomIndexer.Start(eth.blockchain)
 

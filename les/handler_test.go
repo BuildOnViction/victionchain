@@ -18,7 +18,6 @@ package les
 
 import (
 	"encoding/binary"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/eth/downloader"
@@ -304,7 +304,7 @@ func testGetReceipt(t *testing.T, protocol int) {
 		block := bc.GetBlockByNumber(i)
 
 		hashes = append(hashes, block.Hash())
-		receipts = append(receipts, core.GetBlockReceipts(db, block.Hash(), block.NumberU64()))
+		receipts = append(receipts, rawdb.GetBlockReceipts(db, block.Hash(), block.NumberU64()))
 	}
 	// Send the hash request and verify the response
 	cost := peer.GetRequestCost(GetReceiptsMsg, len(hashes))
@@ -555,9 +555,9 @@ func TestTransactionStatusLes2(t *testing.T) {
 	}
 
 	// check if their status is included now
-	block1hash := core.GetCanonicalHash(db, 1)
-	test(tx1, false, txStatus{Status: core.TxStatusIncluded, Lookup: &core.TxLookupEntry{BlockHash: block1hash, BlockIndex: 1, Index: 0}})
-	test(tx2, false, txStatus{Status: core.TxStatusIncluded, Lookup: &core.TxLookupEntry{BlockHash: block1hash, BlockIndex: 1, Index: 1}})
+	block1hash := rawdb.GetCanonicalHash(db, 1)
+	test(tx1, false, txStatus{Status: core.TxStatusIncluded, Lookup: &rawdb.TxLookupEntry{BlockHash: block1hash, BlockIndex: 1, Index: 0}})
+	test(tx2, false, txStatus{Status: core.TxStatusIncluded, Lookup: &rawdb.TxLookupEntry{BlockHash: block1hash, BlockIndex: 1, Index: 1}})
 
 	// create a reorg that rolls them back
 	gchain, _ = core.GenerateChain(params.TestChainConfig, chain.GetBlockByNumber(0), ethash.NewFaker(), db, 2, func(i int, block *core.BlockGen) {})

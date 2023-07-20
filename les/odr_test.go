@@ -19,7 +19,6 @@ package les
 import (
 	"bytes"
 	"context"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
@@ -64,9 +64,9 @@ func odrGetBlock(ctx context.Context, db ethdb.Database, config *params.ChainCon
 func odrGetReceipts(ctx context.Context, db ethdb.Database, config *params.ChainConfig, bc *core.BlockChain, lc *light.LightChain, bhash common.Hash) []byte {
 	var receipts types.Receipts
 	if bc != nil {
-		receipts = core.GetBlockReceipts(db, bhash, core.GetBlockNumber(db, bhash))
+		receipts = rawdb.GetBlockReceipts(db, bhash, rawdb.GetBlockNumber(db, bhash))
 	} else {
-		receipts, _ = light.GetBlockReceipts(ctx, lc.Odr(), bhash, core.GetBlockNumber(db, bhash))
+		receipts, _ = light.GetBlockReceipts(ctx, lc.Odr(), bhash, rawdb.GetBlockNumber(db, bhash))
 	}
 	if receipts == nil {
 		return nil
@@ -190,7 +190,7 @@ func testOdr(t *testing.T, protocol int, expFail uint64, fn odrTestFn) {
 
 	test := func(expFail uint64) {
 		for i := uint64(0); i <= pm.blockchain.CurrentHeader().Number.Uint64(); i++ {
-			bhash := core.GetCanonicalHash(db, i)
+			bhash := rawdb.GetCanonicalHash(db, i)
 			b1 := fn(light.NoOdr, db, pm.chainConfig, pm.blockchain.(*core.BlockChain), nil, bhash)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)

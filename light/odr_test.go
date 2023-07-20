@@ -20,16 +20,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
@@ -72,9 +72,9 @@ func (odr *testOdr) Retrieve(ctx context.Context, req OdrRequest) error {
 	}
 	switch req := req.(type) {
 	case *BlockRequest:
-		req.Rlp = core.GetBodyRLP(odr.sdb, req.Hash, core.GetBlockNumber(odr.sdb, req.Hash))
+		req.Rlp = rawdb.GetBodyRLP(odr.sdb, req.Hash, rawdb.GetBlockNumber(odr.sdb, req.Hash))
 	case *ReceiptsRequest:
-		req.Receipts = core.GetBlockReceipts(odr.sdb, req.Hash, core.GetBlockNumber(odr.sdb, req.Hash))
+		req.Receipts = rawdb.GetBlockReceipts(odr.sdb, req.Hash, rawdb.GetBlockNumber(odr.sdb, req.Hash))
 	case *TrieRequest:
 		t, _ := trie.New(req.Id.Root, trie.NewDatabase(odr.sdb))
 		nodes := NewNodeSet()
@@ -110,9 +110,9 @@ func TestOdrGetReceiptsLes1(t *testing.T) { testChainOdr(t, 1, odrGetReceipts) }
 func odrGetReceipts(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc *LightChain, bhash common.Hash) ([]byte, error) {
 	var receipts types.Receipts
 	if bc != nil {
-		receipts = core.GetBlockReceipts(db, bhash, core.GetBlockNumber(db, bhash))
+		receipts = rawdb.GetBlockReceipts(db, bhash, rawdb.GetBlockNumber(db, bhash))
 	} else {
-		receipts, _ = GetBlockReceipts(ctx, lc.Odr(), bhash, core.GetBlockNumber(db, bhash))
+		receipts, _ = GetBlockReceipts(ctx, lc.Odr(), bhash, rawdb.GetBlockNumber(db, bhash))
 	}
 	if receipts == nil {
 		return nil, nil
@@ -268,7 +268,7 @@ func testChainOdr(t *testing.T, protocol int, fn odrTestFn) {
 
 	test := func(expFail int) {
 		for i := uint64(0); i <= blockchain.CurrentHeader().Number.Uint64(); i++ {
-			bhash := core.GetCanonicalHash(sdb, i)
+			bhash := rawdb.GetCanonicalHash(sdb, i)
 			b1, err := fn(NoOdr, sdb, blockchain, nil, bhash)
 			if err != nil {
 				t.Fatalf("error in full-node test for block %d: %v", i, err)
