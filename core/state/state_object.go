@@ -23,6 +23,7 @@ import (
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
 )
@@ -58,12 +59,12 @@ func (self Storage) Copy() Storage {
 //
 // The usage pattern is as follows:
 // First you need to obtain a state object.
-// Account values can be accessed and modified through the object.
+// StateAccount values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
 	address  common.Address
 	addrHash common.Hash // hash of ethereum address of the account
-	data     Account
+	data     types.StateAccount
 	db       *StateDB
 
 	// DB error.
@@ -95,17 +96,8 @@ func (s *stateObject) empty() bool {
 	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash)
 }
 
-// Account is the Ethereum consensus representation of accounts.
-// These objects are stored in the main account trie.
-type Account struct {
-	Nonce    uint64
-	Balance  *big.Int
-	Root     common.Hash // merkle root of the storage trie
-	CodeHash []byte
-}
-
 // newObject creates a state object.
-func newObject(db *StateDB, address common.Address, data Account, onDirty func(addr common.Address)) *stateObject {
+func newObject(db *StateDB, address common.Address, data types.StateAccount, onDirty func(addr common.Address)) *stateObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
@@ -397,7 +389,7 @@ func (self *stateObject) Nonce() uint64 {
 }
 
 // Never called, but must be present to allow stateObject to be used
-// as a vm.Account interface that also satisfies the vm.ContractRef
+// as a vm.StateAccount interface that also satisfies the vm.ContractRef
 // interface. Interfaces are awesome.
 func (self *stateObject) Value() *big.Int {
 	panic("Value on stateObject should never be called")

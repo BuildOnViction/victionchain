@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"net"
 	"sync"
@@ -30,6 +29,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/eth/downloader"
@@ -1095,18 +1095,18 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 }
 
 // getAccount retrieves an account from the state based at root.
-func (pm *ProtocolManager) getAccount(statedb *state.StateDB, root, hash common.Hash) (state.Account, error) {
+func (pm *ProtocolManager) getAccount(statedb *state.StateDB, root, hash common.Hash) (types.StateAccount, error) {
 	trie, err := trie.New(root, statedb.Database().TrieDB())
 	if err != nil {
-		return state.Account{}, err
+		return types.StateAccount{}, err
 	}
 	blob, err := trie.TryGet(hash[:])
 	if err != nil {
-		return state.Account{}, err
+		return types.StateAccount{}, err
 	}
-	var account state.Account
+	var account types.StateAccount
 	if err = rlp.DecodeBytes(blob, &account); err != nil {
-		return state.Account{}, err
+		return types.StateAccount{}, err
 	}
 	return account, nil
 }

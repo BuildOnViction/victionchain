@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
 )
@@ -104,7 +105,7 @@ func (it *NodeIterator) step() error {
 		return nil
 	}
 	// Otherwise we've reached an account node, initiate data iteration
-	var account Account
+	var account types.StateAccount
 	if err := rlp.Decode(bytes.NewReader(it.stateIt.LeafBlob()), &account); err != nil {
 		return err
 	}
