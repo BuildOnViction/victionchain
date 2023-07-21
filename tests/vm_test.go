@@ -25,9 +25,6 @@ import (
 )
 
 func TestVM(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping testing in short mode")
-	}
 	common.TIPTomoXCancellationFee = big.NewInt(100000000)
 	t.Parallel()
 	vmt := new(testMatcher)
