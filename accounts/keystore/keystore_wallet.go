@@ -90,7 +90,7 @@ func (w *keystoreWallet) SignHash(account accounts.Account, hash []byte) ([]byte
 	if account.URL != (accounts.URL{}) && account.URL != w.account.URL {
 		return nil, accounts.ErrUnknownAccount
 	}
-	// Account seems valid, request the keystore to sign
+	// StateAccount seems valid, request the keystore to sign
 	return w.keystore.SignHash(account, hash)
 }
 
@@ -106,7 +106,7 @@ func (w *keystoreWallet) SignTx(account accounts.Account, tx *types.Transaction,
 	if account.URL != (accounts.URL{}) && account.URL != w.account.URL {
 		return nil, accounts.ErrUnknownAccount
 	}
-	// Account seems valid, request the keystore to sign
+	// StateAccount seems valid, request the keystore to sign
 	return w.keystore.SignTx(account, tx, chainID)
 }
 
@@ -120,7 +120,7 @@ func (w *keystoreWallet) SignHashWithPassphrase(account accounts.Account, passph
 	if account.URL != (accounts.URL{}) && account.URL != w.account.URL {
 		return nil, accounts.ErrUnknownAccount
 	}
-	// Account seems valid, request the keystore to sign
+	// StateAccount seems valid, request the keystore to sign
 	return w.keystore.SignHashWithPassphrase(account, passphrase, hash)
 }
 
@@ -134,6 +134,6 @@ func (w *keystoreWallet) SignTxWithPassphrase(account accounts.Account, passphra
 	if account.URL != (accounts.URL{}) && account.URL != w.account.URL {
 		return nil, accounts.ErrUnknownAccount
 	}
-	// Account seems valid, request the keystore to sign
+	// StateAccount seems valid, request the keystore to sign
 	return w.keystore.SignTxWithPassphrase(account, passphrase, tx, chainID)
 }
