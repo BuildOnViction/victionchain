@@ -26,16 +26,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/trie"
-
-	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/trie"
 )
 
 // testTxPoolConfig is a transaction pool configuration without stateful disk

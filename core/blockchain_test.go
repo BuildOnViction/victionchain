@@ -24,16 +24,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/trie"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/trie"
 )
 
 // Test fork of length N starting from block i

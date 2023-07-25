@@ -25,18 +25,17 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/trie"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/trie"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
