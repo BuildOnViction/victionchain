@@ -23,9 +23,8 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/tomochain/tomochain/rlp/internal/rlpstruct"
-
 	"github.com/holiman/uint256"
+	"github.com/tomochain/tomochain/rlp/internal/rlpstruct"
 )
 
 var (

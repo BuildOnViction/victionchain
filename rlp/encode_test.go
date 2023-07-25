@@ -26,9 +26,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tomochain/tomochain/common/math"
-
 	"github.com/holiman/uint256"
+	"github.com/tomochain/tomochain/common/math"
 )
 
 type testEncoder struct {

@@ -28,9 +28,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tomochain/tomochain/rlp/internal/rlpstruct"
-
 	"github.com/holiman/uint256"
+	"github.com/tomochain/tomochain/rlp/internal/rlpstruct"
 )
 
 //lint:ignore ST1012 EOL is not an error.
