@@ -106,7 +106,12 @@ type rawNode []byte
 func (n rawNode) Cache() (HashNode, bool)   { panic("this should never end up in a live trie") }
 func (n rawNode) fstring(ind string) string { panic("this should never end up in a live trie") }
 
-// rawFullNode represents only the useful data content of a full Node, with the
+func (n rawNode) EncodeRLP(w io.Writer) error {
+	_, err := w.Write([]byte(n))
+	return err
+}
+
+// rawFullNode represents only the useful data content of a full node, with the
 // caches and flags stripped out to minimize its data storage. This type honors
 // the same RLP encoding as the original parent.
 type rawFullNode [17]Node
@@ -184,7 +189,7 @@ func (n *cachedNode) obj(hash common.Hash) Node {
 
 // forChilds invokes the callback for  all the tracked children of this Node,
 // both the implicit ones  from inside the Node as well as the explicit ones
-//from outside the Node.
+// from outside the Node.
 func (n *cachedNode) forChilds(onChild func(hash common.Hash)) {
 	for child := range n.children {
 		onChild(child)
@@ -785,6 +790,7 @@ func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleane
 	if err != nil {
 		return err
 	}
+
 	if err := batch.Put(hash[:], node.rlp()); err != nil {
 		return err
 	}

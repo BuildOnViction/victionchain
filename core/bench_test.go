@@ -23,6 +23,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/tomochain/tomochain/core/rawdb"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/consensus/ethash"
@@ -275,6 +277,8 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 	}
 	makeChainForBench(db, full, count)
 	db.Close()
+	cacheConfig := defaultCacheConfig
+	cacheConfig.Disabled = true
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -284,7 +288,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 		if err != nil {
 			b.Fatalf("error opening database at %v: %v", dir, err)
 		}
-		chain, err := NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{})
+		chain, err := NewBlockChain(db, cacheConfig, params.TestChainConfig, ethash.NewFaker(), vm.Config{})
 		if err != nil {
 			b.Fatalf("error creating chain: %v", err)
 		}

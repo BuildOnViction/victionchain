@@ -32,6 +32,7 @@ import (
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/trie"
 )
 
 // Test fork of length N starting from block i
@@ -617,12 +618,12 @@ func TestFastVsFullChains(t *testing.T) {
 		}
 		if fblock, ablock := fast.GetBlockByHash(hash), archive.GetBlockByHash(hash); fblock.Hash() != ablock.Hash() {
 			t.Errorf("block #%d [%x]: block mismatch: have %v, want %v", num, hash, fblock, ablock)
-		} else if types.DeriveSha(fblock.Transactions()) != types.DeriveSha(ablock.Transactions()) {
+		} else if types.DeriveSha(fblock.Transactions(), new(trie.StackTrie)) != types.DeriveSha(ablock.Transactions(), new(trie.StackTrie)) {
 			t.Errorf("block #%d [%x]: transactions mismatch: have %v, want %v", num, hash, fblock.Transactions(), ablock.Transactions())
 		} else if types.CalcUncleHash(fblock.Uncles()) != types.CalcUncleHash(ablock.Uncles()) {
 			t.Errorf("block #%d [%x]: uncles mismatch: have %v, want %v", num, hash, fblock.Uncles(), ablock.Uncles())
 		}
-		if freceipts, areceipts := rawdb.GetBlockReceipts(fastDb, hash, rawdb.GetBlockNumber(fastDb, hash)), rawdb.GetBlockReceipts(archiveDb, hash, rawdb.GetBlockNumber(archiveDb, hash)); types.DeriveSha(freceipts) != types.DeriveSha(areceipts) {
+		if freceipts, areceipts := GetBlockReceipts(fastDb, hash, GetBlockNumber(fastDb, hash)), GetBlockReceipts(archiveDb, hash, GetBlockNumber(archiveDb, hash)); types.DeriveSha(freceipts, new(trie.StackTrie)) != types.DeriveSha(areceipts, new(trie.StackTrie)) {
 			t.Errorf("block #%d [%x]: receipts mismatch: have %v, want %v", num, hash, freceipts, areceipts)
 		}
 	}

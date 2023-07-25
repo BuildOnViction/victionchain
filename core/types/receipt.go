@@ -36,17 +36,17 @@ var (
 
 const (
 	// ReceiptStatusFailed is the status code of a transaction if execution failed.
-	ReceiptStatusFailed = uint(0)
+	ReceiptStatusFailed = uint64(0)
 
 	// ReceiptStatusSuccessful is the status code of a transaction if execution succeeded.
-	ReceiptStatusSuccessful = uint(1)
+	ReceiptStatusSuccessful = uint64(1)
 )
 
 // Receipt represents the results of a transaction.
 type Receipt struct {
 	// Consensus fields
 	PostState         []byte `json:"root"`
-	Status            uint   `json:"status"`
+	Status            uint64 `json:"status"`
 	CumulativeGasUsed uint64 `json:"cumulativeGasUsed" gencodec:"required"`
 	Bloom             Bloom  `json:"logsBloom"         gencodec:"required"`
 	Logs              []*Log `json:"logs"              gencodec:"required"`
@@ -206,11 +206,9 @@ type Receipts []*Receipt
 // Len returns the number of receipts in this list.
 func (r Receipts) Len() int { return len(r) }
 
-// GetRlp returns the RLP encoding of one receipt from the list.
-func (r Receipts) GetRlp(i int) []byte {
-	bytes, err := rlp.EncodeToBytes(r[i])
-	if err != nil {
-		panic(err)
-	}
-	return bytes
+// EncodeIndex encodes the i'th receipt to w.
+func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
+	r := rs[i]
+	data := &receiptRLP{r.statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs}
+	rlp.Encode(w, data)
 }

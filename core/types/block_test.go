@@ -17,13 +17,15 @@
 package types
 
 import (
+	"bytes"
+	"hash"
 	"math/big"
+	"reflect"
 	"testing"
 
-	"bytes"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
-	"reflect"
+	"golang.org/x/crypto/sha3"
 )
 
 // from bcValidBlockTest.json, "SimpleTx"
@@ -58,4 +60,39 @@ func TestBlockEncoding(t *testing.T) {
 	if !bytes.Equal(ourBlockEnc, blockEnc) {
 		t.Errorf("encoded block mismatch:\ngot:  %x\nwant: %x", ourBlockEnc, blockEnc)
 	}
+}
+
+func TestUncleHash(t *testing.T) {
+	uncles := make([]*Header, 0)
+	h := CalcUncleHash(uncles)
+	exp := common.HexToHash("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347")
+	if h != exp {
+		t.Fatalf("empty uncle hash is wrong, got %x != %x", h, exp)
+	}
+}
+
+var benchBuffer = bytes.NewBuffer(make([]byte, 0, 32000))
+
+// testHasher is the helper tool for transaction/receipt list hashing.
+// The original hasher is trie, in order to get rid of import cycle,
+// use the testing hasher instead.
+type testHasher struct {
+	hasher hash.Hash
+}
+
+func newHasher() *testHasher {
+	return &testHasher{hasher: sha3.NewLegacyKeccak256()}
+}
+
+func (h *testHasher) Reset() {
+	h.hasher.Reset()
+}
+
+func (h *testHasher) Update(key, val []byte) {
+	h.hasher.Write(key)
+	h.hasher.Write(val)
+}
+
+func (h *testHasher) Hash() common.Hash {
+	return common.BytesToHash(h.hasher.Sum(nil))
 }
