@@ -17,12 +17,11 @@
 package types
 
 import (
+	"bytes"
 	"hash"
 	"math/big"
-	"testing"
-
-	"bytes"
 	"reflect"
+	"testing"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"

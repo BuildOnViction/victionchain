@@ -790,7 +790,7 @@ func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleane
 	if err != nil {
 		return err
 	}
-	fmt.Println("commit", node)
+
 	if err := batch.Put(hash[:], node.rlp()); err != nil {
 		return err
 	}

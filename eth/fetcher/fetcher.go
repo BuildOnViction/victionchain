@@ -532,7 +532,7 @@ func (f *Fetcher) loop() {
 
 				for hash, announce := range f.completing {
 					if f.queued[hash] == nil {
-						txnHash := types.DeriveSha(types.Transactions(task.transactions[i]), new(trie.Trie))
+						txnHash := types.DeriveSha(types.Transactions(task.transactions[i]), new(trie.StackTrie))
 						uncleHash := types.CalcUncleHash(task.uncles[i])
 
 						if txnHash == announce.header.TxHash && uncleHash == announce.header.UncleHash && announce.origin == task.peer {

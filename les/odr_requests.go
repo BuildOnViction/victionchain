@@ -114,7 +114,7 @@ func (r *BlockRequest) Validate(db ethdb.Database, msg *Msg) error {
 	if header == nil {
 		return errHeaderUnavailable
 	}
-	if header.TxHash != types.DeriveSha(types.Transactions(body.Transactions), new(trie.Trie)) {
+	if header.TxHash != types.DeriveSha(types.Transactions(body.Transactions), new(trie.StackTrie)) {
 		return errTxHashMismatch
 	}
 	if header.UncleHash != types.CalcUncleHash(body.Uncles) {
@@ -170,7 +170,7 @@ func (r *ReceiptsRequest) Validate(db ethdb.Database, msg *Msg) error {
 	if header == nil {
 		return errHeaderUnavailable
 	}
-	if header.ReceiptHash != types.DeriveSha(receipt, new(trie.Trie)) {
+	if header.ReceiptHash != types.DeriveSha(receipt, new(trie.StackTrie)) {
 		return errReceiptHashMismatch
 	}
 	// Validations passed, store and return
