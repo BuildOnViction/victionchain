@@ -23,7 +23,6 @@ import (
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/ethdb/memorydb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rlp"
 )
@@ -395,11 +394,11 @@ func hasRightElement(node Node, key []byte) bool {
 // Expect the normal case, this function can also be used to verify the following
 // range proofs(note this function doesn't accept zero element proof):
 //
-// - All elements proof. In this case the left and right proof can be nil, but the
-//   range should be all the leaves in the trie.
+//   - All elements proof. In this case the left and right proof can be nil, but the
+//     range should be all the leaves in the trie.
 //
-// - One element proof. In this case no matter the left edge proof is a non-existent
-//   proof or not, we can always verify the correctness of the proof.
+//   - One element proof. In this case no matter the left edge proof is a non-existent
+//     proof or not, we can always verify the correctness of the proof.
 //
 // Except returning the error to indicate the proof is valid or not, the function will
 // also return a flag to indicate whether there exists more accounts/slots in the trie.
@@ -419,17 +418,14 @@ func VerifyRangeProof(rootHash common.Hash, firstKey []byte, keys [][]byte, valu
 	// Special case, there is no edge proof at all. The given range is expected
 	// to be the whole leaf-set in the trie.
 	if firstProof == nil && lastProof == nil {
-		emptytrie, err := New(common.Hash{}, NewDatabase(memorydb.New()))
-		if err != nil {
-			return err, false
-		}
+		tr := NewStackTrie(nil)
 		for index, key := range keys {
-			emptytrie.TryUpdate(key, values[index])
+			tr.Update(key, values[index])
 		}
-		if emptytrie.Hash() != rootHash {
-			return fmt.Errorf("invalid proof, want hash %x, got %x", rootHash, emptytrie.Hash()), false
+		if have, want := tr.Hash(), rootHash; have != want {
+			return fmt.Errorf("invalid proof, want hash %x, got %x", want, have), false
 		}
-		return nil, false // no more element.
+		return nil, false // No more elements
 	}
 	// Special case, there is only one element and left edge
 	// proof is an existent one.
@@ -464,12 +460,12 @@ func VerifyRangeProof(rootHash common.Hash, firstKey []byte, keys [][]byte, valu
 	}
 	// Rebuild the trie with the leave stream, the shape of trie
 	// should be same with the original one.
-	newtrie := &Trie{root: root, Db: NewDatabase(memorydb.New())}
+	tr := &Trie{root: root}
 	for index, key := range keys {
-		newtrie.TryUpdate(key, values[index])
+		tr.Update(key, values[index])
 	}
-	if newtrie.Hash() != rootHash {
-		return fmt.Errorf("invalid proof, want hash %x, got %x", rootHash, newtrie.Hash()), false
+	if tr.Hash() != rootHash {
+		return fmt.Errorf("invalid proof, want hash %x, got %x", rootHash, tr.Hash()), false
 	}
 	return nil, hasRightElement(root, keys[len(keys)-1])
 }

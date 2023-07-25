@@ -53,6 +53,9 @@ type Trie struct {
 	// hashing operation. This number will not directly map to the number of
 	// actually unhashed nodes
 	unhashed int
+
+	// reader is the handler trie can retrieve nodes from.
+	reader *trieReader
 }
 
 // newFlag returns the Cache flag value for a newly created Node.
@@ -408,7 +411,6 @@ func (t *Trie) MustUpdate(key, value []byte) {
 	if err := t.Update(key, value); err != nil {
 		log.Error("Unhandled trie error in Trie.Update", "err", err)
 	}
-	return nil
 }
 
 // Update associates key with value in the trie. Subsequent calls to

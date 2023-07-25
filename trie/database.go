@@ -30,6 +30,8 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/trie/triedb/hashdb"
+	"github.com/tomochain/tomochain/trie/trienode"
 )
 
 var (
@@ -65,6 +67,33 @@ const secureKeyPrefixLength = 11
 // secureKeyLength is the length of the above prefix + 32byte hash.
 const secureKeyLength = secureKeyPrefixLength + 32
 
+// backend defines the methods needed to access/update trie nodes in different
+// state scheme.
+type backend interface {
+	// Scheme returns the identifier of used storage scheme.
+	Scheme() string
+
+	// Initialized returns an indicator if the state data is already initialized
+	// according to the state scheme.
+	Initialized(genesisRoot common.Hash) bool
+
+	// Size returns the current storage size of the memory cache in front of the
+	// persistent database layer.
+	Size() common.StorageSize
+
+	// Update performs a state transition by committing dirty nodes contained
+	// in the given set in order to update state from the specified parent to
+	// the specified root.
+	Update(root common.Hash, parent common.Hash, nodes *trienode.MergedNodeSet) error
+
+	// Commit writes all relevant trie nodes belonging to the specified state
+	// to disk. Report specifies whether logs will be displayed in info level.
+	Commit(root common.Hash, report bool) error
+
+	// Close closes the trie database backend and releases all held resources.
+	Close() error
+}
+
 // Database is an intermediate write layer between the trie data structures and
 // the disk database. The aim is to accumulate trie writes in-memory and only
 // periodically flush a couple tries to disk, garbage collecting the remainder.
@@ -96,6 +125,8 @@ type Database struct {
 	preimagesSize common.StorageSize // Storage size of the preimages Cache
 
 	Lock sync.RWMutex
+
+	backend backend // The backend for managing trie nodes
 }
 
 // rawNode is a simple binary blob used to differentiate between collapsed trie
@@ -302,6 +333,12 @@ func NewDatabaseWithCache(diskdb ethdb.KeyValueStore, cache int) *Database {
 		}},
 		preimages: make(map[common.Hash][]byte),
 	}
+}
+
+// Reader returns a reader for accessing all trie nodes with provided state root.
+// An error will be returned if the requested state is not available.
+func (db *Database) Reader(blockRoot common.Hash) (Reader, error) {
+	return db.backend.(*hashdb.Database).Reader(blockRoot)
 }
 
 // DiskDB retrieves the persistent storage backing the trie database.
