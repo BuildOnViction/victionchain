@@ -17,10 +17,9 @@
 package trie
 
 import (
-	"fmt"
-
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 // SecureTrie wraps a trie with key hashing. In a secure trie, all
@@ -50,7 +49,7 @@ type SecureTrie struct {
 // Accessing the trie loads nodes from the database or Node pool on demand.
 // Loaded nodes are kept around until their 'Cache generation' expires.
 // A new Cache generation is created by each call to Commit.
-// cachelimit sets the number of past Cache generations to keep.
+// cache limit sets the number of past Cache generations to keep.
 func NewSecure(root common.Hash, db *Database) (*SecureTrie, error) {
 	if db == nil {
 		panic("trie.NewSecure called without a database")
@@ -62,46 +61,89 @@ func NewSecure(root common.Hash, db *Database) (*SecureTrie, error) {
 	return &SecureTrie{trie: *trie}, nil
 }
 
-// Get returns the value for key stored in the trie.
+// MustGet returns the value for key stored in the trie.
 // The value bytes must not be modified by the caller.
-func (t *SecureTrie) Get(key []byte) []byte {
-	res, err := t.TryGet(key)
-	if err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+//
+// This function will omit any encountered error but just
+// print out an error message.
+func (t *SecureTrie) MustGet(key []byte) []byte {
+	return t.trie.MustGet(t.hashKey(key))
+}
+
+// GetStorage attempts to retrieve a storage slot with provided account address
+// and slot key. The value bytes must not be modified by the caller.
+// If the specified storage slot is not in the trie, nil will be returned.
+// If a trie node is not found in the database, a MissingNodeError is returned.
+func (t *SecureTrie) GetStorage(_ common.Address, key []byte) ([]byte, error) {
+	enc, err := t.trie.Get(t.hashKey(key))
+	if err != nil || len(enc) == 0 {
+		return nil, err
 	}
-	return res
+	_, content, _, err := rlp.Split(enc)
+	return content, err
 }
 
-// TryGet returns the value for key stored in the trie.
-// The value bytes must not be modified by the caller.
-// If a Node was not found in the database, a MissingNodeError is returned.
-func (t *SecureTrie) TryGet(key []byte) ([]byte, error) {
-	return t.trie.TryGet(t.hashKey(key))
+// GetAccount attempts to retrieve an account with provided account address.
+// If the specified account is not in the trie, nil will be returned.
+// If a trie node is not found in the database, a MissingNodeError is returned.
+func (t *SecureTrie) GetAccount(address common.Address) (*types.StateAccount, error) {
+	res, err := t.trie.Get(t.hashKey(address.Bytes()))
+	if res == nil || err != nil {
+		return nil, err
+	}
+	ret := new(types.StateAccount)
+	err = rlp.DecodeBytes(res, ret)
+	return ret, err
 }
 
-// Update associates key with value in the trie. Subsequent calls to
+// GetAccountByHash does the same thing as GetAccount, however it expects an
+// account hash that is the hash of address. This constitutes an abstraction
+// leak, since the client code needs to know the key format.
+func (t *SecureTrie) GetAccountByHash(addrHash common.Hash) (*types.StateAccount, error) {
+	res, err := t.trie.Get(addrHash.Bytes())
+	if res == nil || err != nil {
+		return nil, err
+	}
+	ret := new(types.StateAccount)
+	err = rlp.DecodeBytes(res, ret)
+	return ret, err
+}
+
+// GetNode attempts to retrieve a trie node by compact-encoded path. It is not
+// possible to use keybyte-encoding as the path might contain odd nibbles.
+// If the specified trie node is not in the trie, nil will be returned.
+// If a trie node is not found in the database, a MissingNodeError is returned.
+func (t *SecureTrie) GetNode(path []byte) ([]byte, int, error) {
+	return t.trie.GetNode(path)
+}
+
+// MustUpdate associates key with value in the trie. Subsequent calls to
 // Get will return value. If value has length zero, any existing value
 // is deleted from the trie and calls to Get will return nil.
 //
 // The value bytes must not be modified by the caller while they are
 // stored in the trie.
-func (t *SecureTrie) Update(key, value []byte) {
-	if err := t.TryUpdate(key, value); err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
-	}
-}
-
-// TryUpdate associates key with value in the trie. Subsequent calls to
-// Get will return value. If value has length zero, any existing value
-// is deleted from the trie and calls to Get will return nil.
 //
-// The value bytes must not be modified by the caller while they are
-// stored in the trie.
-//
-// If a Node was not found in the database, a MissingNodeError is returned.
-func (t *SecureTrie) TryUpdate(key, value []byte) error {
+// This function will omit any encountered error but just print out an
+// error message.
+func (t *SecureTrie) MustUpdate(key, value []byte) {
 	hk := t.hashKey(key)
-	err := t.trie.TryUpdate(hk, value)
+	t.trie.MustUpdate(hk, value)
+	t.getSecKeyCache()[string(hk)] = common.CopyBytes(key)
+}
+
+// UpdateStorage associates key with value in the trie. Subsequent calls to
+// Get will return value. If value has length zero, any existing value
+// is deleted from the trie and calls to Get will return nil.
+//
+// The value bytes must not be modified by the caller while they are
+// stored in the trie.
+//
+// If a node is not found in the database, a MissingNodeError is returned.
+func (t *SecureTrie) UpdateStorage(_ common.Address, key, value []byte) error {
+	hk := t.hashKey(key)
+	v, _ := rlp.EncodeToBytes(value)
+	err := t.trie.Update(hk, v)
 	if err != nil {
 		return err
 	}
@@ -109,19 +151,47 @@ func (t *SecureTrie) TryUpdate(key, value []byte) error {
 	return nil
 }
 
-// Delete removes any existing value for key from the trie.
-func (t *SecureTrie) Delete(key []byte) {
-	if err := t.TryDelete(key); err != nil {
-		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+// UpdateAccount will abstract the write of an account to the secure trie.
+
+func (t *SecureTrie) UpdateAccount(address common.Address, acc *types.StateAccount) error {
+	hk := t.hashKey(address.Bytes())
+	data, err := rlp.EncodeToBytes(acc)
+	if err != nil {
+		return err
 	}
+	if err := t.trie.Update(hk, data); err != nil {
+		return err
+	}
+	t.getSecKeyCache()[string(hk)] = address.Bytes()
+	return nil
 }
 
-// TryDelete removes any existing value for key from the trie.
-// If a Node was not found in the database, a MissingNodeError is returned.
-func (t *SecureTrie) TryDelete(key []byte) error {
+func (t *SecureTrie) UpdateContractCode(_ common.Address, _ common.Hash, _ []byte) error {
+	return nil
+}
+
+// MustDelete removes any existing value for key from the trie. This function
+// will omit any encountered error but just print out an error message.
+func (t *SecureTrie) MustDelete(key []byte) {
 	hk := t.hashKey(key)
 	delete(t.getSecKeyCache(), string(hk))
-	return t.trie.TryDelete(hk)
+	t.trie.MustDelete(hk)
+}
+
+// DeleteStorage removes any existing storage slot from the trie.
+// If the specified trie node is not in the trie, nothing will be changed.
+// If a node is not found in the database, a MissingNodeError is returned.
+func (t *SecureTrie) DeleteStorage(_ common.Address, key []byte) error {
+	hk := t.hashKey(key)
+	delete(t.getSecKeyCache(), string(hk))
+	return t.trie.Delete(hk)
+}
+
+// DeleteAccount abstracts an account deletion from the trie.
+func (t *SecureTrie) DeleteAccount(address common.Address) error {
+	hk := t.hashKey(address.Bytes())
+	delete(t.getSecKeyCache(), string(hk))
+	return t.trie.Delete(hk)
 }
 
 // GetKey returns the sha3 Preimage of a hashed key that was
