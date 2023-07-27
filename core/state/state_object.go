@@ -97,7 +97,7 @@ func (s *stateObject) empty() bool {
 }
 
 // newObject creates a state object.
-func newObject(db *StateDB, address common.Address, data types.StateAccount, onDirty func(addr common.Address)) *stateObject {
+func newObject(db *StateDB, address common.Address, data *types.StateAccount, onDirty func(addr common.Address)) *stateObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
@@ -108,7 +108,7 @@ func newObject(db *StateDB, address common.Address, data types.StateAccount, onD
 		db:            db,
 		address:       address,
 		addrHash:      crypto.Keccak256Hash(address[:]),
-		data:          data,
+		data:          *data,
 		cachedStorage: make(Storage),
 		dirtyStorage:  make(Storage),
 		onDirty:       onDirty,
@@ -163,7 +163,7 @@ func (c *stateObject) getTrie(db Database) Trie {
 func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
 	value := common.Hash{}
 	// Load from DB in case it is missing.
-	enc, err := self.getTrie(db).TryGet(key[:])
+	enc, err := self.getTrie(db).GetStorage(self.address, key.Bytes())
 	if err != nil {
 		self.setError(err)
 		return common.Hash{}
@@ -184,7 +184,7 @@ func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		return value
 	}
 	// Load from DB in case it is missing.
-	enc, err := self.getTrie(db).TryGet(key[:])
+	enc, err := self.getTrie(db).GetStorage(self.address, key.Bytes())
 	if err != nil {
 		self.setError(err)
 		return common.Hash{}
@@ -228,12 +228,12 @@ func (self *stateObject) updateTrie(db Database) Trie {
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
 		if (value == common.Hash{}) {
-			self.setError(tr.TryDelete(key[:]))
+			self.setError(tr.DeleteStorage(self.address, key[:]))
 			continue
 		}
 		// Encoding []byte cannot fail, ok to ignore the error.
 		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
-		self.setError(tr.TryUpdate(key[:], v))
+		self.setError(tr.UpdateStorage(self.address, key[:], v))
 	}
 	return tr
 }
@@ -302,7 +302,7 @@ func (self *stateObject) setBalance(amount *big.Int) {
 func (c *stateObject) ReturnGas(gas *big.Int) {}
 
 func (self *stateObject) deepCopy(db *StateDB, onDirty func(addr common.Address)) *stateObject {
-	stateObject := newObject(db, self.address, self.data, onDirty)
+	stateObject := newObject(db, self.address, &self.data, onDirty)
 	if self.trie != nil {
 		stateObject.trie = db.db.CopyTrie(self.trie)
 	}

@@ -80,7 +80,7 @@ func main() {
 		atomic.StoreInt32(&finish, 1)
 		if running {
 			for _, address := range cleanAddress {
-				enc := trieRoot.trie.Get(address.Bytes())
+				enc := trieRoot.trie.MustGet(address.Bytes())
 				var data types.StateAccount
 				rlp.DecodeBytes(enc, &data)
 				fmt.Println(time.Now().Format(time.RFC3339), "Start clean state address ", address.Hex(), " at block ", trieRoot.number)
