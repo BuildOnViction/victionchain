@@ -20,11 +20,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"os"
 	"runtime/pprof"
 	"time"
+
+	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/trie"
 
 	goruntime "runtime"
 
@@ -83,6 +85,7 @@ func runCmd(ctx *cli.Context) error {
 		debugLogger *vm.StructLogger
 		statedb     *state.StateDB
 		chainConfig *params.ChainConfig
+		preimages   = ctx.Bool(DumpFlag.Name)
 		sender      = common.StringToAddress("sender")
 		receiver    = common.StringToAddress("receiver")
 	)
@@ -98,11 +101,11 @@ func runCmd(ctx *cli.Context) error {
 		gen := readGenesis(ctx.GlobalString(GenesisFlag.Name))
 		db := rawdb.NewMemoryDatabase()
 		genesis := gen.ToBlock(db)
-		statedb, _ = state.New(genesis.Root(), state.NewDatabase(db))
+		statedb, _ = state.New(genesis.Root(), state.NewDatabaseWithConfig(db, &trie.Config{Preimages: preimages}))
 		chainConfig = gen.Config
 	} else {
 		db := rawdb.NewMemoryDatabase()
-		statedb, _ = state.New(common.Hash{}, state.NewDatabase(db))
+		statedb, _ = state.New(common.Hash{}, state.NewDatabaseWithConfig(db, &trie.Config{Preimages: preimages}))
 	}
 	if ctx.GlobalString(SenderFlag.Name) != "" {
 		sender = common.HexToAddress(ctx.GlobalString(SenderFlag.Name))

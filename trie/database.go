@@ -726,26 +726,28 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	copy(keyBuf[:], secureKeyPrefix)
 
 	// Move all of the accumulated preimages into a write batch
-	for hash, preimage := range db.preimages.preimages {
-		copy(keyBuf[secureKeyPrefixLength:], hash[:])
-		if err := batch.Put(keyBuf[:], preimage); err != nil {
-			log.Error("Failed to commit Preimage from trie database", "err", err)
-			return err
-		}
-		// If the batch is too large, flush to disk
-		if batch.ValueSize() > ethdb.IdealBatchSize {
-			if err := batch.Write(); err != nil {
+	if db.preimages != nil {
+		for hash, preimage := range db.preimages.preimages {
+			copy(keyBuf[secureKeyPrefixLength:], hash[:])
+			if err := batch.Put(keyBuf[:], preimage); err != nil {
+				log.Error("Failed to commit Preimage from trie database", "err", err)
 				return err
 			}
-			batch.Reset()
+			// If the batch is too large, flush to disk
+			if batch.ValueSize() > ethdb.IdealBatchSize {
+				if err := batch.Write(); err != nil {
+					return err
+				}
+				batch.Reset()
+			}
 		}
+		// Since we're going to replay trie Node writes into the clean Cache, flush out
+		// any batched pre-images before continuing.
+		if err := batch.Write(); err != nil {
+			return err
+		}
+		batch.Reset()
 	}
-	// Since we're going to replay trie Node writes into the clean Cache, flush out
-	// any batched pre-images before continuing.
-	if err := batch.Write(); err != nil {
-		return err
-	}
-	batch.Reset()
 
 	// Move the trie itself into the batch, flushing if enough data is accumulated
 	nodes, storage := len(db.dirties), db.dirtiesSize
@@ -766,10 +768,6 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 
 	batch.Replay(uncacher)
 	batch.Reset()
-
-	// Reset the storage counters and bumpd metrics
-	db.preimages.preimages = make(map[common.Hash][]byte)
-	db.preimagesSize = 0
 
 	memcacheCommitTimeTimer.Update(time.Since(start))
 	memcacheCommitSizeMeter.Mark(int64(storage - db.dirtiesSize))
