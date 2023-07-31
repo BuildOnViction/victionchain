@@ -291,15 +291,15 @@ func expandNode(hash HashNode, n Node) Node {
 // its written out to disk or garbage collected. No read Cache is created, so all
 // data retrievals will hit the underlying disk database.
 func NewDatabase(diskdb ethdb.Database) *Database {
-	return NewDatabaseWithCache(diskdb, &Config{Cache: 0})
+	return NewDatabaseWithConfig(diskdb, nil)
 }
 
-// NewDatabaseWithCache creates a new trie database to store ephemeral trie content
+// NewDatabaseWithConfig creates a new trie database to store ephemeral trie content
 // before its written out to disk or garbage collected. It also acts as a read Cache
 // for nodes loaded from disk.
-func NewDatabaseWithCache(diskdb ethdb.Database, config *Config) *Database {
+func NewDatabaseWithConfig(diskdb ethdb.Database, config *Config) *Database {
 	var cleans *fastcache.Cache
-	if config.Cache > 0 {
+	if config != nil && config.Cache > 0 {
 		cleans = fastcache.New(config.Cache * 1024 * 1024)
 	}
 	var preimages *preimageStore

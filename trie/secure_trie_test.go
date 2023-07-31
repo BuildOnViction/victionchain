@@ -23,19 +23,19 @@ import (
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/ethdb/memorydb"
 )
 
 func newEmptySecure() *SecureTrie {
-	trie, _ := NewSecure(common.Hash{}, NewDatabase(memorydb.New()))
+	trie, _ := NewSecure(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()))
 	return trie
 }
 
 // makeTestSecureTrie creates a large enough secure trie for testing.
 func makeTestSecureTrie() (*Database, *SecureTrie, map[string][]byte) {
 	// Create an empty trie
-	triedb := NewDatabase(memorydb.New())
+	triedb := NewDatabase(rawdb.NewMemoryDatabase())
 	trie, _ := NewSecure(common.Hash{}, triedb)
 
 	// Fill it with some arbitrary data
