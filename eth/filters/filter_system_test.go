@@ -19,7 +19,6 @@ package filters
 import (
 	"context"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -31,6 +30,7 @@ import (
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/bloombits"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/event"
@@ -46,6 +46,10 @@ type testBackend struct {
 	rmLogsFeed *event.Feed
 	logsFeed   *event.Feed
 	chainFeed  *event.Feed
+}
+
+func (b *testBackend) ChainConfig() *params.ChainConfig {
+	return params.TestChainConfig
 }
 
 func (b *testBackend) ChainDb() ethdb.Database {
@@ -71,12 +75,12 @@ func (b *testBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumbe
 
 func (b *testBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
 	number := core.GetBlockNumber(b.db, blockHash)
-	return core.GetBlockReceipts(b.db, blockHash, number), nil
+	return core.GetBlockReceipts(b.db, blockHash, number, b.ChainConfig()), nil
 }
 
 func (b *testBackend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
 	number := core.GetBlockNumber(b.db, blockHash)
-	receipts := core.GetBlockReceipts(b.db, blockHash, number)
+	receipts := core.GetBlockReceipts(b.db, blockHash, number, b.ChainConfig())
 
 	logs := make([][]*types.Log, len(receipts))
 	for i, receipt := range receipts {

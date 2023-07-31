@@ -174,7 +174,7 @@ func (b *SimulatedBackend) ForEachStorageAt(ctx context.Context, contract common
 
 // TransactionReceipt returns the receipt of a transaction.
 func (b *SimulatedBackend) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	receipt, _, _, _ := core.GetReceipt(b.database, txHash)
+	receipt, _, _, _ := core.GetReceipt(b.database, txHash, b.config)
 	return receipt, nil
 }
 
@@ -500,11 +500,11 @@ func (fb *filterBackend) HeaderByNumber(ctx context.Context, block rpc.BlockNumb
 }
 
 func (fb *filterBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
-	return core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash)), nil
+	return core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash), fb.bc.Config()), nil
 }
 
 func (fb *filterBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
-	receipts := core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash))
+	receipts := core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash), fb.bc.Config())
 	if receipts == nil {
 		return nil, nil
 	}

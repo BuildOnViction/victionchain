@@ -76,7 +76,7 @@ func (odr *testOdr) Retrieve(ctx context.Context, req OdrRequest) error {
 	case *ReceiptsRequest:
 		number := core.GetBlockNumber(odr.sdb, req.Hash)
 		if number != core.MissingNumber {
-			req.Receipts = core.GetBlockReceipts(odr.sdb, req.Hash, number)
+			req.Receipts = core.ReadRawReceipts(odr.sdb, req.Hash, number)
 		}
 	case *TrieRequest:
 		t, _ := trie.New(req.Id.Root, trie.NewDatabase(odr.sdb))
@@ -113,15 +113,11 @@ func TestOdrGetReceiptsLes1(t *testing.T) { testChainOdr(t, 1, odrGetReceipts) }
 func odrGetReceipts(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc *LightChain, bhash common.Hash) ([]byte, error) {
 	var receipts types.Receipts
 	if bc != nil {
-		if number := core.GetBlockNumber(db, bhash); number != core.MissingNumber {
-			if block := core.GetBlock(db, bhash, number); block != nil {
-				receipts = core.GetBlockReceipts(db, bhash, number)
-			}
-		}
+		receipts = core.GetBlockReceipts(db, bhash, core.GetBlockNumber(db, bhash), bc.Config())
 	} else {
 		number := core.GetBlockNumber(db, bhash)
 		if number != core.MissingNumber {
-			receipts, _ = GetBlockReceipts(ctx, lc.Odr(), bhash, number)
+			receipts, _ = GetBlockReceipts(ctx, lc.Odr(), bhash, number, lc.Config())
 		}
 	}
 	if receipts == nil {
