@@ -22,8 +22,8 @@ import (
 	"sync"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // leafChanSize is the size of the leafCh. It's a pretty arbitrary number, to allow
@@ -46,7 +46,7 @@ type leaf struct {
 // processed sequentially - onleaf will never be called in parallel or out of order.
 type committer struct {
 	tmp sliceBuffer
-	sha keccakState
+	sha crypto.KeccakState
 
 	onleaf LeafCallback
 	leafCh chan *leaf
@@ -57,7 +57,7 @@ var committerPool = sync.Pool{
 	New: func() interface{} {
 		return &committer{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full FullNode.
-			sha: sha3.NewLegacyKeccak256().(keccakState),
+			sha: crypto.NewKeccakState(),
 		}
 	},
 }

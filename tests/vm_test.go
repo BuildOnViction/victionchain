@@ -17,15 +17,15 @@
 package tests
 
 import (
-	"github.com/tomochain/tomochain/common"
 	"math/big"
 	"testing"
 
+	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/vm"
 )
 
 func TestVM(t *testing.T) {
-	common.TIPTomoXCancellationFee=big.NewInt(100000000)
+	common.TIPTomoXCancellationFee = big.NewInt(100000000)
 	t.Parallel()
 	vmt := new(testMatcher)
 	vmt.fails("^vmSystemOperationsTest.json/createNameRegistrator$", "fails without parallel execution")
