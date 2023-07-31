@@ -174,7 +174,7 @@ func (b *SimulatedBackend) ForEachStorageAt(ctx context.Context, contract common
 
 // TransactionReceipt returns the receipt of a transaction.
 func (b *SimulatedBackend) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	receipt, _, _, _ := core.GetReceipt(b.database, txHash)
+	receipt, _, _, _ := core.GetReceipt(b.database, txHash, b.config)
 	return receipt, nil
 }
 
@@ -215,11 +215,19 @@ func (b *SimulatedBackend) CallContractWithState(call tomochain.CallMsg, chain c
 		call.Value = new(big.Int)
 	}
 	// Execute the call.
-	msg := callmsg{call}
+	msg := &core.Message{
+		To:                call.To,
+		From:              call.From,
+		Value:             call.Value,
+		GasLimit:          call.Gas,
+		GasPrice:          call.GasPrice,
+		Data:              call.Data,
+		SkipAccountChecks: false,
+	}
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-	if msg.To() != nil {
-		if value, ok := feeCapacity[*msg.To()]; ok {
-			msg.CallMsg.BalanceTokenFee = value
+	if msg.To != nil {
+		if value, ok := feeCapacity[*msg.To]; ok {
+			msg.BalanceTokenFee = value
 		}
 	}
 	evmContext := core.NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
@@ -327,11 +335,19 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call tomochain.Call
 	from := statedb.GetOrNewStateObject(call.From)
 	from.SetBalance(math.MaxBig256)
 	// Execute the call.
-	msg := callmsg{call}
+	msg := &core.Message{
+		To:                call.To,
+		From:              call.From,
+		Value:             call.Value,
+		GasLimit:          call.Gas,
+		GasPrice:          call.GasPrice,
+		Data:              call.Data,
+		SkipAccountChecks: true,
+	}
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-	if msg.To() != nil {
-		if value, ok := feeCapacity[*msg.To()]; ok {
-			msg.CallMsg.BalanceTokenFee = value
+	if msg.To != nil {
+		if value, ok := feeCapacity[*msg.To]; ok {
+			msg.BalanceTokenFee = value
 		}
 	}
 	evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil)
@@ -484,11 +500,11 @@ func (fb *filterBackend) HeaderByNumber(ctx context.Context, block rpc.BlockNumb
 }
 
 func (fb *filterBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
-	return core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash)), nil
+	return core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash), fb.bc.Config()), nil
 }
 
 func (fb *filterBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
-	receipts := core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash))
+	receipts := core.GetBlockReceipts(fb.db, hash, core.GetBlockNumber(fb.db, hash), fb.bc.Config())
 	if receipts == nil {
 		return nil, nil
 	}

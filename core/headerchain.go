@@ -26,7 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/types"
@@ -66,9 +66,9 @@ type HeaderChain struct {
 }
 
 // NewHeaderChain creates a new HeaderChain structure.
-//  getValidator should return the parent's validator
-//  procInterrupt points to the parent's interrupt semaphore
-//  wg points to the parent's shutdown wait group
+// getValidator should return the parent's validator
+// procInterrupt points to the parent's interrupt semaphore
+// wg points to the parent's shutdown wait group
 func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
@@ -114,7 +114,7 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) uint64 {
 		return cached.(uint64)
 	}
 	number := GetBlockNumber(hc.chainDb, hash)
-	if number != missingNumber {
+	if number != MissingNumber {
 		hc.numberCache.Add(hash, number)
 	}
 	return number

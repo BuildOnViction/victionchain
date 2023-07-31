@@ -302,7 +302,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 			if full {
 				hash := header.Hash()
 				GetBody(db, hash, n)
-				GetBlockReceipts(db, hash, n)
+				GetBlockReceipts(db, hash, n, chain.Config())
 			}
 		}
 
