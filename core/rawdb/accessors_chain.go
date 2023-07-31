@@ -19,7 +19,6 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
@@ -363,33 +362,6 @@ func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
 // DeleteBlockReceipts removes all receipt data associated with a block hash.
 func DeleteBlockReceipts(db DatabaseDeleter, hash common.Hash, number uint64) {
 	db.Delete(blockReceiptsKey(number, hash))
-}
-
-// PreimageTable returns a Database instance with the key prefix for preimage entries.
-func PreimageTable(db ethdb.Database) ethdb.Database {
-	return NewTable(db, preimagePrefix)
-}
-
-// WritePreimages writes the provided set of preimages to the database. `number` is the
-// current block number, and is used for debug messages only.
-func WritePreimages(db ethdb.Database, number uint64, preimages map[common.Hash][]byte) error {
-	table := PreimageTable(db)
-	batch := table.NewBatch()
-	hitCount := 0
-	for hash, preimage := range preimages {
-		if _, err := table.Get(hash.Bytes()); err != nil {
-			batch.Put(hash.Bytes(), preimage)
-			hitCount++
-		}
-	}
-	preimageCounter.Inc(int64(len(preimages)))
-	preimageHitCounter.Inc(int64(hitCount))
-	if hitCount > 0 {
-		if err := batch.Write(); err != nil {
-			return fmt.Errorf("preimage write fail for block %d: %v", number, err)
-		}
-	}
-	return nil
 }
 
 // FindCommonAncestor returns the last common ancestor of two block headers

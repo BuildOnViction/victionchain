@@ -623,7 +623,7 @@ func TestFastVsFullChains(t *testing.T) {
 		} else if types.CalcUncleHash(fblock.Uncles()) != types.CalcUncleHash(ablock.Uncles()) {
 			t.Errorf("block #%d [%x]: uncles mismatch: have %v, want %v", num, hash, fblock.Uncles(), ablock.Uncles())
 		}
-		if freceipts, areceipts := GetBlockReceipts(fastDb, hash, GetBlockNumber(fastDb, hash)), GetBlockReceipts(archiveDb, hash, GetBlockNumber(archiveDb, hash)); types.DeriveSha(freceipts, new(trie.StackTrie)) != types.DeriveSha(areceipts, new(trie.StackTrie)) {
+		if freceipts, areceipts := rawdb.GetBlockReceipts(fastDb, hash, rawdb.GetBlockNumber(fastDb, hash)), rawdb.GetBlockReceipts(archiveDb, hash, rawdb.GetBlockNumber(archiveDb, hash)); types.DeriveSha(freceipts, new(trie.StackTrie)) != types.DeriveSha(areceipts, new(trie.StackTrie)) {
 			t.Errorf("block #%d [%x]: receipts mismatch: have %v, want %v", num, hash, freceipts, areceipts)
 		}
 	}

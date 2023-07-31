@@ -32,6 +32,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
@@ -49,6 +50,7 @@ import (
 	"github.com/tomochain/tomochain/rpc"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
+	"github.com/tomochain/tomochain/trie"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
