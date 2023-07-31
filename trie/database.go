@@ -67,6 +67,11 @@ const secureKeyPrefixLength = 11
 // secureKeyLength is the length of the above prefix + 32byte hash.
 const secureKeyLength = secureKeyPrefixLength + 32
 
+// Config defines all necessary options for database.
+type Config struct {
+	Cache int // Memory allowance (MB) to use for caching trie nodes in memory
+}
+
 // backend defines the methods needed to access/update trie nodes in different
 // state scheme.
 type backend interface {
@@ -103,6 +108,7 @@ type backend interface {
 // behind this split design is to provide read access to RPC handlers and sync
 // servers even while the trie is executing expensive garbage collection.
 type Database struct {
+	config *Config             // Configuration for trie database
 	diskdb ethdb.KeyValueStore // Persistent storage for matured trie nodes
 
 	cleans  *fastcache.Cache            // GC friendly memory Cache of clean Node RLPs
@@ -310,22 +316,16 @@ func expandNode(hash HashNode, n Node) Node {
 	}
 }
 
-// NewDatabase creates a new trie database to store ephemeral trie content before
-// its written out to disk or garbage collected. No read Cache is created, so all
-// data retrievals will hit the underlying disk database.
-func NewDatabase(diskdb ethdb.KeyValueStore) *Database {
-	return NewDatabaseWithCache(diskdb, 0)
-}
-
-// NewDatabaseWithCache creates a new trie database to store ephemeral trie content
-// before its written out to disk or garbage collected. It also acts as a read Cache
-// for nodes loaded from disk.
-func NewDatabaseWithCache(diskdb ethdb.KeyValueStore, cache int) *Database {
+// prepare initializes the database with provided configs, but the
+// database backend is still left as nil.
+func prepare(diskdb ethdb.KeyValueStore, config *Config) *Database {
 	var cleans *fastcache.Cache
-	if cache > 0 {
-		cleans = fastcache.New(cache * 1024 * 1024)
+	if config != nil && config.Cache > 0 {
+		cleans = fastcache.New(config.Cache * 1024 * 1024)
 	}
+
 	return &Database{
+		config: config,
 		diskdb: diskdb,
 		cleans: cleans,
 		dirties: map[common.Hash]*cachedNode{{}: {
@@ -333,6 +333,22 @@ func NewDatabaseWithCache(diskdb ethdb.KeyValueStore, cache int) *Database {
 		}},
 		preimages: make(map[common.Hash][]byte),
 	}
+}
+
+// NewDatabase creates a new trie database to store ephemeral trie content before
+// its written out to disk or garbage collected. No read Cache is created, so all
+// data retrievals will hit the underlying disk database.
+func NewDatabase(diskdb ethdb.KeyValueStore) *Database {
+	return NewDatabaseWithCache(diskdb, nil)
+}
+
+// NewDatabaseWithCache creates a new trie database to store ephemeral trie content
+// before its written out to disk or garbage collected. It also acts as a read Cache
+// for nodes loaded from disk.
+func NewDatabaseWithCache(diskdb ethdb.KeyValueStore, config *Config) *Database {
+	db := prepare(diskdb, config)
+	db.backend = hashdb.New(diskdb, db.cleans, mptResolver{})
+	return db
 }
 
 // Reader returns a reader for accessing all trie nodes with provided state root.
@@ -344,6 +360,14 @@ func (db *Database) Reader(blockRoot common.Hash) (Reader, error) {
 // DiskDB retrieves the persistent storage backing the trie database.
 func (db *Database) DiskDB() ethdb.KeyValueReader {
 	return db.diskdb
+}
+
+// Update performs a state transition by committing dirty nodes contained in the
+// given set in order to update state from the specified parent to the specified
+// root. The held pre-images accumulated up to this point will be flushed in case
+// the size exceeds the threshold.
+func (db *Database) Update(root common.Hash, parent common.Hash, nodes *trienode.MergedNodeSet) error {
+	return db.backend.Update(root, parent, nodes)
 }
 
 // InsertBlob writes a new reference tracked blob to the memory database if it's
@@ -735,113 +759,7 @@ func (db *Database) Cap(limit common.StorageSize) error {
 // Note, this method is a non-synchronized mutator. It is unsafe to call this
 // concurrently with other mutators.
 func (db *Database) Commit(node common.Hash, report bool) error {
-	// Create a database batch to flush persistent data out. It is important that
-	// outside code doesn't see an inconsistent state (referenced data removed from
-	// memory Cache during commit but not yet in persistent storage). This is ensured
-	// by only uncaching existing data when the database write finalizes.
-	start := time.Now()
-	batch := db.diskdb.NewBatch()
-
-	// We reuse an ephemeral buffer for the keys. The batch Put operation
-	// copies it internally, so we can reuse it.
-	var keyBuf [secureKeyLength]byte
-	copy(keyBuf[:], secureKeyPrefix)
-
-	// Move all of the accumulated preimages into a write batch
-	for hash, preimage := range db.preimages {
-		copy(keyBuf[secureKeyPrefixLength:], hash[:])
-		if err := batch.Put(keyBuf[:], preimage); err != nil {
-			log.Error("Failed to commit Preimage from trie database", "err", err)
-			return err
-		}
-		// If the batch is too large, flush to disk
-		if batch.ValueSize() > ethdb.IdealBatchSize {
-			if err := batch.Write(); err != nil {
-				return err
-			}
-			batch.Reset()
-		}
-	}
-	// Since we're going to replay trie Node writes into the clean Cache, flush out
-	// any batched pre-images before continuing.
-	if err := batch.Write(); err != nil {
-		return err
-	}
-	batch.Reset()
-
-	// Move the trie itself into the batch, flushing if enough data is accumulated
-	nodes, storage := len(db.dirties), db.dirtiesSize
-
-	uncacher := &cleaner{db}
-	if err := db.commit(node, batch, uncacher); err != nil {
-		log.Error("Failed to commit trie from trie database", "err", err)
-		return err
-	}
-	// Trie mostly committed to disk, flush any batch leftovers
-	if err := batch.Write(); err != nil {
-		log.Error("Failed to write trie to disk", "err", err)
-		return err
-	}
-	// Uncache any leftovers in the last batch
-	db.Lock.Lock()
-	defer db.Lock.Unlock()
-
-	batch.Replay(uncacher)
-	batch.Reset()
-
-	// Reset the storage counters and bumpd metrics
-	db.preimages = make(map[common.Hash][]byte)
-	db.preimagesSize = 0
-
-	memcacheCommitTimeTimer.Update(time.Since(start))
-	memcacheCommitSizeMeter.Mark(int64(storage - db.dirtiesSize))
-	memcacheCommitNodesMeter.Mark(int64(nodes - len(db.dirties)))
-
-	logger := log.Info
-	if !report {
-		logger = log.Debug
-	}
-	logger("Persisted trie from memory database", "nodes", nodes-len(db.dirties)+int(db.flushnodes), "size", storage-db.dirtiesSize+db.flushsize, "time", time.Since(start)+db.flushtime,
-		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.dirties), "livesize", db.dirtiesSize)
-
-	// Reset the garbage collection statistics
-	db.gcnodes, db.gcsize, db.gctime = 0, 0, 0
-	db.flushnodes, db.flushsize, db.flushtime = 0, 0, 0
-
-	return nil
-}
-
-// commit is the private locked version of Commit.
-func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleaner) error {
-	// If the Node does not exist, it's a previously committed Node
-	node, ok := db.dirties[hash]
-	if !ok {
-		return nil
-	}
-	var err error
-	node.forChilds(func(child common.Hash) {
-		if err == nil {
-			err = db.commit(child, batch, uncacher)
-		}
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := batch.Put(hash[:], node.rlp()); err != nil {
-		return err
-	}
-	// If we've reached an optimal batch size, commit and start over
-	if batch.ValueSize() >= ethdb.IdealBatchSize {
-		if err := batch.Write(); err != nil {
-			return err
-		}
-		db.Lock.Lock()
-		batch.Replay(uncacher)
-		batch.Reset()
-		db.Lock.Unlock()
-	}
-	return nil
+	return db.backend.Commit(node, report)
 }
 
 // cleaner is a database batch replayer that takes a batch of write operations

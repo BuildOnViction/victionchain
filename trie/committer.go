@@ -277,3 +277,12 @@ func estimateSize(n Node) int {
 
 	}
 }
+
+// mptResolver the children resolver in merkle-patricia-tree.
+type mptResolver struct{}
+
+// ForEach implements childResolver, decodes the provided node and
+// traverses the children inside.
+func (resolver mptResolver) ForEach(node []byte, onChild func(common.Hash)) {
+	forGatherChildren(mustDecodeNodeUnsafe(nil, node), onChild)
+}

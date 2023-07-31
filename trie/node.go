@@ -107,6 +107,39 @@ func MustDecodeNode(hash, buf []byte) Node {
 	return n
 }
 
+// mustDecodeNodeUnsafe is a wrapper of decodeNodeUnsafe and panic if any error is
+// encountered.
+func mustDecodeNodeUnsafe(hash, buf []byte) Node {
+	n, err := decodeNodeUnsafe(hash, buf)
+	if err != nil {
+		panic(fmt.Sprintf("node %x: %v", hash, err))
+	}
+	return n
+}
+
+// decodeNodeUnsafe parses the RLP encoding of a trie node. The passed byte slice
+// will be directly referenced by node without bytes deep copy, so the input MUST
+// not be changed after.
+func decodeNodeUnsafe(hash, buf []byte) (Node, error) {
+	if len(buf) == 0 {
+		return nil, io.ErrUnexpectedEOF
+	}
+	elems, _, err := rlp.SplitList(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %v", err)
+	}
+	switch c, _ := rlp.CountValues(elems); c {
+	case 2:
+		n, err := decodeShort(hash, elems)
+		return n, wrapError(err, "short")
+	case 17:
+		n, err := decodeFull(hash, elems)
+		return n, wrapError(err, "full")
+	default:
+		return nil, fmt.Errorf("invalid number of list elements: %v", c)
+	}
+}
+
 // decodeNode parses the RLP encoding of a trie Node.
 func decodeNode(hash, buf []byte) (Node, error) {
 	if len(buf) == 0 {

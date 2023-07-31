@@ -74,8 +74,8 @@ type ChildResolver interface {
 // behind this split design is to provide read access to RPC handlers and sync
 // servers even while the trie is executing expensive garbage collection.
 type Database struct {
-	diskdb   ethdb.Database // Persistent storage for matured trie nodes
-	resolver ChildResolver  // The handler to resolve children of nodes
+	diskdb   ethdb.KeyValueStore // Persistent storage for matured trie nodes
+	resolver ChildResolver       // The handler to resolve children of nodes
 
 	cleans  *fastcache.Cache            // GC friendly memory cache of clean node RLPs
 	dirties map[common.Hash]*cachedNode // Data and references relationships of dirty trie nodes
@@ -122,7 +122,7 @@ func (n *cachedNode) forChildren(resolver ChildResolver, onChild func(hash commo
 }
 
 // New initializes the hash-based node database.
-func New(diskdb ethdb.Database, cleans *fastcache.Cache, resolver ChildResolver) *Database {
+func New(diskdb ethdb.KeyValueStore, cleans *fastcache.Cache, resolver ChildResolver) *Database {
 	return &Database{
 		diskdb:   diskdb,
 		resolver: resolver,
