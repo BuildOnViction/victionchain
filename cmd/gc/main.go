@@ -14,11 +14,9 @@ import (
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/eth"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/ethdb/leveldb"
-	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
 )
 
@@ -80,9 +78,7 @@ func main() {
 		atomic.StoreInt32(&finish, 1)
 		if running {
 			for _, address := range cleanAddress {
-				enc := trieRoot.trie.Get(address.Bytes())
-				var data types.StateAccount
-				rlp.DecodeBytes(enc, &data)
+				data, _ := trieRoot.trie.GetAccount(address)
 				fmt.Println(time.Now().Format(time.RFC3339), "Start clean state address ", address.Hex(), " at block ", trieRoot.number)
 				signerRoot, err := resolveHash(data.Root[:], db)
 				if err != nil {
