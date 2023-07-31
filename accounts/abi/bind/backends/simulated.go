@@ -215,11 +215,19 @@ func (b *SimulatedBackend) CallContractWithState(call tomochain.CallMsg, chain c
 		call.Value = new(big.Int)
 	}
 	// Execute the call.
-	msg := callmsg{call}
+	msg := &core.Message{
+		To:                call.To,
+		From:              call.From,
+		Value:             call.Value,
+		GasLimit:          call.Gas,
+		GasPrice:          call.GasPrice,
+		Data:              call.Data,
+		SkipAccountChecks: false,
+	}
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-	if msg.To() != nil {
-		if value, ok := feeCapacity[*msg.To()]; ok {
-			msg.CallMsg.BalanceTokenFee = value
+	if msg.To != nil {
+		if value, ok := feeCapacity[*msg.To]; ok {
+			msg.BalanceTokenFee = value
 		}
 	}
 	evmContext := core.NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
@@ -327,11 +335,19 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call tomochain.Call
 	from := statedb.GetOrNewStateObject(call.From)
 	from.SetBalance(math.MaxBig256)
 	// Execute the call.
-	msg := callmsg{call}
+	msg := &core.Message{
+		To:                call.To,
+		From:              call.From,
+		Value:             call.Value,
+		GasLimit:          call.Gas,
+		GasPrice:          call.GasPrice,
+		Data:              call.Data,
+		SkipAccountChecks: true,
+	}
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-	if msg.To() != nil {
-		if value, ok := feeCapacity[*msg.To()]; ok {
-			msg.CallMsg.BalanceTokenFee = value
+	if msg.To != nil {
+		if value, ok := feeCapacity[*msg.To]; ok {
+			msg.BalanceTokenFee = value
 		}
 	}
 	evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil)
