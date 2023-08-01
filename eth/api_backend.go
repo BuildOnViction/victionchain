@@ -33,6 +33,7 @@ import (
 	"github.com/tomochain/tomochain/contracts"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/bloombits"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	stateDatabase "github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
@@ -115,11 +116,11 @@ func (b *EthApiBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*t
 }
 
 func (b *EthApiBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
-	return core.GetBlockReceipts(b.eth.chainDb, blockHash, core.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig()), nil
+	return rawdb.GetBlockReceipts(b.eth.chainDb, blockHash, rawdb.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig()), nil
 }
 
 func (b *EthApiBackend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
-	receipts := core.GetBlockReceipts(b.eth.chainDb, blockHash, core.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig())
+	receipts := rawdb.GetBlockReceipts(b.eth.chainDb, blockHash, rawdb.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig())
 	if receipts == nil {
 		return nil, nil
 	}

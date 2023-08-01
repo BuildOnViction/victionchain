@@ -39,6 +39,7 @@ import (
 	"github.com/tomochain/tomochain/contracts/blocksigner/contract"
 	randomizeContract "github.com/tomochain/tomochain/contracts/randomize/contract"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	stateDatabase "github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
@@ -336,7 +337,7 @@ func GetRewardForCheckpoint(c *posv.Posv, chain consensus.ChainReader, header *t
 			block := chain.GetBlock(header.Hash(), i)
 			txs := block.Transactions()
 			if !chain.Config().IsTIPSigning(header.Number) {
-				receipts := core.GetBlockReceipts(c.GetDb(), header.Hash(), i, chain.Config())
+				receipts := rawdb.GetBlockReceipts(c.GetDb(), header.Hash(), i, chain.Config())
 				signData = c.CacheData(header, txs, receipts)
 			} else {
 				signData = c.CacheSigner(header.Hash(), txs)

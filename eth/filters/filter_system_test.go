@@ -64,23 +64,23 @@ func (b *testBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumbe
 	var hash common.Hash
 	var num uint64
 	if blockNr == rpc.LatestBlockNumber {
-		hash = core.GetHeadBlockHash(b.db)
-		num = core.GetBlockNumber(b.db, hash)
+		hash = rawdb.GetHeadBlockHash(b.db)
+		num = rawdb.GetBlockNumber(b.db, hash)
 	} else {
 		num = uint64(blockNr)
-		hash = core.GetCanonicalHash(b.db, num)
+		hash = rawdb.GetCanonicalHash(b.db, num)
 	}
-	return core.GetHeader(b.db, hash, num), nil
+	return rawdb.GetHeader(b.db, hash, num), nil
 }
 
 func (b *testBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
-	number := core.GetBlockNumber(b.db, blockHash)
-	return core.GetBlockReceipts(b.db, blockHash, number, b.ChainConfig()), nil
+	number := rawdb.GetBlockNumber(b.db, blockHash)
+	return rawdb.GetBlockReceipts(b.db, blockHash, number, b.ChainConfig()), nil
 }
 
 func (b *testBackend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
-	number := core.GetBlockNumber(b.db, blockHash)
-	receipts := core.GetBlockReceipts(b.db, blockHash, number, b.ChainConfig())
+	number := rawdb.GetBlockNumber(b.db, blockHash)
+	receipts := rawdb.GetBlockReceipts(b.db, blockHash, number, b.ChainConfig())
 
 	logs := make([][]*types.Log, len(receipts))
 	for i, receipt := range receipts {
@@ -126,8 +126,8 @@ func (b *testBackend) ServiceFilter(ctx context.Context, session *bloombits.Matc
 				task.Bitsets = make([][]byte, len(task.Sections))
 				for i, section := range task.Sections {
 					if rand.Int()%4 != 0 { // Handle occasional missing deliveries
-						head := core.GetCanonicalHash(b.db, (section+1)*params.BloomBitsBlocks-1)
-						task.Bitsets[i], _ = core.GetBloomBits(b.db, task.Bit, section, head)
+						head := rawdb.GetCanonicalHash(b.db, (section+1)*params.BloomBitsBlocks-1)
+						task.Bitsets[i], _ = rawdb.GetBloomBits(b.db, task.Bit, section, head)
 					}
 				}
 				request <- task

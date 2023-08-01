@@ -30,6 +30,7 @@ import (
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/bloombits"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
@@ -93,11 +94,11 @@ func (b *LesApiBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*t
 }
 
 func (b *LesApiBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
-	return light.GetBlockReceipts(ctx, b.eth.odr, blockHash, core.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig())
+	return light.GetBlockReceipts(ctx, b.eth.odr, blockHash, rawdb.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig())
 }
 
 func (b *LesApiBackend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
-	return light.GetBlockLogs(ctx, b.eth.odr, blockHash, core.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig())
+	return light.GetBlockLogs(ctx, b.eth.odr, blockHash, rawdb.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig())
 }
 
 func (b *LesApiBackend) GetTd(blockHash common.Hash) *big.Int {

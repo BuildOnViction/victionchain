@@ -21,6 +21,7 @@ import (
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 )
@@ -126,7 +127,7 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
 		uncles [][]*types.Header
 	)
 	for _, hash := range hashes {
-		block := core.GetBlock(p.db, hash, p.hc.GetBlockNumber(hash))
+		block := rawdb.GetBlock(p.db, hash, p.hc.GetBlockNumber(hash))
 
 		txs = append(txs, block.Transactions())
 		uncles = append(uncles, block.Uncles())
@@ -140,7 +141,7 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
 func (p *FakePeer) RequestReceipts(hashes []common.Hash) error {
 	var receipts [][]*types.Receipt
 	for _, hash := range hashes {
-		receipts = append(receipts, core.GetBlockReceipts(p.db, hash, p.hc.GetBlockNumber(hash), p.hc.Config()))
+		receipts = append(receipts, rawdb.GetBlockReceipts(p.db, hash, p.hc.GetBlockNumber(hash), p.hc.Config()))
 	}
 	p.dl.DeliverReceipts(p.id, receipts)
 	return nil
