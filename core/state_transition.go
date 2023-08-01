@@ -18,10 +18,12 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
@@ -42,15 +44,17 @@ The state transitioning model does all all the necessary work to work out a vali
 3) Create a new state object if the recipient is \0*32
 4) Value transfer
 == If contract creation ==
-  4a) Attempt to run transaction data
-  4b) If valid, use result as code for the new state object
+
+	4a) Attempt to run transaction data
+	4b) If valid, use result as code for the new state object
+
 == end ==
 5) Run Script section
 6) Derive new state root
 */
 type StateTransition struct {
 	gp         *GasPool
-	msg        Message
+	msg        *Message
 	gas        uint64
 	gasPrice   *big.Int
 	initialGas uint64
@@ -60,20 +64,22 @@ type StateTransition struct {
 	evm        *vm.EVM
 }
 
-// Message represents a message sent to a contract.
-type Message interface {
-	From() common.Address
-	//FromFrontier() (common.Address, error)
-	To() *common.Address
+// A Message contains the data derived from a single transaction that is relevant to state
+// processing.
+type Message struct {
+	To              *common.Address
+	From            common.Address
+	Nonce           uint64
+	Value           *big.Int
+	GasLimit        uint64
+	GasPrice        *big.Int
+	Data            []byte
+	BalanceTokenFee *big.Int
 
-	GasPrice() *big.Int
-	Gas() uint64
-	Value() *big.Int
-
-	Nonce() uint64
-	CheckNonce() bool
-	Data() []byte
-	BalanceTokenFee() *big.Int
+	// When SkipAccountChecks is true, the message nonce is not checked against the
+	// account nonce in state. It also disables checking that the sender is an EOA.
+	// This field will be set to true for operations like RPC eth_call.
+	SkipAccountChecks bool
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -110,16 +116,40 @@ func IntrinsicGas(data []byte, contractCreation, homestead bool) (uint64, error)
 }
 
 // NewStateTransition initialises and returns a new state transition object.
-func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition {
+func NewStateTransition(evm *vm.EVM, msg *Message, gp *GasPool) *StateTransition {
 	return &StateTransition{
 		gp:       gp,
 		evm:      evm,
 		msg:      msg,
-		gasPrice: msg.GasPrice(),
-		value:    msg.Value(),
-		data:     msg.Data(),
+		gasPrice: msg.GasPrice,
+		value:    msg.Value,
+		data:     msg.Data,
 		state:    evm.StateDB,
 	}
+}
+
+// TransactionToMessage converts a transaction into a Message.
+func TransactionToMessage(tx *types.Transaction, s types.Signer, balanceFee *big.Int, number *big.Int) (*Message, error) {
+	msg := &Message{
+		Nonce:             tx.Nonce(),
+		GasLimit:          tx.Gas(),
+		GasPrice:          new(big.Int).Set(tx.GasPrice()),
+		To:                tx.To(),
+		Value:             tx.Value(),
+		Data:              tx.Data(),
+		SkipAccountChecks: false,
+		BalanceTokenFee:   balanceFee,
+	}
+	var err error
+	msg.From, err = types.Sender(s, tx)
+	if balanceFee != nil {
+		if number.Cmp(common.TIPTRC21Fee) > 0 {
+			msg.GasPrice = common.TRC21GasPrice
+		} else {
+			msg.GasPrice = common.TRC21GasPriceBefore
+		}
+	}
+	return msg, err
 }
 
 // ApplyMessage computes the new state by applying the given message
@@ -129,12 +159,12 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, owner common.Address) ([]byte, uint64, bool, error) {
+func ApplyMessage(evm *vm.EVM, msg *Message, gp *GasPool, owner common.Address) ([]byte, uint64, bool, error) {
 	return NewStateTransition(evm, msg, gp).TransitionDb(owner)
 }
 
 func (st *StateTransition) from() vm.AccountRef {
-	f := st.msg.From()
+	f := st.msg.From
 	if !st.state.Exist(f) {
 		st.state.CreateAccount(f)
 	}
@@ -142,14 +172,14 @@ func (st *StateTransition) from() vm.AccountRef {
 }
 
 func (st *StateTransition) balanceTokenFee() *big.Int {
-	return st.msg.BalanceTokenFee()
+	return st.msg.BalanceTokenFee
 }
 
 func (st *StateTransition) to() vm.AccountRef {
 	if st.msg == nil {
 		return vm.AccountRef{}
 	}
-	to := st.msg.To()
+	to := st.msg.To
 	if to == nil {
 		return vm.AccountRef{} // contract creation
 	}
@@ -176,7 +206,7 @@ func (st *StateTransition) buyGas() error {
 		balanceTokenFee = st.balanceTokenFee()
 		from            = st.from()
 	)
-	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.GasLimit), st.gasPrice)
 	if balanceTokenFee == nil {
 		if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
 			return errInsufficientBalanceForGas
@@ -184,12 +214,12 @@ func (st *StateTransition) buyGas() error {
 	} else if balanceTokenFee.Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
 	}
-	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
+	if err := st.gp.SubGas(st.msg.GasLimit); err != nil {
 		return err
 	}
-	st.gas += st.msg.Gas()
+	st.gas += st.msg.GasLimit
 
-	st.initialGas = st.msg.Gas()
+	st.initialGas = st.msg.GasLimit
 	if balanceTokenFee == nil {
 		state.SubBalance(from.Address(), mgval)
 	}
@@ -197,23 +227,34 @@ func (st *StateTransition) buyGas() error {
 }
 
 func (st *StateTransition) preCheck() error {
+	// Only check transactions that are not fake
 	msg := st.msg
-	sender := st.from()
-
-	// Make sure this transaction's nonce is correct
-	if msg.CheckNonce() {
-		nonce := st.state.GetNonce(sender.Address())
-		if nonce < msg.Nonce() {
-			return ErrNonceTooHigh
-		} else if nonce > msg.Nonce() {
-			return ErrNonceTooLow
+	if !msg.SkipAccountChecks {
+		// Make sure this transaction's nonce is correct.
+		stNonce := st.state.GetNonce(msg.From)
+		if msgNonce := msg.Nonce; stNonce < msgNonce {
+			return fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooHigh,
+				msg.From.Hex(), msgNonce, stNonce)
+		} else if stNonce > msgNonce {
+			return fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooLow,
+				msg.From.Hex(), msgNonce, stNonce)
+		} else if stNonce+1 < stNonce {
+			return fmt.Errorf("%w: address %v, nonce: %d", ErrNonceMax,
+				msg.From.Hex(), stNonce)
+		}
+		// Make sure the sender is an EOA
+		codeHash := st.state.GetCodeHash(msg.From)
+		if codeHash != (common.Hash{}) && codeHash != types.EmptyCodeHash {
+			return fmt.Errorf("%w: address %v, codehash: %s", ErrSenderNoEOA,
+				msg.From.Hex(), codeHash)
 		}
 	}
+
 	return st.buyGas()
 }
 
 // TransitionDb will transition the state by applying the current message and
-// returning the result including the the used gas. It returns an error if it
+// returning the result including the used gas. It returns an error if it
 // failed. An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedGas uint64, failed bool, err error) {
 	if err = st.preCheck(); err != nil {
@@ -223,7 +264,7 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	sender := st.from() // err checked in preCheck
 
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
-	contractCreation := msg.To() == nil
+	contractCreation := msg.To == nil
 
 	// Pay intrinsic gas
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead)

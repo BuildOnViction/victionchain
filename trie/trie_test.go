@@ -29,6 +29,7 @@ import (
 	"testing/quick"
 
 	"github.com/davecgh/go-spew/spew"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/ethdb/leveldb"

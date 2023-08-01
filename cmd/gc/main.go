@@ -11,10 +11,11 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/eth"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/ethdb/leveldb"
@@ -81,7 +82,7 @@ func main() {
 		if running {
 			for _, address := range cleanAddress {
 				enc := trieRoot.trie.Get(address.Bytes())
-				var data state.Account
+				var data types.StateAccount
 				rlp.DecodeBytes(enc, &data)
 				fmt.Println(time.Now().Format(time.RFC3339), "Start clean state address ", address.Hex(), " at block ", trieRoot.number)
 				signerRoot, err := resolveHash(data.Root[:], db)
