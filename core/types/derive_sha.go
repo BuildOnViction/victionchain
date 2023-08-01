@@ -21,21 +21,58 @@ import (
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
-	"github.com/tomochain/tomochain/trie"
 )
 
+// DerivableList is the interface which can derive the hash.
 type DerivableList interface {
 	Len() int
-	GetRlp(i int) []byte
+	EncodeIndex(int, *bytes.Buffer)
 }
 
-func DeriveSha(list DerivableList) common.Hash {
-	keybuf := new(bytes.Buffer)
-	trie := new(trie.Trie)
-	for i := 0; i < list.Len(); i++ {
-		keybuf.Reset()
-		rlp.Encode(keybuf, uint(i))
-		trie.Update(keybuf.Bytes(), list.GetRlp(i))
+// Hasher is the tool used to calculate the hash of derivable list.
+type Hasher interface {
+	Reset()
+	Update([]byte, []byte) error
+	Hash() common.Hash
+}
+
+func encodeForDerive(list DerivableList, i int, buf *bytes.Buffer) []byte {
+	buf.Reset()
+	list.EncodeIndex(i, buf)
+	// It's really unfortunate that we need to do perform this copy.
+	// StackTrie holds onto the values until Hash is called, so the values
+	// written to it must not alias.
+	return common.CopyBytes(buf.Bytes())
+}
+
+// DeriveSha creates the tree hashes of transactions, receipts, and withdrawals in a block header.
+func DeriveSha(list DerivableList, hasher Hasher) common.Hash {
+	hasher.Reset()
+
+	valueBuf := encodeBufferPool.Get().(*bytes.Buffer)
+	defer encodeBufferPool.Put(valueBuf)
+
+	// StackTrie requires values to be inserted in increasing hash order, which is not the
+	// order that `list` provides hashes in. This insertion sequence ensures that the
+	// order is correct.
+	//
+	// The error returned by hasher is omitted because hasher will produce an incorrect
+	// hash in case any error occurs.
+	var indexBuf []byte
+	for i := 1; i < list.Len() && i <= 0x7f; i++ {
+		indexBuf = rlp.AppendUint64(indexBuf[:0], uint64(i))
+		value := encodeForDerive(list, i, valueBuf)
+		hasher.Update(indexBuf, value)
 	}
-	return trie.Hash()
+	if list.Len() > 0 {
+		indexBuf = rlp.AppendUint64(indexBuf[:0], 0)
+		value := encodeForDerive(list, 0, valueBuf)
+		hasher.Update(indexBuf, value)
+	}
+	for i := 0x80; i < list.Len(); i++ {
+		indexBuf = rlp.AppendUint64(indexBuf[:0], uint64(i))
+		value := encodeForDerive(list, i, valueBuf)
+		hasher.Update(indexBuf, value)
+	}
+	return hasher.Hash()
 }

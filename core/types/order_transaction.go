@@ -17,6 +17,7 @@
 package types
 
 import (
+	"bytes"
 	"container/heap"
 	"errors"
 	"io"
@@ -250,10 +251,12 @@ func (s OrderTransactions) Len() int { return len(s) }
 // Swap swaps the i'th and the j'th element in s.
 func (s OrderTransactions) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
-// GetRlp implements Rlpable and returns the i'th element of s in rlp.
-func (s OrderTransactions) GetRlp(i int) []byte {
-	enc, _ := rlp.EncodeToBytes(s[i])
-	return enc
+// EncodeIndex encodes the i'th transaction to w. Note that this does not check for errors
+// because we assume that *Transaction will only ever contain valid txs that were either
+// constructed by decoding or via public API in this package.
+func (s OrderTransactions) EncodeIndex(i int, w *bytes.Buffer) {
+	tx := s[i]
+	rlp.Encode(w, tx.data)
 }
 
 // OrderTxDifference returns a new set t which is the difference between a to b.
