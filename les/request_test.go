@@ -18,12 +18,11 @@ package les
 
 import (
 	"context"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"testing"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/eth"
 	"github.com/tomochain/tomochain/ethdb"
@@ -59,7 +58,7 @@ func tfReceiptsAccess(db ethdb.Database, bhash common.Hash, number uint64) light
 //func TestTrieEntryAccessLes2(t *testing.T) { testAccess(t, 2, tfTrieEntryAccess) }
 
 func tfTrieEntryAccess(db ethdb.Database, bhash common.Hash, number uint64) light.OdrRequest {
-	return &light.TrieRequest{Id: light.StateTrieID(core.GetHeader(db, bhash, core.GetBlockNumber(db, bhash))), Key: testBankSecureTrieKey}
+	return &light.TrieRequest{Id: light.StateTrieID(rawdb.GetHeader(db, bhash, rawdb.GetBlockNumber(db, bhash))), Key: testBankSecureTrieKey}
 }
 
 //func TestCodeAccessLes1(t *testing.T) { testAccess(t, 1, tfCodeAccess) }
@@ -67,7 +66,7 @@ func tfTrieEntryAccess(db ethdb.Database, bhash common.Hash, number uint64) ligh
 //func TestCodeAccessLes2(t *testing.T) { testAccess(t, 2, tfCodeAccess) }
 
 func tfCodeAccess(db ethdb.Database, bhash common.Hash, number uint64) light.OdrRequest {
-	header := core.GetHeader(db, bhash, core.GetBlockNumber(db, bhash))
+	header := rawdb.GetHeader(db, bhash, rawdb.GetBlockNumber(db, bhash))
 	if header.Number.Uint64() < testContractDeployed {
 		return nil
 	}
@@ -100,7 +99,7 @@ func testAccess(t *testing.T, protocol int, fn accessTestFn) {
 
 	test := func(expFail uint64) {
 		for i := uint64(0); i <= pm.blockchain.CurrentHeader().Number.Uint64(); i++ {
-			bhash := core.GetCanonicalHash(db, i)
+			bhash := rawdb.GetCanonicalHash(db, i)
 			if req := fn(ldb, bhash, i); req != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 				defer cancel()

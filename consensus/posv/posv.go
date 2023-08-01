@@ -182,7 +182,7 @@ var (
 
 // SignerFn is a signer callback function to request a hash to be signed by a
 // backing account.
-//type SignerFn func(accounts.Account, []byte) ([]byte, error)
+//type SignerFn func(accounts.StateAccount, []byte) ([]byte, error)
 
 // sigHash returns the hash which is used as input for the proof-of-stake-voting
 // signing. It is the hash of the entire header apart from the 65 byte signature

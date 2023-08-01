@@ -32,7 +32,7 @@ import (
 //type Vote struct {
 //	Signer    common.Address `json:"signer"`    // Authorized signer that cast this vote
 //	Block     uint64         `json:"block"`     // Block number the vote was cast in (expire old votes)
-//	Address   common.Address `json:"address"`   // Account being voted on to change its authorization
+//	Address   common.Address `json:"address"`   // StateAccount being voted on to change its authorization
 //	Authorize bool           `json:"authorize"` // Whether to authorize or deauthorize the voted account
 //}
 

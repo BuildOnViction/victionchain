@@ -319,7 +319,7 @@ func (w *wallet) selfDerive() {
 			// Termination requested
 			continue
 		case reqc = <-w.deriveReq:
-			// Account discovery requested
+			// StateAccount discovery requested
 		}
 		// Derivation needs a chain and device access, skip if either unavailable
 		w.stateLock.RLock()

@@ -18,16 +18,16 @@ package downloader
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/ethdb/memorydb"
 	"hash"
 	"sync"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/ethdb/memorydb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/trie"
 )
@@ -470,6 +470,6 @@ func (s *stateSync) updateStats(written, duplicate, unexpected int, duration tim
 		log.Info("Imported new state entries", "count", written, "elapsed", common.PrettyDuration(duration), "processed", s.d.syncStatsState.processed, "pending", s.d.syncStatsState.pending, "retry", len(s.tasks), "duplicate", s.d.syncStatsState.duplicate, "unexpected", s.d.syncStatsState.unexpected)
 	}
 	if written > 0 {
-		core.WriteTrieSyncProgress(s.d.stateDB, s.d.syncStatsState.processed)
+		rawdb.WriteTrieSyncProgress(s.d.stateDB, s.d.syncStatsState.processed)
 	}
 }

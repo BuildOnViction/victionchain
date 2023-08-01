@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
 )
@@ -48,7 +49,7 @@ func (self *StateDB) RawDump() Dump {
 	it := trie.NewIterator(self.trie.NodeIterator(nil))
 	for it.Next() {
 		addr := self.trie.GetKey(it.Key)
-		var data Account
+		var data types.StateAccount
 		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
 			panic(err)
 		}

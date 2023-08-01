@@ -200,7 +200,7 @@ type faucet struct {
 	index  []byte              // Index page to serve up on the web
 
 	keystore *keystore.KeyStore // Keystore containing the single signer
-	account  accounts.Account   // Account funding user faucet requests
+	account  accounts.Account   // StateAccount funding user faucet requests
 	nonce    uint64             // Current pending nonce of the faucet
 	price    *big.Int           // Current gas price to issue funds with
 
