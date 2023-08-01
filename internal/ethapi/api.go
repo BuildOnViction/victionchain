@@ -1061,7 +1061,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 		GasPrice:          gasPrice,
 		Data:              args.Data,
 		BalanceTokenFee:   balanceTokenFee,
-		SkipAccountChecks: false,
+		SkipAccountChecks: true,
 	}
 
 	// Setup context so it may be cancelled the call has completed
