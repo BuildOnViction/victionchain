@@ -163,18 +163,12 @@ func (c *stateObject) getTrie(db Database) Trie {
 func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
 	value := common.Hash{}
 	// Load from DB in case it is missing.
-	enc, err := self.getTrie(db).GetStorage(self.address, key.Bytes())
+	val, err := self.getTrie(db).GetStorage(self.address, key.Bytes())
 	if err != nil {
 		self.setError(err)
 		return common.Hash{}
 	}
-	if len(enc) > 0 {
-		_, content, _, err := rlp.Split(enc)
-		if err != nil {
-			self.setError(err)
-		}
-		value.SetBytes(content)
-	}
+	value.SetBytes(val)
 	return value
 }
 
@@ -184,18 +178,13 @@ func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		return value
 	}
 	// Load from DB in case it is missing.
-	enc, err := self.getTrie(db).GetStorage(self.address, key.Bytes())
+	val, err := self.getTrie(db).GetStorage(self.address, key.Bytes())
 	if err != nil {
 		self.setError(err)
 		return common.Hash{}
 	}
-	if len(enc) > 0 {
-		_, content, _, err := rlp.Split(enc)
-		if err != nil {
-			self.setError(err)
-		}
-		value.SetBytes(content)
-	}
+
+	value.SetBytes(val)
 	if (value != common.Hash{}) {
 		self.cachedStorage[key] = value
 	}
