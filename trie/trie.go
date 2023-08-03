@@ -531,7 +531,7 @@ func (t *Trie) delete(n Node, prefix, key []byte) (bool, Node, error) {
 				// shortNode{..., shortNode{...}}.  Since the entry
 				// might not be loaded yet, resolve it just for this
 				// check.
-				cnode, err := t.resolve(n.Children[pos], append(prefix, byte(pos)))
+				cnode, err := t.resolve(n.Children[pos], prefix)
 				if err != nil {
 					return false, nil, err
 				}

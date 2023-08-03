@@ -22,24 +22,23 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	goruntime "runtime"
 	"runtime/pprof"
 	"time"
 
-	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/trie"
-
-	goruntime "runtime"
+	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/tomochain/tomochain/cmd/evm/internal/compiler"
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/core/vm/runtime"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
-	cli "gopkg.in/urfave/cli.v1"
+	"github.com/tomochain/tomochain/trie"
 )
 
 var runCommand = cli.Command{
