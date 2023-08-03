@@ -22,11 +22,10 @@ import (
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/internal/blocktest"
 	"github.com/tomochain/tomochain/rlp"
-	"github.com/tomochain/tomochain/trie"
 )
 
 // Tests block header storage and retrieval operations.
@@ -84,7 +83,7 @@ func TestBodyStorage(t *testing.T) {
 	}
 	if entry := GetBody(db, hash, 0); entry == nil {
 		t.Fatalf("Stored body not found")
-	} else if types.DeriveSha(types.Transactions(entry.Transactions), new(trie.StackTrie)) != types.DeriveSha(types.Transactions(body.Transactions), new(trie.StackTrie)) || types.CalcUncleHash(entry.Uncles) != types.CalcUncleHash(body.Uncles) {
+	} else if types.DeriveSha(types.Transactions(entry.Transactions), blocktest.NewHasher()) != types.DeriveSha(types.Transactions(body.Transactions), blocktest.NewHasher()) || types.CalcUncleHash(entry.Uncles) != types.CalcUncleHash(body.Uncles) {
 		t.Fatalf("Retrieved body mismatch: have %v, want %v", entry, body)
 	}
 	if entry := GetBodyRLP(db, hash, 0); entry == nil {
@@ -140,7 +139,7 @@ func TestBlockStorage(t *testing.T) {
 	}
 	if entry := GetBody(db, block.Hash(), block.NumberU64()); entry == nil {
 		t.Fatalf("Stored body not found")
-	} else if types.DeriveSha(types.Transactions(entry.Transactions), new(trie.StackTrie)) != types.DeriveSha(block.Transactions(), new(trie.StackTrie)) || types.CalcUncleHash(entry.Uncles) != types.CalcUncleHash(block.Uncles()) {
+	} else if types.DeriveSha(types.Transactions(entry.Transactions), blocktest.NewHasher()) != types.DeriveSha(block.Transactions(), blocktest.NewHasher()) || types.CalcUncleHash(entry.Uncles) != types.CalcUncleHash(block.Uncles()) {
 		t.Fatalf("Retrieved body mismatch: have %v, want %v", entry, block.Body())
 	}
 	// Delete the block and verify the execution
@@ -296,7 +295,7 @@ func TestLookupStorage(t *testing.T) {
 	tx3 := types.NewTransaction(3, common.BytesToAddress([]byte{0x33}), big.NewInt(333), 3333, big.NewInt(33333), []byte{0x33, 0x33, 0x33})
 	txs := []*types.Transaction{tx1, tx2, tx3}
 
-	block := types.NewBlock(&types.Header{Number: big.NewInt(314)}, txs, nil, nil, new(trie.StackTrie))
+	block := types.NewBlock(&types.Header{Number: big.NewInt(314)}, txs, nil, nil, blocktest.NewHasher())
 
 	// Check that no transactions entries are in a pristine database
 	for i, tx := range txs {
