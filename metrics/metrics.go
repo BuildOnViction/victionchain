@@ -19,7 +19,12 @@ import (
 //
 // This global kill-switch helps quantify the observer effect and makes
 // for less cluttered pprof profiles.
-var Enabled bool = false
+var Enabled = false
+
+// EnabledExpensive is a soft-flag meant for external packages to check if costly
+// metrics gathering is allowed or not. The goal is to separate standard metrics
+// for health monitoring and debug metrics that might impact runtime performance.
+var EnabledExpensive = false
 
 // MetricsEnabledFlag is the CLI flag name to use to enable metrics collections.
 const MetricsEnabledFlag = "metrics"

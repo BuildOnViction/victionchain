@@ -18,6 +18,8 @@ package rawdb
 
 import (
 	"fmt"
+
+	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/ethdb/leveldb"
 	"github.com/tomochain/tomochain/ethdb/memorydb"
@@ -107,4 +109,34 @@ func NewLevelDBDatabase(file string, cache int, handles int, namespace string) (
 		return nil, err
 	}
 	return NewDatabase(db), nil
+}
+
+type counter uint64
+
+func (c counter) String() string {
+	return fmt.Sprintf("%d", c)
+}
+
+func (c counter) Percentage(current uint64) string {
+	return fmt.Sprintf("%d", current*100/uint64(c))
+}
+
+// stat stores sizes and count for a parameter
+type stat struct {
+	size  common.StorageSize
+	count counter
+}
+
+// Add size to the stat and increase the counter by 1
+func (s *stat) Add(size common.StorageSize) {
+	s.size += size
+	s.count++
+}
+
+func (s *stat) Size() string {
+	return s.size.String()
+}
+
+func (s *stat) Count() string {
+	return s.count.String()
 }
