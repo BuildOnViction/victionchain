@@ -18,14 +18,16 @@ package state
 
 import (
 	"bytes"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 
+	checker "gopkg.in/check.v1"
+
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/ethdb"
-	checker "gopkg.in/check.v1"
+	"github.com/tomochain/tomochain/trie"
 )
 
 type StateSuite struct {
@@ -88,8 +90,9 @@ func (s *StateSuite) TestDump(c *checker.C) {
 }
 
 func (s *StateSuite) SetUpTest(c *checker.C) {
-	s.db= rawdb.NewMemoryDatabase()
-	s.state, _ = New(common.Hash{}, NewDatabase(s.db))
+	s.db = rawdb.NewMemoryDatabase()
+	tdb := NewDatabaseWithConfig(s.db, &trie.Config{Preimages: true})
+	s.state, _ = New(common.Hash{}, tdb)
 }
 
 func (s *StateSuite) TestNull(c *checker.C) {
