@@ -26,7 +26,6 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
 )
@@ -360,18 +359,18 @@ func (self *StateDB) Suicide(addr common.Address) bool {
 // updateStateObject writes the given object to the trie.
 func (self *StateDB) updateStateObject(stateObject *stateObject) {
 	addr := stateObject.Address()
-	data, err := rlp.EncodeToBytes(stateObject)
-	if err != nil {
-		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
+	if err := self.trie.UpdateAccount(addr, &stateObject.data); err != nil {
+		self.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
-	self.setError(self.trie.TryUpdate(addr[:], data))
 }
 
 // deleteStateObject removes the given object from the state trie.
 func (self *StateDB) deleteStateObject(stateObject *stateObject) {
 	stateObject.deleted = true
 	addr := stateObject.Address()
-	self.setError(self.trie.TryDelete(addr[:]))
+	if err := self.trie.DeleteAccount(addr); err != nil {
+		self.setError(fmt.Errorf("deleteStateObject (%x) error: %v", addr[:], err))
+	}
 }
 
 // DeleteAddress removes the address from the state trie.
@@ -393,14 +392,12 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 	}
 
 	// Load the object from the database.
-	enc, err := self.trie.TryGet(addr[:])
-	if len(enc) == 0 {
-		self.setError(err)
+	data, err := self.trie.GetAccount(addr)
+	if err != nil {
+		self.setError(fmt.Errorf("getDeleteStateObject (%x) error: %w", addr.Bytes(), err))
 		return nil
 	}
-	var data types.StateAccount
-	if err := rlp.DecodeBytes(enc, &data); err != nil {
-		log.Error("Failed to decode state object", "addr", addr, "err", err)
+	if data == nil {
 		return nil
 	}
 	// Insert into the live set.
@@ -432,7 +429,7 @@ func (self *StateDB) MarkStateObjectDirty(addr common.Address) {
 // the given address, it is overwritten and returned as the second return value.
 func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) {
 	prev = self.getStateObject(addr)
-	newobj = newObject(self, addr, types.StateAccount{}, self.MarkStateObjectDirty)
+	newobj = newObject(self, addr, &types.StateAccount{}, self.MarkStateObjectDirty)
 	newobj.setNonce(0) // sets the object to dirty
 	if prev == nil {
 		self.journal = append(self.journal, createObjectChange{account: &addr})
