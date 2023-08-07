@@ -23,8 +23,10 @@ import (
 	"testing"
 
 	"github.com/VictoriaMetrics/fastcache"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -40,7 +42,7 @@ func randomHash() common.Hash {
 // randomAccount generates a random account and returns it RLP encoded.
 func randomAccount() []byte {
 	root := randomHash()
-	a := Account{
+	a := types.SlimAccount{
 		Balance:  big.NewInt(rand.Int63()),
 		Nonce:    rand.Uint64(),
 		Root:     root[:],
