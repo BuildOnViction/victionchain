@@ -21,12 +21,10 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -80,12 +78,11 @@ type stateObject struct {
 	trie Trie // storage trie, which becomes non-nil on first access
 	code Code // contract bytecode, which gets set when code is loaded
 
-	originStorage  Storage // Storage cache of original entries to dedup rewrites, reset for every transaction
-	pendingStorage Storage // Storage entries that need to be flushed to disk, at the end of an entire block
-	dirtyStorage   Storage // Storage entries that have been modified in the current transaction execution
+	cachedStorage Storage // Storage entry cache to avoid duplicate reads
+	dirtyStorage  Storage // Storage entries that need to be flushed to disk
 
 	// Cache flags.
-	// When an object is marked suicided it will be deleted from the trie
+	// When an object is marked suicided it will be delete from the trie
 	// during the "update" phase of the state transition.
 	dirtyCode bool // true if the code was updated
 	suicided  bool
@@ -106,13 +103,12 @@ func newObject(db *StateDB, address common.Address, data *types.StateAccount) *s
 		data.CodeHash = emptyCodeHash
 	}
 	return &stateObject{
-		db:             db,
-		address:        address,
-		addrHash:       crypto.Keccak256Hash(address[:]),
-		data:           *data,
-		originStorage:  make(Storage),
-		pendingStorage: make(Storage),
-		dirtyStorage:   make(Storage),
+		db:            db,
+		address:       address,
+		addrHash:      crypto.Keccak256Hash(address[:]),
+		data:          *data,
+		cachedStorage: make(Storage),
+		dirtyStorage:  make(Storage),
 	}
 }
 
@@ -155,171 +151,80 @@ func (s *stateObject) getTrie(db Database) Trie {
 	return s.trie
 }
 
-func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
-	// If we have a dirty value for this state entry, return it
-	value, dirty := s.dirtyStorage[key]
-	if dirty {
-		return value
+func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
+	value := common.Hash{}
+	// Load from DB in case it is missing.
+	val, err := s.getTrie(db).GetStorage(s.address, key.Bytes())
+	if err != nil {
+		s.setError(err)
+		return common.Hash{}
 	}
-	// Otherwise return the entry's original value
-	return s.GetCommittedState(db, key)
+	value.SetBytes(val)
+	return value
 }
 
-func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
-	// If we have a pending write or clean cached, return that
-	if value, pending := s.pendingStorage[key]; pending {
+func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
+	value, exists := s.cachedStorage[key]
+	if exists {
 		return value
 	}
-	if value, cached := s.originStorage[key]; cached {
-		return value
+	// Load from DB in case it is missing.
+	val, err := s.getTrie(db).GetStorage(s.address, key.Bytes())
+	if err != nil {
+		s.setError(err)
+		return common.Hash{}
 	}
-	// If no live objects are available, attempt to use snapshots
-	var (
-		enc []byte
-		err error
-	)
-	if s.db.snap != nil {
-		if metrics.EnabledExpensive {
-			defer func(start time.Time) { s.db.SnapshotStorageReads += time.Since(start) }(time.Now())
-		}
-		// If the object was destructed in *this* block (and potentially resurrected),
-		// the storage has been cleared out, and we should *not* consult the previous
-		// snapshot about any storage values. The only possible alternatives are:
-		//   1) resurrect happened, and new slot values were set -- those should
-		//      have been handles via pendingStorage above.
-		//   2) we don't have new values, and can deliver empty response back
-		if _, destructed := s.db.snapDestructs[s.addrHash]; destructed {
-			return common.Hash{}
-		}
-		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key[:]))
+
+	value.SetBytes(val)
+	if (value != common.Hash{}) {
+		s.cachedStorage[key] = value
 	}
-	// If snapshot unavailable or reading from it failed, load from the database
-	if s.db.snap == nil || err != nil {
-		if metrics.EnabledExpensive {
-			defer func(start time.Time) { s.db.StorageReads += time.Since(start) }(time.Now())
-		}
-		if enc, err = s.getTrie(db).GetStorage(s.address, key.Bytes()); err != nil {
-			s.setError(err)
-			return common.Hash{}
-		}
-	}
-	var value common.Hash
-	if len(enc) > 0 {
-		_, content, _, err := rlp.Split(enc)
-		if err != nil {
-			s.setError(err)
-		}
-		value.SetBytes(content)
-	}
-	s.originStorage[key] = value
 	return value
 }
 
 // SetState updates a value in account storage.
 func (s *stateObject) SetState(db Database, key, value common.Hash) {
-	// If the new value is the same as old, don't set
-	prev := s.GetState(db, key)
-	if prev == value {
-		return
-	}
 	s.db.journal.append(storageChange{
 		account:  &s.address,
 		key:      key,
-		prevalue: prev,
+		prevalue: s.GetState(db, key),
 	})
 	s.setState(key, value)
 }
 
 func (s *stateObject) setState(key, value common.Hash) {
+	s.cachedStorage[key] = value
 	s.dirtyStorage[key] = value
-}
-
-// finalise moves all dirty storage slots into the pending area to be hashed or
-// committed later. It is invoked at the end of every transaction.
-func (s *stateObject) finalise() {
-	for key, value := range s.dirtyStorage {
-		s.pendingStorage[key] = value
-	}
-	if len(s.dirtyStorage) > 0 {
-		s.dirtyStorage = make(Storage)
-	}
 }
 
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (s *stateObject) updateTrie(db Database) Trie {
-	// Make sure all dirty slots are finalized into the pending storage area
-	s.finalise()
-	if len(s.pendingStorage) == 0 {
-		return s.trie
-	}
-	// Track the amount of time wasted on updating the storge trie
-	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
-	}
-	// Retrieve the snapshot storage map for the object
-	var storage map[common.Hash][]byte
-	if s.db.snap != nil {
-		// Retrieve the old storage map, if available, create a new one otherwise
-		storage = s.db.snapStorage[s.addrHash]
-		if storage == nil {
-			storage = make(map[common.Hash][]byte)
-			s.db.snapStorage[s.addrHash] = storage
-		}
-	}
-	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
-	for key, value := range s.pendingStorage {
-		// Skip noop changes, persist actual changes
-		if value == s.originStorage[key] {
-			continue
-		}
-		s.originStorage[key] = value
-
-		var v []byte
+	for key, value := range s.dirtyStorage {
+		delete(s.dirtyStorage, key)
 		if (value == common.Hash{}) {
 			s.setError(tr.DeleteStorage(s.address, key[:]))
-		} else {
-			// Encoding []byte cannot fail, ok to ignore the error.
-			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
-			s.setError(tr.UpdateStorage(s.address, key[:], v))
+			continue
 		}
-		// If state snapshotting is active, cache the data til commit
-		if storage != nil {
-			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
-		}
-	}
-	if len(s.pendingStorage) > 0 {
-		s.pendingStorage = make(Storage)
+		// Encoding []byte cannot fail, ok to ignore the error.
+		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+		s.setError(tr.UpdateStorage(s.address, key[:], v))
 	}
 	return tr
 }
 
 // UpdateRoot sets the trie root to the current root hash of
 func (s *stateObject) updateRoot(db Database) {
-	// If nothing changed, don't bother with hashing anything
-	if s.updateTrie(db) == nil {
-		return
-	}
-	// Track the amount of time wasted on hashing the storge trie
-	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.db.StorageHashes += time.Since(start) }(time.Now())
-	}
+	s.updateTrie(db)
 	s.data.Root = s.trie.Hash()
 }
 
 // CommitTrie the storage trie of the object to dwb.
 // This updates the trie root.
 func (s *stateObject) CommitTrie(db Database) error {
-	// If nothing changed, don't bother with hashing anything
-	if s.updateTrie(db) == nil {
-		return nil
-	}
+	s.updateTrie(db)
 	if s.dbErr != nil {
 		return s.dbErr
-	}
-	// Track the amount of time wasted on committing the storage trie
-	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
 	root, err := s.trie.Commit(nil)
 	if err == nil {
@@ -364,7 +269,7 @@ func (s *stateObject) setBalance(amount *big.Int) {
 	s.data.Balance = amount
 }
 
-// ReturnGas returns the gas back to the origin. Used by the Virtual machine or Closures
+// ReturnGas return the gas back to the origin. Used by the Virtual machine or Closures
 func (s *stateObject) ReturnGas(gas *big.Int) {}
 
 func (s *stateObject) deepCopy(db *StateDB) *stateObject {
@@ -374,6 +279,7 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 	}
 	stateObject.code = s.code
 	stateObject.dirtyStorage = s.dirtyStorage.Copy()
+	stateObject.cachedStorage = s.dirtyStorage.Copy()
 	stateObject.suicided = s.suicided
 	stateObject.dirtyCode = s.dirtyCode
 	stateObject.deleted = s.deleted
