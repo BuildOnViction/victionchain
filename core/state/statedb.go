@@ -49,7 +49,7 @@ var (
 	emptyCode = crypto.Keccak256Hash(nil)
 )
 
-// StateDBs within the ethereum protocol are used to store anything
+// StateDB within the ethereum protocol are used to store anything
 // within the merkle trie. StateDBs take care of caching and storing
 // nested states. It's the general query interface to retrieve:
 // * Contracts
@@ -124,7 +124,7 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	return common.Hash{}
 }
 
-// Create a new state from a given trie.
+// New creates a new state from a given trie.
 func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
@@ -249,7 +249,7 @@ func (s *StateDB) Empty(addr common.Address) bool {
 	return so == nil || so.empty()
 }
 
-// Retrieve the balance from the given address or 0 if object not found
+// GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
@@ -516,7 +516,7 @@ func (s *StateDB) setStateObject(object *stateObject) {
 	s.stateObjects[object.Address()] = object
 }
 
-// Retrieve a state object or create a new state object if nil.
+// GetOrNewStateObject retrieves a state object or create a new state object if nil.
 func (s *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil || stateObject.deleted {
@@ -562,18 +562,27 @@ func (s *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.
 	if so == nil {
 		return nil
 	}
+	tr := so.getTrie(s.db)
+	trieIt := tr.NodeIterator(nil)
+	it := trie.NewIterator(trieIt)
 
-	// When iterating over the storage check the cache first
-	for h, value := range so.cachedStorage {
-		cb(h, value)
-	}
-
-	it := trie.NewIterator(so.getTrie(s.db).NodeIterator(nil))
 	for it.Next() {
-		// ignore cached values
 		key := common.BytesToHash(s.trie.GetKey(it.Key))
-		if _, ok := so.cachedStorage[key]; !ok {
-			cb(key, common.BytesToHash(it.Value))
+		if value, dirty := so.dirtyStorage[key]; dirty {
+			if !cb(key, value) {
+				return nil
+			}
+			continue
+		}
+
+		if len(it.Value) > 0 {
+			_, content, _, err := rlp.Split(it.Value)
+			if err != nil {
+				return err
+			}
+			if !cb(key, common.BytesToHash(content)) {
+				return nil
+			}
 		}
 	}
 	return nil
@@ -599,8 +608,17 @@ func (s *StateDB) Copy() *StateDB {
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
-		state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
-		state.stateObjectsDirty[addr] = struct{}{}
+		// As documented [here](https://github.com/ethereum/go-ethereum/pull/16485#issuecomment-380438527),
+		// and in the Finalise-method, there is a case where an object is in the journal but not
+		// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
+		// nil
+		if object, exist := s.stateObjects[addr]; exist {
+			// Even though the original object is dirty, we are not copying the journal,
+			// so we need to make sure that any side effect the journal would have caused
+			// during a commit (or similar op) is already applied to the copy.
+			state.stateObjects[addr] = object.deepCopy(state)
+			state.stateObjectsDirty[addr] = struct{}{} // Mark the copy dirty to force internal (code/state) commits
+		}
 	}
 	for hash, logs := range s.logs {
 		state.logs[hash] = make([]*types.Log, len(logs))

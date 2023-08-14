@@ -21,10 +21,12 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -32,23 +34,23 @@ var emptyCodeHash = crypto.Keccak256(nil)
 
 type Code []byte
 
-func (self Code) String() string {
-	return string(self) //strings.Join(Disassemble(self), " ")
+func (c Code) String() string {
+	return string(c) //strings.Join(Disassemble(c), " ")
 }
 
 type Storage map[common.Hash]common.Hash
 
-func (self Storage) String() (str string) {
-	for key, value := range self {
+func (s Storage) String() (str string) {
+	for key, value := range s {
 		str += fmt.Sprintf("%X : %X\n", key, value)
 	}
 
 	return
 }
 
-func (self Storage) Copy() Storage {
+func (s Storage) Copy() Storage {
 	cpy := make(Storage)
-	for key, value := range self {
+	for key, value := range s {
 		cpy[key] = value
 	}
 
@@ -59,7 +61,7 @@ func (self Storage) Copy() Storage {
 //
 // The usage pattern is as follows:
 // First you need to obtain a state object.
-// StateAccount values can be accessed and modified through the object.
+// Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
 	address  common.Address
@@ -78,11 +80,13 @@ type stateObject struct {
 	trie Trie // storage trie, which becomes non-nil on first access
 	code Code // contract bytecode, which gets set when code is loaded
 
-	cachedStorage Storage // Storage entry cache to avoid duplicate reads
-	dirtyStorage  Storage // Storage entries that need to be flushed to disk
+	originStorage  Storage // Storage cache of original entries to dedup rewrites, reset for every transaction
+	pendingStorage Storage // Storage entries that need to be flushed to disk, at the end of an entire block
+	dirtyStorage   Storage // Storage entries that have been modified in the current transaction execution
+	fakeStorage    Storage // Fake storage which constructed by caller for debugging purpose.
 
 	// Cache flags.
-	// When an object is marked suicided it will be delete from the trie
+	// When an object is marked suicided it will be deleted from the trie
 	// during the "update" phase of the state transition.
 	dirtyCode bool // true if the code was updated
 	suicided  bool
@@ -102,13 +106,17 @@ func newObject(db *StateDB, address common.Address, data *types.StateAccount) *s
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
 	}
+	if data.Root == (common.Hash{}) {
+		data.Root = emptyRoot
+	}
 	return &stateObject{
-		db:            db,
-		address:       address,
-		addrHash:      crypto.Keccak256Hash(address[:]),
-		data:          *data,
-		cachedStorage: make(Storage),
-		dirtyStorage:  make(Storage),
+		db:             db,
+		address:        address,
+		addrHash:       crypto.Keccak256Hash(address[:]),
+		data:           *data,
+		originStorage:  make(Storage),
+		pendingStorage: make(Storage),
+		dirtyStorage:   make(Storage),
 	}
 }
 
@@ -151,80 +159,209 @@ func (s *stateObject) getTrie(db Database) Trie {
 	return s.trie
 }
 
-func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
-	value := common.Hash{}
-	// Load from DB in case it is missing.
-	val, err := s.getTrie(db).GetStorage(s.address, key.Bytes())
-	if err != nil {
-		s.setError(err)
-		return common.Hash{}
-	}
-	value.SetBytes(val)
-	return value
-}
-
+// GetState retrieves a value from the account storage trie.
 func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
-	value, exists := s.cachedStorage[key]
-	if exists {
+	// If the fake storage is set, only lookup the state here(in the debugging mode)
+	if s.fakeStorage != nil {
+		return s.fakeStorage[key]
+	}
+	// If we have a dirty value for this state entry, return it
+	value, dirty := s.dirtyStorage[key]
+	if dirty {
 		return value
 	}
-	// Load from DB in case it is missing.
-	val, err := s.getTrie(db).GetStorage(s.address, key.Bytes())
-	if err != nil {
-		s.setError(err)
-		return common.Hash{}
-	}
+	// Otherwise return the entry's original value
+	return s.GetCommittedState(db, key)
+}
 
-	value.SetBytes(val)
-	if (value != common.Hash{}) {
-		s.cachedStorage[key] = value
+// GetCommittedState retrieves a value from the committed account storage trie.
+func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
+	// If the fake storage is set, only lookup the state here(in the debugging mode)
+	if s.fakeStorage != nil {
+		return s.fakeStorage[key]
 	}
+	// If we have a pending write or clean cached, return that
+	if value, pending := s.pendingStorage[key]; pending {
+		return value
+	}
+	if value, cached := s.originStorage[key]; cached {
+		return value
+	}
+	// If no live objects are available, attempt to use snapshots
+	var (
+		enc   []byte
+		err   error
+		value common.Hash
+	)
+	if s.db.snap != nil {
+		if metrics.EnabledExpensive {
+			defer func(start time.Time) { s.db.SnapshotStorageReads += time.Since(start) }(time.Now())
+		}
+		// If the object was destructed in *this* block (and potentially resurrected),
+		// the storage has been cleared out, and we should *not* consult the previous
+		// snapshot about any storage values. The only possible alternatives are:
+		//   1) resurrect happened, and new slot values were set -- those should
+		//      have been handles via pendingStorage above.
+		//   2) we don't have new values, and can deliver empty response back
+		if _, destructed := s.db.snapDestructs[s.addrHash]; destructed {
+			return common.Hash{}
+		}
+		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key[:]))
+		if len(enc) > 0 {
+			_, content, _, err := rlp.Split(enc)
+			if err != nil {
+				s.setError(err)
+			}
+			value.SetBytes(content)
+		}
+	}
+	// If snapshot unavailable or reading from it failed, load from the database
+	if s.db.snap == nil || err != nil {
+		start := time.Now()
+		val, err := s.getTrie(db).GetStorage(s.address, key.Bytes())
+		if metrics.EnabledExpensive {
+			s.db.StorageReads += time.Since(start)
+		}
+		if err != nil {
+			s.setError(err)
+			return common.Hash{}
+		}
+		value.SetBytes(val)
+	}
+	s.originStorage[key] = value
 	return value
 }
 
 // SetState updates a value in account storage.
 func (s *stateObject) SetState(db Database, key, value common.Hash) {
+	// If the fake storage is set, put the temporary state update here.
+	if s.fakeStorage != nil {
+		s.fakeStorage[key] = value
+		return
+	}
+	// If the new value is the same as old, don't set
+	prev := s.GetState(db, key)
+	if prev == value {
+		return
+	}
+	// New value is different, update and journal the change
 	s.db.journal.append(storageChange{
 		account:  &s.address,
 		key:      key,
-		prevalue: s.GetState(db, key),
+		prevalue: prev,
 	})
 	s.setState(key, value)
 }
 
+// SetStorage replaces the entire state storage with the given one.
+//
+// After this function is called, all original state will be ignored and state
+// lookup only happens in the fake state storage.
+//
+// Note this function should only be used for debugging purpose.
+func (s *stateObject) SetStorage(storage map[common.Hash]common.Hash) {
+	// Allocate fake storage if it's nil.
+	if s.fakeStorage == nil {
+		s.fakeStorage = make(Storage)
+	}
+	for key, value := range storage {
+		s.fakeStorage[key] = value
+	}
+	// Don't bother journal since this function should only be used for
+	// debugging and the `fake` storage won't be committed to database.
+}
+
 func (s *stateObject) setState(key, value common.Hash) {
-	s.cachedStorage[key] = value
 	s.dirtyStorage[key] = value
 }
 
-// updateTrie writes cached storage modifications into the object's storage trie.
-func (s *stateObject) updateTrie(db Database) Trie {
-	tr := s.getTrie(db)
+// finalise moves all dirty storage slots into the pending area to be hashed or
+// committed later. It is invoked at the end of every transaction.
+func (s *stateObject) finalise() {
 	for key, value := range s.dirtyStorage {
-		delete(s.dirtyStorage, key)
-		if (value == common.Hash{}) {
-			s.setError(tr.DeleteStorage(s.address, key[:]))
+		s.pendingStorage[key] = value
+	}
+	if len(s.dirtyStorage) > 0 {
+		s.dirtyStorage = make(Storage)
+	}
+}
+
+// updateTrie writes cached storage modifications into the object's storage trie.
+// It will return nil if the trie has not been loaded and no changes have been made
+func (s *stateObject) updateTrie(db Database) Trie {
+	// Make sure all dirty slots are finalized into the pending storage area
+	s.finalise()
+	if len(s.pendingStorage) == 0 {
+		return s.trie
+	}
+	// Track the amount of time wasted on updating the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
+	}
+	// Retrieve the snapshot storage map for the object
+	var storage map[common.Hash][]byte
+	if s.db.snap != nil {
+		// Retrieve the old storage map, if available, create a new one otherwise
+		storage = s.db.snapStorage[s.addrHash]
+		if storage == nil {
+			storage = make(map[common.Hash][]byte)
+			s.db.snapStorage[s.addrHash] = storage
+		}
+	}
+	// Insert all the pending updates into the trie
+	tr := s.getTrie(db)
+	for key, value := range s.pendingStorage {
+		// Skip noop changes, persist actual changes
+		if value == s.originStorage[key] {
 			continue
 		}
-		// Encoding []byte cannot fail, ok to ignore the error.
-		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
-		s.setError(tr.UpdateStorage(s.address, key[:], v))
+		s.originStorage[key] = value
+
+		var v []byte
+		if (value == common.Hash{}) {
+			s.setError(tr.DeleteStorage(s.address, key.Bytes()))
+		} else {
+			// Encoding []byte cannot fail, ok to ignore the error.
+			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
+			s.setError(tr.UpdateStorage(s.address, key.Bytes(), v))
+		}
+		// If state snapshotting is active, cache the data til commit
+		if storage != nil {
+			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
+		}
+	}
+	if len(s.pendingStorage) > 0 {
+		s.pendingStorage = make(Storage)
 	}
 	return tr
 }
 
 // UpdateRoot sets the trie root to the current root hash of
 func (s *stateObject) updateRoot(db Database) {
-	s.updateTrie(db)
+	// If nothing changed, don't bother with hashing anything
+	if s.updateTrie(db) == nil {
+		return
+	}
+	// Track the amount of time wasted on hashing the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { s.db.StorageHashes += time.Since(start) }(time.Now())
+	}
 	s.data.Root = s.trie.Hash()
 }
 
-// CommitTrie the storage trie of the object to dwb.
+// CommitTrie the storage trie of the object to db.
 // This updates the trie root.
 func (s *stateObject) CommitTrie(db Database) error {
-	s.updateTrie(db)
+	// If nothing changed, don't bother with hashing anything
+	if s.updateTrie(db) == nil {
+		return nil
+	}
 	if s.dbErr != nil {
 		return s.dbErr
+	}
+	// Track the amount of time wasted on committing the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
 	root, err := s.trie.Commit(nil)
 	if err == nil {
@@ -269,7 +406,7 @@ func (s *stateObject) setBalance(amount *big.Int) {
 	s.data.Balance = amount
 }
 
-// ReturnGas return the gas back to the origin. Used by the Virtual machine or Closures
+// ReturnGas returns the gas back to the origin. Used by the Virtual machine or Closures
 func (s *stateObject) ReturnGas(gas *big.Int) {}
 
 func (s *stateObject) deepCopy(db *StateDB) *stateObject {
@@ -279,7 +416,8 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 	}
 	stateObject.code = s.code
 	stateObject.dirtyStorage = s.dirtyStorage.Copy()
-	stateObject.cachedStorage = s.dirtyStorage.Copy()
+	stateObject.originStorage = s.originStorage.Copy()
+	stateObject.pendingStorage = s.pendingStorage.Copy()
 	stateObject.suicided = s.suicided
 	stateObject.dirtyCode = s.dirtyCode
 	stateObject.deleted = s.deleted
@@ -352,7 +490,7 @@ func (s *stateObject) Nonce() uint64 {
 }
 
 // Value is never called, but must be present to allow stateObject to be used
-// as a vm.StateAccount interface that also satisfies the vm.ContractRef
+// as a vm.Account interface that also satisfies the vm.ContractRef
 // interface. Interfaces are awesome.
 func (s *stateObject) Value() *big.Int {
 	panic("Value on stateObject should never be called")
