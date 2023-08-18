@@ -351,9 +351,7 @@ func (bc *BlockChain) loadLastState() error {
 		repair = true
 	}
 	// Make sure the state associated with the block is available
-	_, err := state.New(currentBlock.Root(), bc.stateCache, bc.snaps)
-	// err != nil{}
-	if err != nil {
+	if _, err := state.New(currentBlock.Root(), bc.stateCache, bc.snaps); err != nil {
 		repair = true
 	} else {
 		engine, ok := bc.Engine().(*posv.Posv)
@@ -951,12 +949,14 @@ func (bc *BlockChain) SaveData() {
 	//  - HEAD-1:   So we don't do large reorgs if our HEAD becomes an uncle
 	//  - HEAD-127: So we have a hard limit on the number of blocks reexecuted
 	if !bc.cacheConfig.Disabled {
-		var tradingTriedb *trie.Database
-		var lendingTriedb *trie.Database
+		var (
+			tradingTriedb  *trie.Database
+			lendingTriedb  *trie.Database
+			tradingService posv.TradingService
+			lendingService posv.LendingService
+		)
 		engine, _ := bc.Engine().(*posv.Posv)
 		triedb := bc.stateCache.TrieDB()
-		var tradingService posv.TradingService
-		var lendingService posv.LendingService
 		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && bc.chainConfig.Posv != nil && bc.CurrentBlock().NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
 			tradingService = engine.GetTomoXService()
 			if tradingService != nil && tradingService.GetStateCache() != nil {
@@ -1616,11 +1616,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		parentAuthor, _ := bc.Engine().Author(parent.Header())
 		// clear the previous dry-run cache
-		var tradingState *tradingstate.TradingStateDB
-		var lendingState *lendingstate.LendingStateDB
-		var tradingService posv.TradingService
-		var lendingService posv.LendingService
-		isSDKNode := false
+		var (
+			tradingState   *tradingstate.TradingStateDB
+			lendingState   *lendingstate.LendingStateDB
+			tradingService posv.TradingService
+			lendingService posv.LendingService
+			isSDKNode      = false
+		)
 		if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 			tradingService = engine.GetTomoXService()
 			lendingService = engine.GetLendingService()
@@ -1748,6 +1750,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		accountCommitTimer.Update(statedb.AccountCommits)   // Account commits are complete, we can mark them
 		storageCommitTimer.Update(statedb.StorageCommits)   // Storage commits are complete, we can mark them
 		snapshotCommitTimer.Update(statedb.SnapshotCommits) // Snapshot commits are complete, we can mark them
+
+		blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits)
 
 		if bc.chainConfig.Posv != nil {
 			c := bc.engine.(*posv.Posv)
