@@ -100,11 +100,11 @@ func runCmd(ctx *cli.Context) error {
 		gen := readGenesis(ctx.GlobalString(GenesisFlag.Name))
 		db := rawdb.NewMemoryDatabase()
 		genesis := gen.ToBlock(db)
-		statedb, _ = state.New(genesis.Root(), state.NewDatabaseWithConfig(db, &trie.Config{Preimages: preimages}))
+		statedb, _ = state.New(genesis.Root(), state.NewDatabaseWithConfig(db, &trie.Config{Preimages: preimages}), nil)
 		chainConfig = gen.Config
 	} else {
 		db := rawdb.NewMemoryDatabase()
-		statedb, _ = state.New(common.Hash{}, state.NewDatabaseWithConfig(db, &trie.Config{Preimages: preimages}))
+		statedb, _ = state.New(common.Hash{}, state.NewDatabaseWithConfig(db, &trie.Config{Preimages: preimages}), nil)
 	}
 	if ctx.GlobalString(SenderFlag.Name) != "" {
 		sender = common.HexToAddress(ctx.GlobalString(SenderFlag.Name))

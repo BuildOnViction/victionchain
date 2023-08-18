@@ -48,6 +48,7 @@ var DefaultConfig = Config{
 	DatabaseCache: 768,
 	TrieCache:     256,
 	TrieTimeout:   5 * time.Minute,
+	SnapshotCache: 256,
 	GasPrice:      big.NewInt(0.25 * params.Shannon),
 
 	TxPool: core.DefaultTxPoolConfig,
@@ -93,6 +94,7 @@ type Config struct {
 	DatabaseCache      int
 	TrieCache          int
 	TrieTimeout        time.Duration
+	SnapshotCache      int
 
 	// Mining-related options
 	Etherbase    common.Address `toml:",omitempty"`

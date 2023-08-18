@@ -17,10 +17,11 @@
 package runtime
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math"
 	"math/big"
 	"time"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
@@ -100,7 +101,7 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 
 	if cfg.State == nil {
 		db := rawdb.NewMemoryDatabase()
-		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(db))
+		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(db), nil)
 	}
 	var (
 		address = common.BytesToAddress([]byte("contract"))
@@ -131,7 +132,7 @@ func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 
 	if cfg.State == nil {
 		db := rawdb.NewMemoryDatabase()
-		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(db))
+		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(db), nil)
 	}
 	var (
 		vmenv  = NewEnv(cfg)

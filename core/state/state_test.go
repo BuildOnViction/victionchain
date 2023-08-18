@@ -92,7 +92,7 @@ func (s *StateSuite) TestDump(c *checker.C) {
 func (s *StateSuite) SetUpTest(c *checker.C) {
 	s.db = rawdb.NewMemoryDatabase()
 	tdb := NewDatabaseWithConfig(s.db, &trie.Config{Preimages: true})
-	s.state, _ = New(common.Hash{}, tdb)
+	s.state, _ = New(common.Hash{}, tdb, nil)
 }
 
 func (s *StateSuite) TestNull(c *checker.C) {
@@ -138,7 +138,7 @@ func (s *StateSuite) TestSnapshotEmpty(c *checker.C) {
 // printing/logging in tests (-check.vv does not work)
 func TestSnapshot2(t *testing.T) {
 	db := rawdb.NewMemoryDatabase()
-	state, _ := New(common.Hash{}, NewDatabase(db))
+	state, _ := New(common.Hash{}, NewDatabase(db), nil)
 
 	stateobjaddr0 := toAddr([]byte("so0"))
 	stateobjaddr1 := toAddr([]byte("so1"))
@@ -213,24 +213,30 @@ func compareStateObjects(so0, so1 *stateObject, t *testing.T) {
 		t.Fatalf("Code mismatch: have %v, want %v", so0.code, so1.code)
 	}
 
-	if len(so1.cachedStorage) != len(so0.cachedStorage) {
-		t.Errorf("Storage size mismatch: have %d, want %d", len(so1.cachedStorage), len(so0.cachedStorage))
+	if len(so1.dirtyStorage) != len(so0.dirtyStorage) {
+		t.Errorf("Dirty storage size mismatch: have %d, want %d", len(so1.dirtyStorage), len(so0.dirtyStorage))
 	}
-	for k, v := range so1.cachedStorage {
-		if so0.cachedStorage[k] != v {
-			t.Errorf("Storage key %x mismatch: have %v, want %v", k, so0.cachedStorage[k], v)
+	for k, v := range so1.dirtyStorage {
+		if so0.dirtyStorage[k] != v {
+			t.Errorf("Dirty storage key %x mismatch: have %v, want %v", k, so0.dirtyStorage[k], v)
 		}
 	}
-	for k, v := range so0.cachedStorage {
-		if so1.cachedStorage[k] != v {
-			t.Errorf("Storage key %x mismatch: have %v, want none.", k, v)
+	for k, v := range so0.dirtyStorage {
+		if so1.dirtyStorage[k] != v {
+			t.Errorf("Dirty storage key %x mismatch: have %v, want none.", k, v)
 		}
 	}
-
-	if so0.suicided != so1.suicided {
-		t.Fatalf("suicided mismatch: have %v, want %v", so0.suicided, so1.suicided)
+	if len(so1.originStorage) != len(so0.originStorage) {
+		t.Errorf("Origin storage size mismatch: have %d, want %d", len(so1.originStorage), len(so0.originStorage))
 	}
-	if so0.deleted != so1.deleted {
-		t.Fatalf("Deleted mismatch: have %v, want %v", so0.deleted, so1.deleted)
+	for k, v := range so1.originStorage {
+		if so0.originStorage[k] != v {
+			t.Errorf("Origin storage key %x mismatch: have %v, want %v", k, so0.originStorage[k], v)
+		}
+	}
+	for k, v := range so0.originStorage {
+		if so1.originStorage[k] != v {
+			t.Errorf("Origin storage key %x mismatch: have %v, want none.", k, v)
+		}
 	}
 }
