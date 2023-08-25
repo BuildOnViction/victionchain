@@ -29,6 +29,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/keystore"
 	"github.com/tomochain/tomochain/common"
@@ -1026,12 +1027,12 @@ type CallArgs struct {
 	Data     hexutil.Bytes   `json:"data"`
 }
 
-func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) ([]byte, uint64, bool, error) {
+func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
 	statedb, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if statedb == nil || err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
 	// Set sender address or use a default if none specified
 	addr := args.From
@@ -1079,20 +1080,20 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 
 	block, err := s.b.BlockByNumber(ctx, blockNr)
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
 	author, err := s.b.GetEngine().Author(block.Header())
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
 	tomoxState, err := s.b.TomoxService().GetTradingState(block, author)
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
 	// Get a new instance of the EVM.
 	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, tomoxState, header, vmCfg)
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)
@@ -1105,18 +1106,55 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
 	owner := common.Address{}
-	res, gas, failed, err := core.ApplyMessage(evm, msg, gp, owner)
+	result, err := core.ApplyMessage(evm, msg, gp, owner)
 	if err := vmError(); err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
-	return res, gas, failed, err
+	return result, err
 }
+
+func newRevertError(result *core.ExecutionResult) *revertError {
+ 	reason, errUnpack := abi.UnpackRevert(result.Revert())
+ 	err := errors.New("execution reverted")
+ 	if errUnpack == nil {
+ 		err = fmt.Errorf("execution reverted: %v", reason)
+ 	}
+ 	return &revertError{
+ 		error:  err,
+ 		reason: hexutil.Encode(result.Revert()),
+ 	}
+ }
+
+ // revertError is an API error that encompassas an EVM revertal with JSON error
+ // code and a binary data blob.
+ type revertError struct {
+ 	error
+ 	reason string // revert reason hex encoded
+ }
+
+ // ErrorCode returns the JSON error code for a revertal.
+ // See: https://github.com/ethereum/wiki/wiki/JSON-RPC-Error-Codes-Improvement-Proposal
+ func (e *revertError) ErrorCode() int {
+ 	return 3
+ }
+
+ // ErrorData returns the hex encoded revert reason.
+ func (e *revertError) ErrorData() interface{} {
+ 	return e.reason
+ }
 
 // Call executes the given transaction on the state for the given block number.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber) (hexutil.Bytes, error) {
-	result, _, _, err := s.doCall(ctx, args, blockNr, vm.Config{}, 5*time.Second)
-	return (hexutil.Bytes)(result), err
+	result, err := s.doCall(ctx, args, blockNr, vm.Config{}, 5*time.Second)
+        if err != nil {
+                return nil, err
+        }
+
+        if len(result.Revert()) > 0 {
+                return nil, newRevertError(result)
+        }
+	return result.Return(), result.Err
 }
 
 // EstimateGas returns an estimate of the amount of gas needed to execute the
@@ -1141,19 +1179,26 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	cap = hi
 
 	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(gas uint64) bool {
+	executable := func(gas uint64) (bool, *core.ExecutionResult, error) {
 		args.Gas = hexutil.Uint64(gas)
 
-		_, _, failed, err := s.doCall(ctx, args, rpc.LatestBlockNumber, vm.Config{}, 0)
-		if err != nil || failed {
-			return false
+		result, err := s.doCall(ctx, args, rpc.LatestBlockNumber, vm.Config{}, 0)
+		if err != nil {
+                        if err == core.ErrIntrinsicGas {
+                                return true, nil, nil // Special case, raise gas limit
+                        }
+			return true, nil, err
 		}
-		return true
+		return result.Failed(), result, nil
 	}
 	// Execute the binary search and hone in on an executable gas limit
 	for lo+1 < hi {
 		mid := (hi + lo) / 2
-		if !executable(mid) {
+                failed, _, err := executable(mid)
+                if err != nil {
+                        return 0, err
+                }
+		if failed {
 			lo = mid
 		} else {
 			hi = mid
@@ -1161,9 +1206,20 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	}
 	// Reject the transaction as invalid if it still fails at the highest allowance
 	if hi == cap {
-		if !executable(hi) {
-			return 0, fmt.Errorf("gas required exceeds allowance or always failing transaction")
-		}
+                failed, result, err := executable(hi)
+                if err != nil {
+                        return 0, nil
+                }
+
+                if failed {
+                        if result != nil && result.Err != vm.ErrOutOfGas {
+                                if len(result.Revert()) > 0 {
+                                        return 0, newRevertError(result)
+                                }
+                                return 0, result.Err
+                        }
+                        return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
+                }
 	}
 	return hexutil.Uint64(hi), nil
 }
