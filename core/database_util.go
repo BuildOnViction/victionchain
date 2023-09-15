@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/tomochain/tomochain/core/rawdb"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
@@ -343,7 +341,6 @@ func GetBlockReceipts(db DatabaseReader, hash common.Hash, number uint64, config
 	if receipts == nil {
 		return nil
 	}
-
 	body := GetBody(db, hash, number)
 	if body == nil {
 		log.Error("Missing body but have receipt", "hash", hash, "number", number)
