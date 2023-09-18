@@ -78,7 +78,7 @@ func (pm *ProtocolManager) txsyncLoop() {
 		pack.txs = pack.txs[:0]
 		for i := 0; i < len(s.txs) && size < txsyncPackSize; i++ {
 			pack.txs = append(pack.txs, s.txs[i])
-			size += s.txs[i].Size()
+			size += common.StorageSize(s.txs[i].Size())
 		}
 		// Remove the transactions that will be sent.
 		s.txs = s.txs[:copy(s.txs, s.txs[len(pack.txs):])]
