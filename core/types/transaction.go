@@ -35,6 +35,10 @@ import (
 
 var (
 	ErrInvalidSig               = errors.New("invalid transaction v, r, s values")
+	ErrUnexpectedProtection     = errors.New("transaction type does not supported EIP-155 protected signatures")
+	ErrInvalidTxType            = errors.New("transaction type not valid in this context")
+	ErrTxTypeNotSupported       = errors.New("transaction type not supported")
+	errShortTypedTx             = errors.New("typed transaction too short")
 	errNoSigner                 = errors.New("missing signing methods")
 	skipNonceDestinationAddress = map[string]bool{
 		common.TomoXAddr:                         true,
@@ -42,6 +46,12 @@ var (
 		common.TomoXLendingAddress:               true,
 		common.TomoXLendingFinalizedTradeAddress: true,
 	}
+)
+
+// Transaction types.
+const (
+	LegacyTxType    = 0x00
+	PaymasterTxType = 0x04
 )
 
 // deriveSigner makes a *best* guess about which signer to use.
