@@ -1007,6 +1007,73 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 	pend.Wait()
 }
 
+// TestEIP2718Transition tests that an EIP-2718 transaction will be accepted
+// after the fork block has passed. This is verified by sending an EIP-2817
+// paymaster transaction and then checking that the gas usage of a hot SLOAD
+// and a cold SLOAD are calculated correctly.
+func TestEIP2718Transition(t *testing.T) {
+	// TODO(trinhdn): test this transition
+	t.Skip()
+	var (
+		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
+		db = rawdb.NewMemoryDatabase()
+
+		// A sender who makes transactions, has some funds
+		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress(key.PublicKey)
+		funds   = big.NewInt(1000000000000000)
+		gspec   = &Genesis{
+			Config: params.TestChainConfig,
+			Alloc: GenesisAlloc{
+				address: {Balance: funds},
+				// The address 0xAAAA sloads 0x00 and 0x01
+				aa: {
+					Code: []byte{
+						byte(vm.PC),
+						byte(vm.PC),
+						byte(vm.SLOAD),
+						byte(vm.SLOAD),
+					},
+					Nonce:   0,
+					Balance: big.NewInt(0),
+				},
+			},
+		}
+		genesis = gspec.MustCommit(db)
+	)
+	// Generate blocks
+	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
+		block.SetCoinbase(common.Address{1})
+
+		// One transaction to 0xAAAA
+		signer := types.LatestSigner(gspec.Config)
+		tx, _ := types.SignNewTx(key, signer, &types.PaymasterTx{
+			ChainID:  gspec.Config.ChainId,
+			Nonce:    0,
+			To:       &aa,
+			Gas:      30000,
+			GasPrice: new(big.Int),
+		})
+		block.AddTx(tx)
+	})
+
+	// Import the canonical chain
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	defer blockchain.Stop()
+
+	if n, err := blockchain.InsertChain(blocks); err != nil {
+		t.Fatalf("block %d: failed to insert into chain: %v", n, err)
+	}
+
+	block := blockchain.GetBlockByNumber(1)
+
+	// Expected gas is intrinsic + 2 * pc + hot load + cold load, since only one load is in the access list
+	expected := params.TxGas + vm.GasQuickStep*2
+	if block.GasUsed() != expected {
+		t.Fatalf("incorrect amount of gas spent: expected %d, got %d", expected, block.GasUsed())
+	}
+}
+
 func TestEIP155Transition(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
