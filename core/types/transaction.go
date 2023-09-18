@@ -288,16 +288,26 @@ func (tx *Transaction) CacheHash() {
 	tx.hash.Store(v)
 }
 
-// Size returns the true RLP encoded storage size of the transaction, either by
-// encoding and returning it, or returning a previsouly cached value.
-func (tx *Transaction) Size() common.StorageSize {
+// Size returns the true encoded storage size of the transaction, either by encoding
+// and returning it, or returning a previously cached value.
+func (tx *Transaction) Size() uint64 {
 	if size := tx.size.Load(); size != nil {
-		return size.(common.StorageSize)
+		return size.(uint64)
 	}
+
+	// Cache miss, encode and cache.
+	// Note we rely on the assumption that all tx.inner values are RLP-encoded!
 	c := writeCounter(0)
 	rlp.Encode(&c, &tx.inner)
-	tx.size.Store(common.StorageSize(c))
-	return common.StorageSize(c)
+	size := uint64(c)
+
+	// For typed transactions, the encoding also includes the leading type byte.
+	if tx.Type() != LegacyTxType {
+		size += 1
+	}
+
+	tx.size.Store(size)
+	return size
 }
 
 // WithSignature returns a new transaction with the given signature.

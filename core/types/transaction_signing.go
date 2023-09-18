@@ -97,6 +97,17 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 	return tx.WithSignature(s, sig)
 }
 
+// SignNewTx creates a transaction and signs it.
+func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, error) {
+	tx := NewTx(txdata)
+	h := s.Hash(tx)
+	sig, err := crypto.Sign(h[:], prv)
+	if err != nil {
+		return nil, err
+	}
+	return tx.WithSignature(s, sig)
+}
+
 // Sender returns the address derived from the signature (V, R, S) using secp256k1
 // elliptic curve and an error if it failed deriving or upon an incorrect
 // signature.
@@ -165,7 +176,7 @@ func (s eip2718Signer) Sender(tx *Transaction) (common.Address, error) {
 		return common.Address{}, ErrTxTypeNotSupported
 	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
-		return common.Address{}, fmt.Errorf("%w: have %d want %d", ErrInvalidChainId, tx.ChainId(), s.chainId)
+		return common.Address{}, fmt.Errorf("EIP2718Signer %w: have %d want %d", ErrInvalidChainId, tx.ChainId(), s.chainId)
 	}
 	return recoverPlain(s.Hash(tx), R, S, V, true)
 }
@@ -183,7 +194,7 @@ func (s eip2718Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *bi
 		// Check that chain ID of tx matches the signer. We also accept ID zero here,
 		// because it indicates that the chain ID was not specified in the tx.
 		if txdata.ChainID.Sign() != 0 && txdata.ChainID.Cmp(s.chainId) != 0 {
-			return nil, nil, nil, fmt.Errorf("%w: have %d want %d", ErrInvalidChainId, txdata.ChainID, s.chainId)
+			return nil, nil, nil, fmt.Errorf("EIP2718Signer %w: have %d want %d", ErrInvalidChainId, txdata.ChainID, s.chainId)
 		}
 		R, S, _ = decodeSignature(sig)
 		V = big.NewInt(int64(sig[64]))
@@ -255,7 +266,7 @@ func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
 		return HomesteadSigner{}.Sender(tx)
 	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
-		return common.Address{}, fmt.Errorf("%w: have %d want %d", ErrInvalidChainId, tx.ChainId(), s.chainId)
+		return common.Address{}, fmt.Errorf("EIP155Signer %w: have %d want %d", ErrInvalidChainId, tx.ChainId(), s.chainId)
 	}
 	V, R, S := tx.RawSignatureValues()
 	V = new(big.Int).Sub(V, s.chainIdMul)
