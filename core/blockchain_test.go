@@ -1012,8 +1012,6 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 // paymaster transaction and then checking that the gas usage of a hot SLOAD
 // and a cold SLOAD are calculated correctly.
 func TestEIP2718Transition(t *testing.T) {
-	// TODO(trinhdn): test this transition
-	t.Skip()
 	var (
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 		db = rawdb.NewMemoryDatabase()
@@ -1042,17 +1040,18 @@ func TestEIP2718Transition(t *testing.T) {
 		genesis = gspec.MustCommit(db)
 	)
 	// Generate blocks
-	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
+	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, block *BlockGen) {
 		block.SetCoinbase(common.Address{1})
 
 		// One transaction to 0xAAAA
 		signer := types.LatestSigner(gspec.Config)
 		tx, _ := types.SignNewTx(key, signer, &types.PaymasterTx{
-			ChainID:  gspec.Config.ChainId,
-			Nonce:    0,
-			To:       &aa,
-			Gas:      30000,
-			GasPrice: new(big.Int),
+			ChainID:   gspec.Config.ChainId,
+			Nonce:     0,
+			To:        &aa,
+			Gas:       30000,
+			GasPrice:  new(big.Int),
+			PmPayload: address.Bytes(),
 		})
 		block.AddTx(tx)
 	})
@@ -1067,8 +1066,8 @@ func TestEIP2718Transition(t *testing.T) {
 
 	block := blockchain.GetBlockByNumber(1)
 
-	// Expected gas is intrinsic + 2 * pc + hot load + cold load, since only one load is in the access list
-	expected := params.TxGas + vm.GasQuickStep*2
+	// Expected gas is intrinsic + 2 * pc + 2 * SLOAD
+	expected := params.TxGas + vm.GasQuickStep*2 + params.SloadGasEIP150*2
 	if block.GasUsed() != expected {
 		t.Fatalf("incorrect amount of gas spent: expected %d, got %d", expected, block.GasUsed())
 	}

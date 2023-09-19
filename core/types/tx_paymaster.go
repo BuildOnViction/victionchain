@@ -32,6 +32,7 @@ func (tx *PaymasterTx) copy() TxData {
 		// These are initialized below.
 		Value:    new(big.Int),
 		GasPrice: new(big.Int),
+		ChainID:  new(big.Int),
 		V:        new(big.Int),
 		R:        new(big.Int),
 		S:        new(big.Int),
