@@ -1103,46 +1103,46 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 }
 
 func newRevertError(result *core.ExecutionResult) *revertError {
- 	reason, errUnpack := abi.UnpackRevert(result.Revert())
- 	err := errors.New("execution reverted")
- 	if errUnpack == nil {
- 		err = fmt.Errorf("execution reverted: %v", reason)
- 	}
- 	return &revertError{
- 		error:  err,
- 		reason: hexutil.Encode(result.Revert()),
- 	}
- }
+	reason, errUnpack := abi.UnpackRevert(result.Revert())
+	err := errors.New("execution reverted")
+	if errUnpack == nil {
+		err = fmt.Errorf("execution reverted: %v", reason)
+	}
+	return &revertError{
+		error:  err,
+		reason: hexutil.Encode(result.Revert()),
+	}
+}
 
- // revertError is an API error that encompassas an EVM revertal with JSON error
- // code and a binary data blob.
- type revertError struct {
- 	error
- 	reason string // revert reason hex encoded
- }
+// revertError is an API error that encompassas an EVM revertal with JSON error
+// code and a binary data blob.
+type revertError struct {
+	error
+	reason string // revert reason hex encoded
+}
 
- // ErrorCode returns the JSON error code for a revertal.
- // See: https://github.com/ethereum/wiki/wiki/JSON-RPC-Error-Codes-Improvement-Proposal
- func (e *revertError) ErrorCode() int {
- 	return 3
- }
+// ErrorCode returns the JSON error code for a revertal.
+// See: https://github.com/ethereum/wiki/wiki/JSON-RPC-Error-Codes-Improvement-Proposal
+func (e *revertError) ErrorCode() int {
+	return 3
+}
 
- // ErrorData returns the hex encoded revert reason.
- func (e *revertError) ErrorData() interface{} {
- 	return e.reason
- }
+// ErrorData returns the hex encoded revert reason.
+func (e *revertError) ErrorData() interface{} {
+	return e.reason
+}
 
 // Call executes the given transaction on the state for the given block number.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber) (hexutil.Bytes, error) {
 	result, err := s.doCall(ctx, args, blockNr, vm.Config{}, 5*time.Second)
-        if err != nil {
-                return nil, err
-        }
+	if err != nil {
+		return nil, err
+	}
 
-        if len(result.Revert()) > 0 {
-                return nil, newRevertError(result)
-        }
+	if len(result.Revert()) > 0 {
+		return nil, newRevertError(result)
+	}
 	return result.Return(), result.Err
 }
 
@@ -1173,9 +1173,9 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 
 		result, err := s.doCall(ctx, args, rpc.LatestBlockNumber, vm.Config{}, 0)
 		if err != nil {
-                        if err == core.ErrIntrinsicGas {
-                                return true, nil, nil // Special case, raise gas limit
-                        }
+			if err == core.ErrIntrinsicGas {
+				return true, nil, nil // Special case, raise gas limit
+			}
 			return true, nil, err
 		}
 		return result.Failed(), result, nil
@@ -1183,10 +1183,10 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	// Execute the binary search and hone in on an executable gas limit
 	for lo+1 < hi {
 		mid := (hi + lo) / 2
-                failed, _, err := executable(mid)
-                if err != nil {
-                        return 0, err
-                }
+		failed, _, err := executable(mid)
+		if err != nil {
+			return 0, err
+		}
 		if failed {
 			lo = mid
 		} else {
@@ -1195,20 +1195,20 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	}
 	// Reject the transaction as invalid if it still fails at the highest allowance
 	if hi == cap {
-                failed, result, err := executable(hi)
-                if err != nil {
-                        return 0, nil
-                }
+		failed, result, err := executable(hi)
+		if err != nil {
+			return 0, nil
+		}
 
-                if failed {
-                        if result != nil && result.Err != vm.ErrOutOfGas {
-                                if len(result.Revert()) > 0 {
-                                        return 0, newRevertError(result)
-                                }
-                                return 0, result.Err
-                        }
-                        return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
-                }
+		if failed {
+			if result != nil && result.Err != vm.ErrOutOfGas {
+				if len(result.Revert()) > 0 {
+					return 0, newRevertError(result)
+				}
+				return 0, result.Err
+			}
+			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
+		}
 	}
 	return hexutil.Uint64(hi), nil
 }
