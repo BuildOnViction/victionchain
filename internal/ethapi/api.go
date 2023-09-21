@@ -1025,6 +1025,9 @@ type CallArgs struct {
 	GasPrice hexutil.Big     `json:"gasPrice"`
 	Value    hexutil.Big     `json:"value"`
 	Data     hexutil.Bytes   `json:"data"`
+
+	// Introduced by PaymasterTxType transaction
+	PmPayload hexutil.Bytes `json:"pmPayload,omitempty"`
 }
 
 func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
@@ -1062,6 +1065,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 		GasLimit:          gas,
 		GasPrice:          gasPrice,
 		Data:              args.Data,
+		PmPayload:         args.PmPayload,
 		BalanceTokenFee:   balanceTokenFee,
 		SkipAccountChecks: true,
 	}

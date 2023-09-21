@@ -73,6 +73,7 @@ type Message struct {
 	GasLimit        uint64
 	GasPrice        *big.Int
 	Data            []byte
+	PmPayload       []byte
 	BalanceTokenFee *big.Int
 
 	// When SkipAccountChecks is true, the message nonce is not checked against the
