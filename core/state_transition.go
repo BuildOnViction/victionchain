@@ -73,6 +73,7 @@ type Message struct {
 	GasLimit        uint64
 	GasPrice        *big.Int
 	Data            []byte
+	PmAddress       common.Address
 	PmPayload       []byte
 	BalanceTokenFee *big.Int
 
@@ -164,18 +165,23 @@ func NewStateTransition(evm *vm.EVM, msg *Message, gp *GasPool) *StateTransition
 
 // TransactionToMessage converts a transaction into a Message.
 func TransactionToMessage(tx *types.Transaction, s types.Signer, balanceFee *big.Int, number *big.Int) (*Message, error) {
+	from, err := types.Sender(s, tx)
 	msg := &Message{
+		From:              from,
 		Nonce:             tx.Nonce(),
 		GasLimit:          tx.Gas(),
 		GasPrice:          new(big.Int).Set(tx.GasPrice()),
 		To:                tx.To(),
 		Value:             tx.Value(),
 		Data:              tx.Data(),
+		PmAddress:         from,
+		PmPayload:         tx.PmPayload(),
 		SkipAccountChecks: false,
 		BalanceTokenFee:   balanceFee,
 	}
-	var err error
-	msg.From, err = types.Sender(s, tx)
+	if len(msg.PmPayload) >= 20 {
+		msg.PmAddress = common.BytesToAddress(msg.PmPayload[:20]) // the first 20 bytes of PmPayload is the address of Paymaster contract
+	}
 	if balanceFee != nil {
 		if number.Cmp(common.TIPTRC21Fee) > 0 {
 			msg.GasPrice = common.TRC21GasPrice
@@ -199,6 +205,14 @@ func ApplyMessage(evm *vm.EVM, msg *Message, gp *GasPool, owner common.Address) 
 
 func (st *StateTransition) from() vm.AccountRef {
 	f := st.msg.From
+	if !st.state.Exist(f) {
+		st.state.CreateAccount(f)
+	}
+	return vm.AccountRef(f)
+}
+
+func (st *StateTransition) pmAddress() vm.AccountRef {
+	f := st.msg.PmAddress
 	if !st.state.Exist(f) {
 		st.state.CreateAccount(f)
 	}
@@ -229,7 +243,7 @@ func (st *StateTransition) buyGas() error {
 	var (
 		state           = st.state
 		balanceTokenFee = st.balanceTokenFee()
-		from            = st.from()
+		from            = st.pmAddress()
 	)
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.GasLimit), st.gasPrice)
 	if balanceTokenFee == nil {
@@ -369,7 +383,7 @@ func (st *StateTransition) refundGas() {
 
 	balanceTokenFee := st.balanceTokenFee()
 	if balanceTokenFee == nil {
-		from := st.from()
+		from := st.pmAddress()
 		// Return ETH for remaining gas, exchanged at the original rate.
 		remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
 		st.state.AddBalance(from.Address(), remaining)
