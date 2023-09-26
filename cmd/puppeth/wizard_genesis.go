@@ -18,27 +18,25 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"math/rand"
 	"time"
 
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core"
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/params"
-
-	"context"
-	"math/big"
-
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
+	"github.com/tomochain/tomochain/common"
 	blockSignerContract "github.com/tomochain/tomochain/contracts/blocksigner"
 	multiSignWalletContract "github.com/tomochain/tomochain/contracts/multisigwallet"
 	randomizeContract "github.com/tomochain/tomochain/contracts/randomize"
 	validatorContract "github.com/tomochain/tomochain/contracts/validator"
+	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -56,6 +54,7 @@ func (w *wizard) makeGenesis() {
 			EIP155Block:    big.NewInt(3),
 			EIP158Block:    big.NewInt(3),
 			ByzantiumBlock: big.NewInt(4),
+			EIP2718Block:   big.NewInt(1),
 		},
 	}
 	// Figure out which consensus engine to choose
@@ -79,6 +78,12 @@ func (w *wizard) makeGenesis() {
 			Period: 15,
 			Epoch:  30000,
 		}
+
+		// Query the user for some custom extras
+		fmt.Println()
+		fmt.Println("Specify your chain/network ID if you want an explicit one (default = random)")
+		genesis.Config.ChainId = new(big.Int).SetUint64(uint64(w.readDefaultInt(rand.Intn(65536))))
+
 		fmt.Println()
 		fmt.Println("How many seconds should blocks take? (default = 15)")
 		genesis.Config.Clique.Period = uint64(w.readDefaultInt(15))
@@ -117,6 +122,8 @@ func (w *wizard) makeGenesis() {
 			Epoch:  30000,
 			Reward: 0,
 		}
+		genesis.Config.ChainId = params.AllEthashProtocolChanges.ChainId
+
 		fmt.Println()
 		fmt.Println("How many seconds should blocks take? (default = 2)")
 		genesis.Config.Posv.Period = uint64(w.readDefaultInt(2))
@@ -177,7 +184,7 @@ func (w *wizard) makeGenesis() {
 		// Validator Smart Contract Code
 		pKey, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr := crypto.PubkeyToAddress(pKey.PublicKey)
-		contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(1000000000)}})
+		contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(1_000_000_000_000_000_000)}})
 		transactOpts := bind.NewKeyedTransactor(pKey)
 
 		validatorAddress, _, err := validatorContract.DeployValidator(transactOpts, contractBackend, signers, validatorCaps, owner)
@@ -385,6 +392,10 @@ func (w *wizard) manageGenesis() {
 		fmt.Println()
 		fmt.Printf("Which block should Byzantium come into effect? (default = %v)\n", w.conf.Genesis.Config.ByzantiumBlock)
 		w.conf.Genesis.Config.ByzantiumBlock = w.readDefaultBigInt(w.conf.Genesis.Config.ByzantiumBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should EIP-2718 come into effect? (default = %v)\n", w.conf.Genesis.Config.EIP2718Block)
+		w.conf.Genesis.Config.EIP2718Block = w.readDefaultBigInt(w.conf.Genesis.Config.EIP2718Block)
 
 		out, _ := json.MarshalIndent(w.conf.Genesis.Config, "", "  ")
 		fmt.Printf("Chain configuration updated:\n\n%s\n", out)
