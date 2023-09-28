@@ -222,7 +222,7 @@ func (b *SimulatedBackend) CallContractWithState(call tomochain.CallMsg, chain c
 		GasLimit:          call.Gas,
 		GasPrice:          call.GasPrice,
 		Data:              call.Data,
-		SkipAccountChecks: false,
+		SkipAccountChecks: true,
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
 	if msg.To != nil {
