@@ -232,11 +232,7 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 	// input offset is the bytes offset for packed output
 	inputOffset := 0
 	for _, abiArg := range abiArgs {
-		if abiArg.Type.T == ArrayTy {
-			inputOffset += 32 * abiArg.Type.Size
-		} else {
-			inputOffset += 32
-		}
+		inputOffset += getDynamicTypeOffset(abiArg.Type)
 	}
 	var ret []byte
 	for i, a := range args {
@@ -246,14 +242,13 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		// check for a slice type (string, bytes, slice)
-		if input.Type.requiresLengthPrefix() {
-			// calculate the offset
-			offset := inputOffset + len(variableInput)
+		// check for dynamic types
+		if isDynamicType(input.Type) {
 			// set the offset
-			ret = append(ret, packNum(reflect.ValueOf(offset))...)
-			// Append the packed output to the variable input. The variable input
-			// will be appended at the end of the input.
+			ret = append(ret, packNum(reflect.ValueOf(inputOffset))...)
+			// calculate next offset
+			inputOffset += len(packed)
+			// append to variable input
 			variableInput = append(variableInput, packed...)
 		} else {
 			// append the packed value to the input
@@ -278,7 +273,7 @@ func capitalise(input string) string {
 	return strings.ToUpper(input[:1]) + input[1:]
 }
 
-//unpackStruct extracts each argument into its corresponding struct field
+// unpackStruct extracts each argument into its corresponding struct field
 func unpackStruct(value, reflectValue reflect.Value, arg Argument) error {
 	name := capitalise(arg.Name)
 	typ := value.Type()
