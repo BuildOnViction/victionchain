@@ -30,12 +30,13 @@ func (tx *PaymasterTx) copy() TxData {
 		Data:  common.CopyBytes(tx.Data),
 		Gas:   tx.Gas,
 		// These are initialized below.
-		Value:    new(big.Int),
-		GasPrice: new(big.Int),
-		ChainID:  new(big.Int),
-		V:        new(big.Int),
-		R:        new(big.Int),
-		S:        new(big.Int),
+		Value:     new(big.Int),
+		GasPrice:  new(big.Int),
+		ChainID:   new(big.Int),
+		PmPayload: common.CopyBytes(tx.PmPayload),
+		V:         new(big.Int),
+		R:         new(big.Int),
+		S:         new(big.Int),
 	}
 	if tx.Value != nil {
 		cpy.Value.Set(tx.Value)

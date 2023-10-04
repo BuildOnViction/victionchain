@@ -531,6 +531,7 @@ func (tx *Transaction) String() string {
 	enc, _ := rlp.EncodeToBytes(&tx.inner)
 	return fmt.Sprintf(`
 	TX(%x)
+	Type:	   %v
 	Contract:  %v
 	From:      %s
 	To:        %s
@@ -545,7 +546,8 @@ func (tx *Transaction) String() string {
 	S:         %#x
 	Hex:       %x
 `,
-		tx.Hash(),
+		tx.Hash().Hex(),
+		tx.Type(),
 		tx.To() == nil,
 		from,
 		to,

@@ -48,8 +48,11 @@ import (
 // This nil assignment ensures compile time that SimulatedBackend implements bind.ContractBackend.
 var _ bind.ContractBackend = (*SimulatedBackend)(nil)
 
-var errBlockNumberUnsupported = errors.New("SimulatedBackend cannot access blocks other than the latest block")
-var errGasEstimationFailed = errors.New("gas required exceeds allowance or always failing transaction")
+var (
+	errBlockNumberUnsupported = errors.New("SimulatedBackend cannot access blocks other than the latest block")
+	errBlockDoesNotExist      = errors.New("block does not exist in blockchain")
+	errGasEstimationFailed    = errors.New("gas required exceeds allowance or always failing transaction")
+)
 
 // SimulatedBackend implements bind.ContractBackend, simulating a blockchain in
 // the background. Its main purpose is to allow easily testing contract bindings.
@@ -186,6 +189,28 @@ func (b *SimulatedBackend) PendingCodeAt(ctx context.Context, contract common.Ad
 	defer b.mu.Unlock()
 
 	return b.pendingState.GetCode(contract), nil
+}
+
+// BlockByHash retrieves a block based on the block hash.
+func (b *SimulatedBackend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.blockByHash(ctx, hash)
+}
+
+// blockByHash retrieves a block based on the block hash without Locking.
+func (b *SimulatedBackend) blockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	if hash == b.pendingBlock.Hash() {
+		return b.pendingBlock, nil
+	}
+
+	block := b.blockchain.GetBlockByHash(hash)
+	if block != nil {
+		return block, nil
+	}
+
+	return nil, errBlockDoesNotExist
 }
 
 func newRevertError(result *core.ExecutionResult) *revertError {
@@ -435,7 +460,14 @@ func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transa
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	sender, err := types.Sender(types.HomesteadSigner{}, tx)
+	// Get the last block
+	block, err := b.blockByHash(ctx, b.pendingBlock.ParentHash())
+	if err != nil {
+		return errors.New("could not fetch parent")
+	}
+	// Check transaction validity
+	signer := types.MakeSigner(b.blockchain.Config(), block.Number())
+	sender, err := types.Sender(signer, tx)
 	if err != nil {
 		panic(fmt.Errorf("invalid transaction: %v", err))
 	}
@@ -536,21 +568,6 @@ func (b *SimulatedBackend) AdjustTime(adjustment time.Duration) error {
 
 	return nil
 }
-
-// callmsg implements core.Message to allow passing it as a transaction simulator.
-type callmsg struct {
-	tomochain.CallMsg
-}
-
-func (m callmsg) From() common.Address      { return m.CallMsg.From }
-func (m callmsg) Nonce() uint64             { return 0 }
-func (m callmsg) CheckNonce() bool          { return false }
-func (m callmsg) To() *common.Address       { return m.CallMsg.To }
-func (m callmsg) GasPrice() *big.Int        { return m.CallMsg.GasPrice }
-func (m callmsg) Gas() uint64               { return m.CallMsg.Gas }
-func (m callmsg) Value() *big.Int           { return m.CallMsg.Value }
-func (m callmsg) Data() []byte              { return m.CallMsg.Data }
-func (m callmsg) BalanceTokenFee() *big.Int { return m.CallMsg.BalanceTokenFee }
 
 // filterBackend implements filters.Backend to support filtering for logs without
 // taking bloom-bits acceleration structures into account.
