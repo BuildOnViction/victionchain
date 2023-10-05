@@ -144,7 +144,7 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	snapshot := statedb.Snapshot()
 
 	coinbase := &t.json.Env.Coinbase
-	if _, _, _, err := core.ApplyMessage(evm, msg, gaspool, *coinbase); err != nil {
+	if _, err := core.ApplyMessage(evm, msg, gaspool, *coinbase); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 	}
 	if logs := rlpHash(statedb.Logs()); logs != common.Hash(post.Logs) {
