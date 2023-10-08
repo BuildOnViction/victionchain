@@ -89,7 +89,7 @@ func Bind(types []string, abis []string, bytecodes []string, pkg string, lang La
 				}
 			}
 			// Append the methods to the call or transact lists
-			if original.Const {
+			if original.IsConstant() {
 				calls[original.Name] = &tmplMethod{Original: original, Normalized: normalized, Structured: structured(original.Outputs)}
 			} else {
 				transacts[original.Name] = &tmplMethod{Original: original, Normalized: normalized, Structured: structured(original.Outputs)}
@@ -166,9 +166,10 @@ var bindType = map[Lang]func(kind abi.Type) string{
 
 // Helper function for the binding generators.
 // It reads the unmatched characters after the inner type-match,
-//  (since the inner type is a prefix of the total type declaration),
-//  looks for valid arrays (possibly a dynamic one) wrapping the inner type,
-//  and returns the sizes of these arrays.
+//
+//	(since the inner type is a prefix of the total type declaration),
+//	looks for valid arrays (possibly a dynamic one) wrapping the inner type,
+//	and returns the sizes of these arrays.
 //
 // Returned array sizes are in the same order as solidity signatures; inner array size first.
 // Array sizes may also be "", indicating a dynamic array.

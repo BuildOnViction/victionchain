@@ -30,6 +30,11 @@ import (
 	"github.com/tomochain/tomochain/event"
 )
 
+var (
+	errNoEventSignature       = errors.New("no event signature")
+	errEventSignatureMismatch = errors.New("event signature mismatch")
+)
+
 // SignerFn is a signer function callback when a contract requires a method to
 // sign the transaction before submission.
 type SignerFn func(types.Signer, common.Address, *types.Transaction) (*types.Transaction, error)
@@ -161,7 +166,7 @@ func (c *BoundContract) Call(opts *CallOpts, result interface{}, method string, 
 	if err != nil {
 		return err
 	}
-	return c.abi.Unpack(result, method, output)
+	return c.abi.UnpackIntoInterface(result, method, output)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
@@ -252,7 +257,7 @@ func (c *BoundContract) FilterLogs(opts *FilterOpts, name string, query ...[]int
 		opts = new(FilterOpts)
 	}
 	// Append the event selector to the query parameters and construct the topic set
-	query = append([][]interface{}{{c.abi.Events[name].Id()}}, query...)
+	query = append([][]interface{}{{c.abi.Events[name].ID}}, query...)
 
 	topics, err := makeTopics(query...)
 	if err != nil {
@@ -301,7 +306,7 @@ func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]inter
 		opts = new(WatchOpts)
 	}
 	// Append the event selector to the query parameters and construct the topic set
-	query = append([][]interface{}{{c.abi.Events[name].Id()}}, query...)
+	query = append([][]interface{}{{c.abi.Events[name].ID}}, query...)
 
 	topics, err := makeTopics(query...)
 	if err != nil {
@@ -326,8 +331,15 @@ func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]inter
 
 // UnpackLog unpacks a retrieved log into the provided output structure.
 func (c *BoundContract) UnpackLog(out interface{}, event string, log types.Log) error {
+	// Anonymous events are not supported.
+	if len(log.Topics) == 0 {
+		return errNoEventSignature
+	}
+	if log.Topics[0] != c.abi.Events[event].ID {
+		return errEventSignatureMismatch
+	}
 	if len(log.Data) > 0 {
-		if err := c.abi.Unpack(out, event, log.Data); err != nil {
+		if err := c.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
 			return err
 		}
 	}

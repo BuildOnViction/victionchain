@@ -78,14 +78,14 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, contractA
 		return nil, err
 	}
 	var unpackResult interface{}
-	err = abi.Unpack(&unpackResult, method, result)
+	err = abi.UnpackIntoInterface(&unpackResult, method, result)
 	if err != nil {
 		return nil, err
 	}
 	return unpackResult, nil
 }
 
-//FIXME: please use copyState for this function
+// FIXME: please use copyState for this function
 // CallContractWithState executes a contract call at the given state.
 func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
 	// Ensure message is initialized properly.
