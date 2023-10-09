@@ -511,7 +511,7 @@ func (s *PublicBlockChainAPI) BlockNumber() *big.Int {
 	return header.Number
 }
 
-// BlockNumber returns the block number of the chain head.
+// GetRewardByHash returns the block reward by block hash.
 func (s *PublicBlockChainAPI) GetRewardByHash(hash common.Hash) map[string]map[string]map[string]*big.Int {
 	return s.b.GetRewardByHash(hash)
 }
@@ -1027,17 +1027,17 @@ type CallArgs struct {
 	Data     hexutil.Bytes   `json:"data"`
 }
 
-func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
+func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
-	statedb, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	statedb, header, err := b.StateAndHeaderByNumber(ctx, blockNr)
 	if statedb == nil || err != nil {
 		return nil, err
 	}
 	// Set sender address or use a default if none specified
 	addr := args.From
 	if addr == (common.Address{}) {
-		if wallets := s.b.AccountManager().Wallets(); len(wallets) > 0 {
+		if wallets := b.AccountManager().Wallets(); len(wallets) > 0 {
 			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
 				addr = accounts[0].Address
 			}
@@ -1078,20 +1078,20 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	block, err := s.b.BlockByNumber(ctx, blockNr)
+	block, err := b.BlockByNumber(ctx, blockNr)
 	if err != nil {
 		return nil, err
 	}
-	author, err := s.b.GetEngine().Author(block.Header())
+	author, err := b.GetEngine().Author(block.Header())
 	if err != nil {
 		return nil, err
 	}
-	tomoxState, err := s.b.TomoxService().GetTradingState(block, author)
+	tomoxState, err := b.TomoxService().GetTradingState(block, author)
 	if err != nil {
 		return nil, err
 	}
 	// Get a new instance of the EVM.
-	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, tomoxState, header, vmCfg)
+	evm, vmError, err := b.GetEVM(ctx, msg, statedb, tomoxState, header, vmCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -1146,7 +1146,7 @@ func (e *revertError) ErrorData() interface{} {
 // Call executes the given transaction on the state for the given block number.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber) (hexutil.Bytes, error) {
-	result, err := s.doCall(ctx, args, blockNr, vm.Config{}, 5*time.Second)
+	result, err := DoCall(ctx, s.b, args, blockNr, vm.Config{}, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -1157,45 +1157,107 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr r
 	return result.Return(), result.Err
 }
 
-// EstimateGas returns an estimate of the amount of gas needed to execute the
-// given transaction against the current pending block.
-func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
-	// Binary search the gas requirement, as it may be higher than the amount used
+// executeEstimate is a helper that executes the transaction under a given gas limit and returns
+// true if the transaction fails for a reason that might be related to not enough gas. A non-nil
+// error means execution failed due to reasons unrelated to the gas limit.
+func executeEstimate(ctx context.Context, b Backend, args CallArgs, state *state.StateDB, header *types.Header, gasLimit uint64) (bool, *core.ExecutionResult, error) {
+	args.Gas = (hexutil.Uint64)(gasLimit)
+	result, err := DoCall(ctx, b, args, rpc.BlockNumber(header.Number.Int64()), vm.Config{}, 0)
+	if err != nil {
+		if errors.Is(err, core.ErrIntrinsicGas) {
+			return true, nil, nil // Special case, raise gas limit
+		}
+		return true, nil, err // Bail out
+	}
+	return result.Failed(), result, nil
+}
+
+// DoEstimateGas returns the lowest possible gas limit that allows the transaction to run
+// successfully at block `blockNrOrHash`. It returns error if the transaction would revert, or if
+// there are unexpected failures. The gas limit is capped by both `args.Gas` (if non-nil &
+// non-zero) and `gasCap` (if non-zero).
+func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumber) (hexutil.Uint64, error) {
+	// Binary search the gas limit, as it may need to be higher than the amount used
 	var (
-		lo  uint64 = params.TxGas - 1
-		hi  uint64
-		cap uint64
+		lo uint64 // lowest-known gas limit where tx execution fails
+		hi uint64 // lowest-known gas limit where tx execution succeeds
 	)
+	// Determine the highest gas limit can be used during the estimation.
 	if uint64(args.Gas) >= params.TxGas {
 		hi = uint64(args.Gas)
 	} else {
-		// Retrieve the current pending block to act as the gas ceiling
-		block, err := s.b.BlockByNumber(ctx, rpc.LatestBlockNumber)
+		// Retrieve the block to act as the gas ceiling
+		block, err := b.BlockByNumber(ctx, blockNrOrHash)
 		if err != nil {
 			return 0, err
 		}
+		if block == nil {
+			return 0, errors.New("block not found")
+		}
 		hi = block.GasLimit()
 	}
-	cap = hi
+	// Normalize the max fee per gas the call is willing to spend.
+	feeCap := args.GasPrice.ToInt()
 
-	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(gas uint64) (bool, *core.ExecutionResult, error) {
-		args.Gas = hexutil.Uint64(gas)
-
-		result, err := s.doCall(ctx, args, rpc.LatestBlockNumber, vm.Config{}, 0)
-		if err != nil {
-			if err == core.ErrIntrinsicGas {
-				return true, nil, nil // Special case, raise gas limit
-			}
-			return true, nil, err
-		}
-		return result.Failed(), result, nil
+	state, header, err := b.StateAndHeaderByNumber(ctx, blockNrOrHash)
+	if state == nil || err != nil {
+		return 0, err
 	}
-	// Execute the binary search and hone in on an executable gas limit
+
+	// Recap the highest gas limit with account's available balance.
+	if feeCap.BitLen() != 0 {
+		balance := state.GetBalance(args.From) // from can't be nil
+		available := new(big.Int).Set(balance)
+		if args.Value.ToInt().Cmp(available) >= 0 {
+			return 0, core.ErrInsufficientFundsForTransfer
+		}
+		available.Sub(available, args.Value.ToInt())
+		allowance := new(big.Int).Div(available, feeCap)
+
+		// If the allowance is larger than maximum uint64, skip checking
+		if allowance.IsUint64() && hi > allowance.Uint64() {
+			transfer := args.Value
+			log.Warn("Gas estimation capped by limited funds", "original", hi, "balance", balance,
+				"sent", transfer.ToInt(), "maxFeePerGas", feeCap, "fundable", allowance)
+			hi = allowance.Uint64()
+		}
+	}
+
+	// We first execute the transaction at the highest allowable gas limit, since if this fails we
+	// can return error immediately.
+	failed, result, err := executeEstimate(ctx, b, args, state.Copy(), header, hi)
+	if err != nil {
+		return 0, err
+	}
+	if failed {
+		if result != nil && !errors.Is(result.Err, vm.ErrOutOfGas) {
+			if len(result.Revert()) > 0 {
+				return 0, newRevertError(result)
+			}
+			return 0, result.Err
+		}
+		return 0, fmt.Errorf("gas required exceeds allowance (%d)", hi)
+	}
+	// For almost any transaction, the gas consumed by the unconstrained execution above
+	// lower-bounds the gas limit required for it to succeed. One exception is those txs that
+	// explicitly check gas remaining in order to successfully execute within a given limit, but we
+	// probably don't want to return a lowest possible gas limit for these cases anyway.
+	lo = result.UsedGas - 1
+
+	// Binary search for the smallest gas limit that allows the tx to execute successfully.
 	for lo+1 < hi {
 		mid := (hi + lo) / 2
-		failed, _, err := executable(mid)
+		if mid > lo*2 {
+			// Most txs don't need much higher gas limit than their gas used, and most txs don't
+			// require near the full block limit of gas, so the selection of where to bisect the
+			// range here is skewed to favor the low side.
+			mid = lo * 2
+		}
+		failed, _, err = executeEstimate(ctx, b, args, state.Copy(), header, mid)
 		if err != nil {
+			// This should not happen under normal conditions since if we make it this far the
+			// transaction had run without error at least once before.
+			log.Error("execution error in estimate gas", "err", err)
 			return 0, err
 		}
 		if failed {
@@ -1204,24 +1266,20 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 			hi = mid
 		}
 	}
-	// Reject the transaction as invalid if it still fails at the highest allowance
-	if hi == cap {
-		failed, result, err := executable(hi)
-		if err != nil {
-			return 0, nil
-		}
-
-		if failed {
-			if result != nil && result.Err != vm.ErrOutOfGas {
-				if len(result.Revert()) > 0 {
-					return 0, newRevertError(result)
-				}
-				return 0, result.Err
-			}
-			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
-		}
-	}
 	return hexutil.Uint64(hi), nil
+}
+
+// EstimateGas returns the lowest possible gas limit that allows the transaction to run
+// successfully at block `blockNrOrHash`, or the latest block if `blockNrOrHash` is unspecified. It
+// returns error if the transaction would revert or if there are unexpected failures. The returned
+// value is capped by both `args.Gas` (if non-nil & non-zero) and the backend's RPCGasCap
+// configuration (if non-zero).
+func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs, blockNrOrHash *rpc.BlockNumber) (hexutil.Uint64, error) {
+	bNrOrHash := rpc.LatestBlockNumber
+	if blockNrOrHash != nil {
+		bNrOrHash = *blockNrOrHash
+	}
+	return DoEstimateGas(ctx, s.b, args, bNrOrHash)
 }
 
 // ExecutionResult groups all structured logs emitted by the EVM
