@@ -1030,10 +1030,14 @@ type CallArgs struct {
 func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
-	statedb, header, err := b.StateAndHeaderByNumber(ctx, blockNr)
-	if statedb == nil || err != nil {
+	state, header, err := b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
 		return nil, err
 	}
+
+	return doCall(ctx, b, args, state, header, timeout)
+}
+func doCall(ctx context.Context, b Backend, args CallArgs, state *state.StateDB, header *types.Header, timeout time.Duration) (*core.ExecutionResult, error) {
 	// Set sender address or use a default if none specified
 	addr := args.From
 	if addr == (common.Address{}) {
@@ -1078,7 +1082,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumb
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	block, err := b.BlockByNumber(ctx, blockNr)
+	block, err := b.BlockByNumber(ctx, rpc.BlockNumber(header.Number.Int64()))
 	if err != nil {
 		return nil, err
 	}
@@ -1091,7 +1095,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumb
 		return nil, err
 	}
 	// Get a new instance of the EVM.
-	evm, vmError, err := b.GetEVM(ctx, msg, statedb, tomoxState, header, vmCfg)
+	evm, vmError, err := b.GetEVM(ctx, msg, state, tomoxState, header, vm.Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -1162,7 +1166,7 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr r
 // error means execution failed due to reasons unrelated to the gas limit.
 func executeEstimate(ctx context.Context, b Backend, args CallArgs, state *state.StateDB, header *types.Header, gasLimit uint64) (bool, *core.ExecutionResult, error) {
 	args.Gas = (hexutil.Uint64)(gasLimit)
-	result, err := DoCall(ctx, b, args, rpc.BlockNumber(header.Number.Int64()), vm.Config{}, 0)
+	result, err := doCall(ctx, b, args, state, header, 0)
 	if err != nil {
 		if errors.Is(err, core.ErrIntrinsicGas) {
 			return true, nil, nil // Special case, raise gas limit
