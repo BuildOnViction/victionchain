@@ -26,11 +26,12 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
 )
 
 func NewState(ctx context.Context, head *types.Header, odr OdrBackend) *state.StateDB {
-	state, _ := state.New(head.Root, NewStateDatabase(ctx, head, odr))
+	state, _ := state.New(head.Root, NewStateDatabase(ctx, head, odr), nil)
 	return state
 }
 
@@ -95,27 +96,74 @@ type odrTrie struct {
 	trie *trie.Trie
 }
 
-func (t *odrTrie) TryGet(key []byte) ([]byte, error) {
+func (t *odrTrie) GetStorage(_ common.Address, key []byte) ([]byte, error) {
 	key = crypto.Keccak256(key)
-	var res []byte
+	var enc []byte
 	err := t.do(key, func() (err error) {
-		res, err = t.trie.TryGet(key)
+		enc, err = t.trie.Get(key)
 		return err
 	})
-	return res, err
+	if err != nil || len(enc) == 0 {
+		return nil, err
+	}
+	_, content, _, err := rlp.Split(enc)
+	return content, err
 }
 
-func (t *odrTrie) TryUpdate(key, value []byte) error {
-	key = crypto.Keccak256(key)
+func (t *odrTrie) GetAccount(address common.Address) (*types.StateAccount, error) {
+	var (
+		enc []byte
+		key = crypto.Keccak256(address.Bytes())
+	)
+	err := t.do(key, func() (err error) {
+		enc, err = t.trie.Get(key)
+		return err
+	})
+	if err != nil || len(enc) == 0 {
+		return nil, err
+	}
+	acct := new(types.StateAccount)
+	if err := rlp.DecodeBytes(enc, acct); err != nil {
+		return nil, err
+	}
+	return acct, nil
+}
+
+func (t *odrTrie) UpdateAccount(address common.Address, acc *types.StateAccount) error {
+	key := crypto.Keccak256(address.Bytes())
+	value, err := rlp.EncodeToBytes(acc)
+	if err != nil {
+		return fmt.Errorf("decoding error in account update: %w", err)
+	}
 	return t.do(key, func() error {
-		return t.trie.TryDelete(key)
+		return t.trie.Update(key, value)
 	})
 }
 
-func (t *odrTrie) TryDelete(key []byte) error {
+func (t *odrTrie) UpdateContractCode(_ common.Address, _ common.Hash, _ []byte) error {
+	return nil
+}
+
+func (t *odrTrie) UpdateStorage(_ common.Address, key, value []byte) error {
+	key = crypto.Keccak256(key)
+	v, _ := rlp.EncodeToBytes(value)
+	return t.do(key, func() error {
+		return t.trie.Update(key, v)
+	})
+}
+
+func (t *odrTrie) DeleteStorage(_ common.Address, key []byte) error {
 	key = crypto.Keccak256(key)
 	return t.do(key, func() error {
-		return t.trie.TryDelete(key)
+		return t.trie.Delete(key)
+	})
+}
+
+// DeleteAccount abstracts an account deletion from the trie.
+func (t *odrTrie) DeleteAccount(address common.Address) error {
+	key := crypto.Keccak256(address.Bytes())
+	return t.do(key, func() error {
+		return t.trie.Delete(key)
 	})
 }
 

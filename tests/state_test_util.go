@@ -30,6 +30,7 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/state/snapshot"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/sha3"
@@ -121,14 +122,14 @@ func (t *StateTest) Subtests() []StateSubtest {
 }
 
 // Run executes a specific subtest.
-func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateDB, error) {
+func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config, snapshotter bool) (*state.StateDB, error) {
 	config, ok := Forks[subtest.Fork]
 	if !ok {
 		return nil, UnsupportedForkError{subtest.Fork}
 	}
 	block := t.genesis(config).ToBlock(nil)
 	db := rawdb.NewMemoryDatabase()
-	statedb := MakePreState(db, t.json.Pre)
+	statedb := MakePreState(db, t.json.Pre, snapshotter)
 
 	post := t.json.Post[subtest.Fork][subtest.Index]
 	msg, err := t.json.Tx.toMessage(post)
@@ -161,9 +162,9 @@ func (t *StateTest) gasLimit(subtest StateSubtest) uint64 {
 	return t.json.Tx.GasLimit[t.json.Post[subtest.Fork][subtest.Index].Indexes.Gas]
 }
 
-func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB {
+func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter bool) *state.StateDB {
 	sdb := state.NewDatabase(db)
-	statedb, _ := state.New(common.Hash{}, sdb)
+	statedb, _ := state.New(common.Hash{}, sdb, nil)
 	for addr, a := range accounts {
 		statedb.SetCode(addr, a.Code)
 		statedb.SetNonce(addr, a.Nonce)
@@ -174,7 +175,12 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB 
 	}
 	// Commit and re-open to start with a clean state.
 	root, _ := statedb.Commit(false)
-	statedb, _ = state.New(root, sdb)
+
+	var snaps *snapshot.Tree
+	if snapshotter {
+		snaps = snapshot.New(db, sdb.TrieDB(), 1, root, false)
+	}
+	statedb, _ = state.New(root, sdb, snaps)
 	return statedb
 }
 

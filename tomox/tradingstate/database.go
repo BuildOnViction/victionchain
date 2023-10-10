@@ -81,7 +81,7 @@ type Trie interface {
 func NewDatabase(db ethdb.Database) Database {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &cachingDB{
-		db:            trie.NewDatabase(db),
+		db:            trie.NewDatabaseWithConfig(db, &trie.Config{Preimages: true}),
 		codeSizeCache: csc,
 	}
 }

@@ -163,7 +163,7 @@ func UnpackRevert(data []byte) (string, error) {
 		return "", errors.New("invalid data for unpacking")
 	}
 	var reason string
-	typ, _ := NewType("string")
+	typ, _ := NewType("string", "", nil)
 	if err := (Arguments{{Type: typ}}).Unpack(&reason, data[4:]); err != nil {
 		return "", err
 	}

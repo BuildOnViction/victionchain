@@ -1100,7 +1100,7 @@ func (pm *ProtocolManager) getAccount(statedb *state.StateDB, root, hash common.
 	if err != nil {
 		return types.StateAccount{}, err
 	}
-	blob, err := trie.TryGet(hash[:])
+	blob, err := trie.Get(hash[:])
 	if err != nil {
 		return types.StateAccount{}, err
 	}

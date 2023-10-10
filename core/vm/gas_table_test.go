@@ -17,10 +17,11 @@
 package vm
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math"
 	"math/big"
 	"testing"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
@@ -81,7 +82,7 @@ func TestEIP2200(t *testing.T) {
 	for i, tt := range eip2200Tests {
 		address := common.BytesToAddress([]byte("contract"))
 		db := rawdb.NewMemoryDatabase()
-		statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+		statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
 		statedb.CreateAccount(address)
 		statedb.SetCode(address, hexutil.MustDecode(tt.input))
 		statedb.SetState(address, common.Hash{}, common.BytesToHash([]byte{tt.original}))
@@ -91,7 +92,7 @@ func TestEIP2200(t *testing.T) {
 			CanTransfer: func(StateDB, common.Address, *big.Int) bool { return true },
 			Transfer:    func(StateDB, common.Address, common.Address, *big.Int) {},
 		}
-		vmenv := NewEVM(vmctx, statedb, nil,params.AllEthashProtocolChanges, Config{ExtraEips: []int{2200}})
+		vmenv := NewEVM(vmctx, statedb, nil, params.AllEthashProtocolChanges, Config{ExtraEips: []int{2200}})
 
 		_, gas, err := vmenv.Call(AccountRef(common.Address{}), address, nil, tt.gaspool, new(big.Int))
 		if err != tt.failure {

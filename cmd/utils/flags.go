@@ -190,6 +190,10 @@ var (
 		Usage: `Blockchain garbage collection mode ("full", "archive")`,
 		Value: "full",
 	}
+	SnapshotFlag = cli.BoolFlag{
+		Name:  "snapshot",
+		Usage: `Enables snapshot-database mode -- experimental work in progress feature`,
+	}
 	LightServFlag = cli.IntFlag{
 		Name:  "lightserv",
 		Usage: "Maximum percentage of time allowed for serving LES requests (0-90)",
@@ -304,6 +308,11 @@ var (
 		Name:  "cache.gc",
 		Usage: "Percentage of cache memory allowance to use for trie pruning",
 		Value: 25,
+	}
+	CacheSnapshotFlag = cli.IntFlag{
+		Name:  "cache.snapshot",
+		Usage: "Percentage of cache memory allowance to use for snapshot caching (default = 10% full mode, 20% archive mode)",
+		Value: 10,
 	}
 	// Miner settings
 	StakingEnabledFlag = cli.BoolFlag{

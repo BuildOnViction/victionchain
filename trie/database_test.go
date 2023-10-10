@@ -20,13 +20,13 @@ import (
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/ethdb/memorydb"
+	"github.com/tomochain/tomochain/core/rawdb"
 )
 
 // Tests that the trie database returns a missing trie Node error if attempting
 // to retrieve the meta root.
 func TestDatabaseMetarootFetch(t *testing.T) {
-	db := NewDatabase(memorydb.New())
+	db := NewDatabase(rawdb.NewMemoryDatabase())
 	if _, err := db.Node(common.Hash{}); err == nil {
 		t.Fatalf("metaroot retrieval succeeded")
 	}

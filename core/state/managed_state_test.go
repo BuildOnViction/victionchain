@@ -17,17 +17,17 @@
 package state
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 )
 
 var addr = common.BytesToAddress([]byte("test"))
 
 func create() (*ManagedState, *account) {
 	db := rawdb.NewMemoryDatabase()
-	statedb, _ := New(common.Hash{}, NewDatabase(db))
+	statedb, _ := New(common.Hash{}, NewDatabase(db), nil)
 	ms := ManageState(statedb)
 	ms.StateDB.SetNonce(addr, 100)
 	ms.accounts[addr] = newAccount(ms.StateDB.getStateObject(addr))

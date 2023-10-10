@@ -21,6 +21,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/trie"
 )
@@ -59,20 +60,40 @@ type Trie interface {
 	// TODO(fjl): remove this when SecureTrie is removed
 	GetKey([]byte) []byte
 
-	// TryGet returns the value for key stored in the trie. The value bytes must
-	// not be modified by the caller. If a node was not found in the database, a
-	// trie.MissingNodeError is returned.
-	TryGet(key []byte) ([]byte, error)
+	// GetStorage returns the value for key stored in the trie. The value bytes
+	// must not be modified by the caller. If a node was not found in the database,
+	// a trie.MissingNodeError is returned.
+	GetStorage(addr common.Address, key []byte) ([]byte, error)
 
-	// TryUpdate associates key with value in the trie. If value has length zero, any
-	// existing value is deleted from the trie. The value bytes must not be modified
+	// GetAccount abstracts an account read from the trie. It retrieves the
+	// account blob from the trie with provided account address and decodes it
+	// with associated decoding algorithm. If the specified account is not in
+	// the trie, nil will be returned. If the trie is corrupted(e.g. some nodes
+	// are missing or the account blob is incorrect for decoding), an error will
+	// be returned.
+	GetAccount(address common.Address) (*types.StateAccount, error)
+
+	// UpdateStorage associates key with value in the trie. If value has length zero,
+	// any existing value is deleted from the trie. The value bytes must not be modified
 	// by the caller while they are stored in the trie. If a node was not found in the
 	// database, a trie.MissingNodeError is returned.
-	TryUpdate(key, value []byte) error
+	UpdateStorage(addr common.Address, key, value []byte) error
 
-	// TryDelete removes any existing value for key from the trie. If a node was not
-	// found in the database, a trie.MissingNodeError is returned.
-	TryDelete(key []byte) error
+	// UpdateAccount abstracts an account write to the trie. It encodes the
+	// provided account object with associated algorithm and then updates it
+	// in the trie with provided address.
+	UpdateAccount(address common.Address, account *types.StateAccount) error
+
+	// UpdateContractCode abstracts code write to the trie. It is expected
+	// to be moved to the stateWriter interface when the latter is ready.
+	UpdateContractCode(address common.Address, codeHash common.Hash, code []byte) error
+
+	// DeleteStorage removes any existing value for key from the trie. If a node
+	// was not found in the database, a trie.MissingNodeError is returned.
+	DeleteStorage(addr common.Address, key []byte) error
+
+	// DeleteAccount abstracts an account deletion from the trie.
+	DeleteAccount(address common.Address) error
 
 	// Hash returns the root hash of the trie. It does not write to the database and
 	// can be used even if the trie doesn't have one.
@@ -98,18 +119,18 @@ type Trie interface {
 
 // NewDatabase creates a backing store for state. The returned database is safe for
 // concurrent use, but does not retain any recent trie nodes in memory. To keep some
-// historical state in memory, use the NewDatabaseWithCache constructor.
+// historical state in memory, use the NewDatabaseWithConfig constructor.
 func NewDatabase(db ethdb.Database) Database {
-	return NewDatabaseWithCache(db, 0)
+	return NewDatabaseWithConfig(db, nil)
 }
 
-// NewDatabaseWithCache creates a backing store for state. The returned database
+// NewDatabaseWithConfig creates a backing store for state. The returned database
 // is safe for concurrent use and retains a lot of collapsed RLP trie nodes in a
 // large memory cache.
-func NewDatabaseWithCache(db ethdb.Database, cache int) Database {
+func NewDatabaseWithConfig(db ethdb.Database, config *trie.Config) Database {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &cachingDB{
-		db:            trie.NewDatabaseWithCache(db, cache),
+		db:            trie.NewDatabaseWithConfig(db, config),
 		codeSizeCache: csc,
 	}
 }

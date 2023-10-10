@@ -55,8 +55,10 @@ require (
 	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/holiman/bloomfilter/v2 v2.0.3
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/maruel/panicparse v0.0.0-20160720141634-ad661195ed0e // indirect
@@ -69,7 +71,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
-	golang.org/x/mod v0.9.0 // indirect
+	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/term v0.6.0 // indirect
 	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect

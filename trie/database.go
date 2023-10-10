@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/fastcache"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
@@ -65,6 +66,12 @@ const secureKeyPrefixLength = 11
 // secureKeyLength is the length of the above prefix + 32byte hash.
 const secureKeyLength = secureKeyPrefixLength + 32
 
+// Config defines all necessary options for database.
+type Config struct {
+	Cache     int  // Memory allowance (MB) to use for caching trie nodes in memory
+	Preimages bool // Flag whether the preimage of trie key is recorded
+}
+
 // Database is an intermediate write layer between the trie data structures and
 // the disk database. The aim is to accumulate trie writes in-memory and only
 // periodically flush a couple tries to disk, garbage collecting the remainder.
@@ -74,6 +81,7 @@ const secureKeyLength = secureKeyPrefixLength + 32
 // behind this split design is to provide read access to RPC handlers and sync
 // servers even while the trie is executing expensive garbage collection.
 type Database struct {
+	config *Config             // Configuration for trie database
 	diskdb ethdb.KeyValueStore // Persistent storage for matured trie nodes
 
 	cleans  *fastcache.Cache            // GC friendly memory Cache of clean Node RLPs
@@ -81,7 +89,7 @@ type Database struct {
 	oldest  common.Hash                 // Oldest tracked Node, flush-list head
 	newest  common.Hash                 // Newest tracked Node, flush-list tail
 
-	preimages map[common.Hash][]byte // Preimages of nodes from the secure trie
+	preimages *preimageStore // The store for caching preimages
 
 	gctime  time.Duration      // Time spent on garbage collection since last commit
 	gcnodes uint64             // Nodes garbage collected since last commit
@@ -282,26 +290,32 @@ func expandNode(hash HashNode, n Node) Node {
 // NewDatabase creates a new trie database to store ephemeral trie content before
 // its written out to disk or garbage collected. No read Cache is created, so all
 // data retrievals will hit the underlying disk database.
-func NewDatabase(diskdb ethdb.KeyValueStore) *Database {
-	return NewDatabaseWithCache(diskdb, 0)
+func NewDatabase(diskdb ethdb.Database) *Database {
+	return NewDatabaseWithConfig(diskdb, nil)
 }
 
-// NewDatabaseWithCache creates a new trie database to store ephemeral trie content
+// NewDatabaseWithConfig creates a new trie database to store ephemeral trie content
 // before its written out to disk or garbage collected. It also acts as a read Cache
 // for nodes loaded from disk.
-func NewDatabaseWithCache(diskdb ethdb.KeyValueStore, cache int) *Database {
+func NewDatabaseWithConfig(diskdb ethdb.Database, config *Config) *Database {
 	var cleans *fastcache.Cache
-	if cache > 0 {
-		cleans = fastcache.New(cache * 1024 * 1024)
+	if config != nil && config.Cache > 0 {
+		cleans = fastcache.New(config.Cache * 1024 * 1024)
 	}
-	return &Database{
+	var preimages *preimageStore
+	if config != nil && config.Preimages {
+		preimages = newPreimageStore(diskdb)
+	}
+	db := &Database{
 		diskdb: diskdb,
 		cleans: cleans,
 		dirties: map[common.Hash]*cachedNode{{}: {
 			children: make(map[common.Hash]uint16),
 		}},
-		preimages: make(map[common.Hash][]byte),
+		preimages: preimages,
 	}
+
+	return db
 }
 
 // DiskDB retrieves the persistent storage backing the trie database.
@@ -357,11 +371,12 @@ func (db *Database) insert(hash common.Hash, size int, node Node) {
 // yet unknown. The method will make a copy of the slice.
 //
 // Note, this method assumes that the database's Lock is held!
+// This function's still be kept because of TomoX tries
 func (db *Database) InsertPreimage(hash common.Hash, preimage []byte) {
-	if _, ok := db.preimages[hash]; ok {
+	if _, ok := db.preimages.preimages[hash]; ok {
 		return
 	}
-	db.preimages[hash] = common.CopyBytes(preimage)
+	db.preimages.preimages[hash] = common.CopyBytes(preimage)
 	db.preimagesSize += common.StorageSize(common.HashLength + len(preimage))
 }
 
@@ -445,7 +460,7 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 func (db *Database) Preimage(hash common.Hash) ([]byte, error) {
 	// Retrieve the Node from Cache if available
 	db.Lock.RLock()
-	preimage := db.preimages[hash]
+	preimage := db.preimages.preimages[hash]
 	db.Lock.RUnlock()
 
 	if preimage != nil {
@@ -612,7 +627,7 @@ func (db *Database) Cap(limit common.StorageSize) error {
 	// leave for later to deduplicate writes.
 	flushPreimages := db.preimagesSize > 4*1024*1024
 	if flushPreimages {
-		for hash, preimage := range db.preimages {
+		for hash, preimage := range db.preimages.preimages {
 			copy(keyBuf[secureKeyPrefixLength:], hash[:])
 			if err := batch.Put(keyBuf[:], preimage); err != nil {
 				log.Error("Failed to commit Preimage from trie database", "err", err)
@@ -661,7 +676,7 @@ func (db *Database) Cap(limit common.StorageSize) error {
 	defer db.Lock.Unlock()
 
 	if flushPreimages {
-		db.preimages = make(map[common.Hash][]byte)
+		db.preimages.preimages = make(map[common.Hash][]byte)
 		db.preimagesSize = 0
 	}
 	for db.oldest != oldest {
@@ -711,26 +726,28 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	copy(keyBuf[:], secureKeyPrefix)
 
 	// Move all of the accumulated preimages into a write batch
-	for hash, preimage := range db.preimages {
-		copy(keyBuf[secureKeyPrefixLength:], hash[:])
-		if err := batch.Put(keyBuf[:], preimage); err != nil {
-			log.Error("Failed to commit Preimage from trie database", "err", err)
-			return err
-		}
-		// If the batch is too large, flush to disk
-		if batch.ValueSize() > ethdb.IdealBatchSize {
-			if err := batch.Write(); err != nil {
+	if db.preimages != nil {
+		for hash, preimage := range db.preimages.preimages {
+			copy(keyBuf[secureKeyPrefixLength:], hash[:])
+			if err := batch.Put(keyBuf[:], preimage); err != nil {
+				log.Error("Failed to commit Preimage from trie database", "err", err)
 				return err
 			}
-			batch.Reset()
+			// If the batch is too large, flush to disk
+			if batch.ValueSize() > ethdb.IdealBatchSize {
+				if err := batch.Write(); err != nil {
+					return err
+				}
+				batch.Reset()
+			}
 		}
+		// Since we're going to replay trie Node writes into the clean Cache, flush out
+		// any batched pre-images before continuing.
+		if err := batch.Write(); err != nil {
+			return err
+		}
+		batch.Reset()
 	}
-	// Since we're going to replay trie Node writes into the clean Cache, flush out
-	// any batched pre-images before continuing.
-	if err := batch.Write(); err != nil {
-		return err
-	}
-	batch.Reset()
 
 	// Move the trie itself into the batch, flushing if enough data is accumulated
 	nodes, storage := len(db.dirties), db.dirtiesSize
@@ -751,10 +768,6 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 
 	batch.Replay(uncacher)
 	batch.Reset()
-
-	// Reset the storage counters and bumpd metrics
-	db.preimages = make(map[common.Hash][]byte)
-	db.preimagesSize = 0
 
 	memcacheCommitTimeTimer.Update(time.Since(start))
 	memcacheCommitSizeMeter.Mark(int64(storage - db.dirtiesSize))
@@ -800,9 +813,12 @@ func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleane
 			return err
 		}
 		db.Lock.Lock()
-		batch.Replay(uncacher)
+		err := batch.Replay(uncacher)
 		batch.Reset()
 		db.Lock.Unlock()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -816,7 +832,7 @@ type cleaner struct {
 // Put reacts to database writes and implements dirty data uncaching. This is the
 // post-processing step of a commit operation where the already persisted trie is
 // removed from the dirty Cache and moved into the clean Cache. The reason behind
-// the two-phase commit is to ensure ensure data availability while moving from
+// the two-phase commit is to ensure data availability while moving from
 // memory to disk.
 func (c *cleaner) Put(key []byte, rlp []byte) error {
 	hash := common.BytesToHash(key)

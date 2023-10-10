@@ -17,9 +17,10 @@
 package eth
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"reflect"
 	"testing"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tomochain/tomochain/common"
@@ -32,7 +33,7 @@ func TestStorageRangeAt(t *testing.T) {
 	// Create a state where account 0x010000... has a few storage entries.
 	var (
 		db       = rawdb.NewMemoryDatabase()
-		state, _ = state.New(common.Hash{}, state.NewDatabase(db))
+		state, _ = state.New(common.Hash{}, state.NewDatabase(db), nil)
 		addr     = common.Address{0x01}
 		keys     = []common.Hash{ // hashes of Keys of storage
 			common.HexToHash("340dd630ad21bf010b4e676dbfa9ba9a02175262d1fa356232cfde6cb5b47ef2"),
