@@ -21,9 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -35,6 +32,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
@@ -50,6 +48,10 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
+	"github.com/tomochain/tomochain/trie"
+	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 const (
@@ -66,6 +68,7 @@ type Masternode struct {
 type TradingService interface {
 	GetTradingStateRoot(block *types.Block, author common.Address) (common.Hash, error)
 	GetTradingState(block *types.Block, author common.Address) (*tradingstate.TradingStateDB, error)
+	GetEmptyTradingState() (*tradingstate.TradingStateDB, error)
 	HasTradingState(block *types.Block, author common.Address) bool
 	GetStateCache() tradingstate.Database
 	GetTriegc() *prque.Prque
@@ -181,7 +184,7 @@ var (
 
 // SignerFn is a signer callback function to request a hash to be signed by a
 // backing account.
-//type SignerFn func(accounts.Account, []byte) ([]byte, error)
+//type SignerFn func(accounts.StateAccount, []byte) ([]byte, error)
 
 // sigHash returns the hash which is used as input for the proof-of-stake-voting
 // signing. It is the hash of the entire header apart from the 65 byte signature
@@ -985,7 +988,7 @@ func (c *Posv) Finalize(chain consensus.ChainReader, header *types.Header, state
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	// Assemble and return the final block for sealing
-	return types.NewBlock(header, txs, nil, receipts), nil
+	return types.NewBlock(header, txs, nil, receipts, new(trie.StackTrie)), nil
 }
 
 // Authorize injects a private key into the consensus engine to mint new blocks
@@ -1146,7 +1149,7 @@ func (c *Posv) CacheData(header *types.Header, txs []*types.Transaction, receipt
 	signTxs := []*types.Transaction{}
 	for _, tx := range txs {
 		if tx.IsSigningTransaction() {
-			var b uint
+			var b uint64
 			for _, r := range receipts {
 				if r.TxHash == tx.Hash() {
 					if len(r.PostState) > 0 {

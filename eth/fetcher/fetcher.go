@@ -19,14 +19,16 @@ package fetcher
 
 import (
 	"errors"
-	"github.com/hashicorp/golang-lru"
 	"math/rand"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/trie"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -468,7 +470,7 @@ func (f *Fetcher) loop() {
 						announce.time = task.time
 
 						// If the block is empty (header only), short circuit into the final import queue
-						if header.TxHash == types.DeriveSha(types.Transactions{}) && header.UncleHash == types.CalcUncleHash([]*types.Header{}) {
+						if header.TxHash == types.EmptyRootHash && header.UncleHash == types.CalcUncleHash([]*types.Header{}) {
 							log.Trace("Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash())
 
 							block := types.NewBlockWithHeader(header)
@@ -530,7 +532,7 @@ func (f *Fetcher) loop() {
 
 				for hash, announce := range f.completing {
 					if f.queued[hash] == nil {
-						txnHash := types.DeriveSha(types.Transactions(task.transactions[i]))
+						txnHash := types.DeriveSha(types.Transactions(task.transactions[i]), new(trie.StackTrie))
 						uncleHash := types.CalcUncleHash(task.uncles[i])
 
 						if txnHash == announce.header.TxHash && uncleHash == announce.header.UncleHash && announce.origin == task.peer {

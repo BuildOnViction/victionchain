@@ -19,7 +19,6 @@ package les
 import (
 	"bytes"
 	"context"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
@@ -64,9 +64,9 @@ func odrGetBlock(ctx context.Context, db ethdb.Database, config *params.ChainCon
 func odrGetReceipts(ctx context.Context, db ethdb.Database, config *params.ChainConfig, bc *core.BlockChain, lc *light.LightChain, bhash common.Hash) []byte {
 	var receipts types.Receipts
 	if bc != nil {
-		receipts = core.GetBlockReceipts(db, bhash, core.GetBlockNumber(db, bhash))
+		receipts = rawdb.GetBlockReceipts(db, bhash, rawdb.GetBlockNumber(db, bhash), config)
 	} else {
-		receipts, _ = light.GetBlockReceipts(ctx, lc.Odr(), bhash, core.GetBlockNumber(db, bhash))
+		receipts, _ = light.GetBlockReceipts(ctx, lc.Odr(), bhash, rawdb.GetBlockNumber(db, bhash), config)
 	}
 	if receipts == nil {
 		return nil
@@ -91,7 +91,7 @@ func odrAccounts(ctx context.Context, db ethdb.Database, config *params.ChainCon
 	for _, addr := range acc {
 		if bc != nil {
 			header := bc.GetHeaderByHash(bhash)
-			st, err = state.New(header.Root, state.NewDatabase(db))
+			st, err = state.New(header.Root, state.NewDatabase(db), nil)
 		} else {
 			header := lc.GetHeaderByHash(bhash)
 			st = light.NewState(ctx, header, lc.Odr())
@@ -109,12 +109,6 @@ func odrAccounts(ctx context.Context, db ethdb.Database, config *params.ChainCon
 //
 //func TestOdrContractCallLes2(t *testing.T) { testOdr(t, 2, 2, odrContractCall) }
 
-type callmsg struct {
-	types.Message
-}
-
-func (callmsg) CheckNonce() bool { return false }
-
 func odrContractCall(ctx context.Context, db ethdb.Database, config *params.ChainConfig, bc *core.BlockChain, lc *light.LightChain, bhash common.Hash) []byte {
 	data := common.Hex2Bytes("60CD26850000000000000000000000000000000000000000000000000000000000000000")
 
@@ -123,7 +117,7 @@ func odrContractCall(ctx context.Context, db ethdb.Database, config *params.Chai
 		data[35] = byte(i)
 		if bc != nil {
 			header := bc.GetHeaderByHash(bhash)
-			statedb, err := state.New(header.Root, state.NewDatabase(db))
+			statedb, err := state.New(header.Root, state.NewDatabase(db), nil)
 
 			if err == nil {
 				from := statedb.GetOrNewStateObject(testBankAddress)
@@ -133,16 +127,26 @@ func odrContractCall(ctx context.Context, db ethdb.Database, config *params.Chai
 				if value, ok := feeCapacity[testContractAddr]; ok {
 					balanceTokenFee = value
 				}
-				msg := callmsg{types.NewMessage(from.Address(), &testContractAddr, 0, new(big.Int), 100000, new(big.Int), data, false, balanceTokenFee)}
-
+				fromAddr := from.Address()
+				msg := &core.Message{
+					To:                &fromAddr,
+					From:              testContractAddr,
+					Nonce:             0,
+					Value:             new(big.Int),
+					GasLimit:          100000,
+					GasPrice:          new(big.Int),
+					Data:              data,
+					SkipAccountChecks: false,
+					BalanceTokenFee:   balanceTokenFee,
+				}
 				context := core.NewEVMContext(msg, header, bc, nil)
 				vmenv := vm.NewEVM(context, statedb, nil, config, vm.Config{})
 
 				//vmenv := core.NewEnv(statedb, config, bc, msg, header, vm.Config{})
 				gp := new(core.GasPool).AddGas(math.MaxUint64)
 				owner := common.Address{}
-				ret, _, _, _ := core.ApplyMessage(vmenv, msg, gp, owner)
-				res = append(res, ret...)
+				ret, _ := core.ApplyMessage(vmenv, msg, gp, owner)
+				res = append(res, ret.Return()...)
 			}
 		} else {
 			header := lc.GetHeaderByHash(bhash)
@@ -153,14 +157,24 @@ func odrContractCall(ctx context.Context, db ethdb.Database, config *params.Chai
 			if value, ok := feeCapacity[testContractAddr]; ok {
 				balanceTokenFee = value
 			}
-			msg := callmsg{types.NewMessage(testBankAddress, &testContractAddr, 0, new(big.Int), 100000, new(big.Int), data, false, balanceTokenFee)}
+			msg := &core.Message{
+				To:                &testBankAddress,
+				From:              testContractAddr,
+				Nonce:             0,
+				Value:             new(big.Int),
+				GasLimit:          100000,
+				GasPrice:          new(big.Int),
+				Data:              data,
+				SkipAccountChecks: false,
+				BalanceTokenFee:   balanceTokenFee,
+			}
 			context := core.NewEVMContext(msg, header, lc, nil)
 			vmenv := vm.NewEVM(context, statedb, nil, config, vm.Config{})
 			gp := new(core.GasPool).AddGas(math.MaxUint64)
 			owner := common.Address{}
-			ret, _, _, _ := core.ApplyMessage(vmenv, msg, gp, owner)
+			ret, _:= core.ApplyMessage(vmenv, msg, gp, owner)
 			if statedb.Error() == nil {
-				res = append(res, ret...)
+				res = append(res, ret.Return()...)
 			}
 		}
 	}
@@ -190,7 +204,7 @@ func testOdr(t *testing.T, protocol int, expFail uint64, fn odrTestFn) {
 
 	test := func(expFail uint64) {
 		for i := uint64(0); i <= pm.blockchain.CurrentHeader().Number.Uint64(); i++ {
-			bhash := core.GetCanonicalHash(db, i)
+			bhash := rawdb.GetCanonicalHash(db, i)
 			b1 := fn(light.NoOdr, db, pm.chainConfig, pm.blockchain.(*core.BlockChain), nil, bhash)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)

@@ -1,4 +1,4 @@
-// Copyright 2019 The go-ethereum Authors
+// Copyright 2016 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -17,20 +17,11 @@
 package trie
 
 import (
-	"hash"
 	"sync"
 
+	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
-	"golang.org/x/crypto/sha3"
 )
-
-// keccakState wraps sha3.state. In addition to the usual hash methods, it also supports
-// Read to get a variable amount of data from the hash state. Read is faster than Sum
-// because it doesn't copy the internal state, but also modifies the internal state.
-type keccakState interface {
-	hash.Hash
-	Read([]byte) (int, error)
-}
 
 type sliceBuffer []byte
 
@@ -46,17 +37,19 @@ func (b *sliceBuffer) Reset() {
 // hasher is a type used for the trie Hash operation. A hasher has some
 // internal preallocated temp space
 type hasher struct {
-	sha      keccakState
-	tmp      sliceBuffer
-	parallel bool // Whether to use paralallel threads when hashing
+	sha      crypto.KeccakState
+	tmp      []byte
+	encbuf   rlp.EncoderBuffer
+	parallel bool // Whether to use parallel threads when hashing
 }
 
 // hasherPool holds pureHashers
 var hasherPool = sync.Pool{
 	New: func() interface{} {
 		return &hasher{
-			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full FullNode.
-			sha: sha3.NewLegacyKeccak256().(keccakState),
+			tmp:    make([]byte, 0, 550), // cap is as large as a full fullNode.
+			sha:    crypto.NewKeccakState(),
+			encbuf: rlp.NewEncoderBuffer(nil),
 		}
 	},
 }
@@ -71,14 +64,14 @@ func returnHasherToPool(h *hasher) {
 	hasherPool.Put(h)
 }
 
-// hash collapses a Node down into a hash Node, also returning a copy of the
-// original Node initialized with the computed hash to replace the original one.
+// hash collapses a node down into a hash node, also returning a copy of the
+// original node initialized with the computed hash to replace the original one.
 func (h *hasher) hash(n Node, force bool) (hashed Node, cached Node) {
-	// We're not storing the Node, just hashing, use available cached data
+	// Return the cached hash if it's available
 	if hash, _ := n.Cache(); hash != nil {
 		return hash, n
 	}
-	// Trie not processed yet or needs storage, walk the children
+	// Trie not processed yet, walk the children
 	switch n := n.(type) {
 	case *ShortNode:
 		collapsed, cached := h.hashShortNodeChildren(n)
@@ -106,11 +99,11 @@ func (h *hasher) hash(n Node, force bool) (hashed Node, cached Node) {
 	}
 }
 
-// hashShortNodeChildren collapses the short Node. The returned collapsed Node
+// hashShortNodeChildren collapses the short node. The returned collapsed node
 // holds a live reference to the Key, and must not be modified.
 // The cached
 func (h *hasher) hashShortNodeChildren(n *ShortNode) (collapsed, cached *ShortNode) {
-	// Hash the short Node's child, caching the newly hashed subtree
+	// Hash the short node's child, caching the newly hashed subtree
 	collapsed, cached = n.copy(), n.copy()
 	// Previously, we did copy this one. We don't seem to need to actually
 	// do that, since we don't overwrite/reuse keys
@@ -125,7 +118,7 @@ func (h *hasher) hashShortNodeChildren(n *ShortNode) (collapsed, cached *ShortNo
 }
 
 func (h *hasher) hashFullNodeChildren(n *FullNode) (collapsed *FullNode, cached *FullNode) {
-	// Hash the full Node's children, caching the newly hashed subtrees
+	// Hash the full node's children, caching the newly hashed subtrees
 	cached = n.copy()
 	collapsed = n.copy()
 	if h.parallel {
@@ -156,35 +149,46 @@ func (h *hasher) hashFullNodeChildren(n *FullNode) (collapsed *FullNode, cached 
 	return collapsed, cached
 }
 
-// shortnodeToHash creates a HashNode from a ShortNode. The supplied shortnode
+// shortnodeToHash creates a hashNode from a shortNode. The supplied shortnode
 // should have hex-type Key, which will be converted (without modification)
 // into compact form for RLP encoding.
 // If the rlp data is smaller than 32 bytes, `nil` is returned.
 func (h *hasher) shortnodeToHash(n *ShortNode, force bool) Node {
-	h.tmp.Reset()
-	if err := rlp.Encode(&h.tmp, n); err != nil {
-		panic("encode error: " + err.Error())
-	}
+	n.encode(h.encbuf)
+	enc := h.encodedBytes()
 
-	if len(h.tmp) < 32 && !force {
+	if len(enc) < 32 && !force {
 		return n // Nodes smaller than 32 bytes are stored inside their parent
 	}
-	return h.hashData(h.tmp)
+	return h.hashData(enc)
 }
 
-// shortnodeToHash is used to creates a HashNode from a set of hashNodes, (which
+// shortnodeToHash is used to creates a hashNode from a set of hashNodes, (which
 // may contain nil values)
 func (h *hasher) fullnodeToHash(n *FullNode, force bool) Node {
-	h.tmp.Reset()
-	// Generate the RLP encoding of the Node
-	if err := n.EncodeRLP(&h.tmp); err != nil {
-		panic("encode error: " + err.Error())
-	}
+	n.encode(h.encbuf)
+	enc := h.encodedBytes()
 
-	if len(h.tmp) < 32 && !force {
+	if len(enc) < 32 && !force {
 		return n // Nodes smaller than 32 bytes are stored inside their parent
 	}
-	return h.hashData(h.tmp)
+	return h.hashData(enc)
+}
+
+// encodedBytes returns the result of the last encoding operation on h.encbuf.
+// This also resets the encoder buffer.
+//
+// All node encoding must be done like this:
+//
+//	node.encode(h.encbuf)
+//	enc := h.encodedBytes()
+//
+// This convention exists because node.encode can only be inlined/escape-analyzed when
+// called on a concrete receiver type.
+func (h *hasher) encodedBytes() []byte {
+	h.tmp = h.encbuf.AppendToBytes(h.tmp[:0])
+	h.encbuf.Reset(nil)
+	return h.tmp
 }
 
 // hashData hashes the provided data
@@ -197,8 +201,8 @@ func (h *hasher) hashData(data []byte) HashNode {
 }
 
 // proofHash is used to construct trie proofs, and returns the 'collapsed'
-// Node (for later RLP encoding) aswell as the hashed Node -- unless the
-// Node is smaller than 32 bytes, in which case it will be returned as is.
+// node (for later RLP encoding) as well as the hashed node -- unless the
+// node is smaller than 32 bytes, in which case it will be returned as is.
 // This method does not do anything on value- or hash-nodes.
 func (h *hasher) proofHash(original Node) (collapsed, hashed Node) {
 	switch n := original.(type) {

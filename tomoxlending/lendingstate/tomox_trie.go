@@ -18,11 +18,11 @@ package lendingstate
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/trie"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/trie"
 )
 
 // TomoXTrie wraps a trie with key hashing. In a secure trie, all
@@ -78,16 +78,16 @@ func (t *TomoXTrie) Get(key []byte) []byte {
 // The value bytes must not be modified by the caller.
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *TomoXTrie) TryGet(key []byte) ([]byte, error) {
-	return t.trie.TryGet(key)
+	return t.trie.Get(key)
 }
 
-// TryGetBestLeftKey returns the value of max left leaf
+// TryGetBestLeftKeyAndValue returns the value of max left leaf
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *TomoXTrie) TryGetBestLeftKeyAndValue() ([]byte, []byte, error) {
 	return t.trie.TryGetBestLeftKeyAndValue()
 }
 
-// TryGetBestRightKey returns the value of max left leaf
+// TryGetBestRightKeyAndValue returns the value of max left leaf
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *TomoXTrie) TryGetBestRightKeyAndValue() ([]byte, []byte, error) {
 	return t.trie.TryGetBestRightKeyAndValue()
@@ -114,7 +114,7 @@ func (t *TomoXTrie) Update(key, value []byte) {
 //
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *TomoXTrie) TryUpdate(key, value []byte) error {
-	err := t.trie.TryUpdate(key, value)
+	err := t.trie.Update(key, value)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (t *TomoXTrie) Delete(key []byte) {
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *TomoXTrie) TryDelete(key []byte) error {
 	delete(t.getSecKeyCache(), string(key))
-	return t.trie.TryDelete(key)
+	return t.trie.Delete(key)
 }
 
 // GetKey returns the sha3 preimage of a hashed key that was

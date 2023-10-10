@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math"
 	"math/big"
 	"math/rand"
@@ -28,6 +27,8 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	check "gopkg.in/check.v1"
 
@@ -40,7 +41,7 @@ import (
 func TestUpdateLeaks(t *testing.T) {
 	// Create an empty state database
 	db := rawdb.NewMemoryDatabase()
-	state, _ := New(common.Hash{}, NewDatabase(db))
+	state, _ := New(common.Hash{}, NewDatabase(db), nil)
 
 	// Update it with some accounts
 	for i := byte(0); i < 255; i++ {
@@ -70,8 +71,8 @@ func TestIntermediateLeaks(t *testing.T) {
 	// Create two state databases, one transitioning to the final state, the other final from the beginning
 	transDb := rawdb.NewMemoryDatabase()
 	finalDb := rawdb.NewMemoryDatabase()
-	transState, _ := New(common.Hash{}, NewDatabase(transDb))
-	finalState, _ := New(common.Hash{}, NewDatabase(finalDb))
+	transState, _ := New(common.Hash{}, NewDatabase(transDb), nil)
+	finalState, _ := New(common.Hash{}, NewDatabase(finalDb), nil)
 
 	modify := func(state *StateDB, addr common.Address, i, tweak byte) {
 		state.SetBalance(addr, big.NewInt(int64(11*i)+int64(tweak)))
@@ -129,7 +130,7 @@ func TestIntermediateLeaks(t *testing.T) {
 func TestCopy(t *testing.T) {
 	// Create a random state test to copy and modify "independently"
 	db := rawdb.NewMemoryDatabase()
-	orig, _ := New(common.Hash{}, NewDatabase(db))
+	orig, _ := New(common.Hash{}, NewDatabase(db), nil)
 
 	for i := byte(0); i < 255; i++ {
 		obj := orig.GetOrNewStateObject(common.BytesToAddress([]byte{i}))
@@ -341,7 +342,7 @@ func (test *snapshotTest) run() bool {
 	// Run all actions and create snapshots.
 	var (
 		db           = rawdb.NewMemoryDatabase()
-		state, _     = New(common.Hash{}, NewDatabase(db))
+		state, _     = New(common.Hash{}, NewDatabase(db), nil)
 		snapshotRevs = make([]int, len(test.snapshots))
 		sindex       = 0
 	)
@@ -355,7 +356,7 @@ func (test *snapshotTest) run() bool {
 	// Revert all snapshots in reverse order. Each revert must yield a state
 	// that is equivalent to fresh state with all actions up the snapshot applied.
 	for sindex--; sindex >= 0; sindex-- {
-		checkstate, _ := New(common.Hash{}, state.Database())
+		checkstate, _ := New(common.Hash{}, state.Database(), nil)
 		for _, action := range test.actions[:test.snapshots[sindex]] {
 			action.fn(action, checkstate)
 		}
@@ -415,15 +416,21 @@ func (test *snapshotTest) checkEqual(state, checkstate *StateDB) error {
 func (s *StateSuite) TestTouchDelete(c *check.C) {
 	s.state.GetOrNewStateObject(common.Address{})
 	root, _ := s.state.Commit(false)
-	s.state.Reset(root)
+	s.state, _ = New(root, s.state.db, s.state.snaps)
 
 	snapshot := s.state.Snapshot()
 	s.state.AddBalance(common.Address{}, new(big.Int))
-	if len(s.state.stateObjectsDirty) != 1 {
+	if len(s.state.journal.dirties) != 1 {
+		c.Fatal("expected one dirty state object")
+	}
+	if s.state.journal.dirties[common.Address{}] != 1 {
 		c.Fatal("expected one dirty state object")
 	}
 	s.state.RevertToSnapshot(snapshot)
-	if len(s.state.stateObjectsDirty) != 0 {
+	if len(s.state.journal.dirties) != 0 {
+		c.Fatal("expected no dirty state object")
+	}
+	if s.state.journal.dirties[common.Address{}] != 0 {
 		c.Fatal("expected no dirty state object")
 	}
 }

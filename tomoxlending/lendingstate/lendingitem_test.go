@@ -2,17 +2,18 @@ package lendingstate
 
 import (
 	"fmt"
+	"math/big"
+	"math/rand"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/rpc"
-	"math/big"
-	"math/rand"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestLendingItem_VerifyLendingSide(t *testing.T) {
@@ -152,7 +153,7 @@ func SetCollateralDetail(statedb *state.StateDB, token common.Address, depositRa
 
 func TestVerifyBalance(t *testing.T) {
 	db := rawdb.NewMemoryDatabase()
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
 	relayer := common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e")
 	uAddr := common.HexToAddress("0xDeE6238780f98c0ca2c2C28453149bEA49a3Abc9")
 	lendingToken := common.HexToAddress("0xd9bb01454c85247B2ef35BB5BE57384cC275a8cf")    // USD

@@ -21,13 +21,14 @@ import (
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/ethdb/memorydb"
 )
 
 // makeTestTrie create a sample test trie to test Node-wise reconstruction.
 func makeTestTrie() (*Database, *Trie, map[string][]byte) {
 	// Create an empty trie
-	triedb := NewDatabase(memorydb.New())
+	triedb := NewDatabase(rawdb.NewMemoryDatabase())
 	trie, _ := New(common.Hash{}, triedb)
 
 	// Fill it with some arbitrary data
@@ -67,7 +68,7 @@ func checkTrieContents(t *testing.T, db *Database, root []byte, content map[stri
 		t.Fatalf("inconsistent trie at %x: %v", root, err)
 	}
 	for key, val := range content {
-		if have := trie.Get([]byte(key)); !bytes.Equal(have, val) {
+		if have, _ := trie.Get([]byte(key)); !bytes.Equal(have, val) {
 			t.Errorf("entry %x: content mismatch: have %x, want %x", key, have, val)
 		}
 	}
@@ -88,8 +89,8 @@ func checkTrieConsistency(db *Database, root common.Hash) error {
 
 // Tests that an empty trie is not scheduled for syncing.
 func TestEmptySync(t *testing.T) {
-	dbA := NewDatabase(memorydb.New())
-	dbB := NewDatabase(memorydb.New())
+	dbA := NewDatabase(rawdb.NewMemoryDatabase())
+	dbB := NewDatabase(rawdb.NewMemoryDatabase())
 	emptyA, _ := New(common.Hash{}, dbA)
 	emptyB, _ := New(emptyRoot, dbB)
 
@@ -110,7 +111,7 @@ func testIterativeSync(t *testing.T, count int) {
 	srcDb, srcTrie, srcData := makeTestTrie()
 
 	// Create a destination trie and sync with the scheduler
-	diskdb := memorydb.New()
+	diskdb := rawdb.NewMemoryDatabase()
 	triedb := NewDatabase(diskdb)
 	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
@@ -145,7 +146,7 @@ func TestIterativeDelayedSync(t *testing.T) {
 	srcDb, srcTrie, srcData := makeTestTrie()
 
 	// Create a destination trie and sync with the scheduler
-	diskdb := memorydb.New()
+	diskdb := rawdb.NewMemoryDatabase()
 	triedb := NewDatabase(diskdb)
 	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
@@ -185,7 +186,7 @@ func testIterativeRandomSync(t *testing.T, count int) {
 	srcDb, srcTrie, srcData := makeTestTrie()
 
 	// Create a destination trie and sync with the scheduler
-	diskdb := memorydb.New()
+	diskdb := rawdb.NewMemoryDatabase()
 	triedb := NewDatabase(diskdb)
 	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
@@ -228,7 +229,7 @@ func TestIterativeRandomDelayedSync(t *testing.T) {
 	srcDb, srcTrie, srcData := makeTestTrie()
 
 	// Create a destination trie and sync with the scheduler
-	diskdb := memorydb.New()
+	diskdb := rawdb.NewMemoryDatabase()
 	triedb := NewDatabase(diskdb)
 	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
@@ -277,7 +278,7 @@ func TestDuplicateAvoidanceSync(t *testing.T) {
 	srcDb, srcTrie, srcData := makeTestTrie()
 
 	// Create a destination trie and sync with the scheduler
-	diskdb := memorydb.New()
+	diskdb := rawdb.NewMemoryDatabase()
 	triedb := NewDatabase(diskdb)
 	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 
@@ -319,7 +320,7 @@ func TestIncompleteSync(t *testing.T) {
 	srcDb, srcTrie, _ := makeTestTrie()
 
 	// Create a destination trie and sync with the scheduler
-	diskdb := memorydb.New()
+	diskdb := rawdb.NewMemoryDatabase()
 	triedb := NewDatabase(diskdb)
 	sched := NewSync(srcTrie.Hash(), diskdb, nil, NewSyncBloom(1, diskdb))
 

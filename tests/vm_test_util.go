@@ -20,8 +20,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
@@ -78,9 +79,9 @@ type vmExecMarshaling struct {
 	GasPrice *math.HexOrDecimal256
 }
 
-func (t *VMTest) Run(vmconfig vm.Config) error {
+func (t *VMTest) Run(vmconfig vm.Config, snapshotter bool) error {
 	db := rawdb.NewMemoryDatabase()
-	statedb := MakePreState(db, t.json.Pre)
+	statedb := MakePreState(db, t.json.Pre, snapshotter)
 	ret, gasRemaining, err := t.exec(statedb, vmconfig)
 
 	if t.json.GasRemaining == nil {

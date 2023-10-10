@@ -18,9 +18,6 @@ package core
 
 import (
 	"fmt"
-
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"runtime"
 	"strings"
@@ -33,7 +30,9 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -243,7 +242,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 			balanceFee = value
 		}
 	}
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number)
+	msg, err := TransactionToMessage(tx, types.MakeSigner(config, header.Number), balanceFee, header.Number)
 	if err != nil {
 		return nil, 0, err, false
 	}
@@ -391,7 +390,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 		blockMap[9147453] = "0x3538a544021c07869c16b764424c5987409cba48"
 		blockMap[9147459] = "0xe187cf86c2274b1f16e8225a7da9a75aba4f1f5f"
 
-		addrFrom := msg.From().Hex()
+		addrFrom := msg.From.Hex()
 
 		currentBlockNumber := header.Number.Int64()
 		if addr, ok := blockMap[currentBlockNumber]; ok {
@@ -408,7 +407,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	// End Bypass blacklist address
 
 	// Apply the transaction to the current state (included in the env)
-	_, gas, failed, err := ApplyMessage(vmenv, msg, gp, coinbaseOwner)
+	result, err := ApplyMessage(vmenv, msg, gp, coinbaseOwner)
 
 	if err != nil {
 		return nil, 0, err, false
@@ -420,24 +419,24 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
-	*usedGas += gas
+	*usedGas += result.UsedGas
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing wether the root touch-delete accounts.
-	receipt := types.NewReceipt(root, failed, *usedGas)
+	receipt := types.NewReceipt(root, result.Failed(), *usedGas)
 	receipt.TxHash = tx.Hash()
-	receipt.GasUsed = gas
+	receipt.GasUsed = result.UsedGas
 	// if the transaction created a contract, store the creation address in the receipt.
-	if msg.To() == nil {
+	if msg.To == nil {
 		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
 	}
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	if balanceFee != nil && failed {
-		state.PayFeeWithTRC21TxFail(statedb, msg.From(), *tx.To())
+	if balanceFee != nil && result.Failed() {
+		state.PayFeeWithTRC21TxFail(statedb, msg.From, *tx.To())
 	}
-	return receipt, gas, err, balanceFee != nil
+	return receipt, result.UsedGas, err, balanceFee != nil
 }
 
 func ApplySignTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {

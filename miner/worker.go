@@ -23,6 +23,7 @@ import (
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
+	"github.com/tomochain/tomochain/trie"
 
 	"math/big"
 	"os"
@@ -204,6 +205,7 @@ func (self *worker) pending() (*types.Block, *state.StateDB) {
 			self.current.txs,
 			nil,
 			self.current.receipts,
+			new(trie.Trie),
 		), self.current.state.Copy()
 	}
 	return self.current.Block, self.current.state.Copy()
@@ -219,6 +221,7 @@ func (self *worker) pendingBlock() *types.Block {
 			self.current.txs,
 			nil,
 			self.current.receipts,
+			new(trie.Trie),
 		)
 	}
 	return self.current.Block

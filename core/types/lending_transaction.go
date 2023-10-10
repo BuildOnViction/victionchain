@@ -17,6 +17,7 @@
 package types
 
 import (
+	"bytes"
 	"container/heap"
 	"errors"
 	"io"
@@ -319,10 +320,12 @@ func (s LendingTransactions) Len() int { return len(s) }
 // Swap swaps the i'th and the j'th element in s.
 func (s LendingTransactions) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
-// GetRlp implements Rlpable and returns the i'th element of s in rlp.
-func (s LendingTransactions) GetRlp(i int) []byte {
-	enc, _ := rlp.EncodeToBytes(s[i])
-	return enc
+// EncodeIndex encodes the i'th transaction to w. Note that this does not check for errors
+// because we assume that *Transaction will only ever contain valid txs that were either
+// constructed by decoding or via public API in this package.
+func (s LendingTransactions) EncodeIndex(i int, w *bytes.Buffer) {
+	tx := s[i]
+	rlp.Encode(w, tx.data)
 }
 
 // LendingTxDifference returns a new set t which is the difference between a to b.
@@ -363,7 +366,7 @@ func (s *LendingTxByNonce) Pop() interface{} {
 	return x
 }
 
-//LendingTransactionByNonce sort transaction by nonce
+// LendingTransactionByNonce sort transaction by nonce
 type LendingTransactionByNonce struct {
 	txs    map[common.Address]LendingTransactions
 	heads  LendingTxByNonce

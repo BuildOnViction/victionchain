@@ -60,10 +60,7 @@ func TestValidator(t *testing.T) {
 	d := time.Now().Add(1000 * time.Millisecond)
 	ctx, cancel := context.WithDeadline(context.Background(), d)
 	defer cancel()
-	code, _ := contractBackend.CodeAt(ctx, validatorAddress, nil)
-	t.Log("contract code", common.ToHex(code))
 	f := func(key, val common.Hash) bool {
-		t.Log(key.Hex(), val.Hex())
 		return true
 	}
 	contractBackend.ForEachStorageAt(ctx, validatorAddress, nil, f)

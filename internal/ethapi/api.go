@@ -21,17 +21,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"math/big"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/keystore"
 	"github.com/tomochain/tomochain/common"
@@ -41,6 +39,7 @@ import (
 	"github.com/tomochain/tomochain/consensus/posv"
 	contractValidator "github.com/tomochain/tomochain/contracts/validator/contract"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
@@ -50,6 +49,8 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 )
 
 const (
@@ -424,7 +425,8 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 // safely used to calculate a signature from.
 //
 // The hash is calulcated as
-//   keccak256("\x19Ethereum Signed Message:\n"${message length}${message}).
+//
+//	keccak256("\x19Ethereum Signed Message:\n"${message length}${message}).
 //
 // This gives context to the signed message and prevents signing of transactions.
 func signHash(data []byte) []byte {
@@ -509,7 +511,7 @@ func (s *PublicBlockChainAPI) BlockNumber() *big.Int {
 	return header.Number
 }
 
-// BlockNumber returns the block number of the chain head.
+// GetRewardByHash returns the block reward by block hash.
 func (s *PublicBlockChainAPI) GetRewardByHash(hash common.Hash) map[string]map[string]map[string]*big.Int {
 	return s.b.GetRewardByHash(hash)
 }
@@ -1025,17 +1027,21 @@ type CallArgs struct {
 	Data     hexutil.Bytes   `json:"data"`
 }
 
-func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) ([]byte, uint64, bool, error) {
+func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
-	statedb, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
-	if statedb == nil || err != nil {
-		return nil, 0, false, err
+	state, header, err := b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
 	}
+
+	return doCall(ctx, b, args, state, header, timeout)
+}
+func doCall(ctx context.Context, b Backend, args CallArgs, state *state.StateDB, header *types.Header, timeout time.Duration) (*core.ExecutionResult, error) {
 	// Set sender address or use a default if none specified
 	addr := args.From
 	if addr == (common.Address{}) {
-		if wallets := s.b.AccountManager().Wallets(); len(wallets) > 0 {
+		if wallets := b.AccountManager().Wallets(); len(wallets) > 0 {
 			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
 				addr = accounts[0].Address
 			}
@@ -1052,7 +1058,17 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	balanceTokenFee := big.NewInt(0).SetUint64(gas)
 	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false, balanceTokenFee)
+	msg := &core.Message{
+		To:                args.To,
+		From:              addr,
+		Nonce:             0,
+		Value:             args.Value.ToInt(),
+		GasLimit:          gas,
+		GasPrice:          gasPrice,
+		Data:              args.Data,
+		BalanceTokenFee:   balanceTokenFee,
+		SkipAccountChecks: true,
+	}
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -1066,22 +1082,22 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	block, err := s.b.BlockByNumber(ctx, blockNr)
+	block, err := b.BlockByNumber(ctx, rpc.BlockNumber(header.Number.Int64()))
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
-	author, err := s.b.GetEngine().Author(block.Header())
+	author, err := b.GetEngine().Author(block.Header())
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
-	tomoxState, err := s.b.TomoxService().GetTradingState(block, author)
+	tomoxState, err := b.TomoxService().GetTradingState(block, author)
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
 	// Get a new instance of the EVM.
-	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, tomoxState, header, vmCfg)
+	evm, vmError, err := b.GetEVM(ctx, msg, state, tomoxState, header, vm.Config{})
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)
@@ -1094,67 +1110,180 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
 	owner := common.Address{}
-	res, gas, failed, err := core.ApplyMessage(evm, msg, gp, owner)
+	result, err := core.ApplyMessage(evm, msg, gp, owner)
 	if err := vmError(); err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
-	return res, gas, failed, err
+	return result, err
+}
+
+func newRevertError(result *core.ExecutionResult) *revertError {
+	reason, errUnpack := abi.UnpackRevert(result.Revert())
+	err := errors.New("execution reverted")
+	if errUnpack == nil {
+		err = fmt.Errorf("execution reverted: %v", reason)
+	}
+	return &revertError{
+		error:  err,
+		reason: hexutil.Encode(result.Revert()),
+	}
+}
+
+// revertError is an API error that encompassas an EVM revertal with JSON error
+// code and a binary data blob.
+type revertError struct {
+	error
+	reason string // revert reason hex encoded
+}
+
+// ErrorCode returns the JSON error code for a revertal.
+// See: https://github.com/ethereum/wiki/wiki/JSON-RPC-Error-Codes-Improvement-Proposal
+func (e *revertError) ErrorCode() int {
+	return 3
+}
+
+// ErrorData returns the hex encoded revert reason.
+func (e *revertError) ErrorData() interface{} {
+	return e.reason
 }
 
 // Call executes the given transaction on the state for the given block number.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber) (hexutil.Bytes, error) {
-	result, _, _, err := s.doCall(ctx, args, blockNr, vm.Config{}, 5*time.Second)
-	return (hexutil.Bytes)(result), err
+	result, err := DoCall(ctx, s.b, args, blockNr, vm.Config{}, 5*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.Revert()) > 0 {
+		return nil, newRevertError(result)
+	}
+	return result.Return(), result.Err
 }
 
-// EstimateGas returns an estimate of the amount of gas needed to execute the
-// given transaction against the current pending block.
-func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
-	// Binary search the gas requirement, as it may be higher than the amount used
+// executeEstimate is a helper that executes the transaction under a given gas limit and returns
+// true if the transaction fails for a reason that might be related to not enough gas. A non-nil
+// error means execution failed due to reasons unrelated to the gas limit.
+func executeEstimate(ctx context.Context, b Backend, args CallArgs, state *state.StateDB, header *types.Header, gasLimit uint64) (bool, *core.ExecutionResult, error) {
+	args.Gas = (hexutil.Uint64)(gasLimit)
+	result, err := doCall(ctx, b, args, state, header, 0)
+	if err != nil {
+		if errors.Is(err, core.ErrIntrinsicGas) {
+			return true, nil, nil // Special case, raise gas limit
+		}
+		return true, nil, err // Bail out
+	}
+	return result.Failed(), result, nil
+}
+
+// DoEstimateGas returns the lowest possible gas limit that allows the transaction to run
+// successfully at block `blockNrOrHash`. It returns error if the transaction would revert, or if
+// there are unexpected failures. The gas limit is capped by both `args.Gas` (if non-nil &
+// non-zero) and `gasCap` (if non-zero).
+func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumber) (hexutil.Uint64, error) {
+	// Binary search the gas limit, as it may need to be higher than the amount used
 	var (
-		lo  uint64 = params.TxGas - 1
-		hi  uint64
-		cap uint64
+		lo uint64 // lowest-known gas limit where tx execution fails
+		hi uint64 // lowest-known gas limit where tx execution succeeds
 	)
+	// Determine the highest gas limit can be used during the estimation.
 	if uint64(args.Gas) >= params.TxGas {
 		hi = uint64(args.Gas)
 	} else {
-		// Retrieve the current pending block to act as the gas ceiling
-		block, err := s.b.BlockByNumber(ctx, rpc.LatestBlockNumber)
+		// Retrieve the block to act as the gas ceiling
+		block, err := b.BlockByNumber(ctx, blockNrOrHash)
 		if err != nil {
 			return 0, err
 		}
+		if block == nil {
+			return 0, errors.New("block not found")
+		}
 		hi = block.GasLimit()
 	}
-	cap = hi
+	// Normalize the max fee per gas the call is willing to spend.
+	feeCap := args.GasPrice.ToInt()
 
-	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(gas uint64) bool {
-		args.Gas = hexutil.Uint64(gas)
-
-		_, _, failed, err := s.doCall(ctx, args, rpc.LatestBlockNumber, vm.Config{}, 0)
-		if err != nil || failed {
-			return false
-		}
-		return true
+	state, header, err := b.StateAndHeaderByNumber(ctx, blockNrOrHash)
+	if state == nil || err != nil {
+		return 0, err
 	}
-	// Execute the binary search and hone in on an executable gas limit
+
+	// Recap the highest gas limit with account's available balance.
+	if feeCap.BitLen() != 0 {
+		balance := state.GetBalance(args.From) // from can't be nil
+		available := new(big.Int).Set(balance)
+		if args.Value.ToInt().Cmp(available) >= 0 {
+			return 0, core.ErrInsufficientFundsForTransfer
+		}
+		available.Sub(available, args.Value.ToInt())
+		allowance := new(big.Int).Div(available, feeCap)
+
+		// If the allowance is larger than maximum uint64, skip checking
+		if allowance.IsUint64() && hi > allowance.Uint64() {
+			transfer := args.Value
+			log.Warn("Gas estimation capped by limited funds", "original", hi, "balance", balance,
+				"sent", transfer.ToInt(), "maxFeePerGas", feeCap, "fundable", allowance)
+			hi = allowance.Uint64()
+		}
+	}
+
+	// We first execute the transaction at the highest allowable gas limit, since if this fails we
+	// can return error immediately.
+	failed, result, err := executeEstimate(ctx, b, args, state.Copy(), header, hi)
+	if err != nil {
+		return 0, err
+	}
+	if failed {
+		if result != nil && !errors.Is(result.Err, vm.ErrOutOfGas) {
+			if len(result.Revert()) > 0 {
+				return 0, newRevertError(result)
+			}
+			return 0, result.Err
+		}
+		return 0, fmt.Errorf("gas required exceeds allowance (%d)", hi)
+	}
+	// For almost any transaction, the gas consumed by the unconstrained execution above
+	// lower-bounds the gas limit required for it to succeed. One exception is those txs that
+	// explicitly check gas remaining in order to successfully execute within a given limit, but we
+	// probably don't want to return a lowest possible gas limit for these cases anyway.
+	lo = result.UsedGas - 1
+
+	// Binary search for the smallest gas limit that allows the tx to execute successfully.
 	for lo+1 < hi {
 		mid := (hi + lo) / 2
-		if !executable(mid) {
+		if mid > lo*2 {
+			// Most txs don't need much higher gas limit than their gas used, and most txs don't
+			// require near the full block limit of gas, so the selection of where to bisect the
+			// range here is skewed to favor the low side.
+			mid = lo * 2
+		}
+		failed, _, err = executeEstimate(ctx, b, args, state.Copy(), header, mid)
+		if err != nil {
+			// This should not happen under normal conditions since if we make it this far the
+			// transaction had run without error at least once before.
+			log.Error("execution error in estimate gas", "err", err)
+			return 0, err
+		}
+		if failed {
 			lo = mid
 		} else {
 			hi = mid
 		}
 	}
-	// Reject the transaction as invalid if it still fails at the highest allowance
-	if hi == cap {
-		if !executable(hi) {
-			return 0, fmt.Errorf("gas required exceeds allowance or always failing transaction")
-		}
-	}
 	return hexutil.Uint64(hi), nil
+}
+
+// EstimateGas returns the lowest possible gas limit that allows the transaction to run
+// successfully at block `blockNrOrHash`, or the latest block if `blockNrOrHash` is unspecified. It
+// returns error if the transaction would revert or if there are unexpected failures. The returned
+// value is capped by both `args.Gas` (if non-nil & non-zero) and the backend's RPCGasCap
+// configuration (if non-zero).
+func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs, blockNrOrHash *rpc.BlockNumber) (hexutil.Uint64, error) {
+	bNrOrHash := rpc.LatestBlockNumber
+	if blockNrOrHash != nil {
+		bNrOrHash = *blockNrOrHash
+	}
+	return DoEstimateGas(ctx, s.b, args, bNrOrHash)
 }
 
 // ExecutionResult groups all structured logs emitted by the EVM
@@ -1305,8 +1434,8 @@ func (s *PublicBlockChainAPI) findNearestSignedBlock(ctx context.Context, b *typ
 }
 
 /*
-	findFinalityOfBlock return finality of a block
-	Use blocksHashCache for to keep track - refer core/blockchain.go for more detail
+findFinalityOfBlock return finality of a block
+Use blocksHashCache for to keep track - refer core/blockchain.go for more detail
 */
 func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.Block, masternodes []common.Address) (uint, error) {
 	engine, _ := s.b.GetEngine().(*posv.Posv)
@@ -1371,7 +1500,7 @@ func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.
 }
 
 /*
-	Extract signers from block
+Extract signers from block
 */
 func (s *PublicBlockChainAPI) getSigners(ctx context.Context, block *types.Block, engine *posv.Posv) ([]common.Address, error) {
 	var err error
@@ -1594,7 +1723,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionCount(ctx context.Context, addr
 // GetTransactionByHash returns the transaction for the given hash
 func (s *PublicTransactionPoolAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) *RPCTransaction {
 	// Try to return an already finalized transaction
-	if tx, blockHash, blockNumber, index := core.GetTransaction(s.b.ChainDb(), hash); tx != nil {
+	if tx, blockHash, blockNumber, index := rawdb.GetTransaction(s.b.ChainDb(), hash); tx != nil {
 		return newRPCTransaction(tx, blockHash, blockNumber, index)
 	}
 	// No finalized transaction, try to retrieve it from the pool
@@ -1610,7 +1739,7 @@ func (s *PublicTransactionPoolAPI) GetRawTransactionByHash(ctx context.Context, 
 	var tx *types.Transaction
 
 	// Retrieve a finalized transaction, or a pooled otherwise
-	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
+	if tx, _, _, _ = rawdb.GetTransaction(s.b.ChainDb(), hash); tx == nil {
 		if tx = s.b.GetPoolTransaction(hash); tx == nil {
 			// Transaction not found anywhere, abort
 			return nil, nil
@@ -1622,7 +1751,7 @@ func (s *PublicTransactionPoolAPI) GetRawTransactionByHash(ctx context.Context, 
 
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
 func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
-	tx, blockHash, blockNumber, index := core.GetTransaction(s.b.ChainDb(), hash)
+	tx, blockHash, blockNumber, index := rawdb.GetTransaction(s.b.ChainDb(), hash)
 	if tx == nil {
 		return nil, nil
 	}
@@ -1867,7 +1996,7 @@ func (s *PublicTomoXTransactionPoolAPI) SendLendingRawTransaction(ctx context.Co
 func (s *PublicTomoXTransactionPoolAPI) GetOrderTxMatchByHash(ctx context.Context, hash common.Hash) ([]*tradingstate.OrderItem, error) {
 	var tx *types.Transaction
 	orders := []*tradingstate.OrderItem{}
-	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
+	if tx, _, _, _ = rawdb.GetTransaction(s.b.ChainDb(), hash); tx == nil {
 		if tx = s.b.GetPoolTransaction(hash); tx == nil {
 			return []*tradingstate.OrderItem{}, nil
 		}
@@ -2598,7 +2727,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetBorrows(ctx context.Context, lendingT
 // GetLendingTxMatchByHash returns lendingItems which have been processed at tx of the given txhash
 func (s *PublicTomoXTransactionPoolAPI) GetLendingTxMatchByHash(ctx context.Context, hash common.Hash) ([]*lendingstate.LendingItem, error) {
 	var tx *types.Transaction
-	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
+	if tx, _, _, _ = rawdb.GetTransaction(s.b.ChainDb(), hash); tx == nil {
 		if tx = s.b.GetPoolTransaction(hash); tx == nil {
 			return []*lendingstate.LendingItem{}, nil
 		}
@@ -2614,7 +2743,7 @@ func (s *PublicTomoXTransactionPoolAPI) GetLendingTxMatchByHash(ctx context.Cont
 // GetLiquidatedTradesByTxHash returns trades which closed by TomoX protocol at the tx of the give hash
 func (s *PublicTomoXTransactionPoolAPI) GetLiquidatedTradesByTxHash(ctx context.Context, hash common.Hash) (lendingstate.FinalizedResult, error) {
 	var tx *types.Transaction
-	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
+	if tx, _, _, _ = rawdb.GetTransaction(s.b.ChainDb(), hash); tx == nil {
 		if tx = s.b.GetPoolTransaction(hash); tx == nil {
 			return lendingstate.FinalizedResult{}, nil
 		}
@@ -2965,7 +3094,8 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 // GetStakerROI Estimate ROI for stakers using the last epoc reward
 // then multiple by epoch per year, if the address is not masternode of last epoch - return 0
 // Formular:
-// 		ROI = average_latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
+//
+//	ROI = average_latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
 func (s *PublicBlockChainAPI) GetStakerROI() float64 {
 	blockNumber := s.b.CurrentBlock().Number().Uint64()
 	lastCheckpointNumber := blockNumber - (blockNumber % s.b.ChainConfig().Posv.Epoch) - s.b.ChainConfig().Posv.Epoch // calculate for 2 epochs ago
@@ -2991,7 +3121,8 @@ func (s *PublicBlockChainAPI) GetStakerROI() float64 {
 // GetStakerROIMasternode Estimate ROI for stakers of a specific masternode using the last epoc reward
 // then multiple by epoch per year, if the address is not masternode of last epoch - return 0
 // Formular:
-// 		ROI = latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
+//
+//	ROI = latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
 func (s *PublicBlockChainAPI) GetStakerROIMasternode(masternode common.Address) float64 {
 	votersReward := s.b.GetVotersRewards(masternode)
 	if votersReward == nil {

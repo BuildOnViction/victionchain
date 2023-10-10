@@ -33,9 +33,23 @@ var (
 	// next one expected based on the local chain.
 	ErrNonceTooHigh = errors.New("nonce too high")
 
+	// ErrNonceMax is returned if the nonce of a transaction sender account has
+	// maximum allowed value and would become invalid if incremented.
+	ErrNonceMax = errors.New("nonce has max value")
+
 	ErrNotPoSV = errors.New("Posv not found in config")
 
 	ErrNotFoundM1 = errors.New("list M1 not found ")
 
 	ErrStopPreparingBlock = errors.New("stop calculating a block not verified by M2")
+
+	// ErrSenderNoEOA is returned if the sender of a transaction is a contract.
+	ErrSenderNoEOA = errors.New("sender not an eoa")
+
+	// ErrGasUintOverflow is returned when calculating gas usage.
+	ErrGasUintOverflow = errors.New("gas uint64 overflow")
+
+	// ErrInsufficientFundsForTransfer is returned if the transaction sender doesn't
+	// have enough funds for transfer(topmost call only).
+	ErrInsufficientFundsForTransfer = errors.New("insufficient funds for transfer")
 )

@@ -24,10 +24,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
@@ -142,7 +144,7 @@ func (self *LightChain) Odr() OdrBackend {
 // loadLastState loads the last known chain state from the database. This method
 // assumes that the chain manager mutex is held.
 func (self *LightChain) loadLastState() error {
-	if head := core.GetHeadHeaderHash(self.chainDb); head == (common.Hash{}) {
+	if head := rawdb.GetHeadHeaderHash(self.chainDb); head == (common.Hash{}) {
 		// Corrupt or empty database, init from scratch
 		self.Reset()
 	} else {
@@ -189,10 +191,10 @@ func (bc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 	defer bc.mu.Unlock()
 
 	// Prepare the genesis block and reinitialise the chain
-	if err := core.WriteTd(bc.chainDb, genesis.Hash(), genesis.NumberU64(), genesis.Difficulty()); err != nil {
+	if err := rawdb.WriteTd(bc.chainDb, genesis.Hash(), genesis.NumberU64(), genesis.Difficulty()); err != nil {
 		log.Crit("Failed to write genesis block TD", "err", err)
 	}
-	if err := core.WriteBlock(bc.chainDb, genesis); err != nil {
+	if err := rawdb.WriteBlock(bc.chainDb, genesis); err != nil {
 		log.Crit("Failed to write genesis block", "err", err)
 	}
 	bc.genesisBlock = genesis
