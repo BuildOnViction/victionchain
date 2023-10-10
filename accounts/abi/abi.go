@@ -24,6 +24,7 @@ import (
 	"io"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
 )
 
 // The ABI holds information about a contract's context and available
@@ -253,6 +254,7 @@ func (abi *ABI) HasFallback() bool {
 // HasReceive returns an indicator whether a receive function is included.
 func (abi *ABI) HasReceive() bool {
 	return abi.Receive.Type == Receive
+}
 
 // revertSelector is a special function selector for revert reason unpacking.
 var revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
@@ -268,10 +270,13 @@ func UnpackRevert(data []byte) (string, error) {
 	if !bytes.Equal(data[:4], revertSelector) {
 		return "", errors.New("invalid data for unpacking")
 	}
-	var reason string
-	typ, _ := NewType("string", "", nil)
-	if err := (Arguments{{Type: typ}}).Unpack(&reason, data[4:]); err != nil {
+	typ, err := NewType("string", "", nil)
+	if err != nil {
 		return "", err
 	}
-	return reason, nil
+	unpacked, err := (Arguments{{Type: typ}}).Unpack(data[4:])
+	if err != nil {
+		return "", err
+	}
+	return unpacked[0].(string), nil
 }
