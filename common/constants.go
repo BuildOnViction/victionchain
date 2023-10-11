@@ -11,9 +11,6 @@ const (
 	HexSignMethod              = "e341eaa4"
 	HexSetSecret               = "34d38600"
 	HexSetOpening              = "e11f5ba2"
-	EpocBlockSecret            = 800
-	EpocBlockOpening           = 850
-	EpocBlockRandomize         = 900
 	MaxMasternodes             = 150
 	LimitPenaltyEpoch          = 4
 	BlocksPerYear              = uint64(15768000)
@@ -29,6 +26,11 @@ const (
 
 var Rewound = uint64(0)
 
+// dynamic configs
+var EpocBlockSecret = uint64(800)
+var EpocBlockOpening = uint64(850)
+var EpocBlockRandomize = uint64(900)
+
 // hardforks
 var TIP2019Block = big.NewInt(1050000)
 var TIPSigning = big.NewInt(3000000)
@@ -38,6 +40,7 @@ var TIPTomoX = big.NewInt(20581700)
 var TIPTomoXLending = big.NewInt(21430200)
 var TIPTomoXCancellationFee = big.NewInt(30915660)
 var TIPTomoXTestnet = big.NewInt(0)
+var IsDevnet bool = false
 var IsTestnet bool = false
 var StoreRewardFolder string
 var RollbackHash Hash

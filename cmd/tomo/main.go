@@ -226,6 +226,10 @@ func tomo(ctx *cli.Context) error {
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
 func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
+	if common.IsDevnet {
+		log.Info("DEVNET configuration applied")
+	}
+
 	// Start up the node itself
 	utils.StartNode(stack)
 

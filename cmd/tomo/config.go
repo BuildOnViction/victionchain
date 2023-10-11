@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"gopkg.in/urfave/cli.v1"
 	"io"
 	"math/big"
 	"os"
@@ -29,6 +28,8 @@ import (
 	"unicode"
 
 	"github.com/naoina/toml"
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/eth"
@@ -164,6 +165,21 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 		common.TIPRandomize = big.NewInt(0)
 		common.TIP2019Block = big.NewInt(0)
 		common.BlackListHFNumber = uint64(0)
+	}
+
+	// Check if devnet is enable
+	if ctx.GlobalUint64(utils.NetworkIdFlag.Name) == 989898 {
+		cfg.Eth.NetworkId = 989898
+		common.IsDevnet = true
+		common.TIP2019Block = big.NewInt(300)
+		common.TIPSigning = big.NewInt(600)
+		common.TIPRandomize = big.NewInt(900)
+		common.TIPTomoX = big.NewInt(1200)
+		common.TIPTomoXLending = big.NewInt(1500)
+		common.TIPTomoXCancellationFee = big.NewInt(1800)
+		common.EpocBlockSecret = uint64(100)
+		common.EpocBlockOpening = uint64(125)
+		common.EpocBlockRandomize = uint64(150)
 	}
 
 	// Rewound

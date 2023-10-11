@@ -559,7 +559,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 		// Hook verifies masternodes set
 		c.HookVerifyMNs = func(header *types.Header, signers []common.Address) error {
 			number := header.Number.Int64()
-			if number > 0 && number%common.EpocBlockRandomize == 0 {
+			if number > 0 && uint64(number)%common.EpocBlockRandomize == 0 {
 				start := time.Now()
 				validators, err := GetValidators(eth.blockchain, signers)
 				log.Debug("Time Calculated HookVerifyMNs ", "block", header.Number.Uint64(), "time", common.PrettyDuration(time.Since(start)))
