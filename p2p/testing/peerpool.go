@@ -21,22 +21,22 @@ import (
 	"sync"
 
 	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 )
 
 type TestPeer interface {
-	ID() discover.NodeID
+	ID() enode.ID
 	Drop(error)
 }
 
 // TestPeerPool is an example peerPool to demonstrate registration of peer connections
 type TestPeerPool struct {
 	lock  sync.Mutex
-	peers map[discover.NodeID]TestPeer
+	peers map[enode.ID]TestPeer
 }
 
 func NewTestPeerPool() *TestPeerPool {
-	return &TestPeerPool{peers: make(map[discover.NodeID]TestPeer)}
+	return &TestPeerPool{peers: make(map[enode.ID]TestPeer)}
 }
 
 func (self *TestPeerPool) Add(p TestPeer) {
@@ -53,14 +53,14 @@ func (self *TestPeerPool) Remove(p TestPeer) {
 	delete(self.peers, p.ID())
 }
 
-func (self *TestPeerPool) Has(id discover.NodeID) bool {
+func (self *TestPeerPool) Has(id enode.ID) bool {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	_, ok := self.peers[id]
 	return ok
 }
 
-func (self *TestPeerPool) Get(id discover.NodeID) TestPeer {
+func (self *TestPeerPool) Get(id enode.ID) TestPeer {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	return self.peers[id]

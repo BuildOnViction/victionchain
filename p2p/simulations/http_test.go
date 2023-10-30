@@ -31,6 +31,7 @@ import (
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
 	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/simulations/adapters"
 	"github.com/tomochain/tomochain/rpc"
 )
@@ -38,12 +39,12 @@ import (
 // testService implements the node.Service interface and provides protocols
 // and APIs which are useful for testing nodes in a simulation network
 type testService struct {
-	id discover.NodeID
+	id enode.ID
 
 	// peerCount is incremented once a peer handshake has been performed
 	peerCount int64
 
-	peers    map[discover.NodeID]*testPeer
+	peers    map[enode.ID]*testPeer
 	peersMtx sync.Mutex
 
 	// state stores []byte which is used to test creating and loading
@@ -54,7 +55,7 @@ type testService struct {
 func newTestService(ctx *adapters.ServiceContext) (node.Service, error) {
 	svc := &testService{
 		id:    ctx.Config.ID,
-		peers: make(map[discover.NodeID]*testPeer),
+		peers: make(map[enode.ID]*testPeer),
 	}
 	svc.state.Store(ctx.Snapshot)
 	return svc, nil
@@ -65,7 +66,7 @@ type testPeer struct {
 	dumReady  chan struct{}
 }
 
-func (t *testService) peer(id discover.NodeID) *testPeer {
+func (t *testService) peer(id enode.ID) *testPeer {
 	t.peersMtx.Lock()
 	defer t.peersMtx.Unlock()
 	if peer, ok := t.peers[id]; ok {
