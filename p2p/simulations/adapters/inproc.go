@@ -107,14 +107,14 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 func (s *SimAdapter) Dial(dest *enode.Node) (conn net.Conn, err error) {
 	node, ok := s.GetNode(dest.ID())
 	if !ok {
-		return nil, fmt.Errorf("unknown node: %s", dest.ID)
+		return nil, fmt.Errorf("unknown node: %s", dest.ID())
 	}
 	if node.connected[dest.ID()] {
-		return nil, fmt.Errorf("dialed node: %s", dest.ID)
+		return nil, fmt.Errorf("dialed node: %s", dest.ID())
 	}
 	srv := node.Server()
 	if srv == nil {
-		return nil, fmt.Errorf("node not running: %s", dest.ID)
+		return nil, fmt.Errorf("node not running: %s", dest.ID())
 	}
 	pipe1, pipe2 := net.Pipe()
 	go srv.SetupConn(pipe1, 0, nil)
