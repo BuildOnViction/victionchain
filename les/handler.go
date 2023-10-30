@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"sync"
 	"time"
 
@@ -38,8 +37,8 @@ import (
 	"github.com/tomochain/tomochain/light"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/p2p/discv5"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
@@ -164,8 +163,7 @@ func NewProtocolManager(chainConfig *params.ChainConfig, lightSync bool, protoco
 				var entry *poolEntry
 				peer := manager.newPeer(int(version), networkId, p, rw)
 				if manager.serverPool != nil {
-					addr := p.RemoteAddr().(*net.TCPAddr)
-					entry = manager.serverPool.connect(peer, addr.IP, uint16(addr.Port))
+					entry = manager.serverPool.connect(peer, peer.Node())
 				}
 				peer.poolEntry = entry
 				select {
@@ -187,7 +185,7 @@ func NewProtocolManager(chainConfig *params.ChainConfig, lightSync bool, protoco
 			NodeInfo: func() interface{} {
 				return manager.NodeInfo()
 			},
-			PeerInfo: func(id discover.NodeID) interface{} {
+			PeerInfo: func(id enode.ID) interface{} {
 				if p := manager.peers.Peer(fmt.Sprintf("%x", id[:8])); p != nil {
 					return p.Info()
 				}
@@ -388,7 +386,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		if p.requestAnnounceType == announceTypeSigned {
-			if err := req.checkSignature(p.pubKey); err != nil {
+			if err := req.checkSignature(p.ID()); err != nil {
 				p.Log().Trace("Invalid announcement signature", "err", err)
 				return err
 			}
