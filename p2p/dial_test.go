@@ -25,6 +25,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/netutil"
 )
 
@@ -48,8 +49,8 @@ func runDialTest(t *testing.T, test dialtest) {
 		vtime   time.Time
 		running int
 	)
-	pm := func(ps []*Peer) map[discover.NodeID]*Peer {
-		m := make(map[discover.NodeID]*Peer)
+	pm := func(ps []*Peer) map[enode.ID]*Peer {
+		m := make(map[enode.ID]*Peer)
 		for _, p := range ps {
 			m[p.rw.id] = p
 		}
@@ -80,8 +81,8 @@ type fakeTable []*discover.Node
 
 func (t fakeTable) Self() *discover.Node                     { return new(discover.Node) }
 func (t fakeTable) Close()                                   {}
-func (t fakeTable) Lookup(discover.NodeID) []*discover.Node  { return nil }
-func (t fakeTable) Resolve(discover.NodeID) *discover.Node   { return nil }
+func (t fakeTable) Lookup(enode.ID) []*discover.Node         { return nil }
+func (t fakeTable) Resolve(enode.ID) *discover.Node          { return nil }
 func (t fakeTable) ReadRandomNodes(buf []*discover.Node) int { return copy(buf, t) }
 
 // This test checks that dynamic dials are launched from discovery results.
@@ -656,7 +657,7 @@ func TestDialResolve(t *testing.T) {
 	config := Config{Dialer: TCPDialer{&net.Dialer{Deadline: time.Now().Add(-5 * time.Minute)}}}
 	srv := &Server{ntab: table, Config: config}
 	tasks[0].Do(srv)
-	if !reflect.DeepEqual(table.resolveCalls, []discover.NodeID{dest.ID}) {
+	if !reflect.DeepEqual(table.resolveCalls, []enode.ID{dest.ID}) {
 		t.Fatalf("wrong resolve calls, got %v", table.resolveCalls)
 	}
 
@@ -684,19 +685,19 @@ next:
 	return true
 }
 
-func uintID(i uint32) discover.NodeID {
-	var id discover.NodeID
+func uintID(i uint32) enode.ID {
+	var id enode.ID
 	binary.BigEndian.PutUint32(id[:], i)
 	return id
 }
 
 // implements discoverTable for TestDialResolve
 type resolveMock struct {
-	resolveCalls []discover.NodeID
+	resolveCalls []enode.ID
 	answer       *discover.Node
 }
 
-func (t *resolveMock) Resolve(id discover.NodeID) *discover.Node {
+func (t *resolveMock) Resolve(id enode.ID) *discover.Node {
 	t.resolveCalls = append(t.resolveCalls, id)
 	return t.answer
 }
@@ -704,5 +705,5 @@ func (t *resolveMock) Resolve(id discover.NodeID) *discover.Node {
 func (t *resolveMock) Self() *discover.Node                     { return new(discover.Node) }
 func (t *resolveMock) Close()                                   {}
 func (t *resolveMock) Bootstrap([]*discover.Node)               {}
-func (t *resolveMock) Lookup(discover.NodeID) []*discover.Node  { return nil }
+func (t *resolveMock) Lookup(enode.ID) []*discover.Node         { return nil }
 func (t *resolveMock) ReadRandomNodes(buf []*discover.Node) int { return 0 }
