@@ -30,7 +30,6 @@ import (
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/simulations/adapters"
 	"github.com/tomochain/tomochain/rpc"
@@ -412,7 +411,7 @@ func (t *expectEvents) nodeEvent(id string, up bool) *Event {
 		Type: EventTypeNode,
 		Node: &Node{
 			Config: &adapters.NodeConfig{
-				ID: discover.MustHexID(id),
+				ID: enode.HexID(id),
 			},
 			Up: up,
 		},
@@ -423,8 +422,8 @@ func (t *expectEvents) connEvent(one, other string, up bool) *Event {
 	return &Event{
 		Type: EventTypeConn,
 		Conn: &Conn{
-			One:   discover.MustHexID(one),
-			Other: discover.MustHexID(other),
+			One:   enode.HexID(one),
+			Other: enode.HexID(other),
 			Up:    up,
 		},
 	}

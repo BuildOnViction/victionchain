@@ -250,7 +250,7 @@ func TestUDP_findnode(t *testing.T) {
 	// ensure there's a bond with the test node,
 	// findnode won't be accepted otherwise.
 	remoteID := encodePubkey(&test.remotekey.PublicKey).id()
-	test.table.db.UpdateLastPongReceived(remoteID, time.Now())
+	test.table.db.UpdateLastPongReceived(remoteID, test.remoteaddr.IP, time.Now())
 
 	// check that closest neighbors are returned.
 	test.packetIn(nil, findnodePacket, &findnode{Target: testTarget, Expiration: futureExp})
@@ -277,7 +277,7 @@ func TestUDP_findnodeMultiReply(t *testing.T) {
 	defer test.table.Close()
 
 	rid := enode.PubkeyToIDV4(&test.remotekey.PublicKey)
-	test.table.db.UpdateLastPingReceived(rid, time.Now())
+	test.table.db.UpdateLastPingReceived(rid, test.remoteaddr.IP, time.Now())
 
 	// queue a pending findnode request
 	resultc, errc := make(chan []*node), make(chan error)

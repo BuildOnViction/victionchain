@@ -31,7 +31,7 @@ import (
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/nat"
 )
 
@@ -202,12 +202,11 @@ func initialize(t *testing.T) {
 		port := port0 + i
 		addr := fmt.Sprintf(":%d", port) // e.g. ":30303"
 		name := common.MakeName("whisper-go", "2.0")
-		var peers []*discover.Node
+		var peers []*enode.Node
 		if i > 0 {
 			peerNodeID := nodes[i-1].id
-			peerPort := uint16(port - 1)
-			peerNode := discover.PubkeyID(&peerNodeID.PublicKey)
-			peer := discover.NewNode(peerNode, ip, peerPort, peerPort)
+			peerPort := port - 1
+			peer := enode.NewV4(&peerNodeID.PublicKey, ip, peerPort, peerPort)
 			peers = append(peers, peer)
 		}
 
@@ -437,7 +436,7 @@ func checkPowExchangeForNodeZeroOnce(t *testing.T, mustPass bool) bool {
 	cnt := 0
 	for i, node := range nodes {
 		for peer := range node.shh.peers {
-			if peer.peer.ID() == discover.PubkeyID(&nodes[0].id.PublicKey) {
+			if peer.peer.ID() == enode.PubkeyToIDV4(&nodes[0].id.PublicKey) {
 				cnt++
 				if peer.powRequirement != masterPow {
 					if mustPass {
@@ -458,7 +457,7 @@ func checkPowExchangeForNodeZeroOnce(t *testing.T, mustPass bool) bool {
 func checkPowExchange(t *testing.T) {
 	for i, node := range nodes {
 		for peer := range node.shh.peers {
-			if peer.peer.ID() != discover.PubkeyID(&nodes[0].id.PublicKey) {
+			if peer.peer.ID() != enode.PubkeyToIDV4(&nodes[0].id.PublicKey) {
 				if peer.powRequirement != masterPow {
 					t.Fatalf("node %d: failed to exchange pow requirement in round %d; expected %f, got %f",
 						i, round, masterPow, peer.powRequirement)
