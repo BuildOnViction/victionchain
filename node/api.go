@@ -51,9 +51,9 @@ func (api *PrivateAdminAPI) AddPeer(url string) (bool, error) {
 		return false, ErrNodeStopped
 	}
 	// Try to add the url as a static peer and return
-	node, err := enode.ParseV4(url)
+	node, err := enode.Parse(enode.ValidSchemes, url)
 	if err != nil {
-		return false, fmt.Errorf("invalid enode: %v", err)
+		return false, fmt.Errorf("invalid enode url: %v, err %v", url, err)
 	}
 	server.AddPeer(node)
 	return true, nil
