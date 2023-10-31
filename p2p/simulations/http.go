@@ -29,10 +29,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/tomochain/tomochain/p2p/enode"
+
 	"github.com/julienschmidt/httprouter"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/p2p/simulations/adapters"
 	"github.com/tomochain/tomochain/rpc"
 	"golang.org/x/net/websocket"
@@ -698,18 +699,19 @@ func (s *Server) JSON(w http.ResponseWriter, status int, data interface{}) {
 	json.NewEncoder(w).Encode(data)
 }
 
-// wrapHandler returns a httprouter.Handle which wraps a http.HandlerFunc by
+// wrapHandler returns an httprouter.Handle which wraps an http.HandlerFunc by
 // populating request.Context with any objects from the URL params
 func (s *Server) wrapHandler(handler http.HandlerFunc) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 
-		ctx := context.Background()
+		ctx := req.Context()
 
 		if id := params.ByName("nodeid"); id != "" {
+			var nodeID enode.ID
 			var node *Node
-			if nodeID, err := discover.HexID(id); err == nil {
+			if nodeID.UnmarshalText([]byte(id)) == nil {
 				node = s.network.GetNode(nodeID)
 			} else {
 				node = s.network.GetNodeByName(id)
@@ -722,8 +724,9 @@ func (s *Server) wrapHandler(handler http.HandlerFunc) httprouter.Handle {
 		}
 
 		if id := params.ByName("peerid"); id != "" {
+			var peerID enode.ID
 			var peer *Node
-			if peerID, err := discover.HexID(id); err == nil {
+			if peerID.UnmarshalText([]byte(id)) == nil {
 				peer = s.network.GetNode(peerID)
 			} else {
 				peer = s.network.GetNodeByName(id)

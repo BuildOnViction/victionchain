@@ -30,7 +30,7 @@ import (
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/node"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 )
 
 // DockerAdapter is a NodeAdapter which runs simulation nodes inside Docker
@@ -61,7 +61,7 @@ func NewDockerAdapter() (*DockerAdapter, error) {
 
 	return &DockerAdapter{
 		ExecAdapter{
-			nodes: make(map[discover.NodeID]*ExecNode),
+			nodes: make(map[enode.ID]*ExecNode),
 		},
 	}, nil
 }

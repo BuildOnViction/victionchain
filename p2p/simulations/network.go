@@ -27,7 +27,7 @@ import (
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/simulations/adapters"
 )
 
@@ -51,7 +51,7 @@ type Network struct {
 	NetworkConfig
 
 	Nodes   []*Node `json:"nodes"`
-	nodeMap map[discover.NodeID]int
+	nodeMap map[enode.ID]int
 
 	Conns   []*Conn `json:"conns"`
 	connMap map[string]int
@@ -67,7 +67,7 @@ func NewNetwork(nodeAdapter adapters.NodeAdapter, conf *NetworkConfig) *Network 
 	return &Network{
 		NetworkConfig: *conf,
 		nodeAdapter:   nodeAdapter,
-		nodeMap:       make(map[discover.NodeID]int),
+		nodeMap:       make(map[enode.ID]int),
 		connMap:       make(map[string]int),
 		quitc:         make(chan struct{}),
 	}
@@ -92,14 +92,14 @@ func (self *Network) NewNodeWithConfig(conf *adapters.NodeConfig) (*Node, error)
 	defer self.lock.Unlock()
 
 	// create a random ID and PrivateKey if not set
-	if conf.ID == (discover.NodeID{}) {
+	if conf.ID == (enode.ID{}) {
 		c := adapters.RandomNodeConfig()
 		conf.ID = c.ID
 		conf.PrivateKey = c.PrivateKey
 	}
 	id := conf.ID
 	if conf.Reachable == nil {
-		conf.Reachable = func(otherID discover.NodeID) bool {
+		conf.Reachable = func(otherID enode.ID) bool {
 			_, err := self.InitConn(conf.ID, otherID)
 			return err == nil
 		}
@@ -174,13 +174,13 @@ func (self *Network) StopAll() error {
 }
 
 // Start starts the node with the given ID
-func (self *Network) Start(id discover.NodeID) error {
+func (self *Network) Start(id enode.ID) error {
 	return self.startWithSnapshots(id, nil)
 }
 
 // startWithSnapshots starts the node with the given ID using the give
 // snapshots
-func (self *Network) startWithSnapshots(id discover.NodeID, snapshots map[string][]byte) error {
+func (self *Network) startWithSnapshots(id enode.ID, snapshots map[string][]byte) error {
 	node := self.GetNode(id)
 	if node == nil {
 		return fmt.Errorf("node %v does not exist", id)
@@ -214,7 +214,7 @@ func (self *Network) startWithSnapshots(id discover.NodeID, snapshots map[string
 
 // watchPeerEvents reads peer events from the given channel and emits
 // corresponding network events
-func (self *Network) watchPeerEvents(id discover.NodeID, events chan *p2p.PeerEvent, sub event.Subscription) {
+func (self *Network) watchPeerEvents(id enode.ID, events chan *p2p.PeerEvent, sub event.Subscription) {
 	defer func() {
 		sub.Unsubscribe()
 
@@ -258,7 +258,7 @@ func (self *Network) watchPeerEvents(id discover.NodeID, events chan *p2p.PeerEv
 }
 
 // Stop stops the node with the given ID
-func (self *Network) Stop(id discover.NodeID) error {
+func (self *Network) Stop(id enode.ID) error {
 	node := self.GetNode(id)
 	if node == nil {
 		return fmt.Errorf("node %v does not exist", id)
@@ -278,7 +278,7 @@ func (self *Network) Stop(id discover.NodeID) error {
 
 // Connect connects two nodes together by calling the "admin_addPeer" RPC
 // method on the "one" node so that it connects to the "other" node
-func (self *Network) Connect(oneID, otherID discover.NodeID) error {
+func (self *Network) Connect(oneID, otherID enode.ID) error {
 	log.Debug(fmt.Sprintf("connecting %s to %s", oneID, otherID))
 	conn, err := self.InitConn(oneID, otherID)
 	if err != nil {
@@ -294,7 +294,7 @@ func (self *Network) Connect(oneID, otherID discover.NodeID) error {
 
 // Disconnect disconnects two nodes by calling the "admin_removePeer" RPC
 // method on the "one" node so that it disconnects from the "other" node
-func (self *Network) Disconnect(oneID, otherID discover.NodeID) error {
+func (self *Network) Disconnect(oneID, otherID enode.ID) error {
 	conn := self.GetConn(oneID, otherID)
 	if conn == nil {
 		return fmt.Errorf("connection between %v and %v does not exist", oneID, otherID)
@@ -311,7 +311,7 @@ func (self *Network) Disconnect(oneID, otherID discover.NodeID) error {
 }
 
 // DidConnect tracks the fact that the "one" node connected to the "other" node
-func (self *Network) DidConnect(one, other discover.NodeID) error {
+func (self *Network) DidConnect(one, other enode.ID) error {
 	conn, err := self.GetOrCreateConn(one, other)
 	if err != nil {
 		return fmt.Errorf("connection between %v and %v does not exist", one, other)
@@ -326,7 +326,7 @@ func (self *Network) DidConnect(one, other discover.NodeID) error {
 
 // DidDisconnect tracks the fact that the "one" node disconnected from the
 // "other" node
-func (self *Network) DidDisconnect(one, other discover.NodeID) error {
+func (self *Network) DidDisconnect(one, other enode.ID) error {
 	conn := self.GetConn(one, other)
 	if conn == nil {
 		return fmt.Errorf("connection between %v and %v does not exist", one, other)
@@ -341,7 +341,7 @@ func (self *Network) DidDisconnect(one, other discover.NodeID) error {
 }
 
 // DidSend tracks the fact that "sender" sent a message to "receiver"
-func (self *Network) DidSend(sender, receiver discover.NodeID, proto string, code uint64) error {
+func (self *Network) DidSend(sender, receiver enode.ID, proto string, code uint64) error {
 	msg := &Msg{
 		One:      sender,
 		Other:    receiver,
@@ -354,7 +354,7 @@ func (self *Network) DidSend(sender, receiver discover.NodeID, proto string, cod
 }
 
 // DidReceive tracks the fact that "receiver" received a message from "sender"
-func (self *Network) DidReceive(sender, receiver discover.NodeID, proto string, code uint64) error {
+func (self *Network) DidReceive(sender, receiver enode.ID, proto string, code uint64) error {
 	msg := &Msg{
 		One:      sender,
 		Other:    receiver,
@@ -368,7 +368,7 @@ func (self *Network) DidReceive(sender, receiver discover.NodeID, proto string, 
 
 // GetNode gets the node with the given ID, returning nil if the node does not
 // exist
-func (self *Network) GetNode(id discover.NodeID) *Node {
+func (self *Network) GetNode(id enode.ID) *Node {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	return self.getNode(id)
@@ -382,7 +382,7 @@ func (self *Network) GetNodeByName(name string) *Node {
 	return self.getNodeByName(name)
 }
 
-func (self *Network) getNode(id discover.NodeID) *Node {
+func (self *Network) getNode(id enode.ID) *Node {
 	i, found := self.nodeMap[id]
 	if !found {
 		return nil
@@ -410,7 +410,7 @@ func (self *Network) GetNodes() (nodes []*Node) {
 
 // GetConn returns the connection which exists between "one" and "other"
 // regardless of which node initiated the connection
-func (self *Network) GetConn(oneID, otherID discover.NodeID) *Conn {
+func (self *Network) GetConn(oneID, otherID enode.ID) *Conn {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	return self.getConn(oneID, otherID)
@@ -418,13 +418,13 @@ func (self *Network) GetConn(oneID, otherID discover.NodeID) *Conn {
 
 // GetOrCreateConn is like GetConn but creates the connection if it doesn't
 // already exist
-func (self *Network) GetOrCreateConn(oneID, otherID discover.NodeID) (*Conn, error) {
+func (self *Network) GetOrCreateConn(oneID, otherID enode.ID) (*Conn, error) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	return self.getOrCreateConn(oneID, otherID)
 }
 
-func (self *Network) getOrCreateConn(oneID, otherID discover.NodeID) (*Conn, error) {
+func (self *Network) getOrCreateConn(oneID, otherID enode.ID) (*Conn, error) {
 	if conn := self.getConn(oneID, otherID); conn != nil {
 		return conn, nil
 	}
@@ -449,7 +449,7 @@ func (self *Network) getOrCreateConn(oneID, otherID discover.NodeID) (*Conn, err
 	return conn, nil
 }
 
-func (self *Network) getConn(oneID, otherID discover.NodeID) *Conn {
+func (self *Network) getConn(oneID, otherID enode.ID) *Conn {
 	label := ConnLabel(oneID, otherID)
 	i, found := self.connMap[label]
 	if !found {
@@ -466,7 +466,7 @@ func (self *Network) getConn(oneID, otherID discover.NodeID) *Conn {
 // it also checks whether there has been recent attempt to connect the peers
 // this is cheating as the simulation is used as an oracle and know about
 // remote peers attempt to connect to a node which will then not initiate the connection
-func (self *Network) InitConn(oneID, otherID discover.NodeID) (*Conn, error) {
+func (self *Network) InitConn(oneID, otherID enode.ID) (*Conn, error) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	if oneID == otherID {
@@ -501,15 +501,15 @@ func (self *Network) Shutdown() {
 	close(self.quitc)
 }
 
-//Reset resets all network properties:
-//emtpies the nodes and the connection list
+// Reset resets all network properties:
+// emtpies the nodes and the connection list
 func (self *Network) Reset() {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 
 	//re-initialize the maps
 	self.connMap = make(map[string]int)
-	self.nodeMap = make(map[discover.NodeID]int)
+	self.nodeMap = make(map[enode.ID]int)
 
 	self.Nodes = nil
 	self.Conns = nil
@@ -528,7 +528,7 @@ type Node struct {
 }
 
 // ID returns the ID of the node
-func (self *Node) ID() discover.NodeID {
+func (self *Node) ID() enode.ID {
 	return self.Config.ID
 }
 
@@ -565,10 +565,10 @@ func (self *Node) MarshalJSON() ([]byte, error) {
 // Conn represents a connection between two nodes in the network
 type Conn struct {
 	// One is the node which initiated the connection
-	One discover.NodeID `json:"one"`
+	One enode.ID `json:"one"`
 
 	// Other is the node which the connection was made to
-	Other discover.NodeID `json:"other"`
+	Other enode.ID `json:"other"`
 
 	// Up tracks whether or not the connection is active
 	Up bool `json:"up"`
@@ -597,11 +597,11 @@ func (self *Conn) String() string {
 
 // Msg represents a p2p message sent between two nodes in the network
 type Msg struct {
-	One      discover.NodeID `json:"one"`
-	Other    discover.NodeID `json:"other"`
-	Protocol string          `json:"protocol"`
-	Code     uint64          `json:"code"`
-	Received bool            `json:"received"`
+	One      enode.ID `json:"one"`
+	Other    enode.ID `json:"other"`
+	Protocol string   `json:"protocol"`
+	Code     uint64   `json:"code"`
+	Received bool     `json:"received"`
 }
 
 // String returns a log-friendly string
@@ -612,8 +612,8 @@ func (self *Msg) String() string {
 // ConnLabel generates a deterministic string which represents a connection
 // between two nodes, used to compare if two connections are between the same
 // nodes
-func ConnLabel(source, target discover.NodeID) string {
-	var first, second discover.NodeID
+func ConnLabel(source, target enode.ID) string {
+	var first, second enode.ID
 	if bytes.Compare(source.Bytes(), target.Bytes()) > 0 {
 		first = target
 		second = source

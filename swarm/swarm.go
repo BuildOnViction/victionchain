@@ -37,7 +37,7 @@ import (
 	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rpc"
 	"github.com/tomochain/tomochain/swarm/api"
@@ -275,7 +275,7 @@ Start is called when the stack is started
 func (self *Swarm) Start(srv *p2p.Server) error {
 	startTime = time.Now()
 	connectPeer := func(url string) error {
-		node, err := discover.ParseNode(url)
+		node, err := enode.ParseV4(url)
 		if err != nil {
 			return fmt.Errorf("invalid node URL: %v", err)
 		}
@@ -296,7 +296,7 @@ func (self *Swarm) Start(srv *p2p.Server) error {
 
 	log.Warn(fmt.Sprintf("Starting Swarm service"))
 	self.hive.Start(
-		discover.PubkeyID(&srv.PrivateKey.PublicKey),
+		enode.PubkeyToIDV4(&srv.PrivateKey.PublicKey),
 		func() string { return srv.ListenAddr },
 		connectPeer,
 	)

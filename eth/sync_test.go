@@ -23,7 +23,7 @@ import (
 
 	"github.com/tomochain/tomochain/eth/downloader"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 )
 
 // Tests that fast sync gets disabled as soon as a real block is successfully
@@ -42,8 +42,8 @@ func TestFastSyncDisabling(t *testing.T) {
 	// Sync up the two peers
 	io1, io2 := p2p.MsgPipe()
 
-	go pmFull.handle(pmFull.newPeer(63, p2p.NewPeer(discover.NodeID{}, "empty", nil), io2))
-	go pmEmpty.handle(pmEmpty.newPeer(63, p2p.NewPeer(discover.NodeID{}, "full", nil), io1))
+	go pmFull.handle(pmFull.newPeer(63, p2p.NewPeer(enode.ID{}, "empty", nil), io2))
+	go pmEmpty.handle(pmEmpty.newPeer(63, p2p.NewPeer(enode.ID{}, "full", nil), io1))
 
 	time.Sleep(250 * time.Millisecond)
 	pmEmpty.synchronise(pmEmpty.peers.BestPeer())

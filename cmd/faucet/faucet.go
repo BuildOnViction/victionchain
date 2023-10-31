@@ -54,8 +54,8 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/p2p/discv5"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/nat"
 	"github.com/tomochain/tomochain/params"
 	"golang.org/x/net/websocket"
@@ -255,7 +255,7 @@ func newFaucet(genesis *core.Genesis, port int, enodes []*discv5.Node, network u
 		return nil, err
 	}
 	for _, boot := range enodes {
-		old, _ := discover.ParseNode(boot.String())
+		old, _ := enode.ParseV4(boot.String())
 		stack.Server().AddPeer(old)
 	}
 	// Attach to the client and retrieve and interesting metadatas

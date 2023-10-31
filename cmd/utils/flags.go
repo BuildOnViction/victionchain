@@ -46,8 +46,8 @@ import (
 	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/p2p/discv5"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/nat"
 	"github.com/tomochain/tomochain/p2p/netutil"
 	"github.com/tomochain/tomochain/params"
@@ -643,9 +643,9 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	case ctx.GlobalBool(TomoTestnetFlag.Name):
 		urls = params.TestnetBootnodes
 	}
-	cfg.BootstrapNodes = make([]*discover.Node, 0, len(urls))
+	cfg.BootstrapNodes = make([]*enode.Node, 0, len(urls))
 	for _, url := range urls {
-		node, err := discover.ParseNode(url)
+		node, err := enode.ParseV4(url)
 		if err != nil {
 			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
 			continue

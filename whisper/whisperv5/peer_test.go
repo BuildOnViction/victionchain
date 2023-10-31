@@ -28,7 +28,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/nat"
 )
 
@@ -131,12 +131,11 @@ func initialize(t *testing.T) {
 		port := port0 + i
 		addr := fmt.Sprintf(":%d", port) // e.g. ":30303"
 		name := common.MakeName("whisper-go", "2.0")
-		var peers []*discover.Node
+		var peers []*enode.Node
 		if i > 0 {
 			peerNodeId := nodes[i-1].id
-			peerPort := uint16(port - 1)
-			peerNode := discover.PubkeyID(&peerNodeId.PublicKey)
-			peer := discover.NewNode(peerNode, ip, peerPort, peerPort)
+			peerPort := port - 1
+			peer := enode.NewV4(&peerNodeId.PublicKey, ip, peerPort, peerPort)
 			peers = append(peers, peer)
 		}
 
