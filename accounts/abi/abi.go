@@ -24,8 +24,6 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/tomochain/tomochain/crypto"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
 )
