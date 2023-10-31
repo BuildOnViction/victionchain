@@ -45,16 +45,7 @@ var (
 	MaxReceiptFetch = 256 // Amount of transaction receipts to allow fetching per request
 	MaxStateFetch   = 384 // Amount of node state values to allow fetching per request
 
-	MaxForkAncestry  = 3 * params.EpochDuration // Maximum chain reorganisation
-	rttMinEstimate   = 2 * time.Second          // Minimum round-trip time to target for download requests
-	rttMaxEstimate   = 5 * time.Second          // Maximum rount-trip time to target for download requests
-	rttMinConfidence = 0.1                      // Worse confidence factor in our estimated RTT value
-	ttlScaling       = 2                        // Constant scaling factor for RTT -> TTL conversion
-	ttlLimit         = 5 * time.Second          // Maximum TTL allowance to prevent reaching crazy timeouts
-
-	qosTuningPeers   = 5    // Number of peers to tune based on (best peers)
-	qosConfidenceCap = 10   // Number of peers above which not to modify RTT confidence
-	qosTuningImpact  = 0.25 // Impact that a new tuning target has on the previous value
+	MaxForkAncestry = 3 * params.EpochDuration // Maximum chain reorganisation
 
 	maxQueuedHeaders  = 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
 	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
@@ -100,9 +91,6 @@ type Downloader struct {
 	queue   *queue   // Scheduler for selecting the hashes to download
 	peers   *peerSet // Set of active peers from which download can proceed
 	stateDB ethdb.Database
-
-	rttEstimate   uint64 // Round trip time to target for download requests
-	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
 
 	// Statistics
 	syncStatsChainOrigin uint64 // Origin block number where syncing started at
@@ -210,8 +198,6 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		mux:            mux,
 		queue:          newQueue(),
 		peers:          newPeerSet(),
-		rttEstimate:    uint64(rttMaxEstimate),
-		rttConfidence:  uint64(1000000),
 		blockchain:     chain,
 		lightchain:     lightchain,
 		dropPeer:       dropPeer,
@@ -229,7 +215,6 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		},
 		trackStateReq: make(chan *stateReq),
 	}
-	go dl.qosTuner()
 	go dl.stateFetcher()
 	return dl
 }
@@ -271,20 +256,19 @@ func (d *Downloader) Synchronising() bool {
 
 // RegisterPeer injects a new download peer into the set of block source to be
 // used for fetching hashes and blocks from.
-func (d *Downloader) RegisterPeer(id string, version int, peer Peer) error {
+func (d *Downloader) RegisterPeer(id string, version uint, peer Peer) error {
 	logger := log.New("peer", id)
 	logger.Trace("Registering sync peer")
 	if err := d.peers.Register(newPeerConnection(id, version, peer, logger)); err != nil {
 		logger.Error("Failed to register sync peer", "err", err)
 		return err
 	}
-	d.qosReduceConfidence()
 
 	return nil
 }
 
 // RegisterLightPeer injects a light client peer, wrapping it so it appears as a regular peer.
-func (d *Downloader) RegisterLightPeer(id string, version int, peer LightPeer) error {
+func (d *Downloader) RegisterLightPeer(id string, version uint, peer LightPeer) error {
 	return d.RegisterPeer(id, version, &lightPeerWrapper{peer})
 }
 
@@ -546,7 +530,7 @@ func (d *Downloader) fetchHeight(p *peerConnection, hash common.Hash) (*types.He
 	// Request the advertised remote head block and wait for the response
 	go p.peer.RequestHeadersByHash(hash, 1, 0, false)
 
-	ttl := d.requestTTL()
+	ttl := d.peers.rates.TargetTimeout()
 	timeout := time.After(ttl)
 	for {
 		select {
@@ -619,7 +603,7 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 	// Wait for the remote response to the head fetch
 	number, hash := uint64(0), common.Hash{}
 
-	ttl := d.requestTTL()
+	ttl := d.peers.rates.TargetTimeout()
 	timeout := time.After(ttl)
 
 	for finished := false; !finished; {
@@ -694,7 +678,7 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 		// Split our chain interval in two, and request the hash to cross check
 		check := (start + end) / 2
 
-		ttl := d.requestTTL()
+		ttl := d.peers.rates.TargetTimeout()
 		timeout := time.After(ttl)
 
 		go p.peer.RequestHeadersByNumber(check, 1, 0, false)
@@ -773,7 +757,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) 
 	getHeaders := func(from uint64) {
 		request = time.Now()
 
-		ttl = d.requestTTL()
+		ttl = d.peers.rates.TargetTimeout()
 		timeout.Reset(ttl)
 
 		if skeleton {
@@ -899,14 +883,16 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) (
 			pack := packet.(*headerPack)
 			return d.queue.DeliverHeaders(pack.peerId, pack.headers, d.headerProcCh)
 		}
-		expire   = func() map[string]int { return d.queue.ExpireHeaders(d.requestTTL()) }
+		expire   = func() map[string]int { return d.queue.ExpireHeaders(d.peers.rates.TargetTimeout()) }
 		throttle = func() bool { return false }
 		reserve  = func(p *peerConnection, count int) (*fetchRequest, bool, error) {
 			return d.queue.ReserveHeaders(p, count), false, nil
 		}
 		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchHeaders(req.From, MaxHeaderFetch) }
-		capacity = func(p *peerConnection) int { return p.HeaderCapacity(d.requestRTT()) }
-		setIdle  = func(p *peerConnection, accepted int) { p.SetHeadersIdle(accepted) }
+		capacity = func(p *peerConnection) int { return p.HeaderCapacity(d.peers.rates.TargetRoundTrip()) }
+		setIdle  = func(p *peerConnection, accepted int, deliveryTime time.Time) {
+			p.SetHeadersIdle(accepted, deliveryTime)
+		}
 	)
 	err := d.fetchParts(errCancelHeaderFetch, d.headerCh, deliver, d.queue.headerContCh, expire,
 		d.queue.PendingHeaders, d.queue.InFlightHeaders, throttle, reserve,
@@ -929,10 +915,10 @@ func (d *Downloader) fetchBodies(from uint64) error {
 			pack := packet.(*bodyPack)
 			return d.queue.DeliverBodies(pack.peerId, pack.transactions, pack.uncles)
 		}
-		expire   = func() map[string]int { return d.queue.ExpireBodies(d.requestTTL()) }
+		expire   = func() map[string]int { return d.queue.ExpireBodies(d.peers.rates.TargetTimeout()) }
 		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchBodies(req) }
-		capacity = func(p *peerConnection) int { return p.BlockCapacity(d.requestRTT()) }
-		setIdle  = func(p *peerConnection, accepted int) { p.SetBodiesIdle(accepted) }
+		capacity = func(p *peerConnection) int { return p.BlockCapacity(d.peers.rates.TargetRoundTrip()) }
+		setIdle  = func(p *peerConnection, accepted int, deliveryTime time.Time) { p.SetBodiesIdle(accepted, deliveryTime) }
 	)
 	err := d.fetchParts(errCancelBodyFetch, d.bodyCh, deliver, d.bodyWakeCh, expire,
 		d.queue.PendingBlocks, d.queue.InFlightBlocks, d.queue.ShouldThrottleBlocks, d.queue.ReserveBodies,
@@ -953,10 +939,12 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 			pack := packet.(*receiptPack)
 			return d.queue.DeliverReceipts(pack.peerId, pack.receipts)
 		}
-		expire   = func() map[string]int { return d.queue.ExpireReceipts(d.requestTTL()) }
+		expire   = func() map[string]int { return d.queue.ExpireReceipts(d.peers.rates.TargetTimeout()) }
 		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchReceipts(req) }
-		capacity = func(p *peerConnection) int { return p.ReceiptCapacity(d.requestRTT()) }
-		setIdle  = func(p *peerConnection, accepted int) { p.SetReceiptsIdle(accepted) }
+		capacity = func(p *peerConnection) int { return p.ReceiptCapacity(d.peers.rates.TargetRoundTrip()) }
+		setIdle  = func(p *peerConnection, accepted int, deliveryTime time.Time) {
+			p.SetReceiptsIdle(accepted, deliveryTime)
+		}
 	)
 	err := d.fetchParts(errCancelReceiptFetch, d.receiptCh, deliver, d.receiptWakeCh, expire,
 		d.queue.PendingReceipts, d.queue.InFlightReceipts, d.queue.ShouldThrottleReceipts, d.queue.ReserveReceipts,
@@ -994,7 +982,7 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliver func(dataPack) (int, error), wakeCh chan bool,
 	expire func() map[string]int, pending func() int, inFlight func() bool, throttle func() bool, reserve func(*peerConnection, int) (*fetchRequest, bool, error),
 	fetchHook func([]*types.Header), fetch func(*peerConnection, *fetchRequest) error, cancel func(*fetchRequest), capacity func(*peerConnection) int,
-	idle func() ([]*peerConnection, int), setIdle func(*peerConnection, int), kind string) error {
+	idle func() ([]*peerConnection, int), setIdle func(*peerConnection, int, time.Time), kind string) error {
 
 	// Create a ticker to detect expired retrieval tasks
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -1010,6 +998,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 			return errCancel
 
 		case packet := <-deliveryCh:
+			deliveryTime := time.Now()
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
@@ -1022,7 +1011,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 				// caused by a timed out request which came through in the end), set it to
 				// idle. If the delivery's stale, the peer should have already been idled.
 				if err != errStaleDelivery {
-					setIdle(peer, accepted)
+					setIdle(peer, accepted, deliveryTime)
 				}
 				// Issue a log to the user to see what's going on
 				switch {
@@ -1075,7 +1064,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 					// how response times reacts, to it always requests one more than the minimum (i.e. min 2).
 					if fails > 2 {
 						peer.log.Trace("Data delivery timed out", "type", kind)
-						setIdle(peer, 0)
+						setIdle(peer, 0, time.Now())
 					} else {
 						peer.log.Debug("Stalling delivery, dropping", "type", kind)
 						if d.dropPeer == nil {
@@ -1596,79 +1585,4 @@ func (d *Downloader) deliver(id string, destCh chan dataPack, packet dataPack, i
 	case <-cancel:
 		return errNoSyncActive
 	}
-}
-
-// qosTuner is the quality of service tuning loop that occasionally gathers the
-// peer latency statistics and updates the estimated request round trip time.
-func (d *Downloader) qosTuner() {
-	for {
-		// Retrieve the current median RTT and integrate into the previoust target RTT
-		rtt := time.Duration((1-qosTuningImpact)*float64(atomic.LoadUint64(&d.rttEstimate)) + qosTuningImpact*float64(d.peers.medianRTT()))
-		atomic.StoreUint64(&d.rttEstimate, uint64(rtt))
-
-		// A new RTT cycle passed, increase our confidence in the estimated RTT
-		conf := atomic.LoadUint64(&d.rttConfidence)
-		conf = conf + (1000000-conf)/2
-		atomic.StoreUint64(&d.rttConfidence, conf)
-
-		// Log the new QoS values and sleep until the next RTT
-		log.Debug("Recalculated downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
-		select {
-		case <-d.quitCh:
-			return
-		case <-time.After(rtt):
-		}
-	}
-}
-
-// qosReduceConfidence is meant to be called when a new peer joins the downloader's
-// peer set, needing to reduce the confidence we have in out QoS estimates.
-func (d *Downloader) qosReduceConfidence() {
-	// If we have a single peer, confidence is always 1
-	peers := uint64(d.peers.Len())
-	if peers == 0 {
-		// Ensure peer connectivity races don't catch us off guard
-		return
-	}
-	if peers == 1 {
-		atomic.StoreUint64(&d.rttConfidence, 1000000)
-		return
-	}
-	// If we have a ton of peers, don't drop confidence)
-	if peers >= uint64(qosConfidenceCap) {
-		return
-	}
-	// Otherwise drop the confidence factor
-	conf := atomic.LoadUint64(&d.rttConfidence) * (peers - 1) / peers
-	if float64(conf)/1000000 < rttMinConfidence {
-		conf = uint64(rttMinConfidence * 1000000)
-	}
-	atomic.StoreUint64(&d.rttConfidence, conf)
-
-	rtt := time.Duration(atomic.LoadUint64(&d.rttEstimate))
-	log.Debug("Relaxed downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
-}
-
-// requestRTT returns the current target round trip time for a download request
-// to complete in.
-//
-// Note, the returned RTT is .9 of the actually estimated RTT. The reason is that
-// the downloader tries to adapt queries to the RTT, so multiple RTT values can
-// be adapted to, but smaller ones are preffered (stabler download stream).
-func (d *Downloader) requestRTT() time.Duration {
-	return time.Duration(atomic.LoadUint64(&d.rttEstimate)) * 9 / 10
-}
-
-// requestTTL returns the current timeout allowance for a single download request
-// to finish under.
-func (d *Downloader) requestTTL() time.Duration {
-	var (
-		rtt  = time.Duration(atomic.LoadUint64(&d.rttEstimate))
-		conf = float64(atomic.LoadUint64(&d.rttConfidence)) / 1000000.0
-	)
-	ttl := time.Duration(ttlScaling) * time.Duration(float64(rtt)/conf)
-	if ttl > ttlLimit {
-		ttl = ttlLimit
-	}
-	return ttl
 }
