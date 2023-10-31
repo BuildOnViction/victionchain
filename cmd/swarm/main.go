@@ -543,7 +543,7 @@ func getPassPhrase(prompt string, i int, passwords []string) string {
 
 func injectBootnodes(srv *p2p.Server, nodes []string) {
 	for _, url := range nodes {
-		n, err := enode.ParseV4(url)
+		n, err := enode.Parse(enode.ValidSchemes, url)
 		if err != nil {
 			log.Error("Invalid swarm bootnode", "err", err)
 			continue
