@@ -110,9 +110,15 @@ func newTestCluster(t *testing.T, size int) *testCluster {
 	}
 
 	// connect the nodes together
-	for _, node := range cluster.Nodes {
-		if err := node.Client.Call(nil, "admin_addPeer", cluster.Nodes[0].Enode); err != nil {
-			t.Fatal(err)
+	for i, node := range cluster.Nodes {
+		// TODO(trinhdn2): only need to peer with cluster.Nodes[0], fix this later
+		for j := 0; j < size; j++ {
+			if i == j {
+				continue
+			}
+			if err := node.Client.Call(nil, "admin_addPeer", cluster.Nodes[j].Enode); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 
