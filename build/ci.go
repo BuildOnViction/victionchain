@@ -60,7 +60,6 @@ var (
 		executablePath("geth"),
 		executablePath("puppeth"),
 		executablePath("rlpdump"),
-		executablePath("swarm"),
 		executablePath("wnode"),
 		executablePath("rlp/rlpgen"),
 	}
