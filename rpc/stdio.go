@@ -1,4 +1,4 @@
-// Copyright 2016 The go-ethereum Authors
+// Copyright 2018 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -18,16 +18,37 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"net"
+	"os"
+	"time"
 )
 
-// DialInProc attaches an in-process connection to the given RPC server.
-func DialInProc(handler *Server) *Client {
-	initctx := context.Background()
-	c, _ := newClient(initctx, func(context.Context) (ServerCodec, error) {
-		p1, p2 := net.Pipe()
-		go handler.ServeCodec(NewJSONCodec(p1), OptionMethodInvocation|OptionSubscriptions)
-		return NewJSONCodec(p2), nil
+// DialStdIO creates a client on stdin/stdout.
+func DialStdIO(ctx context.Context) (*Client, error) {
+	return newClient(ctx, func(_ context.Context) (ServerCodec, error) {
+		return NewJSONCodec(stdioConn{}), nil
 	})
-	return c
+}
+
+type stdioConn struct{}
+
+func (io stdioConn) Read(b []byte) (n int, err error) {
+	return os.Stdin.Read(b)
+}
+
+func (io stdioConn) Write(b []byte) (n int, err error) {
+	return os.Stdout.Write(b)
+}
+
+func (io stdioConn) Close() error {
+	return nil
+}
+
+func (io stdioConn) RemoteAddr() string {
+	return "/dev/stdin"
+}
+
+func (io stdioConn) SetWriteDeadline(t time.Time) error {
+	return &net.OpError{Op: "set", Net: "stdio", Source: nil, Addr: nil, Err: errors.New("deadline not supported")}
 }
