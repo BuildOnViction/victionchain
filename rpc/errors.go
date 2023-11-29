@@ -20,22 +20,18 @@ import "fmt"
 
 const defaultErrorCode = -32000
 
-// request is for an unknown service
-type methodNotFoundError struct {
-	service string
-	method  string
+type methodNotFoundError struct{ method string }
+
+func (e *methodNotFoundError) ErrorCode() int { return -32601 }
+
+func (e *methodNotFoundError) Error() string {
+	return fmt.Sprintf("the method %s does not exist/is not available", e.method)
 }
 
 // A DataError contains some data in addition to the error message.
 type DataError interface {
 	Error() string          // returns the message
 	ErrorData() interface{} // returns the error data
-}
-
-func (e *methodNotFoundError) ErrorCode() int { return -32601 }
-
-func (e *methodNotFoundError) Error() string {
-	return fmt.Sprintf("The method %s%s%s does not exist/is not available", e.service, serviceMethodSeparator, e.method)
 }
 
 type subscriptionNotFoundError struct{ namespace, subscription string }
