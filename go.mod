@@ -3,7 +3,6 @@ module github.com/tomochain/tomochain
 go 1.19
 
 require (
-	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/VictoriaMetrics/fastcache v1.6.0
 	github.com/aristanetworks/goarista v0.0.0-20191023202215-f096da5361bb
 	github.com/btcsuite/btcd v0.0.0-20171128150713-2e60448ffcc6
