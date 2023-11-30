@@ -18,10 +18,14 @@ package rpc
 
 import "fmt"
 
-// request is for an unknown service
-type methodNotFoundError struct {
-	service string
-	method  string
+const defaultErrorCode = -32000
+
+type methodNotFoundError struct{ method string }
+
+func (e *methodNotFoundError) ErrorCode() int { return -32601 }
+
+func (e *methodNotFoundError) Error() string {
+	return fmt.Sprintf("the method %s does not exist/is not available", e.method)
 }
 
 // A DataError contains some data in addition to the error message.
@@ -30,11 +34,20 @@ type DataError interface {
 	ErrorData() interface{} // returns the error data
 }
 
-func (e *methodNotFoundError) ErrorCode() int { return -32601 }
+type subscriptionNotFoundError struct{ namespace, subscription string }
 
-func (e *methodNotFoundError) Error() string {
-	return fmt.Sprintf("The method %s%s%s does not exist/is not available", e.service, serviceMethodSeparator, e.method)
+func (e *subscriptionNotFoundError) ErrorCode() int { return -32601 }
+
+func (e *subscriptionNotFoundError) Error() string {
+	return fmt.Sprintf("no %q subscription in %s namespace", e.subscription, e.namespace)
 }
+
+// Invalid JSON was received by the server.
+type parseError struct{ message string }
+
+func (e *parseError) ErrorCode() int { return -32700 }
+
+func (e *parseError) Error() string { return e.message }
 
 // received message isn't a valid request
 type invalidRequestError struct{ message string }
