@@ -64,7 +64,7 @@ func (s *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 			return
 		}
 		codec := newWebsocketCodec(conn)
-		s.ServeCodec(codec, OptionMethodInvocation|OptionSubscriptions)
+		s.ServeCodec(codec, 0)
 	})
 }
 
@@ -172,5 +172,5 @@ func wsClientHeaders(endpoint, origin string) (string, http.Header, error) {
 
 func newWebsocketCodec(conn *websocket.Conn) ServerCodec {
 	conn.SetReadLimit(maxRequestContentLength)
-	return newCodec(conn, conn.WriteJSON, conn.ReadJSON)
+	return NewFuncCodec(conn, conn.WriteJSON, conn.ReadJSON)
 }
