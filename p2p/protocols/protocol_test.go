@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/simulations/adapters"
 	p2ptest "github.com/tomochain/tomochain/p2p/testing"
 )
@@ -36,14 +36,14 @@ type hs0 struct {
 
 // message to kill/drop the peer with nodeID
 type kill struct {
-	C discover.NodeID
+	C enode.ID
 }
 
 // message to drop connection
 type drop struct {
 }
 
-/// protoHandshake represents module-independent aspects of the protocol and is
+// / protoHandshake represents module-independent aspects of the protocol and is
 // the first message peers send and receive as part the initial exchange
 type protoHandshake struct {
 	Version   uint   // local and remote peer should have identical version
@@ -144,7 +144,7 @@ func protocolTester(t *testing.T, pp *p2ptest.TestPeerPool) *p2ptest.ProtocolTes
 	return p2ptest.NewProtocolTester(t, conf.ID, 2, newProtocol(pp))
 }
 
-func protoHandshakeExchange(id discover.NodeID, proto *protoHandshake) []p2ptest.Exchange {
+func protoHandshakeExchange(id enode.ID, proto *protoHandshake) []p2ptest.Exchange {
 
 	return []p2ptest.Exchange{
 		{
@@ -197,7 +197,7 @@ func TestProtoHandshakeSuccess(t *testing.T) {
 	runProtoHandshake(t, &protoHandshake{42, "420"})
 }
 
-func moduleHandshakeExchange(id discover.NodeID, resp uint) []p2ptest.Exchange {
+func moduleHandshakeExchange(id enode.ID, resp uint) []p2ptest.Exchange {
 
 	return []p2ptest.Exchange{
 		{
@@ -249,7 +249,7 @@ func TestModuleHandshakeSuccess(t *testing.T) {
 }
 
 // testing complex interactions over multiple peers, relaying, dropping
-func testMultiPeerSetup(a, b discover.NodeID) []p2ptest.Exchange {
+func testMultiPeerSetup(a, b enode.ID) []p2ptest.Exchange {
 
 	return []p2ptest.Exchange{
 		{

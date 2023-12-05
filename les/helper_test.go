@@ -37,7 +37,7 @@ import (
 	"github.com/tomochain/tomochain/les/flowcontrol"
 	"github.com/tomochain/tomochain/light"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/params"
 )
 
@@ -223,8 +223,8 @@ func newTestPeer(t *testing.T, name string, version int, pm *ProtocolManager, sh
 	app, net := p2p.MsgPipe()
 
 	// Generate a random id and create the peer
-	var id discover.NodeID
-	rand.Read(id[:])
+	var id enode.ID
+	rand.Read(id.Bytes())
 
 	peer := pm.newPeer(version, NetworkId, p2p.NewPeer(id, name, nil), net)
 
@@ -260,8 +260,8 @@ func newTestPeerPair(name string, version int, pm, pm2 *ProtocolManager) (*peer,
 	app, net := p2p.MsgPipe()
 
 	// Generate a random id and create the peer
-	var id discover.NodeID
-	rand.Read(id[:])
+	var id enode.ID
+	rand.Read(id.Bytes())
 
 	peer := pm.newPeer(version, NetworkId, p2p.NewPeer(id, name, nil), net)
 	peer2 := pm2.newPeer(version, NetworkId, p2p.NewPeer(id, name, nil), app)

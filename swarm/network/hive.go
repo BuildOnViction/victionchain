@@ -25,7 +25,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/p2p/netutil"
 	"github.com/tomochain/tomochain/swarm/network/kademlia"
 	"github.com/tomochain/tomochain/swarm/storage"
@@ -49,7 +49,7 @@ var (
 type Hive struct {
 	listenAddr   func() string
 	callInterval uint64
-	id           discover.NodeID
+	id           enode.ID
 	addr         kademlia.Address
 	kad          *kademlia.Kademlia
 	path         string
@@ -77,7 +77,7 @@ type HiveParams struct {
 	*kademlia.KadParams
 }
 
-//create default params
+// create default params
 func NewDefaultHiveParams() *HiveParams {
 	kad := kademlia.NewDefaultKadParams()
 	// kad.BucketSize = bucketSize
@@ -90,8 +90,8 @@ func NewDefaultHiveParams() *HiveParams {
 	}
 }
 
-//this can only finally be set after all config options (file, cmd line, env vars)
-//have been evaluated
+// this can only finally be set after all config options (file, cmd line, env vars)
+// have been evaluated
 func (self *HiveParams) Init(path string) {
 	self.KadDbPath = filepath.Join(path, "bzz-peers.json")
 }
@@ -133,7 +133,7 @@ func (self *Hive) Addr() kademlia.Address {
 // listedAddr is a function to retrieve listening address to advertise to peers
 // connectPeer is a function to connect to a peer based on its NodeID or enode URL
 // there are called on the p2p.Server which runs on the node
-func (self *Hive) Start(id discover.NodeID, listenAddr func() string, connectPeer func(string) error) (err error) {
+func (self *Hive) Start(id enode.ID, listenAddr func() string, connectPeer func(string) error) (err error) {
 	self.toggle = make(chan bool)
 	self.more = make(chan bool)
 	self.quit = make(chan bool)

@@ -39,7 +39,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
-	"github.com/tomochain/tomochain/p2p/discover"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/swarm"
 	bzzapi "github.com/tomochain/tomochain/swarm/api"
@@ -153,7 +153,7 @@ var (
 	}
 )
 
-//declare a few constant error messages, useful for later error check comparisons in test
+// declare a few constant error messages, useful for later error check comparisons in test
 var (
 	SWARM_ERR_NO_BZZACCOUNT   = "bzzaccount option is required but not set; check your config file, command line or environment variables"
 	SWARM_ERR_SWAP_SET_NO_API = "SWAP is enabled but --swap-api is not set"
@@ -543,7 +543,7 @@ func getPassPhrase(prompt string, i int, passwords []string) string {
 
 func injectBootnodes(srv *p2p.Server, nodes []string) {
 	for _, url := range nodes {
-		n, err := discover.ParseNode(url)
+		n, err := enode.Parse(enode.ValidSchemes, url)
 		if err != nil {
 			log.Error("Invalid swarm bootnode", "err", err)
 			continue

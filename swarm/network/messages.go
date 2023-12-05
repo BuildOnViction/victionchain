@@ -21,8 +21,9 @@ import (
 	"net"
 	"time"
 
+	"github.com/tomochain/tomochain/p2p/enode"
+
 	"github.com/tomochain/tomochain/contracts/chequebook"
-	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/swarm/network/kademlia"
 	"github.com/tomochain/tomochain/swarm/services/swap"
 	"github.com/tomochain/tomochain/swarm/storage"
@@ -45,7 +46,7 @@ const (
 )
 
 /*
- Handshake
+	Handshake
 
 * Version: 8 byte integer version of the protocol
 * ID: arbitrary byte sequence client identifier human readable
@@ -54,7 +55,6 @@ const (
 * NetworkID: 8 byte integer network identifier
 * Caps: swarm-specific capabilities, format identical to devp2p
 * SyncState: syncronisation state (db iterator key and address space etc) persisted about the peer
-
 */
 type statusMsgData struct {
 	Version   uint64
@@ -69,12 +69,12 @@ func (self *statusMsgData) String() string {
 }
 
 /*
- store requests are forwarded to the peers in their kademlia proximity bin
- if they are distant
- if they are within our storage radius or have any incentive to store it
- then attach your nodeID to the metadata
- if the storage request is sufficiently close (within our proxLimit, i. e., the
- last row of the routing table)
+store requests are forwarded to the peers in their kademlia proximity bin
+if they are distant
+if they are within our storage radius or have any incentive to store it
+then attach your nodeID to the metadata
+if the storage request is sufficiently close (within our proxLimit, i. e., the
+last row of the routing table)
 */
 type storeRequestMsgData struct {
 	Key   storage.Key // hash of datasize | data
@@ -181,9 +181,9 @@ type peerAddr struct {
 
 // peerAddr pretty prints as enode
 func (self *peerAddr) String() string {
-	var nodeid discover.NodeID
+	var nodeid enode.ID
 	copy(nodeid[:], self.ID)
-	return discover.NewNode(nodeid, self.IP, 0, self.Port).String()
+	return nodeid.GoString()
 }
 
 /*

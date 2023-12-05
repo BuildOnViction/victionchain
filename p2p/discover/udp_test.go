@@ -36,6 +36,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/p2p/enode"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -46,7 +47,7 @@ func init() {
 // shared test variables
 var (
 	futureExp          = uint64(time.Now().Add(10 * time.Hour).Unix())
-	testTarget         = NodeID{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
+	testTarget         = encPubkey{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
 	testRemote         = rpcEndpoint{IP: net.ParseIP("1.1.1.1").To4(), UDP: 1, TCP: 2}
 	testLocalAnnounced = rpcEndpoint{IP: net.ParseIP("2.2.2.2").To4(), UDP: 3, TCP: 4}
 	testLocal          = rpcEndpoint{IP: net.ParseIP("3.3.3.3").To4(), UDP: 5, TCP: 6}
@@ -124,7 +125,7 @@ func TestUDP_packetErrors(t *testing.T) {
 	test := newUDPTest(t)
 	defer test.table.Close()
 
-	test.packetIn(errExpired, pingTomo, &ping{From: testRemote, To: testLocalAnnounced, Version: Version})
+	test.packetIn(errExpired, pingPacket, &ping{From: testRemote, To: testLocalAnnounced, Version: 4})
 	test.packetIn(errUnsolicitedReply, pongPacket, &pong{ReplyTok: []byte{}, Expiration: futureExp})
 	test.packetIn(errUnknownNode, findnodePacket, &findnode{Expiration: futureExp})
 	test.packetIn(errUnsolicitedReply, neighborsPacket, &neighbors{Expiration: futureExp})
@@ -136,7 +137,7 @@ func TestUDP_pingTimeout(t *testing.T) {
 	defer test.table.Close()
 
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
-	toid := NodeID{1, 2, 3, 4}
+	toid := enode.ID{1, 2, 3, 4}
 	if err := test.udp.ping(toid, toaddr); err != errTimeout {
 		t.Error("expected timeout error, got", err)
 	}
@@ -220,8 +221,8 @@ func TestUDP_findnodeTimeout(t *testing.T) {
 	defer test.table.Close()
 
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
-	toid := NodeID{1, 2, 3, 4}
-	target := NodeID{4, 5, 6, 7}
+	toid := enode.ID{1, 2, 3, 4}
+	target := encPubkey{4, 5, 6, 7}
 	result, err := test.udp.findnode(toid, toaddr, target)
 	if err != errTimeout {
 		t.Error("expected timeout error, got", err)
@@ -232,35 +233,36 @@ func TestUDP_findnodeTimeout(t *testing.T) {
 }
 
 func TestUDP_findnode(t *testing.T) {
-	bucketSizeTest := 16
 	test := newUDPTest(t)
 	defer test.table.Close()
 
 	// put a few nodes into the table. their exact
 	// distribution shouldn't matter much, although we need to
 	// take care not to overflow any bucket.
-	targetHash := crypto.Keccak256Hash(testTarget[:])
-	nodes := &nodesByDistance{target: targetHash}
-	for i := 0; i < bucketSizeTest; i++ {
-		nodes.push(nodeAtDistance(test.table.self.sha, i+2), bucketSizeTest)
+	nodes := &nodesByDistance{target: testTarget.id()}
+	for i := 0; i < bucketSize; i++ {
+		key := newkey()
+		n := wrapNode(enode.NewV4(&key.PublicKey, net.IP{10, 13, 0, 1}, 0, i))
+		nodes.push(n, bucketSize)
 	}
 	test.table.stuff(nodes.entries)
 
 	// ensure there's a bond with the test node,
 	// findnode won't be accepted otherwise.
-	test.table.db.updateBondTime(PubkeyID(&test.remotekey.PublicKey), time.Now())
+	remoteID := encodePubkey(&test.remotekey.PublicKey).id()
+	test.table.db.UpdateLastPongReceived(remoteID, test.remoteaddr.IP, time.Now())
 
 	// check that closest neighbors are returned.
 	test.packetIn(nil, findnodePacket, &findnode{Target: testTarget, Expiration: futureExp})
-	expected := test.table.closest(targetHash, bucketSizeTest)
+	expected := test.table.closest(testTarget.id(), bucketSize)
 
-	waitNeighbors := func(want []*Node) {
+	waitNeighbors := func(want []*node) {
 		test.waitPacketOut(func(p *neighbors) {
 			if len(p.Nodes) != len(want) {
-				t.Errorf("wrong number of results: got %d, want %d", len(p.Nodes), bucketSizeTest)
+				t.Errorf("wrong number of results: got %d, want %d", len(p.Nodes), bucketSize)
 			}
 			for i := range p.Nodes {
-				if p.Nodes[i].ID != want[i].ID {
+				if p.Nodes[i].ID.id() != want[i].ID() {
 					t.Errorf("result mismatch at %d:\n  got:  %v\n  want: %v", i, p.Nodes[i], expected.entries[i])
 				}
 			}
@@ -274,10 +276,13 @@ func TestUDP_findnodeMultiReply(t *testing.T) {
 	test := newUDPTest(t)
 	defer test.table.Close()
 
+	rid := enode.PubkeyToIDV4(&test.remotekey.PublicKey)
+	test.table.db.UpdateLastPingReceived(rid, test.remoteaddr.IP, time.Now())
+
 	// queue a pending findnode request
-	resultc, errc := make(chan []*Node), make(chan error)
+	resultc, errc := make(chan []*node), make(chan error)
 	go func() {
-		rid := PubkeyID(&test.remotekey.PublicKey)
+		rid := encodePubkey(&test.remotekey.PublicKey).id()
 		ns, err := test.udp.findnode(rid, test.remoteaddr, testTarget)
 		if err != nil && len(ns) == 0 {
 			errc <- err
@@ -295,11 +300,11 @@ func TestUDP_findnodeMultiReply(t *testing.T) {
 	})
 
 	// send the reply as two packets.
-	list := []*Node{
-		MustParseNode("enode://ba85011c70bcc5c04d8607d3a0ed29aa6179c092cbdda10d5d32684fb33ed01bd94f588ca8f91ac48318087dcb02eaf36773a7a453f0eedd6742af668097b29c@10.0.1.16:30303?discport=30304"),
-		MustParseNode("enode://81fa361d25f157cd421c60dcc28d8dac5ef6a89476633339c5df30287474520caca09627da18543d9079b5b288698b542d56167aa5c09111e55acdbbdf2ef799@10.0.1.16:30303"),
-		MustParseNode("enode://9bffefd833d53fac8e652415f4973bee289e8b1a5c6c4cbe70abf817ce8a64cee11b823b66a987f51aaa9fba0d6a91b3e6bf0d5a5d1042de8e9eeea057b217f8@10.0.1.36:30301?discport=17"),
-		MustParseNode("enode://1b5b4aa662d7cb44a7221bfba67302590b643028197a7d5214790f3bac7aaa4a3241be9e83c09cf1f6c69d007c634faae3dc1b1221793e8446c0b3a09de65960@10.0.1.16:30303"),
+	list := []*node{
+		wrapNode(enode.MustParseV4("enode://ba85011c70bcc5c04d8607d3a0ed29aa6179c092cbdda10d5d32684fb33ed01bd94f588ca8f91ac48318087dcb02eaf36773a7a453f0eedd6742af668097b29c@10.0.1.16:30303?discport=30304")),
+		wrapNode(enode.MustParseV4("enode://81fa361d25f157cd421c60dcc28d8dac5ef6a89476633339c5df30287474520caca09627da18543d9079b5b288698b542d56167aa5c09111e55acdbbdf2ef799@10.0.1.16:30303")),
+		wrapNode(enode.MustParseV4("enode://9bffefd833d53fac8e652415f4973bee289e8b1a5c6c4cbe70abf817ce8a64cee11b823b66a987f51aaa9fba0d6a91b3e6bf0d5a5d1042de8e9eeea057b217f8@10.0.1.36:30301?discport=17")),
+		wrapNode(enode.MustParseV4("enode://1b5b4aa662d7cb44a7221bfba67302590b643028197a7d5214790f3bac7aaa4a3241be9e83c09cf1f6c69d007c634faae3dc1b1221793e8446c0b3a09de65960@10.0.1.16:30303")),
 	}
 	rpclist := make([]rpcNode, len(list))
 	for i := range list {
@@ -324,12 +329,12 @@ func TestUDP_findnodeMultiReply(t *testing.T) {
 
 func TestUDP_successfulPing(t *testing.T) {
 	test := newUDPTest(t)
-	added := make(chan *Node, 1)
-	test.table.nodeAddedHook = func(n *Node) { added <- n }
+	added := make(chan *node, 1)
+	test.table.nodeAddedHook = func(n *node) { added <- n }
 	defer test.table.Close()
 
 	// The remote side sends a ping packet to initiate the exchange.
-	go test.packetIn(nil, pingTomo, &ping{From: testRemote, To: testLocalAnnounced, Version: Version, Expiration: futureExp})
+	go test.packetIn(nil, pingPacket, &ping{From: testRemote, To: testLocalAnnounced, Version: 4, Expiration: futureExp})
 
 	// the ping is replied to.
 	test.waitPacketOut(func(p *pong) {
@@ -369,18 +374,18 @@ func TestUDP_successfulPing(t *testing.T) {
 	// pong packet.
 	select {
 	case n := <-added:
-		rid := PubkeyID(&test.remotekey.PublicKey)
-		if n.ID != rid {
-			t.Errorf("node has wrong ID: got %v, want %v", n.ID, rid)
+		rid := encodePubkey(&test.remotekey.PublicKey).id()
+		if n.ID() != rid {
+			t.Errorf("node has wrong ID: got %v, want %v", n.ID(), rid)
 		}
-		if !n.IP.Equal(test.remoteaddr.IP) {
-			t.Errorf("node has wrong IP: got %v, want: %v", n.IP, test.remoteaddr.IP)
+		if !n.IP().Equal(test.remoteaddr.IP) {
+			t.Errorf("node has wrong IP: got %v, want: %v", n.IP(), test.remoteaddr.IP)
 		}
-		if int(n.UDP) != test.remoteaddr.Port {
-			t.Errorf("node has wrong UDP port: got %v, want: %v", n.UDP, test.remoteaddr.Port)
+		if int(n.UDP()) != test.remoteaddr.Port {
+			t.Errorf("node has wrong UDP port: got %v, want: %v", n.UDP(), test.remoteaddr.Port)
 		}
-		if n.TCP != testRemote.TCP {
-			t.Errorf("node has wrong TCP port: got %v, want: %v", n.TCP, testRemote.TCP)
+		if n.TCP() != int(testRemote.TCP) {
+			t.Errorf("node has wrong TCP port: got %v, want: %v", n.TCP(), testRemote.TCP)
 		}
 	case <-time.After(2 * time.Second):
 		t.Errorf("node was not added within 2 seconds")
@@ -392,7 +397,7 @@ var testPackets = []struct {
 	wantPacket interface{}
 }{
 	{
-		input: "95a4d7d1909e6a58f115e9a451d47a8f016776a8874140366e702e33e85c7b4cd58a82ebece6acd0973342b66b9e716fece46b5c67a3560fc8624063dd15a310469de42ca599474b9d8cb6eb8dc41b0d5236539ea7ae10ef3c630cd94faefd800005ea04cb847f000001820cfa8215a8d790000000000000000000000000000000018208ae820d058443b9a355",
+		input: "71dbda3a79554728d4f94411e42ee1f8b0d561c10e1e5f5893367948c6a7d70bb87b235fa28a77070271b6c164a2dce8c7e13a5739b53b5e96f2e5acb0e458a02902f5965d55ecbeb2ebb6cabb8b2b232896a36b737666c55265ad0a68412f250001ea04cb847f000001820cfa8215a8d790000000000000000000000000000000018208ae820d058443b9a355",
 		wantPacket: &ping{
 			Version:    4,
 			From:       rpcEndpoint{net.ParseIP("127.0.0.1").To4(), 3322, 5544},
@@ -402,7 +407,7 @@ var testPackets = []struct {
 		},
 	},
 	{
-		input: "57b1c182cc24e21e9297baa70d57a67ade498439123c968ffc048541addf9d463d1d25d10cf473a7f90a3efd6a070818097ebeaef58cd53843cb3af28acaee354272cfe7801b7fa7dbd8aa13309b6059fce877ad376c8dad7524dc34de626bd80105ec04cb847f000001820cfa8215a8d790000000000000000000000000000000018208ae820d058443b9a3550102",
+		input: "e9614ccfd9fc3e74360018522d30e1419a143407ffcce748de3e22116b7e8dc92ff74788c0b6663aaa3d67d641936511c8f8d6ad8698b820a7cf9e1be7155e9a241f556658c55428ec0563514365799a4be2be5a685a80971ddcfa80cb422cdd0101ec04cb847f000001820cfa8215a8d790000000000000000000000000000000018208ae820d058443b9a3550102",
 		wantPacket: &ping{
 			Version:    4,
 			From:       rpcEndpoint{net.ParseIP("127.0.0.1").To4(), 3322, 5544},
@@ -412,7 +417,7 @@ var testPackets = []struct {
 		},
 	},
 	{
-		input: "e3e987421accd2c75967d4a7229c436c18760def054738d8d9669697ee4726cdc9949c51df3e90d795d33d3f57d508c4687913338f6eb9caa89873aaae9dd49a5473ade5ea452c4df9d1f842eadf03439dbc373c0de8b20b412b6760d7b479140105f83e82022bd79020010db83c4d001500000000abcdef12820cfa8215a8d79020010db885a308d313198a2e037073488208ae82823a8443b9a355c50102030405",
+		input: "577be4349c4dd26768081f58de4c6f375a7a22f3f7adda654d1428637412c3d7fe917cadc56d4e5e7ffae1dbe3efffb9849feb71b262de37977e7c7a44e677295680e9e38ab26bee2fcbae207fba3ff3d74069a50b902a82c9903ed37cc993c50001f83e82022bd79020010db83c4d001500000000abcdef12820cfa8215a8d79020010db885a308d313198a2e037073488208ae82823a8443b9a355c5010203040531b9019afde696e582a78fa8d95ea13ce3297d4afb8ba6433e4154caa5ac6431af1b80ba76023fa4090c408f6b4bc3701562c031041d4702971d102c9ab7fa5eed4cd6bab8f7af956f7d565ee1917084a95398b6a21eac920fe3dd1345ec0a7ef39367ee69ddf092cbfe5b93e5e568ebc491983c09c76d922dc3",
 		wantPacket: &ping{
 			Version:    555,
 			From:       rpcEndpoint{net.ParseIP("2001:db8:3c4d:15::abcd:ef12"), 3322, 5544},
@@ -433,7 +438,7 @@ var testPackets = []struct {
 	{
 		input: "c7c44041b9f7c7e41934417ebac9a8e1a4c6298f74553f2fcfdcae6ed6fe53163eb3d2b52e39fe91831b8a927bf4fc222c3902202027e5e9eb812195f95d20061ef5cd31d502e47ecb61183f74a504fe04c51e73df81f25c4d506b26db4517490103f84eb840ca634cae0d49acb401d8a4c6b6fe8c55b70d115bf400769cc1400f3258cd31387574077f301b421bc84df7266c44e9e6d569fc56be00812904767bf5ccd1fc7f8443b9a35582999983999999280dc62cc8255c73471e0a61da0c89acdc0e035e260add7fc0c04ad9ebf3919644c91cb247affc82b69bd2ca235c71eab8e49737c937a2c396",
 		wantPacket: &findnode{
-			Target:     MustHexID("ca634cae0d49acb401d8a4c6b6fe8c55b70d115bf400769cc1400f3258cd31387574077f301b421bc84df7266c44e9e6d569fc56be00812904767bf5ccd1fc7f"),
+			Target:     hexEncPubkey("ca634cae0d49acb401d8a4c6b6fe8c55b70d115bf400769cc1400f3258cd31387574077f301b421bc84df7266c44e9e6d569fc56be00812904767bf5ccd1fc7f"),
 			Expiration: 1136239445,
 			Rest:       []rlp.RawValue{{0x82, 0x99, 0x99}, {0x83, 0x99, 0x99, 0x99}},
 		},
@@ -443,25 +448,25 @@ var testPackets = []struct {
 		wantPacket: &neighbors{
 			Nodes: []rpcNode{
 				{
-					ID:  MustHexID("3155e1427f85f10a5c9a7755877748041af1bcd8d474ec065eb33df57a97babf54bfd2103575fa829115d224c523596b401065a97f74010610fce76382c0bf32"),
+					ID:  hexEncPubkey("3155e1427f85f10a5c9a7755877748041af1bcd8d474ec065eb33df57a97babf54bfd2103575fa829115d224c523596b401065a97f74010610fce76382c0bf32"),
 					IP:  net.ParseIP("99.33.22.55").To4(),
 					UDP: 4444,
 					TCP: 4445,
 				},
 				{
-					ID:  MustHexID("312c55512422cf9b8a4097e9a6ad79402e87a15ae909a4bfefa22398f03d20951933beea1e4dfa6f968212385e829f04c2d314fc2d4e255e0d3bc08792b069db"),
+					ID:  hexEncPubkey("312c55512422cf9b8a4097e9a6ad79402e87a15ae909a4bfefa22398f03d20951933beea1e4dfa6f968212385e829f04c2d314fc2d4e255e0d3bc08792b069db"),
 					IP:  net.ParseIP("1.2.3.4").To4(),
 					UDP: 1,
 					TCP: 1,
 				},
 				{
-					ID:  MustHexID("38643200b172dcfef857492156971f0e6aa2c538d8b74010f8e140811d53b98c765dd2d96126051913f44582e8c199ad7c6d6819e9a56483f637feaac9448aac"),
+					ID:  hexEncPubkey("38643200b172dcfef857492156971f0e6aa2c538d8b74010f8e140811d53b98c765dd2d96126051913f44582e8c199ad7c6d6819e9a56483f637feaac9448aac"),
 					IP:  net.ParseIP("2001:db8:3c4d:15::abcd:ef12"),
 					UDP: 3333,
 					TCP: 3333,
 				},
 				{
-					ID:  MustHexID("8dcab8618c3253b558d459da53bd8fa68935a719aff8b811197101a4b2b47dd2d47295286fc00cc081bb542d760717d1bdd6bec2c37cd72eca367d6dd3b9df73"),
+					ID:  hexEncPubkey("8dcab8618c3253b558d459da53bd8fa68935a719aff8b811197101a4b2b47dd2d47295286fc00cc081bb542d760717d1bdd6bec2c37cd72eca367d6dd3b9df73"),
 					IP:  net.ParseIP("2001:db8:85a3:8d3:1319:8a2e:370:7348"),
 					UDP: 999,
 					TCP: 1000,
@@ -475,13 +480,14 @@ var testPackets = []struct {
 
 func TestForwardCompatibility(t *testing.T) {
 	testkey, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	wantNodeID := PubkeyID(&testkey.PublicKey)
+	wantNodeKey := encodePubkey(&testkey.PublicKey)
+
 	for _, test := range testPackets {
 		input, err := hex.DecodeString(test.input)
 		if err != nil {
 			t.Fatalf("invalid hex: %s", test.input)
 		}
-		packet, nodeid, _, err := decodePacket(input)
+		packet, nodekey, _, err := decodePacket(input)
 		if err != nil {
 			t.Errorf("did not accept packet %s\n%v", test.input, err)
 			continue
@@ -489,8 +495,8 @@ func TestForwardCompatibility(t *testing.T) {
 		if !reflect.DeepEqual(packet, test.wantPacket) {
 			t.Errorf("got %s\nwant %s", spew.Sdump(packet), spew.Sdump(test.wantPacket))
 		}
-		if nodeid != wantNodeID {
-			t.Errorf("got id %v\nwant id %v", nodeid, wantNodeID)
+		if nodekey != wantNodeKey {
+			t.Errorf("got id %v\nwant id %v", nodekey, wantNodeKey)
 		}
 	}
 }
