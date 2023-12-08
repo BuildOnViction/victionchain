@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"math/big"
+	"time"
+
+	"github.com/tomochain/tomochain/params"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/contracts/trc21issuer"
 	"github.com/tomochain/tomochain/contracts/trc21issuer/simulation"
 	"github.com/tomochain/tomochain/ethclient"
-	"log"
-	"math/big"
-	"time"
 )
 
 var (
@@ -49,7 +52,12 @@ func airDropTokenToAccountNoTomo() {
 		log.Fatal("can't transaction's receipt ", err, "hash", tx.Hash().Hex())
 	}
 	fee := big.NewInt(0).SetUint64(hexutil.MustDecodeUint64(receipt["gasUsed"].(string)))
-	if hexutil.MustDecodeUint64(receipt["blockNumber"].(string)) > common.TIPTRC21Fee.Uint64() {
+	block, ok := new(big.Int).SetString(receipt["blockNumber"].(string), 16)
+	if !ok {
+		log.Fatal("can't convert block number to big.Int")
+		return
+	}
+	if params.TestChainConfig.IsTIPTRC21Fee(block) {
 		fee = fee.Mul(fee, common.TRC21GasPrice)
 	}
 	fmt.Println("fee", fee.Uint64(), "number", hexutil.MustDecodeUint64(receipt["blockNumber"].(string)))
@@ -112,7 +120,12 @@ func testTransferTRC21TokenWithAccountNoTomo() {
 		log.Fatal("can't transaction's receipt ", err, "hash", tx.Hash().Hex())
 	}
 	fee := big.NewInt(0).SetUint64(hexutil.MustDecodeUint64(receipt["gasUsed"].(string)))
-	if hexutil.MustDecodeUint64(receipt["blockNumber"].(string)) > common.TIPTRC21Fee.Uint64() {
+	block, ok := new(big.Int).SetString(receipt["blockNumber"].(string), 16)
+	if !ok {
+		log.Fatal("can't convert block number to big.Int")
+		return
+	}
+	if params.TestChainConfig.IsTIPTRC21Fee(block) {
 		fee = fee.Mul(fee, common.TRC21GasPrice)
 	}
 	fmt.Println("fee", fee.Uint64(), "number", hexutil.MustDecodeUint64(receipt["blockNumber"].(string)))
@@ -179,7 +192,12 @@ func testTransferTrc21Fail() {
 		log.Fatal("can't transaction's receipt ", err, "hash", tx.Hash().Hex())
 	}
 	fee := big.NewInt(0).SetUint64(hexutil.MustDecodeUint64(receipt["gasUsed"].(string)))
-	if hexutil.MustDecodeUint64(receipt["blockNumber"].(string)) > common.TIPTRC21Fee.Uint64() {
+	block, ok := new(big.Int).SetString(receipt["blockNumber"].(string), 16)
+	if !ok {
+		log.Fatal("can't convert block number to big.Int")
+		return
+	}
+	if params.TestChainConfig.IsTIPTRC21Fee(block) {
 		fee = fee.Mul(fee, common.TRC21GasPrice)
 	}
 	fmt.Println("fee", fee.Uint64(), "number", hexutil.MustDecodeUint64(receipt["blockNumber"].(string)))

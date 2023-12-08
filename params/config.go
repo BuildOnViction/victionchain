@@ -32,13 +32,21 @@ var (
 var (
 	// TomoChain mainnet config
 	TomoMainnetChainConfig = &ChainConfig{
-		ChainId:        big.NewInt(88),
-		HomesteadBlock: big.NewInt(1),
-		EIP150Block:    big.NewInt(2),
-		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-		EIP155Block:    big.NewInt(3),
-		EIP158Block:    big.NewInt(3),
-		ByzantiumBlock: big.NewInt(4),
+		ChainId:                      big.NewInt(88),
+		HomesteadBlock:               big.NewInt(1),
+		EIP150Block:                  big.NewInt(2),
+		EIP150Hash:                   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:                  big.NewInt(3),
+		EIP158Block:                  big.NewInt(3),
+		ByzantiumBlock:               big.NewInt(4),
+		TIP2019Block:                 big.NewInt(1050000),
+		TIPSigningBlock:              big.NewInt(3000000),
+		TIPRandomizeBlock:            big.NewInt(3464000),
+		BlackListHFBlock:             big.NewInt(9349100),
+		TIPTomoXBlock:                big.NewInt(20581700),
+		TIPTomoXLendingBlock:         big.NewInt(21430200),
+		TIPTomoXCancellationFeeBlock: big.NewInt(30915660),
+		TIPTRC21FeeBlock:             big.NewInt(13523400),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -49,34 +57,25 @@ var (
 		},
 	}
 
-	// MainnetChainConfig is the chain parameters to run a node on the main network.
-	MainnetChainConfig = &ChainConfig{
-		ChainId:             big.NewInt(1),
-		HomesteadBlock:      big.NewInt(1150000),
-		DAOForkBlock:        big.NewInt(1920000),
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(2463000),
-		EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
-		EIP155Block:         big.NewInt(2675000),
-		EIP158Block:         big.NewInt(2675000),
-		ByzantiumBlock:      big.NewInt(4370000),
-		ConstantinopleBlock: nil,
-		Ethash:              new(EthashConfig),
-	}
-
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
-		ChainId:             big.NewInt(3),
-		HomesteadBlock:      big.NewInt(0),
-		DAOForkBlock:        nil,
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.HexToHash("0x62e0fde86e34c263e250fbcd5ca4598ba8ca10a1d166c8526bb127e10b313311"),
-		EIP155Block:         big.NewInt(10),
-		EIP158Block:         big.NewInt(10),
-		ByzantiumBlock:      big.NewInt(1700000),
-		ConstantinopleBlock: nil,
-		Ethash:              new(EthashConfig),
+		ChainId:                      big.NewInt(3),
+		HomesteadBlock:               big.NewInt(0),
+		DAOForkBlock:                 nil,
+		DAOForkSupport:               true,
+		EIP150Block:                  big.NewInt(0),
+		EIP150Hash:                   common.HexToHash("0x62e0fde86e34c263e250fbcd5ca4598ba8ca10a1d166c8526bb127e10b313311"),
+		EIP155Block:                  big.NewInt(10),
+		EIP158Block:                  big.NewInt(10),
+		ByzantiumBlock:               big.NewInt(1700000),
+		ConstantinopleBlock:          nil,
+		TIP2019Block:                 big.NewInt(0),
+		TIPSigningBlock:              big.NewInt(0),
+		TIPRandomizeBlock:            big.NewInt(0),
+		BlackListHFBlock:             big.NewInt(0),
+		TIPTomoXCancellationFeeBlock: big.NewInt(0),
+		TIPTRC21FeeBlock:             big.NewInt(0),
+		Ethash:                       new(EthashConfig),
 	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
@@ -84,17 +83,41 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil}
+	AllEthashProtocolChanges = &ChainConfig{
+		ChainId:                      big.NewInt(1337),
+		HomesteadBlock:               big.NewInt(0),
+		EIP150Block:                  big.NewInt(0),
+		EIP155Block:                  big.NewInt(0),
+		EIP158Block:                  big.NewInt(0),
+		ByzantiumBlock:               big.NewInt(0),
+		TIPTomoXCancellationFeeBlock: big.NewInt(0),
+		Ethash:                       new(EthashConfig),
+	}
 
 	// AllPosvProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Posv consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllPosvProtocolChanges   = &ChainConfig{big.NewInt(89), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, &PosvConfig{Period: 0, Epoch: 30000}}
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil}
-	TestChainConfig          = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil}
-	TestRules                = TestChainConfig.Rules(new(big.Int))
+	AllPosvProtocolChanges = &ChainConfig{
+		ChainId:        big.NewInt(89),
+		HomesteadBlock: big.NewInt(0),
+		EIP150Block:    big.NewInt(0),
+		EIP155Block:    big.NewInt(0),
+		EIP158Block:    big.NewInt(0),
+		ByzantiumBlock: big.NewInt(0),
+		Posv:           &PosvConfig{Period: 0, Epoch: 30000},
+	}
+
+	TestChainConfig = &ChainConfig{
+		ChainId:        big.NewInt(1),
+		HomesteadBlock: big.NewInt(0),
+		EIP150Block:    big.NewInt(0),
+		EIP155Block:    big.NewInt(0),
+		EIP158Block:    big.NewInt(0),
+		ByzantiumBlock: big.NewInt(0),
+		Ethash:         new(EthashConfig),
+	}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -119,6 +142,15 @@ type ChainConfig struct {
 
 	ByzantiumBlock      *big.Int `json:"byzantiumBlock,omitempty"`      // Byzantium switch block (nil = no fork, 0 = already on byzantium)
 	ConstantinopleBlock *big.Int `json:"constantinopleBlock,omitempty"` // Constantinople switch block (nil = no fork, 0 = already activated)
+
+	TIP2019Block                 *big.Int `json:"tip2019Block,omitempty"`                 // TIP2019 switch block (nil = no fork, 0 = already activated)
+	TIPSigningBlock              *big.Int `json:"tipSigningBlock,omitempty"`              // TIPSigning switch block (nil = no fork, 0 = already activated)
+	TIPRandomizeBlock            *big.Int `json:"tipRandomizeBlock,omitempty"`            // TIPRandomize switch block (nil = no fork, 0 = already activated)
+	BlackListHFBlock             *big.Int `json:"blackListHFBlock,omitempty"`             // BlackListHF switch block (nil = no fork, 0 = already activated)
+	TIPTomoXBlock                *big.Int `json:"tipTomoXBlock,omitempty"`                // TIPTomoX switch block (nil = no fork, 0 = already activated)
+	TIPTomoXLendingBlock         *big.Int `json:"tipTomoXLendingBlock,omitempty"`         // TIPTomoXLending switch block (nil = no fork, 0 = already activated)
+	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
+	TIPTRC21FeeBlock             *big.Int `json:"tipTRC21FeeBlock,omitempty"`             // TIPTRC21Fee switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
@@ -219,40 +251,44 @@ func (c *ChainConfig) IsConstantinople(num *big.Int) bool {
 // - equal to or greater than the PetersburgBlock fork block,
 // - OR is nil, and Constantinople is active
 func (c *ChainConfig) IsPetersburg(num *big.Int) bool {
-	return isForked(common.TIPTomoXCancellationFee, num)
+	return isForked(c.TIPTomoXCancellationFeeBlock, num)
 }
 
 // IsIstanbul returns whether num is either equal to the Istanbul fork block or greater.
 func (c *ChainConfig) IsIstanbul(num *big.Int) bool {
-	return isForked(common.TIPTomoXCancellationFee, num)
+	return isForked(c.TIPTomoXCancellationFeeBlock, num)
 }
 
 func (c *ChainConfig) IsTIP2019(num *big.Int) bool {
-	return isForked(common.TIP2019Block, num)
+	return isForked(c.TIP2019Block, num)
 }
 
 func (c *ChainConfig) IsTIPSigning(num *big.Int) bool {
-	return isForked(common.TIPSigning, num)
+	return isForked(c.TIPSigningBlock, num)
 }
 
 func (c *ChainConfig) IsTIPRandomize(num *big.Int) bool {
-	return isForked(common.TIPRandomize, num)
+	return isForked(c.TIPRandomizeBlock, num)
 }
 
 func (c *ChainConfig) IsTIPTomoX(num *big.Int) bool {
-	if common.IsTestnet {
-		return isForked(common.TIPTomoXTestnet, num)
-	} else {
-		return isForked(common.TIPTomoX, num)
-	}
+	return isForked(c.TIPTomoXBlock, num)
 }
 
 func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
-	return isForked(common.TIPTomoXLending, num)
+	return isForked(c.TIPTomoXLendingBlock, num)
 }
 
 func (c *ChainConfig) IsTIPTomoXCancellationFee(num *big.Int) bool {
-	return isForked(common.TIPTomoXCancellationFee, num)
+	return isForked(c.TIPTomoXCancellationFeeBlock, num)
+}
+
+func (c *ChainConfig) IsBlackListHF(num *big.Int) bool {
+	return isForked(c.BlackListHFBlock, num)
+}
+
+func (c *ChainConfig) IsTIPTRC21Fee(num *big.Int) bool {
+	return isForked(c.TIPTRC21FeeBlock, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).

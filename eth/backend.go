@@ -383,7 +383,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 				preMasternodes := c.GetMasternodes(chain, prevHeader)
 				penalties := []common.Address{}
 				for miner, total := range statMiners {
-					if total < common.MinimunMinerBlockPerEpoch {
+					if total < common.MinimumMinerBlockPerEpoch {
 						log.Debug("Find a node not enough requirement create block", "addr", miner.Hex(), "total", total)
 						penalties = append(penalties, miner)
 					}
@@ -536,7 +536,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 				voterResults := make(map[common.Address]interface{})
 				if len(signers) > 0 {
 					for signer, calcReward := range rewardSigners {
-						err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, parentState, signer, calcReward, number)
+						err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, parentState, signer, calcReward, number, chain.Config())
 						if err != nil {
 							log.Crit("Fail to calculate reward for holders.", "error", err)
 						}

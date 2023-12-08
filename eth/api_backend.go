@@ -21,11 +21,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
+
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending"
 
 	"github.com/tomochain/tomochain/tomox"
 
@@ -349,7 +350,7 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 	var voterResults map[common.Address]*big.Int
 	for signer, calcReward := range rewardSigners {
 		if signer == masternodeAddr {
-			err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, state, masternodeAddr, calcReward, number)
+			err, rewards := contracts.CalculateRewardForHolders(foundationWalletAddr, state, masternodeAddr, calcReward, number, b.ChainConfig())
 			if err != nil {
 				log.Crit("Fail to calculate reward for holders.", "error", err)
 				return nil

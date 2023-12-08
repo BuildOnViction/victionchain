@@ -19,12 +19,13 @@ package core
 import (
 	"fmt"
 
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -78,7 +79,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	if common.TIPSigning.Cmp(header.Number) == 0 {
+	if p.config.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	parentState := statedb.Copy()
@@ -87,7 +88,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	totalFeeUsed := big.NewInt(0)
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
-		if (block.Number().Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
+		if p.config.IsBlackListHF(block.Number()) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
@@ -120,7 +121,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		allLogs = append(allLogs, receipt.Logs...)
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if block.Header().Number.Cmp(common.TIPTRC21Fee) > 0 {
+			if p.config.IsTIPTRC21Fee(block.Header().Number) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
@@ -147,7 +148,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	if common.TIPSigning.Cmp(header.Number) == 0 {
+	if p.config.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if cBlock.stop {
@@ -165,7 +166,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	receipts = make([]*types.Receipt, block.Transactions().Len())
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
-		if (block.Number().Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
+		if p.config.IsBlackListHF(block.Number()) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with sender in black-list: %v", tx.From().Hex())
@@ -201,7 +202,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		allLogs = append(allLogs, receipt.Logs...)
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if block.Header().Number.Cmp(common.TIPTRC21Fee) > 0 {
+			if p.config.IsTIPTRC21Fee(block.Header().Number) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
@@ -243,7 +244,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 			balanceFee = value
 		}
 	}
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number)
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, config)
 	if err != nil {
 		return nil, 0, err, false
 	}

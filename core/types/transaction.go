@@ -24,6 +24,8 @@ import (
 	"math/big"
 	"sync/atomic"
 
+	"github.com/tomochain/tomochain/params"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/crypto"
@@ -247,7 +249,7 @@ func (tx *Transaction) Size() common.StorageSize {
 // AsMessage requires a signer to derive the sender.
 //
 // XXX Rename message to something less arbitrary?
-func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int) (Message, error) {
+func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int, chainConfig *params.ChainConfig) (Message, error) {
 	msg := Message{
 		nonce:           tx.data.AccountNonce,
 		gasLimit:        tx.data.GasLimit,
@@ -261,7 +263,7 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int)
 	var err error
 	msg.from, err = Sender(s, tx)
 	if balanceFee != nil {
-		if number.Cmp(common.TIPTRC21Fee) > 0 {
+		if chainConfig.IsTIPTRC21Fee(number) {
 			msg.gasPrice = common.TRC21GasPrice
 		} else {
 			msg.gasPrice = common.TRC21GasPriceBefore

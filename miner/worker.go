@@ -619,7 +619,7 @@ func (self *worker) commitNewWork() {
 	if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
 		misc.ApplyDAOHardFork(work.state)
 	}
-	if common.TIPSigning.Cmp(header.Number) == 0 {
+	if self.config.TIPSigningBlock.Cmp(header.Number) == 0 {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	// won't grasp txs at checkpoint
@@ -839,7 +839,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 	for _, tx := range specialTxs {
 
 		//HF number for black-list
-		if (env.header.Number.Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
+		if env.config.IsBlackListHF(env.header.Number) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
@@ -926,7 +926,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if env.header.Number.Cmp(common.TIPTRC21Fee) > 0 {
+			if env.config.IsTIPTRC21Fee(env.header.Number) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
@@ -952,7 +952,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 
 		//HF number for black-list
-		if (env.header.Number.Uint64() >= common.BlackListHFNumber) && !common.IsTestnet {
+		if env.config.IsBlackListHF(env.header.Number) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
 				log.Debug("Skipping transaction with sender in black-list", "sender", tx.From().Hex())
@@ -1044,7 +1044,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if env.header.Number.Cmp(common.TIPTRC21Fee) > 0 {
+			if env.config.IsTIPTRC21Fee(env.header.Number) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)

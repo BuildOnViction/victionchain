@@ -418,15 +418,15 @@ func GetCandidatesOwnerBySigner(state *state.StateDB, signerAddr common.Address)
 	return owner
 }
 
-func CalculateRewardForHolders(foundationWalletAddr common.Address, state *state.StateDB, signer common.Address, calcReward *big.Int, blockNumber uint64) (error, map[common.Address]*big.Int) {
-	rewards, err := GetRewardBalancesRate(foundationWalletAddr, state, signer, calcReward, blockNumber)
+func CalculateRewardForHolders(foundationWalletAddr common.Address, state *state.StateDB, signer common.Address, calcReward *big.Int, blockNumber uint64, chainConfig *params.ChainConfig) (error, map[common.Address]*big.Int) {
+	rewards, err := GetRewardBalancesRate(foundationWalletAddr, state, signer, calcReward, blockNumber, chainConfig)
 	if err != nil {
 		return err, nil
 	}
 	return nil, rewards
 }
 
-func GetRewardBalancesRate(foundationWalletAddr common.Address, state *state.StateDB, masterAddr common.Address, totalReward *big.Int, blockNumber uint64) (map[common.Address]*big.Int, error) {
+func GetRewardBalancesRate(foundationWalletAddr common.Address, state *state.StateDB, masterAddr common.Address, totalReward *big.Int, blockNumber uint64, chainConfig *params.ChainConfig) (map[common.Address]*big.Int, error) {
 	owner := GetCandidatesOwnerBySigner(state, masterAddr)
 	balances := make(map[common.Address]*big.Int)
 	rewardMaster := new(big.Int).Mul(totalReward, new(big.Int).SetInt64(common.RewardMasterPercent))
@@ -442,7 +442,7 @@ func GetRewardBalancesRate(foundationWalletAddr common.Address, state *state.Sta
 		// Get voters capacities.
 		voterCaps := make(map[common.Address]*big.Int)
 		for _, voteAddr := range voters {
-			if _, ok := voterCaps[voteAddr]; ok && common.TIP2019Block.Uint64() <= blockNumber {
+			if _, ok := voterCaps[voteAddr]; ok && chainConfig.IsTIP2019(new(big.Int).SetUint64(blockNumber)) {
 				continue
 			}
 			voterCap := stateDatabase.GetVoterCap(state, masterAddr, voteAddr)
