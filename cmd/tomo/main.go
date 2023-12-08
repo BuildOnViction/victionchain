@@ -110,7 +110,6 @@ var (
 		//utils.DeveloperFlag,
 		//utils.DeveloperPeriodFlag,
 		//utils.TestnetFlag,
-		//utils.RinkebyFlag,
 		//utils.VMEnableDebugFlag,
 		utils.TomoTestnetFlag,
 		utils.RewoundFlag,
