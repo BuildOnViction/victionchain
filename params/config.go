@@ -90,7 +90,10 @@ var (
 		EIP155Block:                  big.NewInt(0),
 		EIP158Block:                  big.NewInt(0),
 		ByzantiumBlock:               big.NewInt(0),
+		TIPSigningBlock:              big.NewInt(0),
+		TIPRandomizeBlock:            big.NewInt(0),
 		TIPTomoXCancellationFeeBlock: big.NewInt(0),
+		TIPTRC21FeeBlock:             big.NewInt(0),
 		Ethash:                       new(EthashConfig),
 	}
 
@@ -100,13 +103,14 @@ var (
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllPosvProtocolChanges = &ChainConfig{
-		ChainId:        big.NewInt(89),
-		HomesteadBlock: big.NewInt(0),
-		EIP150Block:    big.NewInt(0),
-		EIP155Block:    big.NewInt(0),
-		EIP158Block:    big.NewInt(0),
-		ByzantiumBlock: big.NewInt(0),
-		Posv:           &PosvConfig{Period: 0, Epoch: 30000},
+		ChainId:           big.NewInt(89),
+		HomesteadBlock:    big.NewInt(0),
+		EIP150Block:       big.NewInt(0),
+		EIP155Block:       big.NewInt(0),
+		EIP158Block:       big.NewInt(0),
+		ByzantiumBlock:    big.NewInt(0),
+		TIPRandomizeBlock: big.NewInt(0),
+		Posv:              &PosvConfig{Period: 0, Epoch: 30000},
 	}
 
 	TestChainConfig = &ChainConfig{
