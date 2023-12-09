@@ -358,6 +358,27 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.ConstantinopleBlock, newcfg.ConstantinopleBlock, head) {
 		return newCompatError("Constantinople fork block", c.ConstantinopleBlock, newcfg.ConstantinopleBlock)
 	}
+	if isForkIncompatible(c.TIP2019Block, newcfg.TIP2019Block, head) {
+		return newCompatError("TIP2019 fork block", c.TIP2019Block, newcfg.TIP2019Block)
+	}
+	if isForkIncompatible(c.TIPSigningBlock, newcfg.TIPSigningBlock, head) {
+		return newCompatError("TIPSigning fork block", c.TIPSigningBlock, newcfg.TIPSigningBlock)
+	}
+	if isForkIncompatible(c.TIPTomoXBlock, newcfg.TIPTomoXBlock, head) {
+		return newCompatError("TIPTomoX fork block", c.TIPTomoXBlock, newcfg.TIPTomoXBlock)
+	}
+	if isForkIncompatible(c.TIPTomoXLendingBlock, newcfg.TIPTomoXLendingBlock, head) {
+		return newCompatError("TIPTomoXLending fork block", c.TIPTomoXLendingBlock, newcfg.TIPTomoXLendingBlock)
+	}
+	if isForkIncompatible(c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock, head) {
+		return newCompatError("TIPTomoXCancellationFee fork block", c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock)
+	}
+	if isForkIncompatible(c.BlackListHFBlock, newcfg.BlackListHFBlock, head) {
+		return newCompatError("BlackListHF fork block", c.BlackListHFBlock, newcfg.BlackListHFBlock)
+	}
+	if isForkIncompatible(c.TIPTRC21FeeBlock, newcfg.TIPTRC21FeeBlock, head) {
+		return newCompatError("TIPTRC21Fee fork block", c.TIPTRC21FeeBlock, newcfg.TIPTRC21FeeBlock)
+	}
 	return nil
 }
 
@@ -425,6 +446,8 @@ type Rules struct {
 	ChainId                                                 *big.Int
 	IsHomestead, IsEIP150, IsEIP155, IsEIP158               bool
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
+	IsTIP2019, IsTIPSigning, IsTIPTomoX, IsTIPTomoXLending  bool
+	IsTIPTomoXCancellationFee, IsBlackListHF, IsTIPTRC21Fee bool
 }
 
 func (c *ChainConfig) Rules(num *big.Int) Rules {
@@ -433,14 +456,21 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		chainId = new(big.Int)
 	}
 	return Rules{
-		ChainId:          new(big.Int).Set(chainId),
-		IsHomestead:      c.IsHomestead(num),
-		IsEIP150:         c.IsEIP150(num),
-		IsEIP155:         c.IsEIP155(num),
-		IsEIP158:         c.IsEIP158(num),
-		IsByzantium:      c.IsByzantium(num),
-		IsConstantinople: c.IsConstantinople(num),
-		IsPetersburg:     c.IsPetersburg(num),
-		IsIstanbul:       c.IsIstanbul(num),
+		ChainId:                   new(big.Int).Set(chainId),
+		IsHomestead:               c.IsHomestead(num),
+		IsEIP150:                  c.IsEIP150(num),
+		IsEIP155:                  c.IsEIP155(num),
+		IsEIP158:                  c.IsEIP158(num),
+		IsByzantium:               c.IsByzantium(num),
+		IsConstantinople:          c.IsConstantinople(num),
+		IsPetersburg:              c.IsPetersburg(num),
+		IsIstanbul:                c.IsIstanbul(num),
+		IsTIP2019:                 c.IsTIP2019(num),
+		IsTIPSigning:              c.IsTIPSigning(num),
+		IsTIPTomoX:                c.IsTIPTomoX(num),
+		IsTIPTomoXLending:         c.IsTIPTomoXLending(num),
+		IsTIPTomoXCancellationFee: c.IsTIPTomoXCancellationFee(num),
+		IsBlackListHF:             c.IsBlackListHF(num),
+		IsTIPTRC21Fee:             c.IsTIPTRC21Fee(num),
 	}
 }
