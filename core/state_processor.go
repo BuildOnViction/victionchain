@@ -24,9 +24,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/misc"
@@ -34,7 +31,9 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning

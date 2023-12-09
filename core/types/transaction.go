@@ -24,11 +24,10 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/tomochain/tomochain/params"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 )
 

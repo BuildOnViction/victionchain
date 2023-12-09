@@ -27,9 +27,9 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/naoina/toml"
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/naoina/toml"
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/eth"

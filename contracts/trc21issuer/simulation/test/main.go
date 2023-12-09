@@ -8,14 +8,13 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/tomochain/tomochain/params"
-
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/contracts/trc21issuer"
 	"github.com/tomochain/tomochain/contracts/trc21issuer/simulation"
 	"github.com/tomochain/tomochain/ethclient"
+	"github.com/tomochain/tomochain/params"
 )
 
 var (
