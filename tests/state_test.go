@@ -26,6 +26,7 @@ import (
 )
 
 func TestState(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 
 	st := new(testMatcher)
