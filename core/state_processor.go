@@ -120,7 +120,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		allLogs = append(allLogs, receipt.Logs...)
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if p.config.IsTIPTRC21Fee(block.Header().Number) {
+			if p.config.IsTIPTRC21Fee(new(big.Int).Add(block.Header().Number, big.NewInt(1))) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
@@ -201,7 +201,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		allLogs = append(allLogs, receipt.Logs...)
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if p.config.IsTIPTRC21Fee(block.Header().Number) {
+			if p.config.IsTIPTRC21Fee(new(big.Int).Add(block.Header().Number, big.NewInt(1))) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
