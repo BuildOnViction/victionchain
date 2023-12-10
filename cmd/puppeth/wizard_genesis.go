@@ -37,6 +37,7 @@ import (
 	blockSignerContract "github.com/tomochain/tomochain/contracts/blocksigner"
 	multiSignWalletContract "github.com/tomochain/tomochain/contracts/multisigwallet"
 	randomizeContract "github.com/tomochain/tomochain/contracts/randomize"
+	vrc25Issuer "github.com/tomochain/tomochain/contracts/trc21issuer"
 	validatorContract "github.com/tomochain/tomochain/contracts/validator"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
@@ -307,6 +308,26 @@ func (w *wizard) makeGenesis() {
 		balance.Sub(balance, subBalance) // 12m - i * 50k
 		genesis.Alloc[common.HexToAddress(common.TeamAddr)] = core.GenesisAccount{
 			Balance: balance,
+			Code:    code,
+			Storage: storage,
+		}
+
+		// VRC25 Issuer Smart Contract
+		tenVIC, ok := new(big.Int).SetString("10000000000000000000", 10)
+		if !ok {
+			fmt.Println("Can't convert 10 VIC for VRC25Issuer SMC")
+		}
+		vrc25IssuerAddress, _, err := vrc25Issuer.DeployTRC21Issuer(transactOpts, contractBackend, tenVIC)
+		if err != nil {
+			fmt.Println("Can't deploy VRC25Issuer SMC")
+		}
+		contractBackend.Commit()
+
+		code, _ = contractBackend.CodeAt(ctx, vrc25IssuerAddress, nil)
+		storage = make(map[common.Hash]common.Hash)
+		contractBackend.ForEachStorageAt(ctx, vrc25IssuerAddress, nil, f)
+		genesis.Alloc[common.TRC21IssuerSMC] = core.GenesisAccount{
+			Balance: big.NewInt(0),
 			Code:    code,
 			Storage: storage,
 		}
