@@ -43,10 +43,10 @@ var (
 		TIPSigningBlock:              big.NewInt(3000000),
 		TIPRandomizeBlock:            big.NewInt(3464000),
 		BlackListHFBlock:             big.NewInt(9349100),
+		TIPTRC21FeeBlock:             big.NewInt(13523400),
 		TIPTomoXBlock:                big.NewInt(20581700),
 		TIPTomoXLendingBlock:         big.NewInt(21430200),
 		TIPTomoXCancellationFeeBlock: big.NewInt(30915660),
-		TIPTRC21FeeBlock:             big.NewInt(13523400),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -57,25 +57,32 @@ var (
 		},
 	}
 
-	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
+	// TestnetChainConfig contains the chain parameters to run a node on the 2023 test network.
 	TestnetChainConfig = &ChainConfig{
-		ChainId:                      big.NewInt(3),
+		ChainId:                      big.NewInt(89),
 		HomesteadBlock:               big.NewInt(0),
 		DAOForkBlock:                 nil,
-		DAOForkSupport:               true,
+		DAOForkSupport:               false,
 		EIP150Block:                  big.NewInt(0),
-		EIP150Hash:                   common.HexToHash("0x62e0fde86e34c263e250fbcd5ca4598ba8ca10a1d166c8526bb127e10b313311"),
-		EIP155Block:                  big.NewInt(10),
-		EIP158Block:                  big.NewInt(10),
-		ByzantiumBlock:               big.NewInt(1700000),
-		ConstantinopleBlock:          nil,
+		EIP150Hash:                   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:                  big.NewInt(0),
+		EIP158Block:                  big.NewInt(0),
+		ByzantiumBlock:               big.NewInt(0),
+		ConstantinopleBlock:          big.NewInt(0),
 		TIP2019Block:                 big.NewInt(0),
 		TIPSigningBlock:              big.NewInt(0),
 		TIPRandomizeBlock:            big.NewInt(0),
 		BlackListHFBlock:             big.NewInt(0),
 		TIPTomoXCancellationFeeBlock: big.NewInt(0),
 		TIPTRC21FeeBlock:             big.NewInt(0),
-		Ethash:                       new(EthashConfig),
+		Posv: &PosvConfig{
+			Period:              2,
+			Epoch:               900,
+			Reward:              250,
+			RewardCheckpoint:    900,
+			Gap:                 5,
+			FoudationWalletAddr: common.HexToAddress("0x0000000000000000000000000000000000000068"),
+		},
 	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
