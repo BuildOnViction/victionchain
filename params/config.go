@@ -258,11 +258,7 @@ func (c *ChainConfig) IsTIPRandomize(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsTIPTomoX(num *big.Int) bool {
-	if common.IsTestnet {
-		return isForked(common.TIPTomoXTestnet, num)
-	} else {
-		return isForked(common.TIPTomoX, num)
-	}
+	return isForked(common.TIPTomoX, num)
 }
 
 func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
