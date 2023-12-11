@@ -49,7 +49,6 @@ var (
 	RelayerRegistrationSMCTestnet = "0xA1996F69f47ba14Cb7f661010A7C31974277958c"
 	LendingRegistrationSMC        = "0x7d761afd7ff65a79e4173897594a194e3c506e57"
 	LendingRegistrationSMCTestnet = "0x28d7fC2Cf5c18203aaCD7459EFC6Af0643C97bE8"
-	TRC21IssuerSMCTestNet         = HexToAddress("0x0E2C88753131CE01c7551B726b28BFD04e44003F")
 	TRC21IssuerSMC                = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
 	TomoXListingSMC               = HexToAddress("0xDE34dD0f536170993E8CFF639DdFfCF1A85D3E53")
 	TomoXListingSMCTestNet        = HexToAddress("0x14B2Bf043b9c31827A472CE4F94294fE9a6277e0")

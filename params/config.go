@@ -73,8 +73,10 @@ var (
 		TIPSigningBlock:              big.NewInt(0),
 		TIPRandomizeBlock:            big.NewInt(0),
 		BlackListHFBlock:             big.NewInt(0),
-		TIPTomoXCancellationFeeBlock: big.NewInt(0),
 		TIPTRC21FeeBlock:             big.NewInt(0),
+		TIPTomoXBlock:                big.NewInt(0),
+		TIPTomoXLendingBlock:         big.NewInt(0),
+		TIPTomoXCancellationFeeBlock: big.NewInt(0),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,

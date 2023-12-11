@@ -157,7 +157,6 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Check testnet is enable.
 	if ctx.GlobalBool(utils.TomoTestnetFlag.Name) {
 		common.IsTestnet = true
-		common.TRC21IssuerSMC = common.TRC21IssuerSMCTestNet
 		cfg.Eth.NetworkId = 89
 		common.RelayerRegistrationSMC = common.RelayerRegistrationSMCTestnet
 	}

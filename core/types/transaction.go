@@ -445,9 +445,6 @@ func (tx *Transaction) IsTomoZApplyTransaction() bool {
 	}
 
 	addr := common.TRC21IssuerSMC
-	if common.IsTestnet {
-		addr = common.TRC21IssuerSMCTestNet
-	}
 	if tx.To().String() != addr.String() {
 		return false
 	}
