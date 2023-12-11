@@ -926,7 +926,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if env.config.IsTIPTRC21Fee(env.header.Number) {
+			if env.config.IsTIPTRC21Fee(new(big.Int).Add(env.header.Number, big.NewInt(1))) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
@@ -1044,7 +1044,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		}
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if env.config.IsTIPTRC21Fee(env.header.Number) {
+			if env.config.IsTIPTRC21Fee(new(big.Int).Add(env.header.Number, big.NewInt(1))) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)

@@ -701,7 +701,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if api.config.IsTIPTRC21Fee(block.Header().Number) {
+			if api.config.IsTIPTRC21Fee(new(big.Int).Add(block.Header().Number, big.NewInt(1))) {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			feeCapacity[*tx.To()] = new(big.Int).Sub(feeCapacity[*tx.To()], fee)
