@@ -52,11 +52,20 @@ func (w *wizard) makeGenesis() {
 		Difficulty: big.NewInt(524288),
 		Alloc:      make(core.GenesisAlloc),
 		Config: &params.ChainConfig{
-			HomesteadBlock: big.NewInt(1),
-			EIP150Block:    big.NewInt(2),
-			EIP155Block:    big.NewInt(3),
-			EIP158Block:    big.NewInt(3),
-			ByzantiumBlock: big.NewInt(4),
+			HomesteadBlock:               big.NewInt(0),
+			EIP150Block:                  big.NewInt(0),
+			EIP155Block:                  big.NewInt(0),
+			EIP158Block:                  big.NewInt(0),
+			ByzantiumBlock:               big.NewInt(0),
+			ConstantinopleBlock:          big.NewInt(0),
+			TIP2019Block:                 big.NewInt(0),
+			TIPSigningBlock:              big.NewInt(0),
+			TIPRandomizeBlock:            big.NewInt(0),
+			BlackListHFBlock:             big.NewInt(0),
+			TIPTRC21FeeBlock:             big.NewInt(0),
+			TIPTomoXBlock:                big.NewInt(0),
+			TIPTomoXLendingBlock:         big.NewInt(0),
+			TIPTomoXCancellationFeeBlock: big.NewInt(0),
 		},
 	}
 	// Figure out which consensus engine to choose
@@ -406,6 +415,42 @@ func (w *wizard) manageGenesis() {
 		fmt.Println()
 		fmt.Printf("Which block should Byzantium come into effect? (default = %v)\n", w.conf.Genesis.Config.ByzantiumBlock)
 		w.conf.Genesis.Config.ByzantiumBlock = w.readDefaultBigInt(w.conf.Genesis.Config.ByzantiumBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should Constantinople come into effect? (default = %v)\n", w.conf.Genesis.Config.ConstantinopleBlock)
+		w.conf.Genesis.Config.ConstantinopleBlock = w.readDefaultBigInt(w.conf.Genesis.Config.ConstantinopleBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should TIP2019 come into effect? (default = %v)\n", w.conf.Genesis.Config.TIP2019Block)
+		w.conf.Genesis.Config.TIP2019Block = w.readDefaultBigInt(w.conf.Genesis.Config.TIP2019Block)
+
+		fmt.Println()
+		fmt.Printf("Which block should TIP signing come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPSigningBlock)
+		w.conf.Genesis.Config.TIPSigningBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPSigningBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should TIP Randomize come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPRandomizeBlock)
+		w.conf.Genesis.Config.TIPRandomizeBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPRandomizeBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should Blacklist hard fork come into effect? (default = %v)\n", w.conf.Genesis.Config.BlackListHFBlock)
+		w.conf.Genesis.Config.BlackListHFBlock = w.readDefaultBigInt(w.conf.Genesis.Config.BlackListHFBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should TIP TRC21 fee come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPTRC21FeeBlock)
+		w.conf.Genesis.Config.TIPTRC21FeeBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPTRC21FeeBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should TIP TomoX come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPTomoXBlock)
+		w.conf.Genesis.Config.TIPTomoXBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPTomoXBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should TIP TomoX Lending come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPTomoXLendingBlock)
+		w.conf.Genesis.Config.TIPTomoXLendingBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPTomoXLendingBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should TIP TomoX cancellation fee come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock)
+		w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock)
 
 		out, _ := json.MarshalIndent(w.conf.Genesis.Config, "", "  ")
 		fmt.Printf("Chain configuration updated:\n\n%s\n", out)
