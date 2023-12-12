@@ -322,15 +322,15 @@ func (c *ChainConfig) IsIstanbul(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsTIP2019(num *big.Int) bool {
-	return isForked(c.TIP2019Block, num)
+	return isForked(common.TIP2019Block, num)
 }
 
 func (c *ChainConfig) IsTIPSigning(num *big.Int) bool {
-	return isForked(c.TIPSigningBlock, num)
+	return isForked(common.TIPSigning, num)
 }
 
 func (c *ChainConfig) IsTIPRandomize(num *big.Int) bool {
-	return isForked(c.TIPRandomizeBlock, num)
+	return isForked(common.TIPRandomize, num)
 }
 
 func (c *ChainConfig) IsBlackListHF(num *big.Int) bool {
@@ -346,11 +346,11 @@ func (c *ChainConfig) IsTIPTomoX(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
-	return isForked(c.TIPTomoXLendingBlock, num)
+	return isForked(common.TIPTomoXLending, num)
 }
 
 func (c *ChainConfig) IsTIPTomoXCancellationFee(num *big.Int) bool {
-	return isForked(c.TIPTomoXCancellationFeeBlock, num)
+	return isForked(common.TIPTomoXCancellationFee, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
