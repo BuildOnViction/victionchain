@@ -18,8 +18,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -108,7 +109,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	b.receipts = append(b.receipts, receipt)
 	if tokenFeeUsed {
 		fee := new(big.Int).SetUint64(gas)
-		if b.header.Number.Cmp(common.TIPTRC21Fee) > 0 {
+		if b.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 			fee = fee.Mul(fee, common.TRC21GasPrice)
 		}
 		state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee)
