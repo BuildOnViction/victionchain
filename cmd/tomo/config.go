@@ -160,13 +160,14 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 		cfg.Eth.NetworkId = 89
 
 		// Testnet hard fork blocks
-		common.TIPTRC21Fee = common.TIPTomoXTestnet
-		common.TIPTomoX = common.TIPTomoXTestnet
-		common.TIPSigning = big.NewInt(0)
-		common.TIPRandomize = big.NewInt(0)
 		common.TIP2019Block = big.NewInt(0)
-		common.BlackListHFNumber = uint64(0)
-		common.TIPTomoXCancellationFee = big.NewInt(0)
+		common.TIPSigningBlock = big.NewInt(0)
+		common.TIPRandomizeBlock = big.NewInt(0)
+		common.BlackListHFNumberBlock = uint64(0)
+		common.TIPTRC21FeeBlock = big.NewInt(0)
+		common.TIPTomoXBlock = big.NewInt(0)
+		common.TIPTomoXLendingBlock = big.NewInt(0)
+		common.TIPTomoXCancellationFeeBlock = big.NewInt(0)
 
 		// Special SMC addresses
 		common.LendingRegistrationSMC = common.LendingRegistrationSMCTestnet
