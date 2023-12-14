@@ -34,6 +34,7 @@ import (
 )
 
 var (
+	// mainnetChainConfig is the chain config of Ethereum main network, used for testing purposes only
 	mainnetChainConfig = params.ChainConfig{
 		ChainId:        big.NewInt(1),
 		HomesteadBlock: big.NewInt(1150000),
@@ -46,7 +47,8 @@ var (
 		ByzantiumBlock: big.NewInt(4370000),
 	}
 
-	testnetChainConfig = params.ChainConfig{
+	// ropstenChainConfig is the chain config of Ethereum Ropsten test network, used for testing purposes only
+	ropstenChainConfig = params.ChainConfig{
 		ChainId:             big.NewInt(3),
 		HomesteadBlock:      big.NewInt(0),
 		DAOForkBlock:        nil,
