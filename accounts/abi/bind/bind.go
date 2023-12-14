@@ -37,8 +37,6 @@ type Lang int
 
 const (
 	LangGo Lang = iota
-	LangJava
-	LangObjC
 )
 
 // Bind generates a Go wrapper around a contract ABI. This wrapper isn't meant
@@ -160,15 +158,15 @@ func Bind(types []string, abis []string, bytecodes []string, pkg string, lang La
 // bindType is a set of type binders that convert Solidity types to some supported
 // programming language types.
 var bindType = map[Lang]func(kind abi.Type) string{
-	LangGo:   bindTypeGo,
-	LangJava: bindTypeJava,
+	LangGo: bindTypeGo,
 }
 
 // Helper function for the binding generators.
 // It reads the unmatched characters after the inner type-match,
-//  (since the inner type is a prefix of the total type declaration),
-//  looks for valid arrays (possibly a dynamic one) wrapping the inner type,
-//  and returns the sizes of these arrays.
+//
+//	(since the inner type is a prefix of the total type declaration),
+//	looks for valid arrays (possibly a dynamic one) wrapping the inner type,
+//	and returns the sizes of these arrays.
 //
 // Returned array sizes are in the same order as solidity signatures; inner array size first.
 // Array sizes may also be "", indicating a dynamic array.
@@ -207,9 +205,8 @@ func bindTypeGo(kind abi.Type) string {
 
 // The inner function of bindTypeGo, this finds the inner type of stringKind.
 // (Or just the type itself if it is not an array or slice)
-// The length of the matched part is returned, with the the translated type.
+// The length of the matched part is returned, with the translated type.
 func bindUnnestedTypeGo(stringKind string) (int, string) {
-
 	switch {
 	case strings.HasPrefix(stringKind, "address"):
 		return len("address"), "common.Address"
@@ -237,86 +234,14 @@ func bindUnnestedTypeGo(stringKind string) (int, string) {
 	}
 }
 
-// Translates the array sizes to a Java declaration of a (nested) array of the inner type.
-// Simply returns the inner type if arraySizes is empty.
-func arrayBindingJava(inner string, arraySizes []string) string {
-	// Java array type declarations do not include the length.
-	return inner + strings.Repeat("[]", len(arraySizes))
-}
-
-// bindTypeJava converts a Solidity type to a Java one. Since there is no clear mapping
-// from all Solidity types to Java ones (e.g. uint17), those that cannot be exactly
-// mapped will use an upscaled type (e.g. BigDecimal).
-func bindTypeJava(kind abi.Type) string {
-	stringKind := kind.String()
-	innerLen, innerMapping := bindUnnestedTypeJava(stringKind)
-	return arrayBindingJava(wrapArray(stringKind, innerLen, innerMapping))
-}
-
-// The inner function of bindTypeJava, this finds the inner type of stringKind.
-// (Or just the type itself if it is not an array or slice)
-// The length of the matched part is returned, with the the translated type.
-func bindUnnestedTypeJava(stringKind string) (int, string) {
-
-	switch {
-	case strings.HasPrefix(stringKind, "address"):
-		parts := regexp.MustCompile(`address(\[[0-9]*\])?`).FindStringSubmatch(stringKind)
-		if len(parts) != 2 {
-			return len(stringKind), stringKind
-		}
-		if parts[1] == "" {
-			return len("address"), "Address"
-		}
-		return len(parts[0]), "Addresses"
-
-	case strings.HasPrefix(stringKind, "bytes"):
-		parts := regexp.MustCompile(`bytes([0-9]*)`).FindStringSubmatch(stringKind)
-		if len(parts) != 2 {
-			return len(stringKind), stringKind
-		}
-		return len(parts[0]), "byte[]"
-
-	case strings.HasPrefix(stringKind, "int") || strings.HasPrefix(stringKind, "uint"):
-		//Note that uint and int (without digits) are also matched,
-		// these are size 256, and will translate to BigInt (the default).
-		parts := regexp.MustCompile(`(u)?int([0-9]*)`).FindStringSubmatch(stringKind)
-		if len(parts) != 3 {
-			return len(stringKind), stringKind
-		}
-
-		namedSize := map[string]string{
-			"8":  "byte",
-			"16": "short",
-			"32": "int",
-			"64": "long",
-		}[parts[2]]
-
-		//default to BigInt
-		if namedSize == "" {
-			namedSize = "BigInt"
-		}
-		return len(parts[0]), namedSize
-
-	case strings.HasPrefix(stringKind, "bool"):
-		return len("bool"), "boolean"
-
-	case strings.HasPrefix(stringKind, "string"):
-		return len("string"), "String"
-
-	default:
-		return len(stringKind), stringKind
-	}
-}
-
 // bindTopicType is a set of type binders that convert Solidity types to some
 // supported programming language topic types.
 var bindTopicType = map[Lang]func(kind abi.Type) string{
-	LangGo:   bindTopicTypeGo,
-	LangJava: bindTopicTypeJava,
+	LangGo: bindTopicTypeGo,
 }
 
 // bindTypeGo converts a Solidity topic type to a Go one. It is almost the same
-// funcionality as for simple types, but dynamic types get converted to hashes.
+// functionality as for simple types, but dynamic types get converted to hashes.
 func bindTopicTypeGo(kind abi.Type) string {
 	bound := bindTypeGo(kind)
 	if bound == "string" || bound == "[]byte" {
@@ -325,64 +250,16 @@ func bindTopicTypeGo(kind abi.Type) string {
 	return bound
 }
 
-// bindTypeGo converts a Solidity topic type to a Java one. It is almost the same
-// funcionality as for simple types, but dynamic types get converted to hashes.
-func bindTopicTypeJava(kind abi.Type) string {
-	bound := bindTypeJava(kind)
-	if bound == "String" || bound == "Bytes" {
-		bound = "Hash"
-	}
-	return bound
-}
-
 // namedType is a set of functions that transform language specific types to
 // named versions that my be used inside method names.
 var namedType = map[Lang]func(string, abi.Type) string{
-	LangGo:   func(string, abi.Type) string { panic("this shouldn't be needed") },
-	LangJava: namedTypeJava,
-}
-
-// namedTypeJava converts some primitive data types to named variants that can
-// be used as parts of method names.
-func namedTypeJava(javaKind string, solKind abi.Type) string {
-	switch javaKind {
-	case "byte[]":
-		return "Binary"
-	case "byte[][]":
-		return "Binaries"
-	case "string":
-		return "String"
-	case "string[]":
-		return "Strings"
-	case "boolean":
-		return "Bool"
-	case "boolean[]":
-		return "Bools"
-	case "BigInt[]":
-		return "BigInts"
-	default:
-		parts := regexp.MustCompile(`(u)?int([0-9]*)(\[[0-9]*\])?`).FindStringSubmatch(solKind.String())
-		if len(parts) != 4 {
-			return javaKind
-		}
-		switch parts[2] {
-		case "8", "16", "32", "64":
-			if parts[3] == "" {
-				return capitalise(fmt.Sprintf("%sint%s", parts[1], parts[2]))
-			}
-			return capitalise(fmt.Sprintf("%sint%ss", parts[1], parts[2]))
-
-		default:
-			return javaKind
-		}
-	}
+	LangGo: func(string, abi.Type) string { panic("this shouldn't be needed") },
 }
 
 // methodNormalizer is a name transformer that modifies Solidity method names to
 // conform to target language naming concentions.
 var methodNormalizer = map[Lang]func(string) string{
-	LangGo:   capitalise,
-	LangJava: decapitalise,
+	LangGo: capitalise,
 }
 
 // capitalise makes a camel-case string which starts with an upper case character.
