@@ -20,17 +20,44 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/params"
+)
+
+var (
+	mainnetChainConfig = params.ChainConfig{
+		ChainId:        big.NewInt(1),
+		HomesteadBlock: big.NewInt(1150000),
+		DAOForkBlock:   big.NewInt(1920000),
+		DAOForkSupport: true,
+		EIP150Block:    big.NewInt(2463000),
+		EIP150Hash:     common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
+		EIP155Block:    big.NewInt(2675000),
+		EIP158Block:    big.NewInt(2675000),
+		ByzantiumBlock: big.NewInt(4370000),
+	}
+
+	testnetChainConfig = params.ChainConfig{
+		ChainId:             big.NewInt(3),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP150Hash:          common.HexToHash("0x62e0fde86e34c263e250fbcd5ca4598ba8ca10a1d166c8526bb127e10b313311"),
+		EIP155Block:         big.NewInt(10),
+		EIP158Block:         big.NewInt(10),
+		ByzantiumBlock:      big.NewInt(1700000),
+		ConstantinopleBlock: nil,
+	}
 )
 
 // VMTest checks EVM execution without block or transaction context.
@@ -144,7 +171,7 @@ func (t *VMTest) newEVM(statedb *state.StateDB, vmconfig vm.Config) *vm.EVM {
 		GasPrice:    t.json.Exec.GasPrice,
 	}
 	vmconfig.NoRecursion = true
-	return vm.NewEVM(context, statedb, nil, params.MainnetChainConfig, vmconfig)
+	return vm.NewEVM(context, statedb, nil, &mainnetChainConfig, vmconfig)
 }
 
 func vmTestBlockHash(n uint64) common.Hash {

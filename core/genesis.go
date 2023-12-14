@@ -22,13 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"strings"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/common/math"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
@@ -190,7 +190,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	// Special case: don't change the existing config of a non-mainnet chain if no new
 	// config is supplied. These chains would get AllProtocolChanges (and a compat error)
 	// if we just continued here.
-	if genesis == nil && stored != params.MainnetGenesisHash {
+	if genesis == nil && stored != params.VicMainnetGenesisHash {
 		return storedcfg, stored, nil
 	}
 
@@ -211,10 +211,10 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	switch {
 	case g != nil:
 		return g.Config
-	case ghash == params.MainnetGenesisHash:
+	case ghash == params.VicMainnetGenesisHash:
 		return params.VicMainnetChainConfig
-	case ghash == params.TestnetGenesisHash:
-		return params.TestnetChainConfig
+	case ghash == params.VicTestnetGenesisHash:
+		return params.VicTestnetChainConfig
 	default:
 		return params.AllEthashProtocolChanges
 	}
@@ -322,27 +322,21 @@ func DefaultGenesisBlock() *Genesis {
 	}
 }
 
-// DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
+// DefaultTestnetGenesisBlock returns the Viction test network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
 	return &Genesis{
-		Config:     params.TestnetChainConfig,
-		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
-		Difficulty: big.NewInt(1048576),
-		Alloc:      decodePrealloc(testnetAllocData),
-	}
-}
-
-// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis block.
-func DefaultRinkebyGenesisBlock() *Genesis {
-	return &Genesis{
-		Config:     params.RinkebyChainConfig,
-		Timestamp:  1492009146,
-		ExtraData:  hexutil.MustDecode("0x52657370656374206d7920617574686f7269746168207e452e436172746d616e42eb768f2244c8811c63729a21a3569731535f067ffc57839b00206d1ad20c69a1981b489f772031b279182d99e65703f0076e4812653aab85fca0f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
+		Config:     params.VicTestnetChainConfig,
+		Number:     0,
+		Timestamp:  1697684999,
+		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		Nonce:      0,
+		ExtraData:  hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000001acc82e4cafc08af311852da4722fb34529322c91e7c9fae96ec2efb129b69ff5e0e8a8b8acb6add4f4b5983cdf8f674fa63de933713f245502f97676fdef2bd0d35de1c72016cfbbf2a6f2c59b8c2977e40b530a68d1dd71b7941cfb53534c3806aa5180000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
 		GasLimit:   4700000,
+		GasUsed:    0,
 		Difficulty: big.NewInt(1),
-		Alloc:      decodePrealloc(rinkebyAllocData),
+		Mixhash:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		Alloc:      DecodeTestnetGenesisAlloc(),
 	}
 }
 
@@ -389,4 +383,10 @@ func DecodeMainnet() GenesisAlloc {
 	mainnetAlloc := GenesisAlloc{}
 	json.Unmarshal([]byte(tomoAllocData), &mainnetAlloc)
 	return mainnetAlloc
+}
+
+func DecodeTestnetGenesisAlloc() GenesisAlloc {
+	vicTestnetAlloc := GenesisAlloc{}
+	json.Unmarshal([]byte(vicTestnetAllocData), &vicTestnetAlloc)
+	return vicTestnetAlloc
 }

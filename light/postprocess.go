@@ -19,13 +19,13 @@ package light
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/bitutil"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
@@ -76,8 +76,8 @@ var (
 
 // trustedCheckpoints associates each known checkpoint with the genesis hash of the chain it belongs to
 var trustedCheckpoints = map[common.Hash]trustedCheckpoint{
-	params.MainnetGenesisHash: mainnetCheckpoint,
-	params.TestnetGenesisHash: ropstenCheckpoint,
+	params.VicMainnetGenesisHash: mainnetCheckpoint,
+	params.VicTestnetGenesisHash: ropstenCheckpoint,
 }
 
 var (
