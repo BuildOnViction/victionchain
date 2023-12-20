@@ -28,6 +28,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/log"
@@ -343,7 +344,7 @@ func NewPrivateDebugAPI(config *params.ChainConfig, eth *Ethereum) *PrivateDebug
 
 // Preimage is a debug API function that returns the preimage for a sha3 hash, if known.
 func (api *PrivateDebugAPI) Preimage(ctx context.Context, hash common.Hash) (hexutil.Bytes, error) {
-	db := core.PreimageTable(api.eth.ChainDb())
+	db := rawdb.PreimageTable(api.eth.ChainDb())
 	return db.Get(hash.Bytes())
 }
 
@@ -494,11 +495,10 @@ func (api *PublicEthereumAPI) ChainId() hexutil.Uint64 {
 }
 
 // GetOwner return masternode owner of the given coinbase address
-func (api *PublicEthereumAPI) GetOwnerByCoinbase(ctx context.Context, coinbase common.Address, blockNr rpc.BlockNumber) (common.Address,  error) {
+func (api *PublicEthereumAPI) GetOwnerByCoinbase(ctx context.Context, coinbase common.Address, blockNr rpc.BlockNumber) (common.Address, error) {
 	statedb, _, err := api.e.ApiBackend.StateAndHeaderByNumber(ctx, blockNr)
 	if err != nil {
 		return common.Address{}, err
 	}
 	return statedb.GetOwner(coinbase), nil
 }
-

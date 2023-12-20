@@ -3,9 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/ethdb/leveldb"
 	"os"
 	"os/signal"
 	"runtime"
@@ -13,12 +10,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/ethdb/leveldb"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
 )
@@ -54,15 +54,15 @@ func main() {
 	flag.Parse()
 	db, _ := leveldb.New(*dir, eth.DefaultConfig.DatabaseCache, utils.MakeDatabaseHandles(), "")
 	lddb := rawdb.NewDatabase(db)
-	head := core.GetHeadBlockHash(lddb)
-	currentHeader := core.GetHeader(lddb, head, core.GetBlockNumber(lddb, head))
+	head := rawdb.GetHeadBlockHash(lddb)
+	currentHeader := rawdb.GetHeader(lddb, head, rawdb.GetBlockNumber(lddb, head))
 	tridb := trie.NewDatabase(lddb)
 	catchEventInterupt(db)
 	cache, _ = lru.New(*cacheSize)
 	go func() {
 		for i := uint64(1); i <= currentHeader.Number.Uint64(); i++ {
-			hash := core.GetCanonicalHash(lddb, i)
-			root := core.GetHeader(lddb, hash, i).Root
+			hash := rawdb.GetCanonicalHash(lddb, i)
+			root := rawdb.GetHeader(lddb, hash, i).Root
 			trieRoot, err := trie.NewSecure(root, tridb)
 			if err != nil {
 				continue

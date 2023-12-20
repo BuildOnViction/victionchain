@@ -29,6 +29,7 @@ import (
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/ethdb"
@@ -271,7 +272,7 @@ func ImportPreimages(db ethdb.Database, fn string) error {
 		// Accumulate the preimages and flush when enough ws gathered
 		preimages[crypto.Keccak256Hash(blob)] = common.CopyBytes(blob)
 		if len(preimages) > 1024 {
-			if err := core.WritePreimages(db, 0, preimages); err != nil {
+			if err := rawdb.WritePreimages(db, 0, preimages); err != nil {
 				return err
 			}
 			preimages = make(map[common.Hash][]byte)
@@ -279,7 +280,7 @@ func ImportPreimages(db ethdb.Database, fn string) error {
 	}
 	// Flush the last batch preimage data
 	if len(preimages) > 0 {
-		return core.WritePreimages(db, 0, preimages)
+		return rawdb.WritePreimages(db, 0, preimages)
 	}
 	return nil
 }

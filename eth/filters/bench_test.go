@@ -20,14 +20,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"testing"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/bitutil"
-	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/bloombits"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/event"
@@ -68,18 +67,18 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 	benchDataDir := node.DefaultDataDir() + "/geth/chaindata"
 	fmt.Println("Running bloombits benchmark   section size:", sectionSize)
 
-	db, err := rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024,"")
+	db, err := rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024, "")
 	if err != nil {
 		b.Fatalf("error opening database at %v: %v", benchDataDir, err)
 	}
-	head := core.GetHeadBlockHash(db)
+	head := rawdb.GetHeadBlockHash(db)
 	if head == (common.Hash{}) {
 		b.Fatalf("chain data not found at %v", benchDataDir)
 	}
 
 	clearBloomBits(db)
 	fmt.Println("Generating bloombits data...")
-	headNum := core.GetBlockNumber(db, head)
+	headNum := rawdb.GetBlockNumber(db, head)
 	if headNum < sectionSize+512 {
 		b.Fatalf("not enough blocks for running a benchmark")
 	}
@@ -94,14 +93,14 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 		}
 		var header *types.Header
 		for i := sectionIdx * sectionSize; i < (sectionIdx+1)*sectionSize; i++ {
-			hash := core.GetCanonicalHash(db, i)
-			header = core.GetHeader(db, hash, i)
+			hash := rawdb.GetCanonicalHash(db, i)
+			header = rawdb.GetHeader(db, hash, i)
 			if header == nil {
 				b.Fatalf("Error creating bloomBits data")
 			}
 			bc.AddBloom(uint(i-sectionIdx*sectionSize), header.Bloom)
 		}
-		sectionHead := core.GetCanonicalHash(db, (sectionIdx+1)*sectionSize-1)
+		sectionHead := rawdb.GetCanonicalHash(db, (sectionIdx+1)*sectionSize-1)
 		for i := 0; i < types.BloomBitLength; i++ {
 			data, err := bc.Bitset(uint(i))
 			if err != nil {
@@ -110,7 +109,7 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 			comp := bitutil.CompressBytes(data)
 			dataSize += uint64(len(data))
 			compSize += uint64(len(comp))
-			core.WriteBloomBits(db, uint(i), sectionIdx, sectionHead, comp)
+			rawdb.WriteBloomBits(db, uint(i), sectionIdx, sectionHead, comp)
 		}
 		//if sectionIdx%50 == 0 {
 		//	fmt.Println(" section", sectionIdx, "/", cnt)
@@ -130,7 +129,7 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 	for i := 0; i < benchFilterCnt; i++ {
 		if i%20 == 0 {
 			db.Close()
-			db, _ = rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024,"")
+			db, _ = rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024, "")
 			backend = &testBackend{mux, db, cnt, new(event.Feed), new(event.Feed), new(event.Feed), new(event.Feed)}
 		}
 		var addr common.Address
@@ -148,7 +147,7 @@ func benchmarkBloomBits(b *testing.B, sectionSize uint64) {
 }
 
 func forEachKey(db ethdb.Database, startPrefix, endPrefix []byte, fn func(key []byte)) {
-	it := db.NewIterator(startPrefix,nil)
+	it := db.NewIterator(startPrefix, nil)
 	for it.Next() {
 		key := it.Key()
 		cmpLen := len(key)
@@ -176,15 +175,15 @@ func clearBloomBits(db ethdb.Database) {
 func BenchmarkNoBloomBits(b *testing.B) {
 	benchDataDir := node.DefaultDataDir() + "/geth/chaindata"
 	fmt.Println("Running benchmark without bloombits")
-	db, err := rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024,"")
+	db, err := rawdb.NewLevelDBDatabase(benchDataDir, 128, 1024, "")
 	if err != nil {
 		b.Fatalf("error opening database at %v: %v", benchDataDir, err)
 	}
-	head := core.GetHeadBlockHash(db)
+	head := rawdb.GetHeadBlockHash(db)
 	if head == (common.Hash{}) {
 		b.Fatalf("chain data not found at %v", benchDataDir)
 	}
-	headNum := core.GetBlockNumber(db, head)
+	headNum := rawdb.GetBlockNumber(db, head)
 
 	clearBloomBits(db)
 
