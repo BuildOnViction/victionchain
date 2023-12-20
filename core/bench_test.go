@@ -18,7 +18,6 @@ package core
 
 import (
 	"crypto/ecdsa"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
@@ -235,13 +235,13 @@ func makeChainForBench(db ethdb.Database, full bool, count uint64) {
 			ReceiptHash: types.EmptyRootHash,
 		}
 		hash = header.Hash()
-		WriteHeader(db, header)
-		WriteCanonicalHash(db, hash, n)
-		WriteTd(db, hash, n, big.NewInt(int64(n+1)))
+		rawdb.WriteHeader(db, header)
+		rawdb.WriteCanonicalHash(db, hash, n)
+		rawdb.WriteTd(db, hash, n, big.NewInt(int64(n+1)))
 		if full || n == 0 {
 			block := types.NewBlockWithHeader(header)
-			WriteBody(db, hash, n, block.Body())
-			WriteBlockReceipts(db, hash, n, nil)
+			rawdb.WriteBody(db, hash, n, block.Body())
+			rawdb.WriteBlockReceipts(db, hash, n, nil)
 		}
 	}
 }
@@ -293,8 +293,8 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 			header := chain.GetHeaderByNumber(n)
 			if full {
 				hash := header.Hash()
-				GetBody(db, hash, n)
-				GetBlockReceipts(db, hash, n)
+				rawdb.GetBody(db, hash, n)
+				rawdb.GetBlockReceipts(db, hash, n)
 			}
 		}
 

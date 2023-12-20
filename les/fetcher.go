@@ -25,7 +25,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/mclock"
 	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/light"
 	"github.com/tomochain/tomochain/log"
@@ -280,7 +280,7 @@ func (f *lightFetcher) announce(p *peer, head *announceData) {
 			// if one of root's children is canonical, keep it, delete other branches and root itself
 			var newRoot *fetcherTreeNode
 			for i, nn := range fp.root.children {
-				if core.GetCanonicalHash(f.pm.chainDb, nn.number) == nn.hash {
+				if rawdb.GetCanonicalHash(f.pm.chainDb, nn.number) == nn.hash {
 					fp.root.children = append(fp.root.children[:i], fp.root.children[i+1:]...)
 					nn.parent = nil
 					newRoot = nn
@@ -363,7 +363,7 @@ func (f *lightFetcher) peerHasBlock(p *peer, hash common.Hash, number uint64) bo
 	//
 	// when syncing, just check if it is part of the known chain, there is nothing better we
 	// can do since we do not know the most recent block hash yet
-	return core.GetCanonicalHash(f.pm.chainDb, fp.root.number) == fp.root.hash && core.GetCanonicalHash(f.pm.chainDb, number) == hash
+	return rawdb.GetCanonicalHash(f.pm.chainDb, fp.root.number) == fp.root.hash && rawdb.GetCanonicalHash(f.pm.chainDb, number) == hash
 }
 
 // requestAmount calculates the amount of headers to be downloaded starting

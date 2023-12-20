@@ -17,7 +17,6 @@
 package core
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"reflect"
 	"testing"
@@ -25,6 +24,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/params"
@@ -155,7 +155,7 @@ func TestSetupGenesis(t *testing.T) {
 			t.Errorf("%s: returned hash %s, want %s", test.name, hash.Hex(), test.wantHash.Hex())
 		} else if err == nil {
 			// Check database content.
-			stored := GetBlock(db, test.wantHash, 0)
+			stored := rawdb.GetBlock(db, test.wantHash, 0)
 			if stored.Hash() != test.wantHash {
 				t.Errorf("%s: block in DB has hash %s, want %s", test.name, stored.Hash(), test.wantHash)
 			}
