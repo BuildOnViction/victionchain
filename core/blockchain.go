@@ -115,6 +115,13 @@ type BlockChain struct {
 	triegc  *prque.Prque  // Priority queue mapping block numbers to tries to gc
 	gcproc  time.Duration // Accumulates canonical block processing for trie dumping
 
+	// txLookupLimit is the maximum number of blocks from head whose tx indices
+	// are reserved:
+	//  * 0:   means no limit and regenerate any missing indexes
+	//  * N:   means N block limit [HEAD-N+1, HEAD] and delete extra indexes
+	//  * nil: disable tx reindexer/deleter, but still index new blocks
+	txLookupLimit uint64
+
 	hc            *HeaderChain
 	rmLogsFeed    event.Feed
 	chainFeed     event.Feed
@@ -170,7 +177,7 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, txLookupLimit *uint64) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
 			TrieNodeLimit: 256 * 1024 * 1024,
@@ -249,12 +256,19 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	}
 	// Take ownership of this particular state
 	go bc.update()
+	// Start tx indexer/unindexer if required.
+	if txLookupLimit != nil {
+		bc.txLookupLimit = *txLookupLimit
+
+		bc.wg.Add(1)
+		go bc.maintainTxIndex()
+	}
 	return bc, nil
 }
 
 // NewBlockChainEx extend old blockchain, add order state db
-func NewBlockChainEx(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
-	blockchain, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig)
+func NewBlockChainEx(db ethdb.Database, tomoxDb ethdb.TomoxDatabase, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, txLookupLimit *uint64) (*BlockChain, error) {
+	blockchain, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig, txLookupLimit)
 	if err != nil {
 		return nil, err
 	}

@@ -43,14 +43,14 @@ var DefaultConfig = Config{
 		DatasetsInMem:  1,
 		DatasetsOnDisk: 2,
 	},
-	NetworkId:     88,
-	LightPeers:    100,
-	DatabaseCache: 768,
-	TrieCache:     256,
-	TrieTimeout:   5 * time.Minute,
-	GasPrice:      big.NewInt(0.25 * params.Shannon),
-
-	TxPool: core.DefaultTxPoolConfig,
+	NetworkId:          88,
+	TransactionHistory: 14775000,
+	LightPeers:         100,
+	DatabaseCache:      768,
+	TrieCache:          256,
+	TrieTimeout:        5 * time.Minute,
+	GasPrice:           big.NewInt(0.25 * params.Shannon),
+	TxPool:             core.DefaultTxPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,
@@ -82,6 +82,8 @@ type Config struct {
 	NetworkId uint64 // Network ID to use for selecting peers to connect to
 	SyncMode  downloader.SyncMode
 	NoPruning bool
+
+	TransactionHistory uint64 `toml:",omitempty"` // The maximum number of blocks from head whose tx indices are reserved.
 
 	// Light client options
 	LightServ  int `toml:",omitempty"` // Maximum percentage of time allowed for serving LES requests
