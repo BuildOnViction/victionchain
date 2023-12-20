@@ -121,7 +121,7 @@ type callTracerTest struct {
 }
 
 func TestPrestateTracerCreate2(t *testing.T) {
-	common.TIPTomoXCancellationFee = big.NewInt(10000000000000)
+	common.TIPTomoXCancellationFeeBlock = big.NewInt(10000000000000)
 	unsignedTx := types.NewTransaction(1, common.HexToAddress("0x00000000000000000000000000000000deadbeef"),
 		new(big.Int), 5000000, big.NewInt(1), []byte{})
 

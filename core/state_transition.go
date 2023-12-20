@@ -143,7 +143,7 @@ func TransactionToMessage(tx *types.Transaction, s types.Signer, balanceFee *big
 	var err error
 	msg.From, err = types.Sender(s, tx)
 	if balanceFee != nil {
-		if number.Cmp(common.TIPTRC21Fee) > 0 {
+		if number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 			msg.GasPrice = common.TRC21GasPrice
 		} else {
 			msg.GasPrice = common.TRC21GasPriceBefore
@@ -307,7 +307,7 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	}
 	st.refundGas()
 
-	if st.evm.BlockNumber.Cmp(common.TIPTRC21Fee) > 0 {
+	if st.evm.BlockNumber.Cmp(common.TIPTRC21FeeBlock) > 0 {
 		if (owner != common.Address{}) {
 			st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 		}
