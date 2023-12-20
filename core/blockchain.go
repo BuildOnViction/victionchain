@@ -2289,6 +2289,102 @@ func (bc *BlockChain) addBadBlock(block *types.Block) {
 	bc.badBlocks.Add(block.Header().Hash(), block.Header())
 }
 
+// indexBlocks reindexes or unindexes transactions depending on user configuration
+func (bc *BlockChain) indexBlocks(tail *uint64, head uint64, done chan struct{}) {
+	defer func() { close(done) }()
+
+	// If head is 0, it means the chain is just initialized and no blocks are inserted,
+	// so don't need to indexing anything.
+	if head == 0 {
+		return
+	}
+
+	// The tail flag is not existent, it means the node is just initialized
+	// and all blocks(may from ancient store) are not indexed yet.
+	if tail == nil {
+		from := uint64(0)
+		if bc.txLookupLimit != 0 && head >= bc.txLookupLimit {
+			from = head - bc.txLookupLimit + 1
+		}
+		rawdb.IndexTransactions(bc.db, from, head+1, bc.quit)
+		return
+	}
+	// The tail flag is existent, but the whole chain is required to be indexed.
+	if bc.txLookupLimit == 0 || head < bc.txLookupLimit {
+		if *tail > 0 {
+			// It can happen when chain is rewound to a historical point which
+			// is even lower than the indexes tail, recap the indexing target
+			// to new head to avoid reading non-existent block bodies.
+			end := *tail
+			if end > head+1 {
+				end = head + 1
+			}
+			rawdb.IndexTransactions(bc.db, 0, end, bc.quit)
+		}
+		return
+	}
+	// Update the transaction index to the new chain state
+	if head-bc.txLookupLimit+1 < *tail {
+		// Reindex a part of missing indices and rewind index tail to HEAD-limit
+		rawdb.IndexTransactions(bc.db, head-bc.txLookupLimit+1, *tail, bc.quit)
+	} else {
+		// Unindex a part of stale indices and forward index tail to HEAD-limit
+		rawdb.UnindexTransactions(bc.db, *tail, head-bc.txLookupLimit+1, bc.quit)
+	}
+}
+
+// maintainTxIndex is responsible for the construction and deletion of the
+// transaction index.
+//
+// User can use flag `txlookuplimit` to specify a "recentness" block, below
+// which ancient tx indices get deleted. If `txlookuplimit` is 0, it means
+// all tx indices will be reserved.
+//
+// The user can adjust the txlookuplimit value for each launch after sync,
+// Geth will automatically construct the missing indices or delete the extra
+// indices.
+func (bc *BlockChain) maintainTxIndex() {
+	defer bc.wg.Done()
+
+	// Listening to chain events and manipulate the transaction indexes.
+	var (
+		done   chan struct{}                  // Non-nil if background unindexing or reindexing routine is active.
+		headCh = make(chan ChainHeadEvent, 1) // Buffered to avoid locking up the event feed
+	)
+	sub := bc.SubscribeChainHeadEvent(headCh)
+	if sub == nil {
+		return
+	}
+	defer sub.Unsubscribe()
+	log.Info("Initialized transaction indexer", "limit", bc.TxLookupLimit())
+
+	// Launch the initial processing if chain is not empty. This step is
+	// useful in these scenarios that chain has no progress and indexer
+	// is never triggered.
+	if head := rawdb.ReadHeadBlock(bc.db); head != nil {
+		done = make(chan struct{})
+		go bc.indexBlocks(rawdb.ReadTxIndexTail(bc.db), head.NumberU64(), done)
+	}
+
+	for {
+		select {
+		case head := <-headCh:
+			if done == nil {
+				done = make(chan struct{})
+				go bc.indexBlocks(rawdb.ReadTxIndexTail(bc.db), head.Block.NumberU64(), done)
+			}
+		case <-done:
+			done = nil
+		case <-bc.quit:
+			if done != nil {
+				log.Info("Waiting background transaction indexer to exit")
+				<-done
+			}
+			return
+		}
+	}
+}
+
 // reportBlock logs a bad block error.
 func (bc *BlockChain) reportBlock(block *types.Block, receipts types.Receipts, err error) {
 	bc.addBadBlock(block)
@@ -2415,6 +2511,18 @@ func (bc *BlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 
 // Engine retrieves the blockchain's consensus engine.
 func (bc *BlockChain) Engine() consensus.Engine { return bc.engine }
+
+// SetTxLookupLimit is responsible for updating the txlookup limit to the
+// original one stored in db if the new mismatches with the old one.
+func (bc *BlockChain) SetTxLookupLimit(limit uint64) {
+	bc.txLookupLimit = limit
+}
+
+// TxLookupLimit retrieves the txlookup limit used by blockchain to prune
+// stale transaction indices.
+func (bc *BlockChain) TxLookupLimit() uint64 {
+	return bc.txLookupLimit
+}
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
 func (bc *BlockChain) SubscribeRemovedLogsEvent(ch chan<- RemovedLogsEvent) event.Subscription {
