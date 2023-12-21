@@ -1106,6 +1106,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		if err := rawdb.WriteBlockReceipts(batch, block.Hash(), block.NumberU64(), receipts); err != nil {
 			return i, fmt.Errorf("failed to write block receipts: %v", err)
 		}
+		// Always write tx indices for live blocks, we assume they are needed
 		if err := rawdb.WriteTxLookupEntries(batch, block); err != nil {
 			return i, fmt.Errorf("failed to write lookup metadata: %v", err)
 		}

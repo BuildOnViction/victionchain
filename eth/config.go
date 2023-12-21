@@ -44,7 +44,7 @@ var DefaultConfig = Config{
 		DatasetsOnDisk: 2,
 	},
 	NetworkId:          88,
-	TransactionHistory: 14775000,
+	TransactionHistory: 14775000, // roughly number of blocks per year
 	LightPeers:         100,
 	DatabaseCache:      768,
 	TrieCache:          256,
