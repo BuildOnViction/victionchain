@@ -116,11 +116,11 @@ func (b *EthApiBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*t
 }
 
 func (b *EthApiBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
-	return rawdb.GetBlockReceipts(b.eth.chainDb, blockHash, rawdb.GetBlockNumber(b.eth.chainDb, blockHash)), nil
+	return rawdb.GetBlockReceipts(b.eth.chainDb, blockHash, rawdb.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig()), nil
 }
 
 func (b *EthApiBackend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
-	receipts := rawdb.GetBlockReceipts(b.eth.chainDb, blockHash, rawdb.GetBlockNumber(b.eth.chainDb, blockHash))
+	receipts := rawdb.GetBlockReceipts(b.eth.chainDb, blockHash, rawdb.GetBlockNumber(b.eth.chainDb, blockHash), b.ChainConfig())
 	if receipts == nil {
 		return nil, nil
 	}
