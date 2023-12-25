@@ -143,6 +143,7 @@ func TestFilters(t *testing.T) {
 					Topics:  []common.Hash{hash1},
 				},
 			}
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, nil, nil))
 			gen.AddUncheckedReceipt(receipt)
 		case 2:
 			receipt := types.NewReceipt(nil, false, 0)
@@ -152,6 +153,7 @@ func TestFilters(t *testing.T) {
 					Topics:  []common.Hash{hash2},
 				},
 			}
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, nil, nil))
 			gen.AddUncheckedReceipt(receipt)
 		case 998:
 			receipt := types.NewReceipt(nil, false, 0)
@@ -161,6 +163,7 @@ func TestFilters(t *testing.T) {
 					Topics:  []common.Hash{hash3},
 				},
 			}
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, nil, nil))
 			gen.AddUncheckedReceipt(receipt)
 		case 999:
 			receipt := types.NewReceipt(nil, false, 0)
@@ -170,6 +173,7 @@ func TestFilters(t *testing.T) {
 					Topics:  []common.Hash{hash4},
 				},
 			}
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, nil, nil))
 			gen.AddUncheckedReceipt(receipt)
 		}
 	})
