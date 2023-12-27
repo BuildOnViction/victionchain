@@ -48,6 +48,10 @@ type testBackend struct {
 	chainFeed  *event.Feed
 }
 
+func (b *testBackend) ChainConfig() *params.ChainConfig {
+	return params.TestChainConfig
+}
+
 func (b *testBackend) ChainDb() ethdb.Database {
 	return b.db
 }
@@ -71,12 +75,12 @@ func (b *testBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumbe
 
 func (b *testBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
 	number := rawdb.GetBlockNumber(b.db, blockHash)
-	return rawdb.GetBlockReceipts(b.db, blockHash, number), nil
+	return rawdb.GetBlockReceipts(b.db, blockHash, number, b.ChainConfig()), nil
 }
 
 func (b *testBackend) GetLogs(ctx context.Context, blockHash common.Hash) ([][]*types.Log, error) {
 	number := rawdb.GetBlockNumber(b.db, blockHash)
-	receipts := rawdb.GetBlockReceipts(b.db, blockHash, number)
+	receipts := rawdb.GetBlockReceipts(b.db, blockHash, number, b.ChainConfig())
 
 	logs := make([][]*types.Log, len(receipts))
 	for i, receipt := range receipts {

@@ -800,7 +800,7 @@ func (bc *BlockChain) GetBlockByNumber(number uint64) *types.Block {
 
 // GetReceiptsByHash retrieves the receipts for all transactions in a given block.
 func (bc *BlockChain) GetReceiptsByHash(hash common.Hash) types.Receipts {
-	return rawdb.GetBlockReceipts(bc.db, hash, rawdb.GetBlockNumber(bc.db, hash))
+	return rawdb.GetBlockReceipts(bc.db, hash, rawdb.GetBlockNumber(bc.db, hash), bc.Config())
 }
 
 // GetBlocksFromHash returns the block corresponding to hash and up to n-1 ancestors.
@@ -2120,7 +2120,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		// These logs are later announced as deleted.
 		collectLogs = func(h common.Hash) {
 			// Coalesce logs and set 'Removed'.
-			receipts := rawdb.GetBlockReceipts(bc.db, h, bc.hc.GetBlockNumber(h))
+			receipts := rawdb.GetBlockReceipts(bc.db, h, bc.hc.GetBlockNumber(h), bc.Config())
 			for _, receipt := range receipts {
 				for _, log := range receipt.Logs {
 					del := *log

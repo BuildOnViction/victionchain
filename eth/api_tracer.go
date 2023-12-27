@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/core"

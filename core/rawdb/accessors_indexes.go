@@ -21,6 +21,7 @@ import (
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -104,20 +105,20 @@ func GetTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, co
 
 // GetReceipt retrieves a specific transaction receipt from the database, along with
 // its added positional metadata.
-func GetReceipt(db DatabaseReader, hash common.Hash) (*types.Receipt, common.Hash, uint64, uint64) {
+func GetReceipt(db DatabaseReader, hash common.Hash, config *params.ChainConfig) (*types.Receipt, common.Hash, uint64, uint64) {
 	// Retrieve the lookup metadata and resolve the receipt from the receipts
 	blockHash, blockNumber, receiptIndex := GetTxLookupEntry(db, hash)
 
 	if blockHash != (common.Hash{}) {
-		receipts := GetBlockReceipts(db, blockHash, blockNumber)
+		receipts := GetBlockReceipts(db, blockHash, blockNumber, config)
 		if len(receipts) <= int(receiptIndex) {
-			log.Error("Receipt referenced missing", "number", blockNumber, "hash", blockHash, "index", receiptIndex)
+			log.Error("Receipt refereced missing", "number", blockNumber, "hash", blockHash, "index", receiptIndex)
 			return nil, common.Hash{}, 0, 0
 		}
 		return receipts[receiptIndex], blockHash, blockNumber, receiptIndex
 	}
 	// Old receipt representation, load the receipt and set an unknown metadata
-	data, _ := db.Get(oldReceiptsKey(hash))
+	data, _ := db.Get(append(oldReceiptsPrefix, hash[:]...))
 	if len(data) == 0 {
 		return nil, common.Hash{}, 0, 0
 	}
