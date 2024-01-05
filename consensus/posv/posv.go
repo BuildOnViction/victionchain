@@ -918,6 +918,20 @@ func (c *Posv) Prepare(chain consensus.ChainReader, header *types.Header) error 
 	if header.Time.Int64() < time.Now().Unix() {
 		header.Time = big.NewInt(time.Now().Unix())
 	}
+	// Sign all the things!
+	signer, signFn := c.signer, c.signFn
+	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+	if err != nil {
+		return nil
+	}
+	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
+	m2, err := c.GetValidator(signer, chain, header)
+	if err != nil {
+		return nil
+	}
+	if m2 == signer {
+		header.Validator = sighash
+	}
 	return nil
 }
 
@@ -1003,7 +1017,7 @@ func (c *Posv) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 	}
 	// Don't hold the signer fields for the entire sealing procedure
 	c.lock.RLock()
-	signer, signFn := c.signer, c.signFn
+	signer := c.signer
 	c.lock.RUnlock()
 
 	// Bail out if we're unauthorized to sign a block
@@ -1046,19 +1060,6 @@ func (c *Posv) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 	case <-stop:
 		return nil, nil
 	default:
-	}
-	// Sign all the things!
-	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
-	if err != nil {
-		return nil, err
-	}
-	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
-	m2, err := c.GetValidator(signer, chain, header)
-	if err != nil {
-		return nil, fmt.Errorf("can't get block validator: %v", err)
-	}
-	if m2 == signer {
-		header.Validator = sighash
 	}
 	return block.WithSeal(header), nil
 }
