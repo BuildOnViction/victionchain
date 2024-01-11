@@ -58,7 +58,7 @@ const (
 
 const (
 
-	// txChanSize is the size of channel listening to TxPreEvent.
+	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 	// rmLogsChanSize is the size of channel listening to RemovedLogsEvent.
@@ -317,7 +317,7 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 				}
 			}
 		}
-	case core.TxPreEvent:
+	case core.NewTxsEvent:
 		for _, f := range filters[PendingTransactionsSubscription] {
 			f.hashes <- e.Tx.Hash()
 		}
@@ -415,9 +415,9 @@ func (es *EventSystem) eventLoop() {
 	var (
 		index = make(filterIndex)
 		sub   = es.mux.Subscribe(core.PendingLogsEvent{})
-		// Subscribe TxPreEvent form txpool
-		txCh  = make(chan core.TxPreEvent, txChanSize)
-		txSub = es.backend.SubscribeTxPreEvent(txCh)
+		// Subscribe NewTxsEvent form txpool
+		txCh  = make(chan core.NewTxsEvent, txChanSize)
+		txSub = es.backend.SubscribeNewTxsEvent(txCh)
 		// Subscribe RemovedLogsEvent
 		rmLogsCh  = make(chan core.RemovedLogsEvent, rmLogsChanSize)
 		rmLogsSub = es.backend.SubscribeRemovedLogsEvent(rmLogsCh)

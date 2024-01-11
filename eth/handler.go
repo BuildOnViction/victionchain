@@ -47,7 +47,7 @@ const (
 	softResponseLimit = 2 * 1024 * 1024 // Target maximum size of returned blocks, headers or node data.
 	estHeaderRlpSize  = 500             // Approximate size of an RLP encoded block header
 
-	// txChanSize is the size of channel listening to TxPreEvent.
+	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 )
@@ -84,7 +84,7 @@ type ProtocolManager struct {
 	SubProtocols []p2p.Protocol
 
 	eventMux      *event.TypeMux
-	txCh          chan core.TxPreEvent
+	txCh          chan core.NewTxsEvent
 	orderTxCh     chan core.OrderTxPreEvent
 	lendingTxCh   chan core.LendingTxPreEvent
 	txSub         event.Subscription
@@ -251,16 +251,16 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
 
 	// broadcast transactions
-	pm.txCh = make(chan core.TxPreEvent, txChanSize)
-	pm.txSub = pm.txpool.SubscribeTxPreEvent(pm.txCh)
+	pm.txCh = make(chan core.NewTxsEvent, txChanSize)
+	pm.txSub = pm.txpool.SubscribeNewTxsEvent(pm.txCh)
 
 	pm.orderTxCh = make(chan core.OrderTxPreEvent, txChanSize)
 	if pm.orderpool != nil {
-		pm.orderTxSub = pm.orderpool.SubscribeTxPreEvent(pm.orderTxCh)
+		pm.orderTxSub = pm.orderpool.SubscribeNewTxsEvent(pm.orderTxCh)
 	}
 	pm.lendingTxCh = make(chan core.LendingTxPreEvent, txChanSize)
 	if pm.lendingpool != nil {
-		pm.lendingTxSub = pm.lendingpool.SubscribeTxPreEvent(pm.lendingTxCh)
+		pm.lendingTxSub = pm.lendingpool.SubscribeNewTxsEvent(pm.lendingTxCh)
 	}
 	go pm.txBroadcastLoop()
 	go pm.orderTxBroadcastLoop()
