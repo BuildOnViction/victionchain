@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2020 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,14 +14,11 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-//go:build !linux
-// +build !linux
+//go:build ios || js
+// +build ios js
 
 package metrics
 
-import "errors"
-
-// ReadDiskStats retrieves the disk IO stats belonging to the current process.
-func ReadDiskStats(stats *DiskStats) error {
-	return errors.New("Not implemented")
-}
+// ReadCPUStats retrieves the current CPU stats. Internally this uses `gosigar`,
+// which is not supported on the platforms in this file.
+func ReadCPUStats(stats *CPUStats) {}

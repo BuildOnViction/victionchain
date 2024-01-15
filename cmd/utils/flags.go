@@ -43,7 +43,6 @@ import (
 	"github.com/tomochain/tomochain/eth/gasprice"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
-	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
 	"github.com/tomochain/tomochain/p2p/discover"
@@ -356,7 +355,7 @@ var (
 		Usage: "Reporting URL of a ethstats service (nodename:secret@host:port)",
 	}
 	MetricsEnabledFlag = cli.BoolFlag{
-		Name:  metrics.MetricsEnabledFlag,
+		Name:  "metrics",
 		Usage: "Enable metrics collection and reporting",
 	}
 	FakePoWFlag = cli.BoolFlag{

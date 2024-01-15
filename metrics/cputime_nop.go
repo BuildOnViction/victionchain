@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2018 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,14 +14,13 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-//go:build !linux
-// +build !linux
+//go:build windows || js
+// +build windows js
 
 package metrics
 
-import "errors"
-
-// ReadDiskStats retrieves the disk IO stats belonging to the current process.
-func ReadDiskStats(stats *DiskStats) error {
-	return errors.New("Not implemented")
+// getProcessCPUTime returns 0 on Windows as there is no system call to resolve
+// the actual process' CPU time.
+func getProcessCPUTime() float64 {
+	return 0
 }
