@@ -85,6 +85,7 @@ var (
 		utils.LightModeFlag,
 		utils.SyncModeFlag,
 		utils.GCModeFlag,
+		utils.TransactionHistoryFlag,
 		//utils.LightServFlag,
 		//utils.LightPeersFlag,
 		//utils.LightKDFFlag,

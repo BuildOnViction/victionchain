@@ -115,6 +115,43 @@ func GetTrieSyncProgress(db DatabaseReader) uint64 {
 	return new(big.Int).SetBytes(data).Uint64()
 }
 
+// ReadTxIndexTail retrieves the number of oldest indexed block
+// whose transaction indices has been indexed. If the corresponding entry
+// is non-existent in database it means the indexing has been finished.
+func ReadTxIndexTail(db ethdb.KeyValueReader) *uint64 {
+	data, _ := db.Get(txIndexTailKey)
+	if len(data) != 8 {
+		return nil
+	}
+	number := binary.BigEndian.Uint64(data)
+	return &number
+}
+
+// WriteTxIndexTail stores the number of oldest indexed block
+// into database.
+func WriteTxIndexTail(db ethdb.KeyValueWriter, number uint64) {
+	if err := db.Put(txIndexTailKey, encodeBlockNumber(number)); err != nil {
+		log.Crit("Failed to store the transaction index tail", "err", err)
+	}
+}
+
+// ReadFastTxLookupLimit retrieves the tx lookup limit used in fast sync.
+func ReadFastTxLookupLimit(db ethdb.KeyValueReader) *uint64 {
+	data, _ := db.Get(fastTxLookupLimitKey)
+	if len(data) != 8 {
+		return nil
+	}
+	number := binary.BigEndian.Uint64(data)
+	return &number
+}
+
+// WriteFastTxLookupLimit stores the txlookup limit used in fast sync into database.
+func WriteFastTxLookupLimit(db ethdb.KeyValueWriter, number uint64) {
+	if err := db.Put(fastTxLookupLimitKey, encodeBlockNumber(number)); err != nil {
+		log.Crit("Failed to store transaction lookup limit for fast sync", "err", err)
+	}
+}
+
 // GetHeaderRLP retrieves a block header in its raw RLP database encoding, or nil
 // if the header's not found.
 func GetHeaderRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
@@ -156,6 +193,16 @@ func GetBody(db DatabaseReader, hash common.Hash, number uint64) *types.Body {
 		return nil
 	}
 	return body
+}
+
+// ReadCanonicalBodyRLP retrieves the block body (transactions and uncles) for the canonical
+// block at number, in RLP encoding.
+func ReadCanonicalBodyRLP(db ethdb.Reader, number uint64) rlp.RawValue {
+	hash, _ := db.Get(headerHashKey(number))
+	if data, err := db.Get(BlockBodyKey(number, common.BytesToHash(hash))); err == nil {
+		return data
+	}
+	return nil
 }
 
 // GetTd retrieves a block's total difficulty corresponding to the hash, nil if
@@ -511,4 +558,17 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 		}
 	}
 	return a
+}
+
+// ReadHeadBlock returns the current canonical head block.
+func ReadHeadBlock(db ethdb.Reader) *types.Block {
+	headBlockHash := GetHeadBlockHash(db)
+	if headBlockHash == (common.Hash{}) {
+		return nil
+	}
+	headBlockNumber := GetBlockNumber(db, headBlockHash)
+	if headBlockNumber == MissingNumber {
+		return nil
+	}
+	return GetBlock(db, headBlockHash, headBlockNumber)
 }
