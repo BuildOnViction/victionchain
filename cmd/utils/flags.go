@@ -354,9 +354,14 @@ var (
 		Name:  "ethstats",
 		Usage: "Reporting URL of a ethstats service (nodename:secret@host:port)",
 	}
+	// Metrics flags
 	MetricsEnabledFlag = cli.BoolFlag{
 		Name:  "metrics",
 		Usage: "Enable metrics collection and reporting",
+	}
+	MetricsEnabledExpensiveFlag = &cli.BoolFlag{
+		Name:  "metrics.expensive",
+		Usage: "Enable expensive metrics collection and reporting",
 	}
 	FakePoWFlag = cli.BoolFlag{
 		Name:  "fakepow",
