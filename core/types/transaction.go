@@ -242,34 +242,6 @@ func (tx *Transaction) Size() common.StorageSize {
 	return common.StorageSize(c)
 }
 
-// AsMessage returns the transaction as a core.Message.
-//
-// AsMessage requires a signer to derive the sender.
-//
-// XXX Rename message to something less arbitrary?
-func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int) (Message, error) {
-	msg := Message{
-		nonce:           tx.data.AccountNonce,
-		gasLimit:        tx.data.GasLimit,
-		gasPrice:        new(big.Int).Set(tx.data.Price),
-		to:              tx.data.Recipient,
-		amount:          tx.data.Amount,
-		data:            tx.data.Payload,
-		checkNonce:      true,
-		balanceTokenFee: balanceFee,
-	}
-	var err error
-	msg.from, err = Sender(s, tx)
-	if balanceFee != nil {
-		if number.Cmp(common.TIPTRC21FeeBlock) > 0 {
-			msg.gasPrice = common.TRC21GasPrice
-		} else {
-			msg.gasPrice = common.TRC21GasPriceBefore
-		}
-	}
-	return msg, err
-}
-
 // WithSignature returns a new transaction with the given signature.
 // This signature needs to be formatted as described in the yellow paper (v+27).
 func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, error) {
@@ -674,45 +646,3 @@ func (t *TransactionsByPriceAndNonce) Shift() {
 func (t *TransactionsByPriceAndNonce) Pop() {
 	heap.Pop(&t.heads)
 }
-
-// Message is a fully derived transaction and implements core.Message
-//
-// NOTE: In a future PR this will be removed.
-type Message struct {
-	to              *common.Address
-	from            common.Address
-	nonce           uint64
-	amount          *big.Int
-	gasLimit        uint64
-	gasPrice        *big.Int
-	data            []byte
-	checkNonce      bool
-	balanceTokenFee *big.Int
-}
-
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, balanceTokenFee *big.Int) Message {
-	if balanceTokenFee != nil {
-		gasPrice = common.TRC21GasPrice
-	}
-	return Message{
-		from:            from,
-		to:              to,
-		nonce:           nonce,
-		amount:          amount,
-		gasLimit:        gasLimit,
-		gasPrice:        gasPrice,
-		data:            data,
-		checkNonce:      checkNonce,
-		balanceTokenFee: balanceTokenFee,
-	}
-}
-
-func (m Message) From() common.Address      { return m.from }
-func (m Message) BalanceTokenFee() *big.Int { return m.balanceTokenFee }
-func (m Message) To() *common.Address       { return m.to }
-func (m Message) GasPrice() *big.Int        { return m.gasPrice }
-func (m Message) Value() *big.Int           { return m.amount }
-func (m Message) Gas() uint64               { return m.gasLimit }
-func (m Message) Nonce() uint64             { return m.nonce }
-func (m Message) Data() []byte              { return m.data }
-func (m Message) CheckNonce() bool          { return m.checkNonce }

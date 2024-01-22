@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
-
 	"github.com/tomochain/tomochain/core/vm"
 )
 

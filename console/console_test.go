@@ -19,8 +19,6 @@ package console
 import (
 	"bytes"
 	"errors"
-	"github.com/tomochain/tomochain/tomox"
-	"github.com/tomochain/tomochain/tomoxlending"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -33,6 +31,8 @@ import (
 	"github.com/tomochain/tomochain/eth"
 	"github.com/tomochain/tomochain/internal/jsre"
 	"github.com/tomochain/tomochain/node"
+	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomoxlending"
 )
 
 const (
