@@ -171,14 +171,15 @@ var (
 
 	// TestChainConfig is used for testing purposes only
 	TestChainConfig = &ChainConfig{
-		ChainId:         big.NewInt(1),
-		HomesteadBlock:  big.NewInt(0),
-		EIP150Block:     big.NewInt(0),
-		EIP155Block:     big.NewInt(0),
-		EIP158Block:     big.NewInt(0),
-		ByzantiumBlock:  big.NewInt(0),
-		TIPSigningBlock: big.NewInt(0),
-		Ethash:          new(EthashConfig),
+		ChainId:             big.NewInt(1),
+		HomesteadBlock:      big.NewInt(0),
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		TIPSigningBlock:     big.NewInt(0),
+		Ethash:              new(EthashConfig),
 	}
 )
 
