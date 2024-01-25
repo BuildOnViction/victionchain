@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/tomochain/tomochain/log"
@@ -308,17 +309,31 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 	}
 
 	// execute RPC method and return result
+	start := time.Now()
 	reply := req.callb.method.Func.Call(arguments)
-	if len(reply) == 0 {
-		return codec.CreateResponse(req.id, nil), nil
+	elapsed := time.Since(start)
+	// Collect the statistics for RPC calls if metrics is enabled.
+	// We only care about pure rpc call. Filter out subscription.
+	if !req.callb.isSubscribe {
+		rpcRequestGauge.Inc(1)
+		rpcServingTimer.Update(elapsed)
+		// test if method returned an error
+		if req.callb.errPos >= 0 {
+			if !reply[req.callb.errPos].IsNil() {
+				e := reply[req.callb.errPos].Interface().(error)
+				res := codec.CreateErrorResponse(&req.id, &callbackError{e.Error()})
+				failedRequestGauge.Inc(1)
+				updateServeTimeHistogram(req.callb.method.Name, false, elapsed)
+				return res, nil
+			}
+		}
+		// record success metrics
+		successfulRequestGauge.Inc(1)
+		updateServeTimeHistogram(req.callb.method.Name, true, elapsed)
 	}
 
-	if req.callb.errPos >= 0 { // test if method returned an error
-		if !reply[req.callb.errPos].IsNil() {
-			e := reply[req.callb.errPos].Interface().(error)
-			res := codec.CreateErrorResponse(&req.id, &callbackError{e.Error()})
-			return res, nil
-		}
+	if len(reply) == 0 {
+		return codec.CreateResponse(req.id, nil), nil
 	}
 	return codec.CreateResponse(req.id, reply[0].Interface()), nil
 }
