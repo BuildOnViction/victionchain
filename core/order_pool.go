@@ -573,13 +573,14 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 	hash := tx.Hash()
 	if pool.all[hash] != nil {
 		log.Debug("Discarding known order transaction", "hash", hash, "userAddress", tx.UserAddress().Hex(), "status", tx.Status)
+		knownTxMeter.Mark(1)
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}
 
 	// If the transaction fails basic validation, discard it
 	if err := pool.validateTx(tx, local); err != nil {
 		log.Debug("Discarding invalid order transaction", "hash", hash, "userAddress", tx.UserAddress().Hex(), "status", tx.Status, "err", err)
-		invalidTxCounter.Inc(1)
+		invalidTxMeter.Mark(1)
 		return false, err
 	}
 	from, _ := types.OrderSender(pool.signer, tx) // already validated
@@ -593,12 +594,12 @@ func (pool *OrderPool) add(tx *types.OrderTransaction, local bool) (bool, error)
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
 		inserted, old := list.Add(tx)
 		if !inserted {
-			pendingDiscardCounter.Inc(1)
+			pendingDiscardMeter.Mark(1)
 			return false, ErrPendingNonceTooLow
 		}
 		if old != nil {
 			delete(pool.all, old.Hash())
-			pendingReplaceCounter.Inc(1)
+			pendingReplaceMeter.Mark(1)
 		}
 		pool.all[tx.Hash()] = tx
 		pool.journalTx(from, tx)
@@ -636,13 +637,13 @@ func (pool *OrderPool) enqueueTx(hash common.Hash, tx *types.OrderTransaction) (
 	inserted, old := pool.queue[from].Add(tx)
 	if !inserted {
 		// An older transaction was better, discard this
-		queuedDiscardCounter.Inc(1)
+		queuedDiscardMeter.Mark(1)
 		return false, ErrPendingNonceTooLow
 	}
 	// Discard any previous transaction and mark this
 	if old != nil {
 		delete(pool.all, old.Hash())
-		queuedReplaceCounter.Inc(1)
+		queuedReplaceMeter.Mark(1)
 	}
 	pool.all[hash] = tx
 	return old != nil, nil
@@ -675,13 +676,13 @@ func (pool *OrderPool) promoteTx(addr common.Address, hash common.Hash, tx *type
 	if !inserted {
 		// An older transaction was better, discard this
 		delete(pool.all, hash)
-		pendingDiscardCounter.Inc(1)
+		pendingDiscardMeter.Mark(1)
 		return
 	}
 	// Otherwise discard any previous transaction and mark this
 	if old != nil {
 		delete(pool.all, old.Hash())
-		pendingReplaceCounter.Inc(1)
+		pendingReplaceMeter.Mark(1)
 	}
 	// Failsafe to work around direct pending inserts (tests)
 	if pool.all[hash] == nil {
@@ -782,6 +783,7 @@ func (pool *OrderPool) addTxsLocked(txs []*types.OrderTransaction, local bool) [
 		}
 		pool.promoteExecutables(addrs)
 	}
+	validTxMeter.Mark(int64(len(dirty)))
 	return errs
 }
 
@@ -894,7 +896,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 				hash := tx.Hash()
 				delete(pool.all, hash)
 
-				queuedRateLimitCounter.Inc(1)
+				queuedRateLimitMeter.Mark(1)
 				log.Debug("Removed cap-exceeding queued transaction", "addr", tx.UserAddress().Hex(), "nonce", tx.Nonce(), "ohash", tx.OrderHash().Hex(), "status", tx.Status(), "orderid", tx.OrderID())
 			}
 		}
@@ -971,7 +973,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 				}
 			}
 		}
-		pendingRateLimitCounter.Inc(int64(pendingBeforeCap - pending))
+		pendingRateLimitMeter.Mark(int64(pendingBeforeCap - pending))
 	}
 	// If we've queued more transactions than the hard limit, drop oldest ones
 	queued := uint64(0)
@@ -1001,7 +1003,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 					pool.removeTx(tx.Hash())
 				}
 				drop -= size
-				queuedRateLimitCounter.Inc(int64(size))
+				queuedRateLimitMeter.Mark(int64(size))
 				continue
 			}
 			// Otherwise drop only last few transactions
@@ -1009,7 +1011,7 @@ func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 			for i := len(txs) - 1; i >= 0 && drop > 0; i-- {
 				pool.removeTx(txs[i].Hash())
 				drop--
-				queuedRateLimitCounter.Inc(1)
+				queuedRateLimitMeter.Mark(1)
 			}
 		}
 	}
