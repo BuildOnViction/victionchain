@@ -425,6 +425,7 @@ func (l *txPricedList) Removed() {
 		return
 	}
 	// Seems we've reached a critical number of stale transactions, reheap
+	start := time.Now()
 	reheap := make(priceHeap, 0, len(*l.all))
 
 	l.stales, l.items = 0, &reheap
@@ -432,6 +433,7 @@ func (l *txPricedList) Removed() {
 		*l.items = append(*l.items, tx)
 	}
 	heap.Init(l.items)
+	reheapTimer.Update(time.Since(start))
 }
 
 // Cap finds all the transactions below the given price threshold, drops them

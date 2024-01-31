@@ -117,6 +117,8 @@ var (
 	pendingGauge = metrics.NewRegisteredGauge("txpool/pending", nil)
 	queuedGauge  = metrics.NewRegisteredGauge("txpool/queued", nil)
 	localGauge   = metrics.NewRegisteredGauge("txpool/local", nil)
+
+	reheapTimer = metrics.NewRegisteredTimer("txpool/reheap", nil)
 )
 
 // TxStatus is the current status of a transaction as seen by the pool.
