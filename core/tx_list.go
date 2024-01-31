@@ -21,6 +21,7 @@ import (
 	"math"
 	"math/big"
 	"sort"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
@@ -415,16 +416,17 @@ func (l *txPricedList) Put(tx *types.Transaction) {
 	heap.Push(l.items, tx)
 }
 
-// Removed notifies the prices transaction list that an old transaction dropped
+// Removed notifies the priced transaction list that an old transaction dropped
 // from the pool. The list will just keep a counter of stale objects and update
-// the heap if a large enough ratio of transactions go stale.
-func (l *txPricedList) Removed() {
+// the heap if a large enough ratio of transactions goes stale.
+func (l *txPricedList) Removed(count int) {
 	// Bump the stale counter, but exit if still too low (< 25%)
-	l.stales++
+	l.stales = l.stales + count
 	if l.stales <= len(*l.items)/4 {
 		return
 	}
 	// Seems we've reached a critical number of stale transactions, reheap
+	start := time.Now()
 	reheap := make(priceHeap, 0, len(*l.all))
 
 	l.stales, l.items = 0, &reheap
@@ -432,6 +434,7 @@ func (l *txPricedList) Removed() {
 		*l.items = append(*l.items, tx)
 	}
 	heap.Init(l.items)
+	reheapTimer.Update(time.Since(start))
 }
 
 // Cap finds all the transactions below the given price threshold, drops them
