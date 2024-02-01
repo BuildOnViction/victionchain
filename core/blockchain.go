@@ -55,6 +55,10 @@ import (
 )
 
 var (
+	headBlockGauge = metrics.NewRegisteredGauge("chain/head/block", nil)
+)
+
+var (
 	blockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
 	CheckpointCh     = make(chan int)
 	ErrNoGenesis     = errors.New("Genesis not found in chain")
@@ -289,6 +293,8 @@ func (bc *BlockChain) loadLastState() error {
 		log.Warn("Head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
+	// Everything seems to be fine, set as the head block
+	headBlockGauge.Update(int64(currentBlock.NumberU64()))
 	repair := false
 	if common.Rewound != uint64(0) {
 		repair = true
@@ -568,6 +574,7 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 	bc.genesisBlock = genesis
 	bc.insert(bc.genesisBlock)
 	bc.currentBlock.Store(bc.genesisBlock)
+	headBlockGauge.Update(int64(bc.genesisBlock.NumberU64()))
 	bc.hc.SetGenesis(bc.genesisBlock.Header())
 	bc.hc.SetCurrentHeader(bc.genesisBlock.Header())
 	bc.currentFastBlock.Store(bc.genesisBlock)
@@ -1358,6 +1365,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	if err := batch.Write(); err != nil {
 		return NonStatTy, err
 	}
+	headBlockGauge.Update(int64(block.NumberU64()))
 
 	// Set new head.
 	if status == CanonStatTy {
