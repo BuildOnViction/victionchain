@@ -22,11 +22,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
+
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/accounts/keystore"
@@ -44,6 +48,8 @@ import (
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
+	"github.com/tomochain/tomochain/metrics/exp"
+	"github.com/tomochain/tomochain/metrics/influxdb"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/p2p"
 	"github.com/tomochain/tomochain/p2p/discover"
@@ -53,7 +59,6 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tomox"
 	whisper "github.com/tomochain/tomochain/whisper/whisperv6"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -355,10 +360,87 @@ var (
 		Name:  "ethstats",
 		Usage: "Reporting URL of a ethstats service (nodename:secret@host:port)",
 	}
+	// Metrics flags
 	MetricsEnabledFlag = cli.BoolFlag{
-		Name:  metrics.MetricsEnabledFlag,
+		Name:  "metrics",
 		Usage: "Enable metrics collection and reporting",
 	}
+	MetricsEnabledExpensiveFlag = &cli.BoolFlag{
+		Name:  "metrics.expensive",
+		Usage: "Enable expensive metrics collection and reporting",
+	}
+	// MetricsHTTPFlag defines the endpoint for a stand-alone metrics HTTP endpoint.
+	// Since the pprof service enables sensitive/vulnerable behavior, this allows a user
+	// to enable a public-OK metrics endpoint without having to worry about ALSO exposing
+	// other profiling behavior or information.
+	MetricsHTTPFlag = &cli.StringFlag{
+		Name:  "metrics.addr",
+		Usage: `Enable stand-alone metrics HTTP server listening interface.`,
+	}
+	MetricsPortFlag = &cli.IntFlag{
+		Name: "metrics.port",
+		Usage: `Metrics HTTP server listening port.
+Please note that --` + MetricsHTTPFlag.Name + ` must be set to start the server.`,
+		Value: metrics.DefaultConfig.Port,
+	}
+	MetricsEnableInfluxDBFlag = &cli.BoolFlag{
+		Name:  "metrics.influxdb",
+		Usage: "Enable metrics export/push to an external InfluxDB database",
+	}
+	MetricsInfluxDBEndpointFlag = &cli.StringFlag{
+		Name:  "metrics.influxdb.endpoint",
+		Usage: "InfluxDB API endpoint to report metrics to",
+		Value: metrics.DefaultConfig.InfluxDBEndpoint,
+	}
+	MetricsInfluxDBDatabaseFlag = &cli.StringFlag{
+		Name:  "metrics.influxdb.database",
+		Usage: "InfluxDB database name to push reported metrics to",
+		Value: metrics.DefaultConfig.InfluxDBDatabase,
+	}
+	MetricsInfluxDBUsernameFlag = &cli.StringFlag{
+		Name:  "metrics.influxdb.username",
+		Usage: "Username to authorize access to the database",
+		Value: metrics.DefaultConfig.InfluxDBUsername,
+	}
+	MetricsInfluxDBPasswordFlag = &cli.StringFlag{
+		Name:  "metrics.influxdb.password",
+		Usage: "Password to authorize access to the database",
+		Value: metrics.DefaultConfig.InfluxDBPassword,
+	}
+	// MetricsInfluxDBTagsFlag are part of every measurement sent to InfluxDB.
+	// Queries on tags are faster in InfluxDB.
+	// For example, `host` tag could be used so that we can group all nodes and average a measurement
+	// across all of them, but also so that we can select a specific node and inspect its measurements.
+	// https://docs.influxdata.com/influxdb/v1.4/concepts/key_concepts/#tag-key
+	MetricsInfluxDBTagsFlag = &cli.StringFlag{
+		Name:  "metrics.influxdb.tags",
+		Usage: "Comma-separated InfluxDB tags (key/values) attached to all measurements",
+		Value: metrics.DefaultConfig.InfluxDBTags,
+	}
+
+	MetricsEnableInfluxDBV2Flag = &cli.BoolFlag{
+		Name:  "metrics.influxdbv2",
+		Usage: "Enable metrics export/push to an external InfluxDB v2 database",
+	}
+
+	MetricsInfluxDBTokenFlag = &cli.StringFlag{
+		Name:  "metrics.influxdb.token",
+		Usage: "Token to authorize access to the database (v2 only)",
+		Value: metrics.DefaultConfig.InfluxDBToken,
+	}
+
+	MetricsInfluxDBBucketFlag = &cli.StringFlag{
+		Name:  "metrics.influxdb.bucket",
+		Usage: "InfluxDB bucket name to push reported metrics to (v2 only)",
+		Value: metrics.DefaultConfig.InfluxDBBucket,
+	}
+
+	MetricsInfluxDBOrganizationFlag = &cli.StringFlag{
+		Name:  "metrics.influxdb.organization",
+		Usage: "InfluxDB organization name (v2 only)",
+		Value: metrics.DefaultConfig.InfluxDBOrganization,
+	}
+
 	FakePoWFlag = cli.BoolFlag{
 		Name:  "fakepow",
 		Usage: "Disables proof-of-work verification",
@@ -1080,6 +1162,47 @@ func SetTomoXConfig(ctx *cli.Context, cfg *tomox.Config, tomoDataDir string) {
 	}
 }
 
+// CheckExclusive verifies that only a single instance of the provided flags was
+// set by the user. Each flag might optionally be followed by a string type to
+// specialize it further.
+func CheckExclusive(ctx *cli.Context, args ...interface{}) {
+	set := make([]string, 0, 1)
+	for i := 0; i < len(args); i++ {
+		// Make sure the next argument is a flag and skip if not set
+		flag, ok := args[i].(cli.Flag)
+		if !ok {
+			panic(fmt.Sprintf("invalid argument, not cli.Flag type: %T", args[i]))
+		}
+		// Check if next arg extends current and expand its name if so
+		name := flag.GetName()
+
+		if i+1 < len(args) {
+			switch option := args[i+1].(type) {
+			case string:
+				// Extended flag check, make sure value set doesn't conflict with passed in option
+				if ctx.String(flag.GetName()) == option {
+					name += "=" + option
+					set = append(set, "--"+name)
+				}
+				// shift arguments and continue
+				i++
+				continue
+
+			case cli.Flag:
+			default:
+				panic(fmt.Sprintf("invalid argument, not cli.Flag or string extension: %T", args[i+1]))
+			}
+		}
+		// Mark the flag if it's set
+		if ctx.IsSet(flag.GetName()) {
+			set = append(set, "--"+name)
+		}
+	}
+	if len(set) > 1 {
+		Fatalf("Flags %v can't be used at the same time", strings.Join(set, ", "))
+	}
+}
+
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	// Avoid conflicting network flags
@@ -1190,6 +1313,84 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 func SetupNetwork(ctx *cli.Context) {
 	// TODO(fjl): move target gas limit into config
 	params.TargetGasLimit = ctx.GlobalUint64(TargetGasLimitFlag.Name)
+}
+
+func SetupMetrics(ctx *cli.Context) {
+	if metrics.Enabled {
+		log.Info("Enabling metrics collection")
+
+		var (
+			enableExport   = ctx.Bool(MetricsEnableInfluxDBFlag.Name)
+			enableExportV2 = ctx.Bool(MetricsEnableInfluxDBV2Flag.Name)
+		)
+
+		if enableExport || enableExportV2 {
+			CheckExclusive(ctx, MetricsEnableInfluxDBFlag, MetricsEnableInfluxDBV2Flag)
+
+			v1FlagIsSet := ctx.IsSet(MetricsInfluxDBUsernameFlag.Name) ||
+				ctx.IsSet(MetricsInfluxDBPasswordFlag.Name)
+
+			v2FlagIsSet := ctx.IsSet(MetricsInfluxDBTokenFlag.Name) ||
+				ctx.IsSet(MetricsInfluxDBOrganizationFlag.Name) ||
+				ctx.IsSet(MetricsInfluxDBBucketFlag.Name)
+
+			if enableExport && v2FlagIsSet {
+				Fatalf("Flags --influxdb.metrics.organization, --influxdb.metrics.token, --influxdb.metrics.bucket are only available for influxdb-v2")
+			} else if enableExportV2 && v1FlagIsSet {
+				Fatalf("Flags --influxdb.metrics.username, --influxdb.metrics.password are only available for influxdb-v1")
+			}
+		}
+
+		var (
+			endpoint = ctx.String(MetricsInfluxDBEndpointFlag.Name)
+			database = ctx.String(MetricsInfluxDBDatabaseFlag.Name)
+			username = ctx.String(MetricsInfluxDBUsernameFlag.Name)
+			password = ctx.String(MetricsInfluxDBPasswordFlag.Name)
+
+			token        = ctx.String(MetricsInfluxDBTokenFlag.Name)
+			bucket       = ctx.String(MetricsInfluxDBBucketFlag.Name)
+			organization = ctx.String(MetricsInfluxDBOrganizationFlag.Name)
+		)
+
+		if enableExport {
+			tagsMap := SplitTagsFlag(ctx.String(MetricsInfluxDBTagsFlag.Name))
+
+			log.Info("Enabling metrics export to InfluxDB")
+
+			go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, "geth.", tagsMap)
+		} else if enableExportV2 {
+			tagsMap := SplitTagsFlag(ctx.String(MetricsInfluxDBTagsFlag.Name))
+
+			log.Info("Enabling metrics export to InfluxDB (v2)")
+
+			go influxdb.InfluxDBV2WithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, token, bucket, organization, "geth.", tagsMap)
+		}
+
+		if ctx.IsSet(MetricsHTTPFlag.Name) {
+			address := net.JoinHostPort(ctx.String(MetricsHTTPFlag.Name), fmt.Sprintf("%d", ctx.Int(MetricsPortFlag.Name)))
+			log.Info("Enabling stand-alone metrics HTTP endpoint", "address", address)
+			exp.Setup(address)
+		} else if ctx.IsSet(MetricsPortFlag.Name) {
+			log.Warn(fmt.Sprintf("--%s specified without --%s, metrics server will not start.", MetricsPortFlag.Name, MetricsHTTPFlag.Name))
+		}
+	}
+}
+
+func SplitTagsFlag(tagsFlag string) map[string]string {
+	tags := strings.Split(tagsFlag, ",")
+	tagsMap := map[string]string{}
+
+	for _, t := range tags {
+		if t != "" {
+			kv := strings.Split(t, "=")
+
+			if len(kv) == 2 {
+				tagsMap[kv[0]] = kv[1]
+			}
+		}
+	}
+
+	return tagsMap
 }
 
 // MakeChainDatabase open an LevelDB using the flags passed to the client and will hard crash if it fails.
