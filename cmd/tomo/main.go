@@ -119,8 +119,6 @@ var (
 		utils.RPCCORSDomainFlag,
 		utils.RPCVirtualHostsFlag,
 		utils.EthStatsURLFlag,
-		utils.MetricsEnabledFlag,
-		utils.MetricsEnabledExpensiveFlag,
 		//utils.FakePoWFlag,
 		//utils.NoCompactionFlag,
 		//utils.GpoBlocksFlag,
