@@ -599,30 +599,6 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 // goes into transaction receipts.
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	s.Finalise(deleteEmptyObjects)
-	// Although naively it makes sense to retrieve the account trie and then do
-	// the contract storage and account updates sequentially, that short circuits
-	// the account prefetcher. Instead, let's process all the storage updates
-	// first, giving the account prefetches just a few more milliseconds of time
-	// to pull useful data from disk.
-	for addr := range s.stateObjectsDirty {
-		if obj := s.stateObjects[addr]; !obj.deleted {
-			obj.updateRoot(s.db)
-		}
-	}
-	usedAddrs := make([][]byte, 0, len(s.stateObjectsDirty))
-	for addr := range s.stateObjectsDirty {
-		if obj := s.stateObjects[addr]; obj.deleted {
-			s.deleteStateObject(obj)
-			s.AccountDeleted += 1
-		} else {
-			s.updateStateObject(obj)
-			s.AccountUpdated += 1
-		}
-		usedAddrs = append(usedAddrs, common.CopyBytes(addr[:])) // Copy needed for closure
-	}
-	if len(s.stateObjectsDirty) > 0 {
-		s.stateObjectsDirty = make(map[common.Address]struct{})
-	}
 	// Track the amount of time wasted on hashing the account trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.AccountHashes += time.Since(start) }(time.Now())
@@ -681,6 +657,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 			// If the object has been removed, don't bother syncing it
 			// and just mark it for deletion in the trie.
 			s.deleteStateObject(stateObject)
+			s.AccountDeleted++
 		case isDirty:
 			// Write any contract code associated with the state object
 			if stateObject.code != nil && stateObject.dirtyCode {
@@ -693,6 +670,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 			}
 			// Update the object in the main account trie.
 			s.updateStateObject(stateObject)
+			s.AccountUpdated++
 		}
 		delete(s.stateObjectsDirty, addr)
 	}
