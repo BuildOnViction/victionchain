@@ -22,11 +22,13 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
 )
@@ -79,6 +81,22 @@ type StateDB struct {
 	journal        journal
 	validRevisions []revision
 	nextRevisionId int
+
+	// Measurements gathered during execution for debugging purposes
+	AccountReads   time.Duration
+	AccountHashes  time.Duration
+	AccountUpdates time.Duration
+	AccountCommits time.Duration
+	StorageReads   time.Duration
+	StorageHashes  time.Duration
+	StorageUpdates time.Duration
+	StorageCommits time.Duration
+	TrieDBCommits  time.Duration
+
+	AccountUpdated int
+	StorageUpdated int
+	AccountDeleted int
+	StorageDeleted int
 
 	lock sync.Mutex
 }
@@ -359,6 +377,10 @@ func (self *StateDB) Suicide(addr common.Address) bool {
 
 // updateStateObject writes the given object to the trie.
 func (self *StateDB) updateStateObject(stateObject *stateObject) {
+	// Track the amount of time wasted on updating the account from the trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { self.AccountUpdates += time.Since(start) }(time.Now())
+	}
 	addr := stateObject.Address()
 	data, err := rlp.EncodeToBytes(stateObject)
 	if err != nil {
@@ -369,6 +391,10 @@ func (self *StateDB) updateStateObject(stateObject *stateObject) {
 
 // deleteStateObject removes the given object from the state trie.
 func (self *StateDB) deleteStateObject(stateObject *stateObject) {
+	// Track the amount of time wasted on deleting the account from the trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { self.AccountUpdates += time.Since(start) }(time.Now())
+	}
 	stateObject.deleted = true
 	addr := stateObject.Address()
 	self.setError(self.trie.TryDelete(addr[:]))
@@ -393,7 +419,11 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 	}
 
 	// Load the object from the database.
+	start := time.Now()
 	enc, err := self.trie.TryGet(addr[:])
+	if metrics.EnabledExpensive {
+		self.AccountReads += time.Since(start)
+	}
 	if len(enc) == 0 {
 		self.setError(err)
 		return nil
@@ -449,8 +479,8 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 // CreateAccount is called during the EVM CREATE operation. The situation might arise that
 // a contract does the following:
 //
-//   1. sends funds to sha(account ++ (nonce + 1))
-//   2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
+//  1. sends funds to sha(account ++ (nonce + 1))
+//  2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
 func (self *StateDB) CreateAccount(addr common.Address) {
@@ -569,6 +599,34 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 // goes into transaction receipts.
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	s.Finalise(deleteEmptyObjects)
+	// Although naively it makes sense to retrieve the account trie and then do
+	// the contract storage and account updates sequentially, that short circuits
+	// the account prefetcher. Instead, let's process all the storage updates
+	// first, giving the account prefetches just a few more milliseconds of time
+	// to pull useful data from disk.
+	for addr := range s.stateObjectsDirty {
+		if obj := s.stateObjects[addr]; !obj.deleted {
+			obj.updateRoot(s.db)
+		}
+	}
+	usedAddrs := make([][]byte, 0, len(s.stateObjectsDirty))
+	for addr := range s.stateObjectsDirty {
+		if obj := s.stateObjects[addr]; obj.deleted {
+			s.deleteStateObject(obj)
+			s.AccountDeleted += 1
+		} else {
+			s.updateStateObject(obj)
+			s.AccountUpdated += 1
+		}
+		usedAddrs = append(usedAddrs, common.CopyBytes(addr[:])) // Copy needed for closure
+	}
+	if len(s.stateObjectsDirty) > 0 {
+		s.stateObjectsDirty = make(map[common.Address]struct{})
+	}
+	// Track the amount of time wasted on hashing the account trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { s.AccountHashes += time.Since(start) }(time.Now())
+	}
 	return s.trie.Hash()
 }
 
@@ -611,7 +669,11 @@ func (s *StateDB) clearJournalAndRefund() {
 func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) {
 	defer s.clearJournalAndRefund()
 
-	// Commit objects to the trie.
+	// Write the account trie changes, measuring the amount of wasted time
+	var start time.Time
+	if metrics.EnabledExpensive {
+		start = time.Now()
+	}
 	for addr, stateObject := range s.stateObjects {
 		_, isDirty := s.stateObjectsDirty[addr]
 		switch {
@@ -634,7 +696,18 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 		}
 		delete(s.stateObjectsDirty, addr)
 	}
+	if metrics.EnabledExpensive {
+		s.AccountCommits += time.Since(start)
+
+		accountUpdatedMeter.Mark(int64(s.AccountUpdated))
+		storageUpdatedMeter.Mark(int64(s.StorageUpdated))
+		accountDeletedMeter.Mark(int64(s.AccountDeleted))
+		storageDeletedMeter.Mark(int64(s.StorageDeleted))
+		s.AccountUpdated, s.AccountDeleted = 0, 0
+		s.StorageUpdated, s.StorageDeleted = 0, 0
+	}
 	// Write trie changes.
+	start = time.Now()
 	root, err = s.trie.Commit(func(leaf []byte, parent common.Hash) error {
 		var account Account
 		if err := rlp.DecodeBytes(leaf, &account); err != nil {
@@ -649,6 +722,9 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 		}
 		return nil
 	})
+	if metrics.EnabledExpensive {
+		s.TrieDBCommits += time.Since(start)
+	}
 	return root, err
 }
 
