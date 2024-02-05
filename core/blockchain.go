@@ -1758,7 +1758,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		stats.processed++
 		stats.usedGas += usedGas
 		dirty, _ := bc.stateCache.TrieDB().Size()
-		log.Info("Reporting block from insertChain...")
 		stats.report(chain, i, dirty)
 		if bc.chainConfig.Posv != nil {
 			// epoch block
@@ -1842,7 +1841,6 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		return nil, ErrBlacklistedHash
 	}
 	// Wait for the block's verification to complete
-	bstart := time.Now()
 	err := bc.Validator().ValidateBody(block)
 	switch {
 	case err == ErrKnownBlock:
@@ -1989,23 +1987,44 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	// Process block using the parent state as reference point.
+	var (
+		start  = time.Now()
+		pstart = time.Now()
+	)
 	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, tradingState, bc.vmConfig, feeCapacity)
-	process := time.Since(bstart)
 	if err != nil {
 		if err != ErrStopPreparingBlock {
 			bc.reportBlock(block, receipts, err)
 		}
 		return nil, err
 	}
+	ptime := time.Since(pstart)
 	// Validate the state using the default validator
+	vstart := time.Now()
 	err = bc.Validator().ValidateState(block, parent, statedb, receipts, usedGas)
 	if err != nil {
 		bc.reportBlock(block, receipts, err)
 		return nil, err
 	}
-	proctime := time.Since(bstart)
+	vtime := time.Since(vstart)
+	proctime := time.Since(start) // processing + validation
+
+	// Update the metrics touched during block processing and validation
+	accountReadTimer.Update(statedb.AccountReads)                 // Account reads are complete(in processing)
+	storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete(in processing)
+	accountUpdateTimer.Update(statedb.AccountUpdates)             // Account updates are complete(in validation)
+	storageUpdateTimer.Update(statedb.StorageUpdates)             // Storage updates are complete(in validation)
+	accountHashTimer.Update(statedb.AccountHashes)                // Account hashes are complete(in validation)
+	storageHashTimer.Update(statedb.StorageHashes)                // Storage hashes are complete(in validation)
+	triehash := statedb.AccountHashes + statedb.StorageHashes     // The time spent on tries hashing
+	trieUpdate := statedb.AccountUpdates + statedb.StorageUpdates // The time spent on tries update
+	trieRead := statedb.AccountReads                              // The time spent on account read
+	trieRead += statedb.StorageReads                              // The time spent on storage read
+	blockExecutionTimer.Update(ptime - trieRead)                  // The time spent on EVM processing
+	blockValidationTimer.Update(vtime - (triehash + trieUpdate))  // The time spent on block validation
+
 	log.Debug("Calculate new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
-		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)), "process", process)
+		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(start)))
 	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, tradingState: tradingState, lendingState: lendingState, proctime: proctime, usedGas: usedGas}, nil
 }
 
@@ -2056,7 +2075,17 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	if bc.HasBlockAndFullState(block.Hash(), block.NumberU64()) {
 		return events, coalescedLogs, nil
 	}
+
+	wstart := time.Now()
 	status, err := bc.WriteBlockWithState(block, result.receipts, result.state, result.tradingState, result.lendingState)
+
+	// Update the metrics touched during block commit
+	accountCommitTimer.Update(result.state.AccountCommits) // Account commits are complete, we can mark them
+	storageCommitTimer.Update(result.state.StorageCommits) // Storage commits are complete, we can mark them
+	triedbCommitTimer.Update(result.state.TrieDBCommits)   // Trie database commits are complete, we can mark them
+
+	blockWriteTimer.Update(time.Since(wstart) - result.state.AccountCommits - result.state.StorageCommits - result.state.TrieDBCommits)
+	blockInsertTimer.Update(result.proctime)
 
 	if err != nil {
 		return events, coalescedLogs, err
@@ -2094,8 +2123,6 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	case SideStatTy:
 		log.Debug("Inserted forked block from fetcher", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 			common.PrettyDuration(time.Since(block.ReceivedAt)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
-
-		blockInsertTimer.Update(result.proctime)
 		events = append(events, ChainSideEvent{block})
 
 		bc.UpdateBlocksHashCache(block)
@@ -2103,7 +2130,6 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	stats.processed++
 	stats.usedGas += result.usedGas
 	dirty, _ := bc.stateCache.TrieDB().Size()
-	log.Info("Reporting block from insertBlock...")
 	stats.report(types.Blocks{block}, 0, dirty)
 	if bc.chainConfig.Posv != nil {
 		// epoch block
