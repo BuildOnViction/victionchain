@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -171,7 +173,12 @@ func (c *stateObject) getTrie(db Database) Trie {
 func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
 	value := common.Hash{}
 	// Load from DB in case it is missing.
-	enc, err := self.getTrie(db).TryGet(key[:])
+	tr := self.getTrie(db)
+	start := time.Now()
+	enc, err := tr.TryGet(key[:])
+	if metrics.EnabledExpensive {
+		self.db.StorageReads += time.Since(start)
+	}
 	if err != nil {
 		self.setError(err)
 		return common.Hash{}
@@ -232,16 +239,22 @@ func (self *stateObject) setState(key, value common.Hash) {
 
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (self *stateObject) updateTrie(db Database) Trie {
+	// Track the amount of time wasted on updating the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { self.db.StorageUpdates += time.Since(start) }(time.Now())
+	}
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
 		if (value == common.Hash{}) {
 			self.setError(tr.TryDelete(key[:]))
+			self.db.StorageDeleted += 1
 			continue
 		}
 		// Encoding []byte cannot fail, ok to ignore the error.
 		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
 		self.setError(tr.TryUpdate(key[:], v))
+		self.db.StorageUpdated += 1
 	}
 	return tr
 }
@@ -249,6 +262,10 @@ func (self *stateObject) updateTrie(db Database) Trie {
 // UpdateRoot sets the trie root to the current root hash of
 func (self *stateObject) updateRoot(db Database) {
 	self.updateTrie(db)
+	// Track the amount of time wasted on hashing the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { self.db.StorageHashes += time.Since(start) }(time.Now())
+	}
 	self.data.Root = self.trie.Hash()
 }
 
@@ -258,6 +275,10 @@ func (self *stateObject) CommitTrie(db Database) error {
 	self.updateTrie(db)
 	if self.dbErr != nil {
 		return self.dbErr
+	}
+	// Track the amount of time wasted on committing the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { self.db.StorageCommits += time.Since(start) }(time.Now())
 	}
 	root, err := self.trie.Commit(nil)
 	if err == nil {
