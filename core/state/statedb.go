@@ -585,9 +585,11 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		stateObject := s.stateObjects[addr]
 		if stateObject.suicided || (deleteEmptyObjects && stateObject.empty()) {
 			s.deleteStateObject(stateObject)
+			s.AccountDeleted++
 		} else {
 			stateObject.updateRoot(s.db)
 			s.updateStateObject(stateObject)
+			s.AccountUpdated++
 		}
 	}
 	// Invalidate journal because reverting across transactions is not allowed.
