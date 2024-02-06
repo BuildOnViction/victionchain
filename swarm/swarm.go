@@ -248,11 +248,11 @@ func detectEnsAddr(client *rpc.Client) (common.Address, error) {
 
 	switch {
 
-	case version == "1" && block.Hash() == params.MainnetGenesisHash:
+	case version == "1" && block.Hash() == params.VicMainnetGenesisHash:
 		log.Info("using Mainnet ENS contract address", "addr", ens.MainNetAddress)
 		return ens.MainNetAddress, nil
 
-	case version == "3" && block.Hash() == params.TestnetGenesisHash:
+	case version == "3" && block.Hash() == params.VicTestnetGenesisHash:
 		log.Info("using Testnet ENS contract address", "addr", ens.TestNetAddress)
 		return ens.TestNetAddress, nil
 

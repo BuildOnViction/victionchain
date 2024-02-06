@@ -21,22 +21,7 @@ import (
 
 	"math/big"
 
-	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/params"
-)
-
-var (
-	mainnetChainConfig = params.ChainConfig{
-		ChainId:        big.NewInt(1),
-		HomesteadBlock: big.NewInt(1150000),
-		DAOForkBlock:   big.NewInt(1920000),
-		DAOForkSupport: true,
-		EIP150Block:    big.NewInt(2463000),
-		EIP150Hash:     common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
-		EIP155Block:    big.NewInt(2675000),
-		EIP158Block:    big.NewInt(2675000),
-		ByzantiumBlock: big.NewInt(4370000),
-	}
 )
 
 func TestDifficulty(t *testing.T) {
@@ -56,8 +41,8 @@ func TestDifficulty(t *testing.T) {
 	dt.skipLoad("difficultyMorden\\.json")
 	dt.skipLoad("difficultyOlimpic\\.json")
 
-	dt.config("Ropsten", *params.TestnetChainConfig)
-	dt.config("Morden", *params.TestnetChainConfig)
+	dt.config("Ropsten", ropstenChainConfig)
+	dt.config("Morden", ropstenChainConfig)
 	dt.config("Frontier", params.ChainConfig{})
 
 	dt.config("Homestead", params.ChainConfig{
@@ -68,7 +53,7 @@ func TestDifficulty(t *testing.T) {
 		ByzantiumBlock: big.NewInt(0),
 	})
 
-	dt.config("Frontier", *params.TestnetChainConfig)
+	dt.config("Frontier", ropstenChainConfig)
 	dt.config("MainNetwork", mainnetChainConfig)
 	dt.config("CustomMainNetwork", mainnetChainConfig)
 	dt.config("difficulty.json", mainnetChainConfig)

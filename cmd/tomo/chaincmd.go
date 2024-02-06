@@ -19,23 +19,24 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"os"
 	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/console"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/eth/downloader"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/log"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -133,7 +134,6 @@ The export-preimages command export hash preimages to an RLP encoded stream`,
 			utils.SyncModeFlag,
 			utils.FakePoWFlag,
 			utils.TestnetFlag,
-			utils.RinkebyFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `

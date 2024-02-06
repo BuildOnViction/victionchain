@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core/rawdb"
@@ -32,12 +33,12 @@ import (
 
 func TestDefaultGenesisBlock(t *testing.T) {
 	block := DefaultGenesisBlock().ToBlock(nil)
-	if block.Hash() != params.TomoMainnetGenesisHash {
-		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash().String(), params.TomoMainnetGenesisHash.String())
+	if block.Hash() != params.VicMainnetGenesisHash {
+		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash().String(), params.VicMainnetGenesisHash.String())
 	}
 	block = DefaultTestnetGenesisBlock().ToBlock(nil)
-	if block.Hash() != params.TestnetGenesisHash {
-		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash().String(), params.TestnetGenesisHash.String())
+	if block.Hash() != params.VicTestnetGenesisHash {
+		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash().String(), params.VicTestnetGenesisHash.String())
 	}
 }
 
@@ -73,7 +74,7 @@ func TestSetupGenesis(t *testing.T) {
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   params.TomoMainnetGenesisHash,
+			wantHash:   params.VicMainnetGenesisHash,
 			wantConfig: params.VicMainnetChainConfig,
 		},
 		{
@@ -82,7 +83,7 @@ func TestSetupGenesis(t *testing.T) {
 				DefaultGenesisBlock().MustCommit(db)
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   params.TomoMainnetGenesisHash,
+			wantHash:   params.VicMainnetGenesisHash,
 			wantConfig: params.VicMainnetChainConfig,
 		},
 		{
@@ -100,9 +101,9 @@ func TestSetupGenesis(t *testing.T) {
 				customg.MustCommit(db)
 				return SetupGenesisBlock(db, DefaultTestnetGenesisBlock())
 			},
-			wantErr:    &GenesisMismatchError{Stored: customghash, New: params.TestnetGenesisHash},
-			wantHash:   params.TestnetGenesisHash,
-			wantConfig: params.TestnetChainConfig,
+			wantErr:    &GenesisMismatchError{Stored: customghash, New: params.VicTestnetGenesisHash},
+			wantHash:   params.VicTestnetGenesisHash,
+			wantConfig: params.VicTestnetChainConfig,
 		},
 		{
 			name: "compatible config in DB",
