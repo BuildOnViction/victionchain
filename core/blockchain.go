@@ -55,9 +55,37 @@ import (
 )
 
 var (
-	blockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
-	CheckpointCh     = make(chan int)
-	ErrNoGenesis     = errors.New("Genesis not found in chain")
+	headBlockGauge     = metrics.NewRegisteredGauge("chain/head/block", nil)
+	headHeaderGauge    = metrics.NewRegisteredGauge("chain/head/header", nil)
+	headFastBlockGauge = metrics.NewRegisteredGauge("chain/head/receipt", nil)
+
+	chainInfoGauge = metrics.NewRegisteredGaugeInfo("chain/info", nil)
+
+	accountReadTimer   = metrics.NewRegisteredTimer("chain/account/reads", nil)
+	accountHashTimer   = metrics.NewRegisteredTimer("chain/account/hashes", nil)
+	accountUpdateTimer = metrics.NewRegisteredTimer("chain/account/updates", nil)
+	accountCommitTimer = metrics.NewRegisteredTimer("chain/account/commits", nil)
+
+	storageReadTimer   = metrics.NewRegisteredTimer("chain/storage/reads", nil)
+	storageHashTimer   = metrics.NewRegisteredTimer("chain/storage/hashes", nil)
+	storageUpdateTimer = metrics.NewRegisteredTimer("chain/storage/updates", nil)
+	storageCommitTimer = metrics.NewRegisteredTimer("chain/storage/commits", nil)
+
+	triedbCommitTimer = metrics.NewRegisteredTimer("chain/triedb/commits", nil)
+
+	blockInsertTimer     = metrics.NewRegisteredTimer("chain/inserts", nil)
+	blockValidationTimer = metrics.NewRegisteredTimer("chain/validation", nil)
+	blockExecutionTimer  = metrics.NewRegisteredTimer("chain/execution", nil)
+	blockWriteTimer      = metrics.NewRegisteredTimer("chain/write", nil)
+
+	blockReorgMeter     = metrics.NewRegisteredMeter("chain/reorg/executes", nil)
+	blockReorgAddMeter  = metrics.NewRegisteredMeter("chain/reorg/add", nil)
+	blockReorgDropMeter = metrics.NewRegisteredMeter("chain/reorg/drop", nil)
+)
+
+var (
+	CheckpointCh = make(chan int)
+	ErrNoGenesis = errors.New("Genesis not found in chain")
 )
 
 const (
@@ -231,6 +259,10 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
 	}
+
+	// Update chain info data metrics
+	chainInfoGauge.Update(metrics.GaugeInfoValue{"chain_id": bc.chainConfig.ChainId.String()})
+
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
@@ -289,6 +321,8 @@ func (bc *BlockChain) loadLastState() error {
 		log.Warn("Head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
+	// Everything seems to be fine, set as the head block
+	headBlockGauge.Update(int64(currentBlock.NumberU64()))
 	repair := false
 	if common.Rewound != uint64(0) {
 		repair = true
@@ -353,9 +387,11 @@ func (bc *BlockChain) loadLastState() error {
 
 	// Restore the last known head fast block
 	bc.currentFastBlock.Store(currentBlock)
+	headFastBlockGauge.Update(int64(currentBlock.NumberU64()))
 	if head := rawdb.GetHeadFastBlockHash(bc.db); head != (common.Hash{}) {
 		if block := bc.GetBlockByHash(head); block != nil {
 			bc.currentFastBlock.Store(block)
+			headFastBlockGauge.Update(int64(block.NumberU64()))
 		}
 	}
 
@@ -423,9 +459,11 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	if err := rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash()); err != nil {
 		log.Crit("Failed to reset head full block", "err", err)
 	}
+	headBlockGauge.Update(int64(currentBlock.NumberU64()))
 	if err := rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash()); err != nil {
 		log.Crit("Failed to reset head fast block", "err", err)
 	}
+	headFastBlockGauge.Update(int64(currentFastBlock.NumberU64()))
 	return bc.loadLastState()
 }
 
@@ -568,10 +606,11 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 	bc.genesisBlock = genesis
 	bc.insert(bc.genesisBlock)
 	bc.currentBlock.Store(bc.genesisBlock)
+	headBlockGauge.Update(int64(bc.genesisBlock.NumberU64()))
 	bc.hc.SetGenesis(bc.genesisBlock.Header())
 	bc.hc.SetCurrentHeader(bc.genesisBlock.Header())
 	bc.currentFastBlock.Store(bc.genesisBlock)
-
+	headFastBlockGauge.Update(int64(bc.genesisBlock.NumberU64()))
 	return nil
 }
 
@@ -668,6 +707,7 @@ func (bc *BlockChain) insert(block *types.Block) {
 		log.Crit("Failed to insert head block hash", "err", err)
 	}
 	bc.currentBlock.Store(block)
+	headBlockGauge.Update(int64(block.NumberU64()))
 
 	// save cache BlockSigners
 	if bc.chainConfig.Posv != nil && !bc.chainConfig.IsTIPSigning(block.Number()) {
@@ -685,6 +725,7 @@ func (bc *BlockChain) insert(block *types.Block) {
 			log.Crit("Failed to insert head fast block hash", "err", err)
 		}
 		bc.currentFastBlock.Store(block)
+		headFastBlockGauge.Update(int64(block.NumberU64()))
 	}
 }
 
@@ -1122,6 +1163,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 				log.Crit("Failed to update head fast block hash", "err", err)
 			}
 			bc.currentFastBlock.Store(head)
+			headFastBlockGauge.Update(int64(head.NumberU64()))
 		}
 	}
 	bc.mu.Unlock()
@@ -1358,6 +1400,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	if err := batch.Write(); err != nil {
 		return NonStatTy, err
 	}
+	headBlockGauge.Update(int64(block.NumberU64()))
 
 	// Set new head.
 	if status == CanonStatTy {
@@ -1444,8 +1487,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			return i, events, coalescedLogs, ErrBlacklistedHash
 		}
 		// Wait for the block's verification to complete
-		bstart := time.Now()
-
 		err := <-results
 		if err == nil {
 			err = bc.Validator().ValidateBody(block)
@@ -1515,6 +1556,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		// Create a new statedb using the parent block and report an
 		// error if it fails.
+		start := time.Now()
 		var parent *types.Block
 		if i == 0 {
 			parent = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
@@ -1626,24 +1668,55 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			}
 		}
 		feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
+
 		// Process block using the parent state as reference point.
+		pstart := time.Now()
 		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, tradingState, bc.vmConfig, feeCapacity)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
 		}
+		ptime := time.Since(pstart)
+
 		// Validate the state using the default validator
+		vstart := time.Now()
 		err = bc.Validator().ValidateState(block, parent, statedb, receipts, usedGas)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
 		}
-		proctime := time.Since(bstart)
+		vtime := time.Since(vstart)
+		proctime := time.Since(start) // processing + validation
+
+		// Update the metrics touched during block processing and validation
+		accountReadTimer.Update(statedb.AccountReads)                 // Account reads are complete(in processing)
+		storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete(in processing)
+		accountUpdateTimer.Update(statedb.AccountUpdates)             // Account updates are complete(in validation)
+		storageUpdateTimer.Update(statedb.StorageUpdates)             // Storage updates are complete(in validation)
+		accountHashTimer.Update(statedb.AccountHashes)                // Account hashes are complete(in validation)
+		storageHashTimer.Update(statedb.StorageHashes)                // Storage hashes are complete(in validation)
+		triehash := statedb.AccountHashes + statedb.StorageHashes     // The time spent on tries hashing
+		trieUpdate := statedb.AccountUpdates + statedb.StorageUpdates // The time spent on tries update
+		trieRead := statedb.AccountReads                              // The time spent on account read
+		trieRead += statedb.StorageReads                              // The time spent on storage read
+		blockExecutionTimer.Update(ptime - trieRead)                  // The time spent on EVM processing
+		blockValidationTimer.Update(vtime - (triehash + trieUpdate))  // The time spent on block validation
+
 		// Write the block to the chain and get the status.
+		wstart := time.Now()
 		status, err := bc.WriteBlockWithState(block, receipts, statedb, tradingState, lendingState)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
+		// Update the metrics touched during block commit
+		accountCommitTimer.Update(statedb.AccountCommits) // Account commits are complete, we can mark them
+		storageCommitTimer.Update(statedb.StorageCommits) // Storage commits are complete, we can mark them
+		triedbCommitTimer.Update(statedb.TrieDBCommits)   // Trie database commits are complete, we can mark them
+
+		blockWriteTimer.Update(time.Since(wstart) - statedb.AccountCommits - statedb.StorageCommits - statedb.TrieDBCommits)
+		duration := time.Since(start)
+		blockInsertTimer.Update(duration)
+
 		if bc.chainConfig.Posv != nil {
 			c := bc.engine.(*posv.Posv)
 			coinbase := c.Signer()
@@ -1663,10 +1736,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		switch status {
 		case CanonStatTy:
 			log.Debug("Inserted new block from downloader", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
+				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(duration))
 
 			coalescedLogs = append(coalescedLogs, logs...)
-			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, ChainEvent{block, block.Hash(), logs})
 			lastCanon = block
 
@@ -1679,9 +1751,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			}
 		case SideStatTy:
 			log.Debug("Inserted forked block from downloader", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
-				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
-
-			blockInsertTimer.UpdateSince(bstart)
+				common.PrettyDuration(duration), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
 			events = append(events, ChainSideEvent{block})
 			bc.UpdateBlocksHashCache(block)
 		}
@@ -1771,7 +1841,6 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		return nil, ErrBlacklistedHash
 	}
 	// Wait for the block's verification to complete
-	bstart := time.Now()
 	err := bc.Validator().ValidateBody(block)
 	switch {
 	case err == ErrKnownBlock:
@@ -1918,23 +1987,44 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	}
 	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	// Process block using the parent state as reference point.
+	var (
+		start  = time.Now()
+		pstart = time.Now()
+	)
 	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, tradingState, bc.vmConfig, feeCapacity)
-	process := time.Since(bstart)
 	if err != nil {
 		if err != ErrStopPreparingBlock {
 			bc.reportBlock(block, receipts, err)
 		}
 		return nil, err
 	}
+	ptime := time.Since(pstart)
 	// Validate the state using the default validator
+	vstart := time.Now()
 	err = bc.Validator().ValidateState(block, parent, statedb, receipts, usedGas)
 	if err != nil {
 		bc.reportBlock(block, receipts, err)
 		return nil, err
 	}
-	proctime := time.Since(bstart)
+	vtime := time.Since(vstart)
+	proctime := time.Since(start) // processing + validation
+
+	// Update the metrics touched during block processing and validation
+	accountReadTimer.Update(statedb.AccountReads)                 // Account reads are complete(in processing)
+	storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete(in processing)
+	accountUpdateTimer.Update(statedb.AccountUpdates)             // Account updates are complete(in validation)
+	storageUpdateTimer.Update(statedb.StorageUpdates)             // Storage updates are complete(in validation)
+	accountHashTimer.Update(statedb.AccountHashes)                // Account hashes are complete(in validation)
+	storageHashTimer.Update(statedb.StorageHashes)                // Storage hashes are complete(in validation)
+	triehash := statedb.AccountHashes + statedb.StorageHashes     // The time spent on tries hashing
+	trieUpdate := statedb.AccountUpdates + statedb.StorageUpdates // The time spent on tries update
+	trieRead := statedb.AccountReads                              // The time spent on account read
+	trieRead += statedb.StorageReads                              // The time spent on storage read
+	blockExecutionTimer.Update(ptime - trieRead)                  // The time spent on EVM processing
+	blockValidationTimer.Update(vtime - (triehash + trieUpdate))  // The time spent on block validation
+
 	log.Debug("Calculate new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
-		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)), "process", process)
+		"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(start)))
 	return &ResultProcessBlock{receipts: receipts, logs: logs, state: statedb, tradingState: tradingState, lendingState: lendingState, proctime: proctime, usedGas: usedGas}, nil
 }
 
@@ -1985,7 +2075,17 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	if bc.HasBlockAndFullState(block.Hash(), block.NumberU64()) {
 		return events, coalescedLogs, nil
 	}
+
+	wstart := time.Now()
 	status, err := bc.WriteBlockWithState(block, result.receipts, result.state, result.tradingState, result.lendingState)
+
+	// Update the metrics touched during block commit
+	accountCommitTimer.Update(result.state.AccountCommits) // Account commits are complete, we can mark them
+	storageCommitTimer.Update(result.state.StorageCommits) // Storage commits are complete, we can mark them
+	triedbCommitTimer.Update(result.state.TrieDBCommits)   // Trie database commits are complete, we can mark them
+
+	blockWriteTimer.Update(time.Since(wstart) - result.state.AccountCommits - result.state.StorageCommits - result.state.TrieDBCommits)
+	blockInsertTimer.Update(result.proctime)
 
 	if err != nil {
 		return events, coalescedLogs, err
@@ -2023,8 +2123,6 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 	case SideStatTy:
 		log.Debug("Inserted forked block from fetcher", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 			common.PrettyDuration(time.Since(block.ReceivedAt)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
-
-		blockInsertTimer.Update(result.proctime)
 		events = append(events, ChainSideEvent{block})
 
 		bc.UpdateBlocksHashCache(block)
@@ -2180,6 +2278,9 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		}
 		logFn("Chain split detected", "number", commonBlock.Number(), "hash", commonBlock.Hash(),
 			"drop", len(oldChain), "dropfrom", oldChain[0].Hash(), "add", len(newChain), "addfrom", newChain[0].Hash())
+		blockReorgAddMeter.Mark(int64(len(newChain)))
+		blockReorgDropMeter.Mark(int64(len(oldChain)))
+		blockReorgMeter.Mark(1)
 	} else {
 		log.Error("Impossible reorg, please file an issue", "oldnum", oldBlock.Number(), "oldhash", oldBlock.Hash(), "newnum", newBlock.Number(), "newhash", newBlock.Hash())
 	}

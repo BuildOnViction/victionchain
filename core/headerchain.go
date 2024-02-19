@@ -106,7 +106,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		}
 	}
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
-
+	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 	return hc, nil
 }
 
@@ -398,6 +398,7 @@ func (hc *HeaderChain) SetCurrentHeader(head *types.Header) {
 	}
 	hc.currentHeader.Store(head)
 	hc.currentHeaderHash = head.Hash()
+	headHeaderGauge.Update(head.Number.Int64())
 }
 
 // DeleteCallback is a callback function that is called by SetHead before
@@ -422,6 +423,7 @@ func (hc *HeaderChain) SetHead(head uint64, delFn DeleteCallback) {
 		rawdb.DeleteHeader(hc.chainDb, hash, num)
 		rawdb.DeleteTd(hc.chainDb, hash, num)
 		hc.currentHeader.Store(hc.GetHeader(hdr.ParentHash, hdr.Number.Uint64()-1))
+		headHeaderGauge.Update(hdr.Number.Int64())
 	}
 	// Roll back the canonical chain numbering
 	for i := height; i > head; i-- {
