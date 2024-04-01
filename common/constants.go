@@ -50,6 +50,7 @@ var TomoXBaseCancelFee = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (T
 var RelayerLendingFee = big.NewInt(10000000000000000)                   // 0.01
 var RelayerLendingCancelFee = big.NewInt(1000000000000000)              // 0.001
 var BaseLendingInterest = big.NewInt(100000000)                         // 1e8
+var TIPAdditionalRewardForFoundationAddress = big.NewInt(0)
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var RelayerRegistrationSMC = "0x16c63b79f9C8784168103C0b74E6A59EC2de4a02"

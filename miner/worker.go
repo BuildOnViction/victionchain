@@ -622,6 +622,9 @@ func (self *worker) commitNewWork() {
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if self.config.TIPAdditionalBlockRewardBlock != nil && self.config.TIPAdditionalBlockRewardBlock.Cmp(header.Number) == 0 {
+		misc.ApplyTIPAdditionalBlockRewardHardFork(work.state)
+	}
 	// won't grasp txs at checkpoint
 	var (
 		txs                                                                  *types.TransactionsByPriceAndNonce

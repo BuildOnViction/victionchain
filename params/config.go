@@ -32,21 +32,22 @@ var (
 var (
 	// VicMainnetChainConfig contains the chain parameters to run a Viction node on the main network.
 	VicMainnetChainConfig = &ChainConfig{
-		ChainId:                      big.NewInt(88),
-		HomesteadBlock:               big.NewInt(1),
-		EIP150Block:                  big.NewInt(2),
-		EIP150Hash:                   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-		EIP155Block:                  big.NewInt(3),
-		EIP158Block:                  big.NewInt(3),
-		ByzantiumBlock:               big.NewInt(4),
-		TIP2019Block:                 big.NewInt(1050000),
-		TIPSigningBlock:              big.NewInt(3000000),
-		TIPRandomizeBlock:            big.NewInt(3464000),
-		BlackListHFBlock:             big.NewInt(9349100),
-		TIPTRC21FeeBlock:             big.NewInt(13523400),
-		TIPTomoXBlock:                big.NewInt(20581700),
-		TIPTomoXLendingBlock:         big.NewInt(21430200),
-		TIPTomoXCancellationFeeBlock: big.NewInt(30915660),
+		ChainId:                       big.NewInt(88),
+		HomesteadBlock:                big.NewInt(1),
+		EIP150Block:                   big.NewInt(2),
+		EIP150Hash:                    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:                   big.NewInt(3),
+		EIP158Block:                   big.NewInt(3),
+		ByzantiumBlock:                big.NewInt(4),
+		TIP2019Block:                  big.NewInt(1050000),
+		TIPSigningBlock:               big.NewInt(3000000),
+		TIPRandomizeBlock:             big.NewInt(3464000),
+		BlackListHFBlock:              big.NewInt(9349100),
+		TIPTRC21FeeBlock:              big.NewInt(13523400),
+		TIPTomoXBlock:                 big.NewInt(20581700),
+		TIPTomoXLendingBlock:          big.NewInt(21430200),
+		TIPTomoXCancellationFeeBlock:  big.NewInt(30915660),
+		TIPAdditionalBlockRewardBlock: big.NewInt(0),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -205,14 +206,15 @@ type ChainConfig struct {
 	ByzantiumBlock      *big.Int `json:"byzantiumBlock,omitempty"`      // Byzantium switch block (nil = no fork, 0 = already on byzantium)
 	ConstantinopleBlock *big.Int `json:"constantinopleBlock,omitempty"` // Constantinople switch block (nil = no fork, 0 = already activated)
 
-	TIP2019Block                 *big.Int `json:"tip2019Block,omitempty"`                 // TIP2019 switch block (nil = no fork, 0 = already activated)
-	TIPSigningBlock              *big.Int `json:"tipSigningBlock,omitempty"`              // TIPSigning switch block (nil = no fork, 0 = already activated)
-	TIPRandomizeBlock            *big.Int `json:"tipRandomizeBlock,omitempty"`            // TIPRandomize switch block (nil = no fork, 0 = already activated)
-	BlackListHFBlock             *big.Int `json:"blackListHFBlock,omitempty"`             // BlackListHF switch block (nil = no fork, 0 = already activated)
-	TIPTRC21FeeBlock             *big.Int `json:"tipTRC21FeeBlock,omitempty"`             // TIPTRC21Fee switch block (nil = no fork, 0 = already activated)
-	TIPTomoXBlock                *big.Int `json:"tipTomoXBlock,omitempty"`                // TIPTomoX switch block (nil = no fork, 0 = already activated)
-	TIPTomoXLendingBlock         *big.Int `json:"tipTomoXLendingBlock,omitempty"`         // TIPTomoXLending switch block (nil = no fork, 0 = already activated)
-	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
+	TIP2019Block                  *big.Int `json:"tip2019Block,omitempty"`                  // TIP2019 switch block (nil = no fork, 0 = already activated)
+	TIPSigningBlock               *big.Int `json:"tipSigningBlock,omitempty"`               // TIPSigning switch block (nil = no fork, 0 = already activated)
+	TIPRandomizeBlock             *big.Int `json:"tipRandomizeBlock,omitempty"`             // TIPRandomize switch block (nil = no fork, 0 = already activated)
+	BlackListHFBlock              *big.Int `json:"blackListHFBlock,omitempty"`              // BlackListHF switch block (nil = no fork, 0 = already activated)
+	TIPTRC21FeeBlock              *big.Int `json:"tipTRC21FeeBlock,omitempty"`              // TIPTRC21Fee switch block (nil = no fork, 0 = already activated)
+	TIPTomoXBlock                 *big.Int `json:"tipTomoXBlock,omitempty"`                 // TIPTomoX switch block (nil = no fork, 0 = already activated)
+	TIPTomoXLendingBlock          *big.Int `json:"tipTomoXLendingBlock,omitempty"`          // TIPTomoXLending switch block (nil = no fork, 0 = already activated)
+	TIPTomoXCancellationFeeBlock  *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"`  // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
+	TIPAdditionalBlockRewardBlock *big.Int `json:"tipAdditionalBlockRewardBlock,omitempty"` // TIPAdditionalBlockRewardBlock switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
@@ -244,6 +246,7 @@ type PosvConfig struct {
 	Period              uint64         `json:"period"`              // Number of seconds between blocks to enforce
 	Epoch               uint64         `json:"epoch"`               // Epoch length to reset votes and checkpoint
 	Reward              uint64         `json:"reward"`              // Block reward - unit Ether
+	AdditionalReward    uint64         `json:"additionalReward"`    // Block additional reward after TIPAdditionalBlockReward HF - unit Ether
 	RewardCheckpoint    uint64         `json:"rewardCheckpoint"`    // Checkpoint block for calculate rewards.
 	Gap                 uint64         `json:"gap"`                 // Gap time preparing for the next epoch
 	FoudationWalletAddr common.Address `json:"foudationWalletAddr"` // Foundation Address Wallet
@@ -265,7 +268,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v TIPAdditionalBlockReward: %v Engine: %v}",
 		c.ChainId,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -275,6 +278,7 @@ func (c *ChainConfig) String() string {
 		c.EIP158Block,
 		c.ByzantiumBlock,
 		c.ConstantinopleBlock,
+		c.TIPAdditionalBlockRewardBlock,
 		engine,
 	)
 }
@@ -351,6 +355,10 @@ func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
 
 func (c *ChainConfig) IsTIPTomoXCancellationFee(num *big.Int) bool {
 	return isForked(common.TIPTomoXCancellationFeeBlock, num)
+}
+
+func (c *ChainConfig) IsTIPAdditionalBlockReward(num *big.Int) bool {
+	return isForked(c.TIPAdditionalBlockRewardBlock, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
@@ -440,6 +448,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock, head) {
 		return newCompatError("TIPTomoXCancellationFee fork block", c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock)
 	}
+	if isForkIncompatible(c.TIPAdditionalBlockRewardBlock, newcfg.TIPAdditionalBlockRewardBlock, head) {
+		return newCompatError("TIPAdditionalBlockReward fork block", c.TIPAdditionalBlockRewardBlock, newcfg.TIPAdditionalBlockRewardBlock)
+	}
 	return nil
 }
 
@@ -509,7 +520,7 @@ type Rules struct {
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsTIP2019, IsTIPSigning, IsTIPRandomize, IsBlackListHF  bool
 	IsTIPTRC21Fee, IsTIPTomoX, IsTIPTomoXLending            bool
-	IsTIPTomoXCancellationFee                               bool
+	IsTIPTomoXCancellationFee, IsTIPAdditionalBlockReward   bool
 }
 
 func (c *ChainConfig) Rules(num *big.Int) Rules {
@@ -518,22 +529,23 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		chainId = new(big.Int)
 	}
 	return Rules{
-		ChainId:                   new(big.Int).Set(chainId),
-		IsHomestead:               c.IsHomestead(num),
-		IsEIP150:                  c.IsEIP150(num),
-		IsEIP155:                  c.IsEIP155(num),
-		IsEIP158:                  c.IsEIP158(num),
-		IsByzantium:               c.IsByzantium(num),
-		IsConstantinople:          c.IsConstantinople(num),
-		IsPetersburg:              c.IsPetersburg(num),
-		IsIstanbul:                c.IsIstanbul(num),
-		IsTIP2019:                 c.IsTIP2019(num),
-		IsTIPSigning:              c.IsTIPSigning(num),
-		IsTIPRandomize:            c.IsTIPRandomize(num),
-		IsBlackListHF:             c.IsBlackListHF(num),
-		IsTIPTRC21Fee:             c.IsTIPTRC21Fee(num),
-		IsTIPTomoX:                c.IsTIPTomoX(num),
-		IsTIPTomoXLending:         c.IsTIPTomoXLending(num),
-		IsTIPTomoXCancellationFee: c.IsTIPTomoXCancellationFee(num),
+		ChainId:                    new(big.Int).Set(chainId),
+		IsHomestead:                c.IsHomestead(num),
+		IsEIP150:                   c.IsEIP150(num),
+		IsEIP155:                   c.IsEIP155(num),
+		IsEIP158:                   c.IsEIP158(num),
+		IsByzantium:                c.IsByzantium(num),
+		IsConstantinople:           c.IsConstantinople(num),
+		IsPetersburg:               c.IsPetersburg(num),
+		IsIstanbul:                 c.IsIstanbul(num),
+		IsTIP2019:                  c.IsTIP2019(num),
+		IsTIPSigning:               c.IsTIPSigning(num),
+		IsTIPRandomize:             c.IsTIPRandomize(num),
+		IsBlackListHF:              c.IsBlackListHF(num),
+		IsTIPTRC21Fee:              c.IsTIPTRC21Fee(num),
+		IsTIPTomoX:                 c.IsTIPTomoX(num),
+		IsTIPTomoXLending:          c.IsTIPTomoXLending(num),
+		IsTIPTomoXCancellationFee:  c.IsTIPTomoXCancellationFee(num),
+		IsTIPAdditionalBlockReward: c.IsTIPAdditionalBlockReward(num),
 	}
 }
