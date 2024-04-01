@@ -515,6 +515,11 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 				// Get reward inflation.
 				chainReward := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
 				chainReward = rewardInflation(chainReward, number, common.BlocksPerYear)
+				// Add the AdditionalReward amount to the total chainReward per epoch,
+				// which is not affected by rewardInflation halving
+				if chain.Config().IsTIPAdditionalBlockReward(header.Number) {
+					chainReward = new(big.Int).Add(chainReward, new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.AdditionalReward), new(big.Int).SetUint64(params.Ether)))
+				}
 
 				totalSigner := new(uint64)
 				signers, err := contracts.GetRewardForCheckpoint(c, chain, header, rCheckpoint, totalSigner)
