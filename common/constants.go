@@ -30,27 +30,30 @@ const (
 var Rewound = uint64(0)
 
 // hardforks
-var TIP2019Block = big.NewInt(1050000)
-var TIPSigningBlock = big.NewInt(3000000)
-var TIPRandomizeBlock = big.NewInt(3464000)
-var BlackListHFNumberBlock = uint64(9349100)
-var TIPTRC21FeeBlock = big.NewInt(13523400)
-var TIPTomoXBlock = big.NewInt(20581700)
-var TIPTomoXLendingBlock = big.NewInt(21430200)
-var TIPTomoXCancellationFeeBlock = big.NewInt(30915660)
-var IsTestnet bool = false
-var StoreRewardFolder string
-var RollbackHash Hash
-var BasePrice = big.NewInt(1000000000000000000)                         // 1
-var RelayerLockedFund = big.NewInt(20000)                               // 20000 TOMO
-var RelayerFee = big.NewInt(1000000000000000)                           // 0.001
-var TomoXBaseFee = big.NewInt(10000)                                    // 1 / TomoXBaseFee
-var RelayerCancelFee = big.NewInt(100000000000000)                      // 0.0001
-var TomoXBaseCancelFee = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (TomoXBaseFee *10)
-var RelayerLendingFee = big.NewInt(10000000000000000)                   // 0.01
-var RelayerLendingCancelFee = big.NewInt(1000000000000000)              // 0.001
-var BaseLendingInterest = big.NewInt(100000000)                         // 1e8
-var TIPAdditionalRewardForFoundationAddress = big.NewInt(0)
+var (
+	TIP2019Block                            = big.NewInt(1050000)
+	TIPSigningBlock                         = big.NewInt(3000000)
+	TIPRandomizeBlock                       = big.NewInt(3464000)
+	BlackListHFNumberBlock                  = uint64(9349100)
+	TIPTRC21FeeBlock                        = big.NewInt(13523400)
+	TIPTomoXBlock                           = big.NewInt(20581700)
+	TIPTomoXLendingBlock                    = big.NewInt(21430200)
+	TIPTomoXCancellationFeeBlock            = big.NewInt(30915660)
+	IsTestnet                               = false
+	StoreRewardFolder                       string
+	RollbackHash                            Hash
+	BasePrice                               = big.NewInt(1000000000000000000)                // 1
+	RelayerLockedFund                       = big.NewInt(20000)                              // 20000 TOMO
+	RelayerFee                              = big.NewInt(1000000000000000)                   // 0.001
+	TomoXBaseFee                            = big.NewInt(10000)                              // 1 / TomoXBaseFee
+	RelayerCancelFee                        = big.NewInt(100000000000000)                    // 0.0001
+	TomoXBaseCancelFee                      = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (TomoXBaseFee *10)
+	RelayerLendingFee                       = big.NewInt(10000000000000000)                  // 0.01
+	RelayerLendingCancelFee                 = big.NewInt(1000000000000000)                   // 0.001
+	BaseLendingInterest                     = big.NewInt(100000000)                          // 1e8
+	TIPAdditionalRewardForFoundationAddress = 80_000_000                                     // Total 80M VIC for the Viction Ecosystem Development Pool
+	TIPAdditionalRewardPerEpoch             = uint64(4_000_000 / 17520)                      // 4M VIC divides for 17520 epochs per year
+)
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var RelayerRegistrationSMC = "0x16c63b79f9C8784168103C0b74E6A59EC2de4a02"

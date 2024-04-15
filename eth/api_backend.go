@@ -323,8 +323,8 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 
 	// Get signers in blockSigner smartcontract.
 	// Get reward inflation.
-	chainReward := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
-	chainReward = rewardInflation(chainReward, lastCheckpointNumber, common.BlocksPerYear)
+	chainReward := currentChainReward(b.ChainConfig(), block.Number())
+	chainReward = rewardInflation(b.ChainConfig(), chainReward, lastCheckpointNumber, common.BlocksPerYear)
 
 	totalSigner := new(uint64)
 	signers, err := contracts.GetRewardForCheckpoint(engine, chain, lastCheckpointBlock.Header(), rCheckpoint, totalSigner)

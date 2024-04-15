@@ -82,7 +82,6 @@ var (
 			Period:              2,
 			Epoch:               900,
 			Reward:              250,
-			AdditionalReward:    0,
 			RewardCheckpoint:    900,
 			Gap:                 5,
 			FoudationWalletAddr: common.HexToAddress("0x0000000000000000000000000000000000000068"),
@@ -161,14 +160,19 @@ var (
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllPosvProtocolChanges = &ChainConfig{
-		ChainId:           big.NewInt(89),
-		HomesteadBlock:    big.NewInt(0),
-		EIP150Block:       big.NewInt(0),
-		EIP155Block:       big.NewInt(0),
-		EIP158Block:       big.NewInt(0),
-		ByzantiumBlock:    big.NewInt(0),
-		TIPRandomizeBlock: big.NewInt(0),
-		Posv:              &PosvConfig{Period: 0, Epoch: 30000},
+		ChainId:                       big.NewInt(89),
+		HomesteadBlock:                big.NewInt(0),
+		EIP150Block:                   big.NewInt(0),
+		EIP155Block:                   big.NewInt(0),
+		EIP158Block:                   big.NewInt(0),
+		ByzantiumBlock:                big.NewInt(0),
+		TIPRandomizeBlock:             big.NewInt(0),
+		TIPAdditionalBlockRewardBlock: big.NewInt(0),
+		Posv: &PosvConfig{
+			Period: 0,
+			Reward: 250,
+			Epoch:  30000,
+		},
 	}
 
 	// TestChainConfig is used for testing purposes only
@@ -247,7 +251,6 @@ type PosvConfig struct {
 	Period              uint64         `json:"period"`              // Number of seconds between blocks to enforce
 	Epoch               uint64         `json:"epoch"`               // Epoch length to reset votes and checkpoint
 	Reward              uint64         `json:"reward"`              // Block reward - unit Ether
-	AdditionalReward    uint64         `json:"additionalReward"`    // Block additional reward after TIPAdditionalBlockReward HF - unit Ether
 	RewardCheckpoint    uint64         `json:"rewardCheckpoint"`    // Checkpoint block for calculate rewards.
 	Gap                 uint64         `json:"gap"`                 // Gap time preparing for the next epoch
 	FoudationWalletAddr common.Address `json:"foudationWalletAddr"` // Foundation Address Wallet

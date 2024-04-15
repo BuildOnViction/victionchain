@@ -513,13 +513,8 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 				start := time.Now()
 				// Get signers in blockSigner smartcontract.
 				// Get reward inflation.
-				chainReward := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
-				chainReward = rewardInflation(chainReward, number, common.BlocksPerYear)
-				// Add the AdditionalReward amount to the total chainReward per epoch,
-				// which is not affected by rewardInflation halving
-				if chain.Config().IsTIPAdditionalBlockReward(header.Number) {
-					chainReward = new(big.Int).Add(chainReward, new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.AdditionalReward), new(big.Int).SetUint64(params.Ether)))
-				}
+				chainReward := currentChainReward(chain.Config(), header.Number)
+				chainReward = rewardInflation(chain.Config(), chainReward, number, common.BlocksPerYear)
 
 				totalSigner := new(uint64)
 				signers, err := contracts.GetRewardForCheckpoint(c, chain, header, rCheckpoint, totalSigner)
@@ -903,15 +898,25 @@ func GetValidators(bc *core.BlockChain, masternodes []common.Address) ([]byte, e
 	return nil, core.ErrNotFoundM1
 }
 
-func rewardInflation(chainReward *big.Int, number uint64, blockPerYear uint64) *big.Int {
-	if blockPerYear*2 <= number && number < blockPerYear*5 {
-		chainReward.Div(chainReward, new(big.Int).SetUint64(2))
+func rewardInflation(config *params.ChainConfig, chainReward *big.Int, number uint64, blockPerYear uint64) *big.Int {
+	if number < blockPerYear*2 {
+		return chainReward
 	}
-	if blockPerYear*5 <= number {
-		chainReward.Div(chainReward, new(big.Int).SetUint64(4))
+	if number < blockPerYear*5 {
+		return new(big.Int).Div(chainReward, new(big.Int).SetUint64(2))
 	}
+	if !config.IsTIPAdditionalBlockReward(new(big.Int).SetUint64(number)) {
+		return new(big.Int).Div(chainReward, new(big.Int).SetUint64(4))
+	}
+	inflationCoef := new(big.Int).Exp(new(big.Int).SetInt64(2), new(big.Int).SetUint64((number/blockPerYear-5)/4), nil)
+	return new(big.Int).Div(chainReward, inflationCoef)
+}
 
-	return chainReward
+func currentChainReward(config *params.ChainConfig, num *big.Int) *big.Int {
+	if config.IsTIPAdditionalBlockReward(num) {
+		config.Posv.Reward = common.TIPAdditionalRewardPerEpoch
+	}
+	return new(big.Int).Mul(new(big.Int).SetUint64(config.Posv.Reward), new(big.Int).SetUint64(params.Ether))
 }
 
 func (s *Ethereum) GetPeer() int {
