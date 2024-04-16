@@ -17,6 +17,7 @@ const (
 	MaxMasternodes             = 150
 	LimitPenaltyEpoch          = 4
 	BlocksPerYear              = uint64(15768000)
+	EpochPerYear               = uint64(17520)
 	LimitThresholdNonceInQueue = 10
 	DefaultMinGasPrice         = 250000000
 	MergeSignRange             = 15
@@ -31,28 +32,34 @@ var Rewound = uint64(0)
 
 // hardforks
 var (
-	TIP2019Block                                       = big.NewInt(1050000)
-	TIPSigningBlock                                    = big.NewInt(3000000)
-	TIPRandomizeBlock                                  = big.NewInt(3464000)
-	BlackListHFNumberBlock                             = uint64(9349100)
-	TIPTRC21FeeBlock                                   = big.NewInt(13523400)
-	TIPTomoXBlock                                      = big.NewInt(20581700)
-	TIPTomoXLendingBlock                               = big.NewInt(21430200)
-	TIPTomoXCancellationFeeBlock                       = big.NewInt(30915660)
-	IsTestnet                                          = false
-	StoreRewardFolder                                  string
-	RollbackHash                                       Hash
-	BasePrice                                          = big.NewInt(1000000000000000000)                // 1
-	RelayerLockedFund                                  = big.NewInt(20000)                              // 20000 TOMO
-	RelayerFee                                         = big.NewInt(1000000000000000)                   // 0.001
-	TomoXBaseFee                                       = big.NewInt(10000)                              // 1 / TomoXBaseFee
-	RelayerCancelFee                                   = big.NewInt(100000000000000)                    // 0.0001
-	TomoXBaseCancelFee                                 = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (TomoXBaseFee *10)
-	RelayerLendingFee                                  = big.NewInt(10000000000000000)                  // 0.01
-	RelayerLendingCancelFee                            = big.NewInt(1000000000000000)                   // 0.001
-	BaseLendingInterest                                = big.NewInt(100000000)                          // 1e8
-	TIPAdditionalBlockRewardEcoPool                    = 80_000_000                                     // Total 80M VIC for the Viction Ecosystem Development Pool
-	InitialTIPAdditionalBlockRewardBlockRewardPerEpoch = uint64(4_000_000 / 17520)                      // 4M VIC per year divides for 17520 epochs each year
+	TIP2019Block                 = big.NewInt(1050000)
+	TIPSigningBlock              = big.NewInt(3000000)
+	TIPRandomizeBlock            = big.NewInt(3464000)
+	BlackListHFNumberBlock       = uint64(9349100)
+	TIPTRC21FeeBlock             = big.NewInt(13523400)
+	TIPTomoXBlock                = big.NewInt(20581700)
+	TIPTomoXLendingBlock         = big.NewInt(21430200)
+	TIPTomoXCancellationFeeBlock = big.NewInt(30915660)
+	IsTestnet                    = false
+	StoreRewardFolder            string
+	RollbackHash                 Hash
+	BasePrice                    = big.NewInt(1000000000000000000)                // 1
+	RelayerLockedFund            = big.NewInt(20000)                              // 20000 TOMO
+	RelayerFee                   = big.NewInt(1000000000000000)                   // 0.001
+	TomoXBaseFee                 = big.NewInt(10000)                              // 1 / TomoXBaseFee
+	RelayerCancelFee             = big.NewInt(100000000000000)                    // 0.0001
+	TomoXBaseCancelFee           = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (TomoXBaseFee *10)
+	RelayerLendingFee            = big.NewInt(10000000000000000)                  // 0.01
+	RelayerLendingCancelFee      = big.NewInt(1000000000000000)                   // 0.001
+	BaseLendingInterest          = big.NewInt(100000000)                          // 1e8
+	// TIPAdditionalBlockReward related
+	InitialTIPAdditionalBlockRewardBlockRewardPerYear = big.NewInt(4_000_000)  // 4M VIC per year divides for 17520 epochs each year
+	VictionEcoPoolAddress                             = HexToAddress("")       // Address of the Viction Ecosystem Development Pool
+	TotalEcoPoolDistributionBlocks                    = big.NewInt(63_072_000) // Total blocks until the Ecosystem Pool is fully distributed
+	TIPAdditionalBlockRewardEcoPoolPerBlock           = new(big.Int).Div(      // The VIC amount distributed to the Ecosystem Pool per block
+		new(big.Int).Mul(new(big.Int).SetUint64(1_000_000_000_000_000_000), big.NewInt(80_000_000)), // Total 80M VIC for the Viction Ecosystem Development Pool
+		TotalEcoPoolDistributionBlocks,
+	)
 )
 
 var (

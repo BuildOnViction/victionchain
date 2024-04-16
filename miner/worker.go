@@ -622,8 +622,8 @@ func (self *worker) commitNewWork() {
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if self.config.TIPAdditionalBlockRewardBlock != nil && self.config.TIPAdditionalBlockRewardBlock.Cmp(header.Number) == 0 {
-		misc.ApplyTIPAdditionalBlockRewardHardFork(work.state)
+	if self.config.IsDistributingToEcoPool(header.Number) {
+		work.state.AddBalance(common.VictionEcoPoolAddress, common.TIPAdditionalBlockRewardEcoPoolPerBlock)
 	}
 	// won't grasp txs at checkpoint
 	var (

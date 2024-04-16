@@ -214,8 +214,8 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		if config.DAOForkSupport && config.DAOForkBlock != nil && config.DAOForkBlock.Cmp(b.header.Number) == 0 {
 			misc.ApplyDAOHardFork(statedb)
 		}
-		if config.TIPAdditionalBlockRewardBlock != nil && config.TIPAdditionalBlockRewardBlock.Cmp(b.header.Number) == 0 {
-			misc.ApplyTIPAdditionalBlockRewardHardFork(statedb)
+		if config.IsDistributingToEcoPool(b.header.Number) {
+			statedb.AddBalance(common.VictionEcoPoolAddress, common.TIPAdditionalBlockRewardEcoPoolPerBlock)
 		}
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
