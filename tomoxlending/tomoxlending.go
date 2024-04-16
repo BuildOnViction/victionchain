@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/p2p"
@@ -12,9 +16,6 @@ import (
 	"github.com/tomochain/tomochain/tomoxDAO"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"math/big"
-	"strconv"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"

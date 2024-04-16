@@ -26,12 +26,15 @@ import (
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/consensus/posv"
 	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomoxlending"
 )
 
 // Test fork of length N starting from block i
@@ -1173,6 +1176,56 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	}
 	if st, _ := blockchain.State(); st.Exist(theAddr) {
 		t.Error("account should not exist")
+	}
+}
+
+func TestTIPAdditionalBlockRewardTransition(t *testing.T) {
+	chainCfg := params.AllPosvProtocolChanges
+	chainCfg.TIPAdditionalBlockRewardBlock = big.NewInt(2)
+	chainCfg.Posv = &params.PosvConfig{
+		Period:           0,
+		Reward:           250,
+		Epoch:            10,
+		Gap:              5,
+		RewardCheckpoint: 10,
+	}
+
+	// Configure and generate a sample block chain
+	var (
+		db      = rawdb.NewMemoryDatabase()
+		tomox   = tomox.New(&tomox.DefaultConfig)
+		lending = tomoxlending.New(tomox)
+		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		address = crypto.PubkeyToAddress(key.PublicKey)
+		funds   = big.NewInt(1000000000)
+		gspec   = &Genesis{
+			Config: chainCfg,
+			Alloc:  GenesisAlloc{address: {Balance: funds}},
+		}
+		genesis     = gspec.MustCommit(db)
+		posvEngine  = posv.New(chainCfg.Posv, db)
+		cacheConfig = &CacheConfig{Disabled: false, TrieNodeLimit: 256, TrieTimeLimit: 5 * time.Minute}
+	)
+
+	posvEngine.GetTomoXService = func() posv.TradingService {
+		return tomox
+	}
+	posvEngine.GetLendingService = func() posv.LendingService {
+		return lending
+	}
+	blockchain, _ := NewBlockChain(db, cacheConfig, gspec.Config, posvEngine, vm.Config{})
+	defer blockchain.Stop()
+
+	blocks, _ := GenerateChain(gspec.Config, genesis, posvEngine, db, 4, func(i int, block *BlockGen) {
+		switch i {
+		case 0:
+		case 2:
+		case 3:
+		}
+	})
+
+	if _, err := blockchain.InsertChain(blocks); err != nil {
+		t.Fatal(err)
 	}
 }
 
