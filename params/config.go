@@ -368,7 +368,7 @@ func (c *ChainConfig) IsTIPAdditionalBlockReward(num *big.Int) bool {
 func (c *ChainConfig) IsDistributingToEcoPool(num *big.Int) bool {
 	return c.TIPAdditionalBlockRewardBlock != nil &&
 		num.Cmp(c.TIPAdditionalBlockRewardBlock) >= 0 &&
-		new(big.Int).Sub(num, c.TIPAdditionalBlockRewardBlock).Cmp(common.TotalEcoPoolDistributionBlocks) <= 0
+		new(big.Int).Sub(num, c.TIPAdditionalBlockRewardBlock).Cmp(common.TotalEcoPoolDistributionBlocks) < 0
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
