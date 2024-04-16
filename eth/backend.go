@@ -908,13 +908,14 @@ func rewardInflation(config *params.ChainConfig, chainReward *big.Int, number ui
 	if !config.IsTIPAdditionalBlockReward(new(big.Int).SetUint64(number)) {
 		return new(big.Int).Div(chainReward, new(big.Int).SetUint64(4))
 	}
-	inflationCoef := new(big.Int).Exp(new(big.Int).SetInt64(2), new(big.Int).SetUint64((number/blockPerYear-5)/4), nil)
+	blockSinceTIPAdditionalBlockReward := number - config.TIPAdditionalBlockRewardBlock.Uint64()
+	inflationCoef := new(big.Int).Exp(new(big.Int).SetInt64(2), new(big.Int).SetUint64(blockSinceTIPAdditionalBlockReward/blockPerYear/4), nil)
 	return new(big.Int).Div(chainReward, inflationCoef)
 }
 
 func currentChainReward(config *params.ChainConfig, num *big.Int) *big.Int {
 	if config.IsTIPAdditionalBlockReward(num) {
-		config.Posv.Reward = common.TIPAdditionalRewardPerEpoch
+		config.Posv.Reward = common.InitialTIPAdditionalBlockRewardBlockRewardPerEpoch
 	}
 	return new(big.Int).Mul(new(big.Int).SetUint64(config.Posv.Reward), new(big.Int).SetUint64(params.Ether))
 }

@@ -219,7 +219,7 @@ type ChainConfig struct {
 	TIPTomoXBlock                 *big.Int `json:"tipTomoXBlock,omitempty"`                 // TIPTomoX switch block (nil = no fork, 0 = already activated)
 	TIPTomoXLendingBlock          *big.Int `json:"tipTomoXLendingBlock,omitempty"`          // TIPTomoXLending switch block (nil = no fork, 0 = already activated)
 	TIPTomoXCancellationFeeBlock  *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"`  // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
-	TIPAdditionalBlockRewardBlock *big.Int `json:"tipAdditionalBlockRewardBlock,omitempty"` // TIPAdditionalBlockRewardBlock switch block (nil = no fork, 0 = already activated)
+	TIPAdditionalBlockRewardBlock *big.Int `json:"tIPAdditionalBlockRewardBlock,omitempty"` // TIPAdditionalBlockRewardBlock switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
