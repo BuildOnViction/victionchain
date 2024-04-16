@@ -13,6 +13,8 @@ import (
 func TestRewardInflation(t *testing.T) {
 	params.AllPosvProtocolChanges.TIPAdditionalBlockRewardBlock = big.NewInt(60)
 	baseTIPAdditionalBlockRewardBlockRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(common.InitialTIPAdditionalBlockRewardBlockRewardPerEpoch), new(big.Int).SetUint64(params.Ether))
+	// the first 2 years
+	initialBlockRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(params.AllPosvProtocolChanges.Posv.Reward), new(big.Int).SetUint64(params.Ether))
 	// 3rd year, 4th year, 5th year
 	halfReward := new(big.Int).Mul(new(big.Int).SetUint64(125), new(big.Int).SetUint64(params.Ether))
 	// after 5 years and before TIPAdditionalBlockRewardBlock
@@ -25,8 +27,6 @@ func TestRewardInflation(t *testing.T) {
 	fifthHalvingReward := new(big.Int).Div(baseTIPAdditionalBlockRewardBlockRewardPerEpoch, big.NewInt(4))
 	// next 4 years
 	sixthHalvingReward := new(big.Int).Div(baseTIPAdditionalBlockRewardBlockRewardPerEpoch, big.NewInt(8))
-	// the first 2 years
-	initialBlockRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(params.AllPosvProtocolChanges.Posv.Reward), new(big.Int).SetUint64(params.Ether))
 
 	for i := int64(0); i < 200; i++ {
 		chainReward := rewardInflation(params.AllPosvProtocolChanges, currentChainReward(params.AllPosvProtocolChanges, big.NewInt(i)), uint64(i), 10)
