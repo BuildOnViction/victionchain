@@ -24,17 +24,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
-	"github.com/tomochain/tomochain/consensus/posv"
 	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/params"
-	"github.com/tomochain/tomochain/tomox"
-	"github.com/tomochain/tomochain/tomoxlending"
 )
 
 // Test fork of length N starting from block i
@@ -1179,54 +1178,39 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	}
 }
 
-func TestTIPAdditionalBlockRewardTransition(t *testing.T) {
-	chainCfg := params.AllPosvProtocolChanges
-	chainCfg.TIPAdditionalBlockRewardBlock = big.NewInt(2)
-	chainCfg.Posv = &params.PosvConfig{
-		Period:           0,
-		Reward:           250,
-		Epoch:            10,
-		Gap:              5,
-		RewardCheckpoint: 10,
-	}
-
-	// Configure and generate a sample block chain
+func TestVICEcoPoolBalanceOfTIPAdditionalBlockReward(t *testing.T) {
+	chainCfg := params.TestChainConfig
+	chainCfg.TIPAdditionalBlockRewardBlock = big.NewInt(5) // set the fork block to 5 for testing
+	// Configure and generate a sample blockchain
 	var (
-		db      = rawdb.NewMemoryDatabase()
-		tomox   = tomox.New(&tomox.DefaultConfig)
-		lending = tomoxlending.New(tomox)
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
-		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{
-			Config: chainCfg,
-			Alloc:  GenesisAlloc{address: {Balance: funds}},
-		}
-		genesis     = gspec.MustCommit(db)
-		posvEngine  = posv.New(chainCfg.Posv, db)
-		cacheConfig = &CacheConfig{Disabled: false, TrieNodeLimit: 256, TrieTimeLimit: 5 * time.Minute}
+		db            = rawdb.NewMemoryDatabase()
+		gspec         = &Genesis{Config: chainCfg}
+		genesis       = gspec.MustCommit(db)
+		cacheConfig   = &CacheConfig{Disabled: false, TrieNodeLimit: 256, TrieTimeLimit: 5 * time.Minute}
+		blockchain, _ = NewBlockChain(db, cacheConfig, gspec.Config, ethash.NewFaker(), vm.Config{})
 	)
-
-	posvEngine.GetTomoXService = func() posv.TradingService {
-		return tomox
-	}
-	posvEngine.GetLendingService = func() posv.LendingService {
-		return lending
-	}
-	blockchain, _ := NewBlockChain(db, cacheConfig, gspec.Config, posvEngine, vm.Config{})
 	defer blockchain.Stop()
 
-	blocks, _ := GenerateChain(gspec.Config, genesis, posvEngine, db, 4, func(i int, block *BlockGen) {
-		switch i {
-		case 0:
-		case 2:
-		case 3:
+	GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 10, func(i int, block *BlockGen) {
+		// Balance of the Viction Ecosystem pool start with 0
+		// and increase by common.TIPAdditionalBlockRewardEcoPoolPerBlock from block 5
+		// | i | blockNumber | multiplier |
+		// |---|-------------|------------|
+		// | 0 | 1           | 0          |
+		// | 1 | 2           | 0          |
+		// | 2 | 3           | 0          |
+		// | 3 | 4           | 0          |
+		// | 4 | 5           | 1          |
+		// | 5 | 6           | 2          |
+		// | 6 | 7           | 3          |
+		// | 7 | 8           | 4          |
+		multiplier := i - 3
+		if multiplier < 0 {
+			multiplier = 0
 		}
+		assert.Equal(t, new(big.Int).Mul(common.TIPAdditionalBlockRewardEcoPoolPerBlock, big.NewInt(int64(multiplier))).String(), block.statedb.GetBalance(common.VictionEcoPoolAddress).String(),
+			"Viction Eco Pool balance mismatch at block", i+1)
 	})
-
-	if _, err := blockchain.InsertChain(blocks); err != nil {
-		t.Fatal(err)
-	}
 }
 
 // This is a regression test (i.e. as weird as it is, don't delete it ever), which
