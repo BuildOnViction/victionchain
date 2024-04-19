@@ -366,8 +366,7 @@ func (c *ChainConfig) IsTIPAdditionalBlockReward(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsDistributingToEcoPool(num *big.Int) bool {
-	return c.TIPAdditionalBlockRewardBlock != nil &&
-		num.Cmp(c.TIPAdditionalBlockRewardBlock) >= 0 &&
+	return c.IsTIPAdditionalBlockReward(num) &&
 		new(big.Int).Sub(num, c.TIPAdditionalBlockRewardBlock).Cmp(common.TotalEcoPoolDistributionBlocks) < 0
 }
 
