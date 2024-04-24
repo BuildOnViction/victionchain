@@ -474,7 +474,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 
 	work := &Work{
 		config:       self.config,
-		signer:       types.NewEIP155Signer(self.config.ChainId),
+		signer:       types.LatestSignerForChainID(self.config.ChainId),
 		state:        state,
 		parentState:  state.Copy(),
 		tradingState: tomoxState,

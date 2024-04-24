@@ -198,7 +198,7 @@ func TestTransactionJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not generate key: %v", err)
 	}
-	signer := NewEIP155Signer(common.Big1)
+	signer := LatestSignerForChainID(common.Big1)
 
 	for i := uint64(0); i < 25; i++ {
 		var tx *Transaction

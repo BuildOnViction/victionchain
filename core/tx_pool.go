@@ -19,21 +19,22 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/consensus"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"time"
 
+	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/params"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 const (
@@ -246,7 +247,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		config:           config,
 		chainconfig:      chainconfig,
 		chain:            chain,
-		signer:           types.NewEIP155Signer(chainconfig.ChainId),
+		signer:           types.LatestSigner(chainconfig),
 		pending:          make(map[common.Address]*txList),
 		queue:            make(map[common.Address]*txList),
 		beats:            make(map[common.Address]time.Time),
