@@ -107,18 +107,65 @@ type TxData interface {
 
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, &tx.inner)
+	if tx.Type() == LegacyTxType {
+		return rlp.Encode(w, tx.inner)
+	}
+	// It's an EIP-2718 typed TX envelope.
+	buf := encodeBufferPool.Get().(*bytes.Buffer)
+	defer encodeBufferPool.Put(buf)
+	buf.Reset()
+	if err := tx.encodeTyped(buf); err != nil {
+		return err
+	}
+	return rlp.Encode(w, buf.Bytes())
+}
+
+// encodeTyped writes the canonical encoding of a typed transaction to w.
+func (tx *Transaction) encodeTyped(w *bytes.Buffer) error {
+	w.WriteByte(tx.Type())
+	return tx.inner.encode(w)
+}
+
+// MarshalBinary returns the canonical encoding of the transaction.
+// For legacy transactions, it returns the RLP encoding. For EIP-2718 typed
+// transactions, it returns the type and payload.
+func (tx *Transaction) MarshalBinary() ([]byte, error) {
+	if tx.Type() == LegacyTxType {
+		return rlp.EncodeToBytes(tx.inner)
+	}
+	var buf bytes.Buffer
+	err := tx.encodeTyped(&buf)
+	return buf.Bytes(), err
 }
 
 // DecodeRLP implements rlp.Decoder
 func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
-	_, size, _ := s.Kind()
-	err := s.Decode(&tx.inner)
-	if err == nil {
-		tx.size.Store(common.StorageSize(rlp.ListSize(size)))
+	kind, size, err := s.Kind()
+	switch {
+	case err != nil:
+		return err
+	case kind == rlp.List:
+		// It's a legacy transaction.
+		var inner LegacyTx
+		err := s.Decode(&inner)
+		if err == nil {
+			tx.setDecoded(&inner, int(rlp.ListSize(size)))
+		}
+		return err
+	case kind == rlp.String:
+		// It's an EIP-2718 typed TX envelope.
+		var b []byte
+		if b, err = s.Bytes(); err != nil {
+			return err
+		}
+		inner, err := tx.decodeTyped(b)
+		if err == nil {
+			tx.setDecoded(inner, len(b))
+		}
+		return err
+	default:
+		return rlp.ErrExpectedList
 	}
-
-	return err
 }
 
 // UnmarshalBinary decodes the canonical encoding of transactions.
@@ -131,7 +178,7 @@ func (tx *Transaction) UnmarshalBinary(b []byte) error {
 		if err != nil {
 			return err
 		}
-		tx.setDecoded(&data, uint64(len(b)))
+		tx.setDecoded(&data, len(b))
 		return nil
 	}
 	// It's an EIP-2718 typed transaction envelope.
@@ -139,7 +186,7 @@ func (tx *Transaction) UnmarshalBinary(b []byte) error {
 	if err != nil {
 		return err
 	}
-	tx.setDecoded(inner, uint64(len(b)))
+	tx.setDecoded(inner, len(b))
 	return nil
 }
 
@@ -158,10 +205,10 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 }
 
 // setDecoded sets the inner transaction and size after decoding.
-func (tx *Transaction) setDecoded(inner TxData, size uint64) {
+func (tx *Transaction) setDecoded(inner TxData, size int) {
 	tx.inner = inner
 	if size > 0 {
-		tx.size.Store(size)
+		tx.size.Store(common.StorageSize(size))
 	}
 }
 
@@ -220,20 +267,20 @@ func (tx *Transaction) Protected() bool {
 	}
 }
 
-func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.Data()) }
-func (tx *Transaction) Gas() uint64        { return tx.Gas() }
-func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.GasPrice()) }
-func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.Value()) }
-func (tx *Transaction) Nonce() uint64      { return tx.Nonce() }
+func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.inner.data()) }
+func (tx *Transaction) Gas() uint64        { return tx.inner.gas() }
+func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.inner.gasPrice()) }
+func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.inner.value()) }
+func (tx *Transaction) Nonce() uint64      { return tx.inner.nonce() }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
 func (tx *Transaction) To() *common.Address {
-	if tx.To() == nil {
+	if tx.inner.to() == nil {
 		return nil
 	}
-	to := *tx.To()
+	to := *tx.inner.to()
 	return &to
 }
 
@@ -274,6 +321,10 @@ func (tx *Transaction) Size() common.StorageSize {
 	}
 	c := writeCounter(0)
 	rlp.Encode(&c, &tx.inner)
+	// For typed transactions later, the encoding also includes the leading type byte.
+	if tx.Type() != LegacyTxType {
+		c += 1
+	}
 	tx.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
 }
