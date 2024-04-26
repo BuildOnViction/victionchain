@@ -126,7 +126,6 @@ type Signer interface {
 	// SignatureValues returns the raw R, S, V values corresponding to the
 	// given signature.
 	SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error)
-	ChainID() *big.Int
 	// Hash returns the hash to be signed.
 	Hash(tx *Transaction) common.Hash
 	// Equal returns true if the given signer is the same as the receiver.
@@ -146,10 +145,6 @@ func NewEIP155Signer(chainId *big.Int) EIP155Signer {
 		chainId:    chainId,
 		chainIdMul: new(big.Int).Mul(chainId, big.NewInt(2)),
 	}
-}
-
-func (s EIP155Signer) ChainID() *big.Int {
-	return s.chainId
 }
 
 func (s EIP155Signer) Equal(s2 Signer) bool {
@@ -206,10 +201,6 @@ func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
 // HomesteadSigner implements Signer using the homestead rules.
 type HomesteadSigner struct{ FrontierSigner }
 
-func (s HomesteadSigner) ChainID() *big.Int {
-	return nil
-}
-
 func (s HomesteadSigner) Equal(s2 Signer) bool {
 	_, ok := s2.(HomesteadSigner)
 	return ok
@@ -230,10 +221,6 @@ func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
 }
 
 type FrontierSigner struct{}
-
-func (s FrontierSigner) ChainID() *big.Int {
-	return nil
-}
 
 func (s FrontierSigner) Equal(s2 Signer) bool {
 	_, ok := s2.(FrontierSigner)
