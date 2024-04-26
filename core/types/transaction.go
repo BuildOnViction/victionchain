@@ -110,7 +110,8 @@ func (tx *Transaction) EncodeRLP(w io.Writer) error {
 	if tx.Type() == LegacyTxType {
 		return rlp.Encode(w, tx.inner)
 	}
-	// It's an EIP-2718 typed TX envelope.
+	// It's an EIP-2718 typed TX envelope. Shouldn't reach here for now
+	// Getting buffer from a sync pool
 	buf := encodeBufferPool.Get().(*bytes.Buffer)
 	defer encodeBufferPool.Put(buf)
 	buf.Reset()
@@ -122,7 +123,9 @@ func (tx *Transaction) EncodeRLP(w io.Writer) error {
 
 // encodeTyped writes the canonical encoding of a typed transaction to w.
 func (tx *Transaction) encodeTyped(w *bytes.Buffer) error {
+	// Encode and write the transaction type to buffer first
 	w.WriteByte(tx.Type())
+	// Then concatenate the RLP-encoded transaction content later
 	return tx.inner.encode(w)
 }
 

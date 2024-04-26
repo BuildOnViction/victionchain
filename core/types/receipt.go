@@ -128,20 +128,21 @@ func (r *Receipt) EncodeRLP(w io.Writer) error {
 		return rlp.Encode(w, data)
 	}
 	// It's an EIP2718 typed transaction envelope. Shouldn't reach here for now
+	// Getting buffer from a sync pool
 	buf := encodeBufferPool.Get().(*bytes.Buffer)
 	defer encodeBufferPool.Put(buf)
 	buf.Reset()
-	// Encode and write the transaction type to buffer first
 	if err := r.encodeTyped(data, buf); err != nil {
 		return err
 	}
-	// Then concatenate the RLP-encoded receipt later
 	return rlp.Encode(w, buf.Bytes())
 }
 
 // encodeTyped writes the canonical encoding of a typed receipt to w.
 func (r *Receipt) encodeTyped(data *receiptRLP, w *bytes.Buffer) error {
+	// Encode and write the transaction type to buffer first
 	w.WriteByte(r.Type)
+	// Then concatenate the RLP-encoded receipt later
 	return rlp.Encode(w, data)
 }
 
