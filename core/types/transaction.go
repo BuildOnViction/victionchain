@@ -26,19 +26,22 @@ import (
 	"sync/atomic"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
 )
 
 // Transaction types.
 const (
-	LegacyTxType = 0x00
+	LegacyTxType     = 0x00
+	DynamicFeeTxType = 0x02
 )
 
 var (
 	ErrInvalidSig           = errors.New("invalid transaction v, r, s values")
 	ErrUnexpectedProtection = errors.New("transaction type does not supported EIP-155 protected signatures")
 	ErrTxTypeNotSupported   = errors.New("transaction type not supported")
+	ErrGasFeeCapTooLow      = errors.New("fee cap less than base fee")
 	errShortTypedTx         = errors.New("typed transaction too short")
 )
 
@@ -86,12 +89,22 @@ type TxData interface {
 	data() []byte
 	gas() uint64
 	gasPrice() *big.Int
+	gasTipCap() *big.Int
+	gasFeeCap() *big.Int
 	value() *big.Int
 	nonce() uint64
 	to() *common.Address
 
 	rawSignatureValues() (v, r, s *big.Int)
-	setSignatureValues(v, r, s *big.Int)
+	setSignatureValues(chainID, v, r, s *big.Int)
+
+	// effectiveGasPrice computes the gas price paid by the transaction, given
+	// the inclusion block baseFee.
+	//
+	// Unlike other TxData methods, the returned *big.Int should be an independent
+	// copy of the computed value, i.e. callers are allowed to mutate the result.
+	// Method implementations can use 'dst' to store the result.
+	effectiveGasPrice(dst *big.Int, baseFee *big.Int) *big.Int
 
 	encode(*bytes.Buffer) error // used to RLP encode the typed transaction contents
 	decode([]byte) error        // used to RLP decode the typed transaction contents
@@ -269,6 +282,70 @@ func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.inner.va
 func (tx *Transaction) Nonce() uint64      { return tx.inner.nonce() }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
+// GasTipCap returns the gasTipCap per gas of the transaction.
+func (tx *Transaction) GasTipCap() *big.Int { return new(big.Int).Set(tx.inner.gasTipCap()) }
+
+// GasFeeCap returns the fee cap per gas of the transaction.
+func (tx *Transaction) GasFeeCap() *big.Int { return new(big.Int).Set(tx.inner.gasFeeCap()) }
+
+// GasFeeCapCmp compares the fee cap of two transactions.
+func (tx *Transaction) GasFeeCapCmp(other *Transaction) int {
+	return tx.inner.gasFeeCap().Cmp(other.inner.gasFeeCap())
+}
+
+// GasFeeCapIntCmp compares the fee cap of the transaction against the given fee cap.
+func (tx *Transaction) GasFeeCapIntCmp(other *big.Int) int {
+	return tx.inner.gasFeeCap().Cmp(other)
+}
+
+// GasTipCapCmp compares the gasTipCap of two transactions.
+func (tx *Transaction) GasTipCapCmp(other *Transaction) int {
+	return tx.inner.gasTipCap().Cmp(other.inner.gasTipCap())
+}
+
+// GasTipCapIntCmp compares the gasTipCap of the transaction against the given gasTipCap.
+func (tx *Transaction) GasTipCapIntCmp(other *big.Int) int {
+	return tx.inner.gasTipCap().Cmp(other)
+}
+
+// EffectiveGasTip returns the effective miner gasTipCap for the given base fee.
+// Note: if the effective gasTipCap is negative, this method returns both error
+// the actual negative value, _and_ ErrGasFeeCapTooLow
+func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
+	if baseFee == nil {
+		return tx.GasTipCap(), nil
+	}
+	var err error
+	gasFeeCap := tx.GasFeeCap()
+	if gasFeeCap.Cmp(baseFee) == -1 {
+		err = ErrGasFeeCapTooLow
+	}
+	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
+}
+
+// EffectiveGasTipValue is identical to EffectiveGasTip, but does not return an
+// error in case the effective gasTipCap is negative
+func (tx *Transaction) EffectiveGasTipValue(baseFee *big.Int) *big.Int {
+	effectiveTip, _ := tx.EffectiveGasTip(baseFee)
+	return effectiveTip
+}
+
+// EffectiveGasTipCmp compares the effective gasTipCap of two transactions assuming the given base fee.
+func (tx *Transaction) EffectiveGasTipCmp(other *Transaction, baseFee *big.Int) int {
+	if baseFee == nil {
+		return tx.GasTipCapCmp(other)
+	}
+	return tx.EffectiveGasTipValue(baseFee).Cmp(other.EffectiveGasTipValue(baseFee))
+}
+
+// EffectiveGasTipIntCmp compares the effective gasTipCap of a transaction to the given gasTipCap.
+func (tx *Transaction) EffectiveGasTipIntCmp(other *big.Int, baseFee *big.Int) int {
+	if baseFee == nil {
+		return tx.GasTipCapIntCmp(other)
+	}
+	return tx.EffectiveGasTipValue(baseFee).Cmp(other)
+}
+
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
 func (tx *Transaction) To() *common.Address {
@@ -363,7 +440,7 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 		return nil, fmt.Errorf("%w: r: %s, s: %s, v: %s", ErrInvalidSig, r, s, v)
 	}
 	cpy := tx.inner.copy()
-	cpy.setSignatureValues(v, r, s)
+	cpy.setSignatureValues(tx.ChainId(), v, r, s)
 	return &Transaction{inner: cpy}, nil
 }
 
