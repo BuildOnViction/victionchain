@@ -77,7 +77,7 @@ func NewTx(inner TxData) *Transaction {
 
 // TxData is the underlying inner of a transaction.
 //
-// This is implemented by DynamicFeeTx and LegacyTx.
+// This is implemented by LegacyTx.
 type TxData interface {
 	txType() byte // returns the type ID
 	copy() TxData // creates a deep copy and initializes all fields
@@ -93,16 +93,8 @@ type TxData interface {
 	rawSignatureValues() (v, r, s *big.Int)
 	setSignatureValues(v, r, s *big.Int)
 
-	// effectiveGasPrice computes the gas price paid by the transaction, given
-	// the inclusion block baseFee.
-	//
-	// Unlike other TxData methods, the returned *big.Int should be an independent
-	// copy of the computed value, i.e. callers are allowed to mutate the result.
-	// Method implementations can use 'dst' to store the result.
-	effectiveGasPrice(dst *big.Int, baseFee *big.Int) *big.Int
-
-	encode(*bytes.Buffer) error
-	decode([]byte) error
+	encode(*bytes.Buffer) error // used to RLP encode the typed transaction contents
+	decode([]byte) error        // used to RLP decode the typed transaction contents
 }
 
 // EncodeRLP implements rlp.Encoder
