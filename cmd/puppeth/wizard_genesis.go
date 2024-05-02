@@ -66,6 +66,7 @@ func (w *wizard) makeGenesis() {
 			TIPTomoXBlock:                big.NewInt(0),
 			TIPTomoXLendingBlock:         big.NewInt(0),
 			TIPTomoXCancellationFeeBlock: big.NewInt(0),
+			EIP1559Block:                 big.NewInt(0),
 		},
 	}
 	// Figure out which consensus engine to choose
@@ -451,6 +452,10 @@ func (w *wizard) manageGenesis() {
 		fmt.Println()
 		fmt.Printf("Which block should TIP TomoX cancellation fee come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock)
 		w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should EIP1559 come into effect? (default = %v)\n", w.conf.Genesis.Config.EIP1559Block)
+		w.conf.Genesis.Config.EIP1559Block = w.readDefaultBigInt(w.conf.Genesis.Config.EIP1559Block)
 
 		out, _ := json.MarshalIndent(w.conf.Genesis.Config, "", "  ")
 		fmt.Printf("Chain configuration updated:\n\n%s\n", out)
