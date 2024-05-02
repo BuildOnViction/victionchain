@@ -62,7 +62,7 @@ func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 func LatestSigner(config *params.ChainConfig) Signer {
 	if config.ChainId != nil {
 		if config.EIP1559Block != nil {
-
+			return NewEIP1559Signer(config.ChainId)
 		}
 		if config.EIP155Block != nil {
 			return NewEIP155Signer(config.ChainId)
