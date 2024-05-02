@@ -52,20 +52,21 @@ func (w *wizard) makeGenesis() {
 		Difficulty: big.NewInt(524288),
 		Alloc:      make(core.GenesisAlloc),
 		Config: &params.ChainConfig{
-			HomesteadBlock:               big.NewInt(0),
-			EIP150Block:                  big.NewInt(0),
-			EIP155Block:                  big.NewInt(0),
-			EIP158Block:                  big.NewInt(0),
-			ByzantiumBlock:               big.NewInt(0),
-			ConstantinopleBlock:          big.NewInt(0),
-			TIP2019Block:                 big.NewInt(0),
-			TIPSigningBlock:              big.NewInt(0),
-			TIPRandomizeBlock:            big.NewInt(0),
-			BlackListHFBlock:             big.NewInt(0),
-			TIPTRC21FeeBlock:             big.NewInt(0),
-			TIPTomoXBlock:                big.NewInt(0),
-			TIPTomoXLendingBlock:         big.NewInt(0),
-			TIPTomoXCancellationFeeBlock: big.NewInt(0),
+			HomesteadBlock:                big.NewInt(0),
+			EIP150Block:                   big.NewInt(0),
+			EIP155Block:                   big.NewInt(0),
+			EIP158Block:                   big.NewInt(0),
+			ByzantiumBlock:                big.NewInt(0),
+			ConstantinopleBlock:           big.NewInt(0),
+			TIP2019Block:                  big.NewInt(0),
+			TIPSigningBlock:               big.NewInt(0),
+			TIPRandomizeBlock:             big.NewInt(0),
+			BlackListHFBlock:              big.NewInt(0),
+			TIPTRC21FeeBlock:              big.NewInt(0),
+			TIPTomoXBlock:                 big.NewInt(0),
+			TIPTomoXLendingBlock:          big.NewInt(0),
+			TIPTomoXCancellationFeeBlock:  big.NewInt(0),
+			TIPAdditionalBlockRewardBlock: nil,
 		},
 	}
 	// Figure out which consensus engine to choose
@@ -451,6 +452,10 @@ func (w *wizard) manageGenesis() {
 		fmt.Println()
 		fmt.Printf("Which block should TIP TomoX cancellation fee come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock)
 		w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should TIPAdditionalBlockReward come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPAdditionalBlockRewardBlock)
+		w.conf.Genesis.Config.TIPAdditionalBlockRewardBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPAdditionalBlockRewardBlock)
 
 		out, _ := json.MarshalIndent(w.conf.Genesis.Config, "", "  ")
 		fmt.Printf("Chain configuration updated:\n\n%s\n", out)
