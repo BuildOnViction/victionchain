@@ -630,8 +630,10 @@ func (tx *Transaction) IsTomoZApplyTransaction() bool {
 }
 
 func (tx *Transaction) String() string {
-	var from, to string
-	v, r, s := tx.RawSignatureValues()
+	var (
+		from, to string
+		v, r, s  = tx.RawSignatureValues()
+	)
 	if v != nil {
 		// make a best guess about the signer and use that to derive
 		// the sender.
@@ -653,18 +655,20 @@ func (tx *Transaction) String() string {
 	enc, _ := rlp.EncodeToBytes(&tx.inner)
 	return fmt.Sprintf(`
 	TX(%x)
-	Contract: %v
-	From:     %s
-	To:       %s
-	Nonce:    %v
-	GasPrice: %#x
-	GasLimit  %#x
-	Value:    %#x
-	Data:     0x%x
-	V:        %#x
-	R:        %#x
-	S:        %#x
-	Hex:      %x
+	Contract:  %v
+	From:      %s
+	To:        %s
+	Nonce:     %v
+	GasPrice:  %#x
+	GasLimit:  %#x
+	GasFeeCap: %#x
+	GasTipCap: %#x
+	Value:     %#x
+	Data:      0x%x
+	V:         %#x
+	R:         %#x
+	S:         %#x
+	Hex:       %x
 `,
 		tx.Hash(),
 		tx.To() == nil,
@@ -673,6 +677,8 @@ func (tx *Transaction) String() string {
 		tx.Nonce(),
 		tx.GasPrice(),
 		tx.Gas(),
+		tx.GasFeeCap(),
+		tx.GasTipCap(),
 		tx.Value(),
 		tx.Data(),
 		v, r, s,
@@ -722,25 +728,53 @@ func (s TxByNonce) Len() int           { return len(s) }
 func (s TxByNonce) Less(i, j int) bool { return s[i].Nonce() < s[j].Nonce() }
 func (s TxByNonce) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
+// txWithMinerFee wraps a transaction with its gas price or effective miner gasTipCap
+type txWithMinerFee struct {
+	tx   *Transaction
+	from common.Address
+	fees *big.Int
+}
+
+// newTxWithMinerFee creates a wrapped transaction, calculating the effective
+// miner gasTipCap if a base fee is provided.
+// Returns error in case of a negative effective miner gasTipCap.
+func newTxWithMinerFee(tx *Transaction, from common.Address, baseFee *big.Int) (*txWithMinerFee, error) {
+	tip := new(big.Int).Set(tx.GasTipCap())
+	if baseFee != nil {
+		if tx.GasFeeCap().Cmp(baseFee) < 0 {
+			return nil, ErrGasFeeCapTooLow
+		}
+		tip = new(big.Int).Sub(tx.GasFeeCap(), baseFee)
+		if tip.Cmp(tx.GasTipCap()) > 0 {
+			tip = tx.GasTipCap()
+		}
+	}
+	return &txWithMinerFee{
+		tx:   tx,
+		from: from,
+		fees: tip,
+	}, nil
+}
+
 // TxByPrice implements both the sort and the heap interface, making it useful
 // for all at once sorting as well as individually adding and removing elements.
 type TxByPrice struct {
-	txs        Transactions
+	txs        []*txWithMinerFee
 	payersSwap map[common.Address]*big.Int
 }
 
 func (s TxByPrice) Len() int { return len(s.txs) }
 func (s TxByPrice) Less(i, j int) bool {
-	i_price := s.txs[i].GasPrice()
-	if s.txs[i].To() != nil {
-		if _, ok := s.payersSwap[*s.txs[i].To()]; ok {
+	i_price := s.txs[i].fees
+	if s.txs[i].tx.To() != nil {
+		if _, ok := s.payersSwap[*s.txs[i].tx.To()]; ok {
 			i_price = common.TRC21GasPrice
 		}
 	}
 
-	j_price := s.txs[j].GasPrice()
-	if s.txs[j].To() != nil {
-		if _, ok := s.payersSwap[*s.txs[j].To()]; ok {
+	j_price := s.txs[j].fees
+	if s.txs[j].tx.To() != nil {
+		if _, ok := s.payersSwap[*s.txs[j].tx.To()]; ok {
 			j_price = common.TRC21GasPrice
 		}
 	}
@@ -749,13 +783,16 @@ func (s TxByPrice) Less(i, j int) bool {
 func (s TxByPrice) Swap(i, j int) { s.txs[i], s.txs[j] = s.txs[j], s.txs[i] }
 
 func (s *TxByPrice) Push(x interface{}) {
-	s.txs = append(s.txs, x.(*Transaction))
+	s.txs = append(s.txs, x.(*txWithMinerFee))
 }
 
 func (s *TxByPrice) Pop() interface{} {
 	old := s.txs
 	n := len(old)
 	x := old[n-1]
+	// Heap Pop() can cause a memory leak if the element that is returned is a pointer and is not set to nil.
+	// This causes the pointer to be held by the underlying array, such that it cannot be garbage collected.
+	old[n-1] = nil
 	s.txs = old[0 : n-1]
 	return x
 }
@@ -764,9 +801,10 @@ func (s *TxByPrice) Pop() interface{} {
 // transactions in a profit-maximizing sorted order, while supporting removing
 // entire batches of transactions for non-executable accounts.
 type TransactionsByPriceAndNonce struct {
-	txs    map[common.Address]Transactions // Per account nonce-sorted list of transactions
-	heads  TxByPrice                       // Next transaction for each unique account (price heap)
-	signer Signer                          // Signer for the set of transactions
+	txs     map[common.Address]Transactions // Per account nonce-sorted list of transactions
+	heads   TxByPrice                       // Next transaction for each unique account (price heap)
+	signer  Signer                          // Signer for the set of transactions
+	baseFee *big.Int                        // Current base fee
 }
 
 // NewTransactionsByPriceAndNonce creates a transaction set that can retrieve
@@ -776,7 +814,8 @@ type TransactionsByPriceAndNonce struct {
 // if after providing it to the constructor.
 
 // It also classifies special txs and normal txs
-func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transactions, signers map[common.Address]struct{}, payersSwap map[common.Address]*big.Int) (*TransactionsByPriceAndNonce, Transactions) {
+func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transactions, signers map[common.Address]struct{},
+	payersSwap map[common.Address]*big.Int, baseFee *big.Int) (*TransactionsByPriceAndNonce, Transactions) {
 	// Initialize a price based heap with the head transactions
 	heads := TxByPrice{}
 	heads.payersSwap = payersSwap
@@ -803,7 +842,12 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 			normalTxs = accTxs
 		}
 		if len(normalTxs) > 0 {
-			heads.txs = append(heads.txs, normalTxs[0])
+			wrapped, err := newTxWithMinerFee(normalTxs[0], from, baseFee)
+			if err != nil {
+				delete(txs, from)
+				continue
+			}
+			heads.txs = append(heads.txs, wrapped)
 			// Ensure the sender address is from the signer
 			txs[from] = normalTxs[1:]
 		}
@@ -812,9 +856,10 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 
 	// Assemble and return the transaction set
 	return &TransactionsByPriceAndNonce{
-		txs:    txs,
-		heads:  heads,
-		signer: signer,
+		txs:     txs,
+		heads:   heads,
+		signer:  signer,
+		baseFee: baseFee,
 	}, specialTxs
 }
 
@@ -823,15 +868,18 @@ func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
 	if len(t.heads.txs) == 0 {
 		return nil
 	}
-	return t.heads.txs[0]
+	return t.heads.txs[0].tx
 }
 
 // Shift replaces the current best head with the next one from the same account.
 func (t *TransactionsByPriceAndNonce) Shift() {
-	acc, _ := Sender(t.signer, t.heads.txs[0])
+	acc := t.heads.txs[0].from
 	if txs, ok := t.txs[acc]; ok && len(txs) > 0 {
-		t.heads.txs[0], t.txs[acc] = txs[0], txs[1:]
-		heap.Fix(&t.heads, 0)
+		if wrapped, err := newTxWithMinerFee(txs[0], acc, t.baseFee); err == nil {
+			t.heads.txs[0], t.txs[acc] = wrapped, txs[1:]
+			heap.Fix(&t.heads, 0)
+			return
+		}
 	} else {
 		heap.Pop(&t.heads)
 	}

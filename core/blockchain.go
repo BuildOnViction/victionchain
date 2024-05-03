@@ -693,6 +693,11 @@ func (bc *BlockChain) Genesis() *types.Block {
 	return bc.genesisBlock
 }
 
+// GetVMConfig returns the blockchain VM config.
+func (bc *BlockChain) GetVMConfig() *vm.Config {
+	return &bc.vmConfig
+}
+
 // GetBody retrieves a block body (transactions and uncles) from the database by
 // hash, caching it if found.
 func (bc *BlockChain) GetBody(hash common.Hash) *types.Body {

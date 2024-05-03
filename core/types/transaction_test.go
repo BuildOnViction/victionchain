@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
@@ -123,36 +124,79 @@ func TestRecipientNormal(t *testing.T) {
 	}
 }
 
+func TestTransactionPriceNonceSortLegacy(t *testing.T) {
+	t.Parallel()
+	testTransactionPriceNonceSort(t, nil)
+}
+
+func TestTransactionPriceNonceSort1559(t *testing.T) {
+	t.Parallel()
+	testTransactionPriceNonceSort(t, big.NewInt(0))
+	testTransactionPriceNonceSort(t, big.NewInt(5))
+	testTransactionPriceNonceSort(t, big.NewInt(50))
+}
+
 // Tests that transactions can be correctly sorted according to their price in
 // decreasing order, but at the same time with increasing nonces when issued by
 // the same account.
-func TestTransactionPriceNonceSort(t *testing.T) {
+func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 	// Generate a batch of accounts to start with
 	keys := make([]*ecdsa.PrivateKey, 25)
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = crypto.GenerateKey()
 	}
 
-	signer := HomesteadSigner{}
+	signer := LatestSignerForChainID(common.Big1)
 	// Generate a batch of transactions with overlapping values, but shifted nonces
 	groups := map[common.Address]Transactions{}
+	expectedCount := 0
 	for start, key := range keys {
 		addr := crypto.PubkeyToAddress(key.PublicKey)
+		count := 25
 		for i := 0; i < 25; i++ {
-			tx, _ := SignTx(NewTransaction(uint64(start+i), common.Address{}, big.NewInt(100), 100, big.NewInt(int64(start+i)), nil), signer, key)
+			var tx *Transaction
+			gasFeeCap := rand.Intn(50)
+			if baseFee == nil {
+				tx = NewTx(&LegacyTx{
+					Nonce:    uint64(start + i),
+					To:       &common.Address{},
+					Value:    big.NewInt(100),
+					Gas:      100,
+					GasPrice: big.NewInt(int64(gasFeeCap)),
+					Data:     nil,
+				})
+			} else {
+				tx = NewTx(&DynamicFeeTx{
+					Nonce:     uint64(start + i),
+					To:        &common.Address{},
+					Value:     big.NewInt(100),
+					Gas:       100,
+					GasFeeCap: big.NewInt(int64(gasFeeCap)),
+					GasTipCap: big.NewInt(int64(rand.Intn(gasFeeCap + 1))),
+					Data:      nil,
+				})
+				if count == 25 && int64(gasFeeCap) < baseFee.Int64() {
+					count = i
+				}
+			}
+			tx, err := SignTx(tx, signer, key)
+			if err != nil {
+				t.Fatalf("failed to sign tx: %s", err)
+			}
 			groups[addr] = append(groups[addr], tx)
 		}
+		expectedCount += count
 	}
 	// Sort the transactions and cross check the nonce ordering
-	txset, _ := NewTransactionsByPriceAndNonce(signer, groups, nil, map[common.Address]*big.Int{})
+	txset, _ := NewTransactionsByPriceAndNonce(signer, groups, nil, map[common.Address]*big.Int{}, baseFee)
 
 	txs := Transactions{}
 	for tx := txset.Peek(); tx != nil; tx = txset.Peek() {
 		txs = append(txs, tx)
 		txset.Shift()
 	}
-	if len(txs) != 25*25 {
-		t.Errorf("expected %d transactions, found %d", 25*25, len(txs))
+	if len(txs) != expectedCount {
+		t.Errorf("expected %d transactions, found %d", expectedCount, len(txs))
 	}
 	for i, txi := range txs {
 		fromi, _ := Sender(signer, txi)
@@ -160,33 +204,21 @@ func TestTransactionPriceNonceSort(t *testing.T) {
 		// Make sure the nonce order is valid
 		for j, txj := range txs[i+1:] {
 			fromj, _ := Sender(signer, txj)
-
 			if fromi == fromj && txi.Nonce() > txj.Nonce() {
 				t.Errorf("invalid nonce ordering: tx #%d (A=%x N=%v) < tx #%d (A=%x N=%v)", i, fromi[:4], txi.Nonce(), i+j, fromj[:4], txj.Nonce())
 			}
 		}
-		// Find the previous and next nonce of this account
-		prev, next := i-1, i+1
-		for j := i - 1; j >= 0; j-- {
-			if fromj, _ := Sender(signer, txs[j]); fromi == fromj {
-				prev = j
-				break
+		// If the next tx has different from account, the price must be lower than the current one
+		if i+1 < len(txs) {
+			next := txs[i+1]
+			fromNext, _ := Sender(signer, next)
+			tip, err := txi.EffectiveGasTip(baseFee)
+			nextTip, nextErr := next.EffectiveGasTip(baseFee)
+			if err != nil || nextErr != nil {
+				t.Errorf("error calculating effective tip: %v, %v", err, nextErr)
 			}
-		}
-		for j := i + 1; j < len(txs); j++ {
-			if fromj, _ := Sender(signer, txs[j]); fromi == fromj {
-				next = j
-				break
-			}
-		}
-		// Make sure that in between the neighbor nonces, the transaction is correctly positioned price wise
-		for j := prev + 1; j < next; j++ {
-			fromj, _ := Sender(signer, txs[j])
-			if j < i && txs[j].GasPrice().Cmp(txi.GasPrice()) < 0 {
-				t.Errorf("invalid gasprice ordering: tx #%d (A=%x P=%v) < tx #%d (A=%x P=%v)", j, fromj[:4], txs[j].GasPrice(), i, fromi[:4], txi.GasPrice())
-			}
-			if j > i && txs[j].GasPrice().Cmp(txi.GasPrice()) > 0 {
-				t.Errorf("invalid gasprice ordering: tx #%d (A=%x P=%v) > tx #%d (A=%x P=%v)", j, fromj[:4], txs[j].GasPrice(), i, fromi[:4], txi.GasPrice())
+			if fromi != fromNext && tip.Cmp(nextTip) < 0 {
+				t.Errorf("invalid gasprice ordering: tx #%d (A=%x P=%v) < tx #%d (A=%x P=%v)", i, fromi[:4], txi.GasPrice(), i+1, fromNext[:4], next.GasPrice())
 			}
 		}
 	}
