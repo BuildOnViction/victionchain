@@ -12,10 +12,7 @@ import (
 
 func TestRewardInflation(t *testing.T) {
 	params.AllPosvProtocolChanges.TIPAdditionalBlockRewardBlock = big.NewInt(60)
-	baseTIPAdditionalBlockRewardBlockRewardPerEpoch := new(big.Int).Mul(
-		new(big.Int).Div(common.InitialTIPAdditionalBlockRewardBlockRewardPerYear, big.NewInt(int64(common.EpochPerYear))),
-		new(big.Int).SetUint64(params.Ether),
-	)
+	baseTIPAdditionalBlockRewardBlockRewardPerEpoch := new(big.Int).Div(common.InitialTIPAdditionalBlockRewardBlockRewardPerYear, big.NewInt(int64(common.EpochPerYear)))
 	// the first 2 years
 	initialBlockRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(params.AllPosvProtocolChanges.Posv.Reward), new(big.Int).SetUint64(params.Ether))
 	// 3rd year, 4th year, 5th year

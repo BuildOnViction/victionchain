@@ -53,13 +53,11 @@ var (
 	RelayerLendingCancelFee      = big.NewInt(1000000000000000)                   // 0.001
 	BaseLendingInterest          = big.NewInt(100000000)                          // 1e8
 	// TIPAdditionalBlockReward related
-	InitialTIPAdditionalBlockRewardBlockRewardPerYear = big.NewInt(4_000_000)                                      // 4M VIC per year divides for 17520 epochs each year
-	VictionEcoPoolAddress                             = HexToAddress("0x0000000000000000000000000000000000000001") // Address of the Viction Ecosystem Development Pool
-	TotalEcoPoolDistributionBlocks                    = big.NewInt(63_072_000)                                     // Total blocks until the Ecosystem Pool is fully distributed
-	TIPAdditionalBlockRewardEcoPoolPerBlock           = new(big.Int).Div(                                          // The VIC amount distributed to the Ecosystem Pool per block
-		new(big.Int).Mul(new(big.Int).SetUint64(1_000_000_000_000_000_000), big.NewInt(80_000_000)), // Total 80M VIC for the Viction Ecosystem Development Pool
-		TotalEcoPoolDistributionBlocks,
-	)
+	InitialTIPAdditionalBlockRewardBlockRewardPerYear = new(big.Int).Mul(new(big.Int).SetUint64(1_000_000_000_000_000_000), big.NewInt(4_000_000))  // 4M VIC per year divides for 17520 epochs each year
+	VictionEcoPoolAddress                             = HexToAddress("0x0000000000000000000000000000000000000001")                                  // Address of the Viction Ecosystem Development Pool
+	TotalEcoPoolDistributionBlocks                    = big.NewInt(63_072_000)                                                                      // Total blocks until the Ecosystem Pool is fully distributed
+	TotalAdditionalBlockRewardEcoPool                 = new(big.Int).Mul(new(big.Int).SetUint64(1_000_000_000_000_000_000), big.NewInt(80_000_000)) // Total 80M VIC for the Viction Ecosystem Development Pool
+	TIPAdditionalBlockRewardEcoPoolPerBlock           = new(big.Int).Div(TotalAdditionalBlockRewardEcoPool, TotalEcoPoolDistributionBlocks)         // The VIC amount distributed to the Ecosystem Pool per block
 )
 
 var (

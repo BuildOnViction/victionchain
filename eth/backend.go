@@ -915,10 +915,7 @@ func rewardInflation(config *params.ChainConfig, chainReward *big.Int, number ui
 
 func currentChainReward(config *params.ChainConfig, num *big.Int) *big.Int {
 	if config.IsTIPAdditionalBlockReward(num) {
-		return new(big.Int).Mul(
-			new(big.Int).Div(common.InitialTIPAdditionalBlockRewardBlockRewardPerYear, big.NewInt(int64(common.EpochPerYear))),
-			new(big.Int).SetUint64(params.Ether),
-		)
+		return new(big.Int).Div(common.InitialTIPAdditionalBlockRewardBlockRewardPerYear, big.NewInt(int64(common.EpochPerYear)))
 	}
 	return new(big.Int).Mul(new(big.Int).SetUint64(config.Posv.Reward), new(big.Int).SetUint64(params.Ether))
 }
