@@ -87,6 +87,9 @@ type Header struct {
 	Validators  []byte         `json:"validators"       gencodec:"required"`
 	Validator   []byte         `json:"validator"        gencodec:"required"`
 	Penalties   []byte         `json:"penalties"        gencodec:"required"`
+
+	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
+	BaseFee *big.Int `json:"baseFeePerGas" rlp:"optional"`
 }
 
 // field type overrides for gencodec
@@ -97,6 +100,7 @@ type headerMarshaling struct {
 	GasUsed    hexutil.Uint64
 	Time       *hexutil.Big
 	Extra      hexutil.Bytes
+	BaseFee    *hexutil.Big
 	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
 }
 
@@ -146,13 +150,18 @@ func (h *Header) HashNoValidator() common.Hash {
 		h.Validators,
 		[]byte{},
 		h.Penalties,
+		h.BaseFee,
 	})
 }
 
 // Size returns the approximate memory used by all internal contents. It is used
 // to approximate and limit the memory consumption of various caches.
 func (h *Header) Size() common.StorageSize {
-	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
+	var baseFeeBits int
+	if h.BaseFee != nil {
+		baseFeeBits = h.BaseFee.BitLen()
+	}
+	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen()+h.Time.BitLen()+baseFeeBits)/8)
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
@@ -288,6 +297,9 @@ func CopyHeader(h *Header) *Header {
 	if cpy.Number = new(big.Int); h.Number != nil {
 		cpy.Number.Set(h.Number)
 	}
+	if h.BaseFee != nil {
+		cpy.BaseFee = new(big.Int).Set(h.BaseFee)
+	}
 	if len(h.Extra) > 0 {
 		cpy.Extra = make([]byte, len(h.Extra))
 		copy(cpy.Extra, h.Extra)
@@ -374,6 +386,12 @@ func (b *Block) HashNoNonce() common.Hash {
 }
 func (b *Block) HashNoValidator() common.Hash {
 	return b.header.HashNoValidator()
+}
+func (b *Block) BaseFee() *big.Int {
+	if b.header.BaseFee == nil {
+		return nil
+	}
+	return new(big.Int).Set(b.header.BaseFee)
 }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding

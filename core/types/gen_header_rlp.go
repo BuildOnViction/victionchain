@@ -53,6 +53,17 @@ func (obj *Header) EncodeRLP(_w io.Writer) error {
 	w.WriteBytes(obj.Validators)
 	w.WriteBytes(obj.Validator)
 	w.WriteBytes(obj.Penalties)
+	_tmp1 := obj.BaseFee != nil
+	if _tmp1 {
+		if obj.BaseFee == nil {
+			w.Write(rlp.EmptyString)
+		} else {
+			if obj.BaseFee.Sign() == -1 {
+				return rlp.ErrNegativeBigInt
+			}
+			w.WriteBigInt(obj.BaseFee)
+		}
+	}
 	w.ListEnd(_tmp0)
 	return w.Flush()
 }

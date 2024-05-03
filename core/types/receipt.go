@@ -59,9 +59,10 @@ type Receipt struct {
 	Logs              []*Log `json:"logs"              gencodec:"required"`
 
 	// Implementation fields (don't reorder!)
-	TxHash          common.Hash    `json:"transactionHash" gencodec:"required"`
-	ContractAddress common.Address `json:"contractAddress"`
-	GasUsed         uint64         `json:"gasUsed" gencodec:"required"`
+	TxHash            common.Hash    `json:"transactionHash" gencodec:"required"`
+	ContractAddress   common.Address `json:"contractAddress"`
+	GasUsed           uint64         `json:"gasUsed" gencodec:"required"`
+	EffectiveGasPrice *big.Int       `json:"effectiveGasPrice"` // required, but tag omitted for backwards compatibility
 
 	// Inclusion information: These fields provide information about the inclusion of the
 	// transaction corresponding to this receipt.
@@ -76,6 +77,7 @@ type receiptMarshaling struct {
 	Status            hexutil.Uint64
 	CumulativeGasUsed hexutil.Uint64
 	GasUsed           hexutil.Uint64
+	EffectiveGasPrice *hexutil.Big
 	BlockNumber       *hexutil.Big
 	TransactionIndex  hexutil.Uint
 }
@@ -252,9 +254,9 @@ func (r *Receipt) Size() common.StorageSize {
 // String implements the Stringer interface.
 func (r *Receipt) String() string {
 	if len(r.PostState) == 0 {
-		return fmt.Sprintf("receipt{status=%d cgas=%v bloom=%x logs=%v}", r.Status, r.CumulativeGasUsed, r.Bloom, r.Logs)
+		return fmt.Sprintf("receipt{type=%d status=%d cgas=%v bloom=%x logs=%v}", r.Type, r.Status, r.CumulativeGasUsed, r.Bloom, r.Logs)
 	}
-	return fmt.Sprintf("receipt{med=%x cgas=%v bloom=%x logs=%v}", r.PostState, r.CumulativeGasUsed, r.Bloom, r.Logs)
+	return fmt.Sprintf("receipt{type=%d med=%x cgas=%v bloom=%x logs=%v}", r.Type, r.PostState, r.CumulativeGasUsed, r.Bloom, r.Logs)
 }
 
 // ReceiptForStorage is a wrapper around a Receipt that flattens and parses the
