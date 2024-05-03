@@ -69,6 +69,8 @@ type Message interface {
 	To() *common.Address
 
 	GasPrice() *big.Int
+	GasFeeCap() *big.Int
+	GasTipCap() *big.Int
 	Gas() uint64
 	Value() *big.Int
 

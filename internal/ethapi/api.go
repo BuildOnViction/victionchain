@@ -1018,12 +1018,40 @@ func (s *PublicBlockChainAPI) getCandidatesFromSmartContract() ([]posv.Masternod
 
 // CallArgs represents the arguments for a call.
 type CallArgs struct {
-	From     common.Address  `json:"from"`
-	To       *common.Address `json:"to"`
-	Gas      hexutil.Uint64  `json:"gas"`
-	GasPrice hexutil.Big     `json:"gasPrice"`
-	Value    hexutil.Big     `json:"value"`
-	Data     hexutil.Bytes   `json:"data"`
+	From                 common.Address  `json:"from"`
+	To                   *common.Address `json:"to"`
+	Gas                  hexutil.Uint64  `json:"gas"`
+	GasPrice             *hexutil.Big    `json:"gasPrice"`
+	MaxFeePerGas         *hexutil.Big    `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas *hexutil.Big    `json:"maxPriorityFeePerGas"`
+	Value                hexutil.Big     `json:"value"`
+	Data                 hexutil.Bytes   `json:"data"`
+}
+
+// CalculateEIP1559Gas calculates the gasPrice, gasFeeCap and gasTipCap
+// based on input and block baseFee
+func (args *CallArgs) calculateEIP1559Gas(baseFee *big.Int) (gasPrice *big.Int, gasFeeCap *big.Int, gasTipCap *big.Int) {
+	if baseFee == nil {
+		gasPrice = args.GasPrice.ToInt()
+		gasFeeCap, gasTipCap = gasPrice, gasPrice
+	} else {
+		// A basefee is provided, necessitating 1559-type execution
+		if args.GasPrice != nil {
+			// User specified the legacy gas field, convert to 1559 gas typing
+			gasPrice = args.GasPrice.ToInt()
+			gasFeeCap, gasTipCap = gasPrice, gasPrice
+		} else {
+			// User specified 1559 gas fields (or none), use those
+			gasFeeCap = args.MaxFeePerGas.ToInt()
+			gasTipCap = args.MaxPriorityFeePerGas.ToInt()
+			// Backfill the legacy gasPrice for EVM execution, unless we're all zeroes
+			gasPrice = new(big.Int)
+			if gasFeeCap.BitLen() > 0 || gasTipCap.BitLen() > 0 {
+				gasPrice = math.BigMin(new(big.Int).Add(gasTipCap, baseFee), gasFeeCap)
+			}
+		}
+	}
+	return gasPrice, gasFeeCap, gasTipCap
 }
 
 func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) ([]byte, uint64, bool, error) {
@@ -1043,17 +1071,18 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 		}
 	}
 	// Set default gas & gas price if none were set
-	gas, gasPrice := uint64(args.Gas), args.GasPrice.ToInt()
+	gas := uint64(args.Gas)
 	if gas == 0 {
 		gas = math.MaxUint64 / 2
 	}
+	gasPrice, gasFeeCap, gasTipCap := args.calculateEIP1559Gas(header.BaseFee)
 	if gasPrice.Sign() == 0 {
 		gasPrice = new(big.Int).SetUint64(defaultGasPrice)
 	}
 	balanceTokenFee := big.NewInt(0).SetUint64(gas)
 	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false, balanceTokenFee)
+	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, gasFeeCap, gasTipCap, args.Data, false, balanceTokenFee)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
