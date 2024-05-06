@@ -301,7 +301,7 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 	block := chain.CurrentBlock()
 	number := block.Number().Uint64()
 	engine := b.GetEngine().(*posv.Posv)
-	foundationWalletAddr := chain.Config().Posv.FoudationWalletAddr
+	foundationWalletAddr := chain.Config().Posv.FoundationWalletAddr
 	lastCheckpointNumber := number - (number % b.ChainConfig().Posv.Epoch) - b.ChainConfig().Posv.Epoch // calculate for 2 epochs ago
 	lastCheckpointBlock := chain.GetBlockByNumber(lastCheckpointNumber)
 	rCheckpoint := chain.Config().Posv.RewardCheckpoint
