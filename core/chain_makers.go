@@ -215,7 +215,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 			misc.ApplyDAOHardFork(statedb)
 		}
 		if config.IsDistributingToEcoPool(b.header.Number) {
-			statedb.AddBalance(common.VictionEcoPoolAddress, common.TIPAdditionalBlockRewardEcoPoolPerBlock)
+			statedb.AddBalance(common.VictionEcoPoolAddress, common.SaigonEcoPoolPerBlock)
 		}
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {

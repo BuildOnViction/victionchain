@@ -623,7 +623,7 @@ func (self *worker) commitNewWork() {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if self.config.IsDistributingToEcoPool(header.Number) {
-		work.state.AddBalance(common.VictionEcoPoolAddress, common.TIPAdditionalBlockRewardEcoPoolPerBlock)
+		work.state.AddBalance(common.VictionEcoPoolAddress, common.SaigonEcoPoolPerBlock)
 	}
 	// won't grasp txs at checkpoint
 	var (

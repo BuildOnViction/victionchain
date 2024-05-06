@@ -83,7 +83,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if p.config.IsDistributingToEcoPool(block.Number()) {
-		statedb.AddBalance(common.VictionEcoPoolAddress, common.TIPAdditionalBlockRewardEcoPoolPerBlock)
+		statedb.AddBalance(common.VictionEcoPoolAddress, common.SaigonEcoPoolPerBlock)
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
@@ -155,7 +155,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if p.config.IsDistributingToEcoPool(block.Number()) {
-		statedb.AddBalance(common.VictionEcoPoolAddress, common.TIPAdditionalBlockRewardEcoPoolPerBlock)
+		statedb.AddBalance(common.VictionEcoPoolAddress, common.SaigonEcoPoolPerBlock)
 	}
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock

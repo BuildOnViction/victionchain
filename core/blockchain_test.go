@@ -1178,9 +1178,9 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	}
 }
 
-func TestVICEcoPoolBalanceOfTIPAdditionalBlockReward(t *testing.T) {
+func TestVICEcoPoolBalanceOfSaigon(t *testing.T) {
 	chainCfg := params.TestChainConfig
-	chainCfg.TIPAdditionalBlockRewardBlock = big.NewInt(5) // set the fork block to 5 for testing
+	chainCfg.SaigonBlock = big.NewInt(5) // set the fork block to 5 for testing
 	// Configure and generate a sample blockchain
 	var (
 		db            = rawdb.NewMemoryDatabase()
@@ -1193,7 +1193,7 @@ func TestVICEcoPoolBalanceOfTIPAdditionalBlockReward(t *testing.T) {
 
 	GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 10, func(i int, block *BlockGen) {
 		// Balance of the Viction Ecosystem pool start with 0
-		// and increase by common.TIPAdditionalBlockRewardEcoPoolPerBlock from block 5
+		// and increase by common.SaigonEcoPoolPerBlock from block 5
 		// | i | blockNumber | multiplier |
 		// |---|-------------|------------|
 		// | 0 | 1           | 0          |
@@ -1208,7 +1208,7 @@ func TestVICEcoPoolBalanceOfTIPAdditionalBlockReward(t *testing.T) {
 		if multiplier < 0 {
 			multiplier = 0
 		}
-		assert.Equal(t, new(big.Int).Mul(common.TIPAdditionalBlockRewardEcoPoolPerBlock, big.NewInt(int64(multiplier))).String(), block.statedb.GetBalance(common.VictionEcoPoolAddress).String(),
+		assert.Equal(t, new(big.Int).Mul(common.SaigonEcoPoolPerBlock, big.NewInt(int64(multiplier))).String(), block.statedb.GetBalance(common.VictionEcoPoolAddress).String(),
 			"Viction Eco Pool balance mismatch at block", i+1)
 	})
 }

@@ -905,17 +905,17 @@ func rewardInflation(config *params.ChainConfig, chainReward *big.Int, number ui
 	if number < blockPerYear*5 {
 		return new(big.Int).Div(chainReward, new(big.Int).SetUint64(2))
 	}
-	if !config.IsTIPAdditionalBlockReward(new(big.Int).SetUint64(number)) {
+	if !config.IsSaigon(new(big.Int).SetUint64(number)) {
 		return new(big.Int).Div(chainReward, new(big.Int).SetUint64(4))
 	}
-	blockSinceTIPAdditionalBlockReward := number - config.TIPAdditionalBlockRewardBlock.Uint64()
-	inflationCoef := new(big.Int).Exp(new(big.Int).SetInt64(2), new(big.Int).SetUint64(blockSinceTIPAdditionalBlockReward/blockPerYear/4), nil)
+	blockSinceSaigon := number - config.SaigonBlock.Uint64()
+	inflationCoef := new(big.Int).Exp(new(big.Int).SetInt64(2), new(big.Int).SetUint64(blockSinceSaigon/blockPerYear/4), nil)
 	return new(big.Int).Div(chainReward, inflationCoef)
 }
 
 func currentChainReward(config *params.ChainConfig, num *big.Int) *big.Int {
-	if config.IsTIPAdditionalBlockReward(num) {
-		return new(big.Int).Div(common.InitialTIPAdditionalBlockRewardBlockRewardPerYear, big.NewInt(int64(common.EpochPerYear)))
+	if config.IsSaigon(num) {
+		return new(big.Int).Div(common.InitialSaigonBlockRewardPerYear, big.NewInt(int64(common.EpochPerYear)))
 	}
 	return new(big.Int).Mul(new(big.Int).SetUint64(config.Posv.Reward), new(big.Int).SetUint64(params.Ether))
 }
