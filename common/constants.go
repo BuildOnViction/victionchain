@@ -53,11 +53,8 @@ var (
 	RelayerLendingCancelFee      = big.NewInt(1000000000000000)                   // 0.001
 	BaseLendingInterest          = big.NewInt(100000000)                          // 1e8
 	// Saigon related
-	InitialSaigonBlockRewardPerYear   = new(big.Int).Mul(new(big.Int).SetUint64(1_000_000_000_000_000_000), big.NewInt(4_000_000))  // 4M VIC per year divides for 17520 epochs each year
-	VictionEcoPoolAddress             = HexToAddress(FoundationAddr)                                                                // Address of the Viction Ecosystem Development Pool
-	TotalEcoPoolDistributionBlocks    = big.NewInt(63_072_000)                                                                      // Total blocks until the Ecosystem Pool is fully distributed
-	TotalAdditionalBlockRewardEcoPool = new(big.Int).Mul(new(big.Int).SetUint64(1_000_000_000_000_000_000), big.NewInt(80_000_000)) // Total 80M VIC for the Viction Ecosystem Development Pool
-	SaigonEcoPoolPerBlock             = new(big.Int).Div(TotalAdditionalBlockRewardEcoPool, TotalEcoPoolDistributionBlocks)         // The VIC amount distributed to the Ecosystem Pool per block
+	InitialSaigonBlockRewardPerYear = new(big.Int).Mul(big.NewInt(4_000_000), big.NewInt(1_000_000_000_000_000_000))  // 4M VIC per year divides for 17520 epochs each year
+	TotalAllocationOfEcoPool        = new(big.Int).Mul(big.NewInt(80_000_000), big.NewInt(1_000_000_000_000_000_000)) // Total 80M VIC for the Viction Ecosystem Development Pool
 )
 
 var (

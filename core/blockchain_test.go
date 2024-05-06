@@ -1192,24 +1192,13 @@ func TestVICEcoPoolBalanceOfSaigon(t *testing.T) {
 	defer blockchain.Stop()
 
 	GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 10, func(i int, block *BlockGen) {
-		// Balance of the Viction Ecosystem pool start with 0
-		// and increase by common.SaigonEcoPoolPerBlock from block 5
-		// | i | blockNumber | multiplier |
-		// |---|-------------|------------|
-		// | 0 | 1           | 0          |
-		// | 1 | 2           | 0          |
-		// | 2 | 3           | 0          |
-		// | 3 | 4           | 0          |
-		// | 4 | 5           | 1          |
-		// | 5 | 6           | 2          |
-		// | 6 | 7           | 3          |
-		// | 7 | 8           | 4          |
-		multiplier := i - 3
-		if multiplier < 0 {
-			multiplier = 0
+		if i >= 4 {
+			assert.Equal(t, common.TotalAllocationOfEcoPool.String(), block.statedb.GetBalance(common.HexToAddress(common.FoundationAddr)).String(),
+				"Viction Eco Pool balance mismatch at block", i)
+		} else {
+			assert.Equal(t, "0", block.statedb.GetBalance(common.HexToAddress(common.FoundationAddr)).String(),
+				"Viction Eco Pool balance mismatch at block", i)
 		}
-		assert.Equal(t, new(big.Int).Mul(common.SaigonEcoPoolPerBlock, big.NewInt(int64(multiplier))).String(), block.statedb.GetBalance(common.VictionEcoPoolAddress).String(),
-			"Viction Eco Pool balance mismatch at block", i+1)
 	})
 }
 

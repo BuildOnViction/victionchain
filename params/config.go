@@ -365,11 +365,6 @@ func (c *ChainConfig) IsSaigon(num *big.Int) bool {
 	return isForked(c.SaigonBlock, num)
 }
 
-func (c *ChainConfig) IsDistributingToEcoPool(num *big.Int) bool {
-	return c.IsSaigon(num) &&
-		new(big.Int).Sub(num, c.SaigonBlock).Cmp(common.TotalEcoPoolDistributionBlocks) < 0
-}
-
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.
