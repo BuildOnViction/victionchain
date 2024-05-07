@@ -53,8 +53,8 @@ var (
 	RelayerLendingCancelFee      = big.NewInt(1000000000000000)                   // 0.001
 	BaseLendingInterest          = big.NewInt(100000000)                          // 1e8
 	// Saigon related
-	InitialSaigonBlockRewardPerYear = new(big.Int).Mul(big.NewInt(4_000_000), big.NewInt(1_000_000_000_000_000_000))  // 4M VIC per year divides for 17520 epochs each year
-	TotalAllocationOfEcoPool        = new(big.Int).Mul(big.NewInt(80_000_000), big.NewInt(1_000_000_000_000_000_000)) // Total 80M VIC for the Viction Ecosystem Development Pool
+	TotalAllocationOfEcoPool    = new(big.Int).Mul(big.NewInt(80_000_000), big.NewInt(1_000_000_000_000_000_000)) // Total 80M VIC for the Viction Ecosystem Development Pool
+	InitialSaigonRewardPerEpoch = new(big.Int).Mul(big.NewInt(250), big.NewInt(1_000_000_000_000_000_000))        // External 250 VIC epoch reward after Saigon hard fork, halved every 4 years
 )
 
 var (
