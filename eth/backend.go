@@ -503,7 +503,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 		c.HookReward = func(chain consensus.ChainReader, stateBlock *state.StateDB, parentState *state.StateDB, header *types.Header) (error, map[string]interface{}) {
 			number := header.Number.Uint64()
 			rCheckpoint := chain.Config().Posv.RewardCheckpoint
-			foundationWalletAddr := chain.Config().Posv.FoundationWalletAddr
+			foundationWalletAddr := chain.Config().Posv.FoudationWalletAddr
 			if foundationWalletAddr == (common.Address{}) {
 				log.Error("Foundation Wallet Address is empty", "error", foundationWalletAddr)
 				return errors.New("Foundation Wallet Address is empty"), nil

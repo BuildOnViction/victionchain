@@ -41,12 +41,12 @@ var (
 		ByzantiumBlock: big.NewInt(4),
 		SaigonBlock:    big.NewInt(81469885),
 		Posv: &PosvConfig{
-			Period:               2,
-			Epoch:                900,
-			Reward:               250,
-			RewardCheckpoint:     900,
-			Gap:                  5,
-			FoundationWalletAddr: common.HexToAddress("0x0000000000000000000000000000000000000068"),
+			Period:              2,
+			Epoch:               900,
+			Reward:              250,
+			RewardCheckpoint:    900,
+			Gap:                 5,
+			FoudationWalletAddr: common.HexToAddress("0x0000000000000000000000000000000000000068"),
 		},
 	}
 
@@ -71,12 +71,12 @@ var (
 		TIPTomoXLendingBlock:         big.NewInt(0),
 		TIPTomoXCancellationFeeBlock: big.NewInt(0),
 		Posv: &PosvConfig{
-			Period:               2,
-			Epoch:                900,
-			Reward:               250,
-			RewardCheckpoint:     900,
-			Gap:                  5,
-			FoundationWalletAddr: common.HexToAddress("0x0000000000000000000000000000000000000068"),
+			Period:              2,
+			Epoch:               900,
+			Reward:              250,
+			RewardCheckpoint:    900,
+			Gap:                 5,
+			FoudationWalletAddr: common.HexToAddress("0x0000000000000000000000000000000000000068"),
 		},
 	}
 
@@ -240,12 +240,12 @@ func (c *CliqueConfig) String() string {
 
 // PosvConfig is the consensus engine configs for proof-of-stake-voting based sealing.
 type PosvConfig struct {
-	Period               uint64         `json:"period"`               // Number of seconds between blocks to enforce
-	Epoch                uint64         `json:"epoch"`                // Epoch length to reset votes and checkpoint
-	Reward               uint64         `json:"reward"`               // Block reward - unit Ether
-	RewardCheckpoint     uint64         `json:"rewardCheckpoint"`     // Checkpoint block for calculate rewards.
-	Gap                  uint64         `json:"gap"`                  // Gap time preparing for the next epoch
-	FoundationWalletAddr common.Address `json:"foundationWalletAddr"` // Foundation Address Wallet
+	Period              uint64         `json:"period"`              // Number of seconds between blocks to enforce
+	Epoch               uint64         `json:"epoch"`               // Epoch length to reset votes and checkpoint
+	Reward              uint64         `json:"reward"`              // Block reward - unit Ether
+	RewardCheckpoint    uint64         `json:"rewardCheckpoint"`    // Checkpoint block for calculate rewards.
+	Gap                 uint64         `json:"gap"`                 // Gap time preparing for the next epoch
+	FoudationWalletAddr common.Address `json:"foudationWalletAddr"` // Foundation Address Wallet
 }
 
 // String implements the stringer interface, returning the consensus engine details.
