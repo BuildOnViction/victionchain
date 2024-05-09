@@ -179,6 +179,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	// Get the existing chain configuration.
 	newcfg := genesis.configOrDefault(stored)
 	storedcfg, err := rawdb.GetChainConfig(db, stored)
+	fmt.Printf("@@@@@@@@@@@@@@@@@@@@@ genesis: %+v\nstored: %+v\nstoredcfg: %+v\nnewcfg: %+v\nisEqual: %v\n", genesis, stored, storedcfg, newcfg, stored == params.VicDevnetGenesisHash)
 	if err != nil {
 		if err == rawdb.ErrChainConfigNotFound {
 			// This case happens if a genesis write was interrupted.
@@ -209,14 +210,14 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 
 func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	switch {
+	case g != nil:
+		return g.Config
 	case ghash == params.VicMainnetGenesisHash:
 		return params.VicMainnetChainConfig
 	case ghash == params.VicDevnetGenesisHash:
 		return params.VicDevnetChainConfig
 	case ghash == params.TestnetGenesisHash:
 		return params.TestnetChainConfig
-	case g != nil:
-		return g.Config
 	default:
 		return params.AllEthashProtocolChanges
 	}
