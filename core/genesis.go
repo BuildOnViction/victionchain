@@ -209,14 +209,14 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 
 func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	switch {
-	case g != nil:
-		return g.Config
 	case ghash == params.VicMainnetGenesisHash:
 		return params.VicMainnetChainConfig
 	case ghash == params.VicDevnetGenesisHash:
 		return params.VicDevnetChainConfig
 	case ghash == params.TestnetGenesisHash:
 		return params.TestnetChainConfig
+	case g != nil:
+		return g.Config
 	default:
 		return params.AllEthashProtocolChanges
 	}
