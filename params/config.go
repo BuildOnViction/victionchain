@@ -25,6 +25,7 @@ import (
 
 var (
 	VicMainnetGenesisHash = common.HexToHash("9326145f8a2c8c00bbe13afc7d7f3d9c868b5ef39d89f2f4e9390e9720298624") // Tomo Mainnet genesis hash to enforce below configs on
+	VicDevnetGenesisHash  = common.HexToHash("20715576c924c005be520aa4f01d9cd5cce8b56f6e3083077f8d6131e3c9d16b")
 	MainnetGenesisHash    = common.HexToHash("8d13370621558f4ed0da587934473c0404729f28b0ff1d50e5fdd840457a2f17") // Mainnet genesis hash to enforce below configs on
 	TestnetGenesisHash    = common.HexToHash("dffc8ae3b45965404b4fd73ce7f0e13e822ac0fc23ce7e95b42bc5f1e57023a5") // Testnet genesis hash to enforce below configs on
 )
@@ -52,24 +53,33 @@ var (
 
 	// VicTestnetChainConfig contains the chain parameters to run a Viction node on the test network.
 	VicTestnetChainConfig = &ChainConfig{
-		ChainId:                      big.NewInt(89),
-		HomesteadBlock:               big.NewInt(0),
-		DAOForkBlock:                 nil,
-		DAOForkSupport:               false,
-		EIP150Block:                  big.NewInt(0),
-		EIP150Hash:                   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-		EIP155Block:                  big.NewInt(0),
-		EIP158Block:                  big.NewInt(0),
-		ByzantiumBlock:               big.NewInt(0),
-		ConstantinopleBlock:          big.NewInt(0),
-		TIP2019Block:                 big.NewInt(0),
-		TIPSigningBlock:              big.NewInt(0),
-		TIPRandomizeBlock:            big.NewInt(0),
-		BlackListHFBlock:             big.NewInt(0),
-		TIPTRC21FeeBlock:             big.NewInt(0),
-		TIPTomoXBlock:                big.NewInt(0),
-		TIPTomoXLendingBlock:         big.NewInt(0),
-		TIPTomoXCancellationFeeBlock: big.NewInt(0),
+		ChainId:        big.NewInt(89),
+		HomesteadBlock: big.NewInt(0),
+		EIP150Block:    big.NewInt(0),
+		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:    big.NewInt(0),
+		EIP158Block:    big.NewInt(0),
+		ByzantiumBlock: big.NewInt(0),
+		Posv: &PosvConfig{
+			Period:              2,
+			Epoch:               900,
+			Reward:              250,
+			RewardCheckpoint:    900,
+			Gap:                 5,
+			FoudationWalletAddr: common.HexToAddress("0x0000000000000000000000000000000000000068"),
+		},
+	}
+
+	// VicDevnetChainConfig contains the chain parameters to run a Viction node on the developing network.
+	VicDevnetChainConfig = &ChainConfig{
+		ChainId:        big.NewInt(989898),
+		HomesteadBlock: big.NewInt(1),
+		EIP150Block:    big.NewInt(2),
+		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:    big.NewInt(3),
+		EIP158Block:    big.NewInt(3),
+		ByzantiumBlock: big.NewInt(4),
+		SaigonBlock:    big.NewInt(500),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,

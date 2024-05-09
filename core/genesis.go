@@ -213,6 +213,8 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return g.Config
 	case ghash == params.VicMainnetGenesisHash:
 		return params.VicMainnetChainConfig
+	case ghash == params.VicDevnetGenesisHash:
+		return params.VicDevnetChainConfig
 	case ghash == params.TestnetGenesisHash:
 		return params.TestnetChainConfig
 	default:
