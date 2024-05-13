@@ -326,6 +326,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		number  = head.Number.Uint64()
 		td      = pm.blockchain.GetTd(hash, number)
 	)
+	p.Log().Info("@@@@@@@@@@@@@ genesis block before handshakinng", "genesis-hash", genesis.Hash().Hex(), "details", genesis.String())
 	if err := p.Handshake(pm.networkId, td, hash, genesis.Hash()); err != nil {
 		p.Log().Debug("Ethereum handshake failed", "err", err)
 		return err
