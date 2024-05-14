@@ -66,6 +66,7 @@ func (w *wizard) makeGenesis() {
 			TIPTomoXBlock:                big.NewInt(0),
 			TIPTomoXLendingBlock:         big.NewInt(0),
 			TIPTomoXCancellationFeeBlock: big.NewInt(0),
+			SaigonBlock:                  nil,
 		},
 	}
 	// Figure out which consensus engine to choose
@@ -182,7 +183,7 @@ func (w *wizard) makeGenesis() {
 
 		fmt.Println()
 		fmt.Println("What is foundation wallet address? (default = 0x0000000000000000000000000000000000000068)")
-		genesis.Config.Posv.FoudationWalletAddr = w.readDefaultAddress(common.HexToAddress(common.FoudationAddr))
+		genesis.Config.Posv.FoudationWalletAddr = w.readDefaultAddress(common.HexToAddress(common.FoundationAddr))
 
 		// Validator Smart Contract Code
 		pKey, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
@@ -244,7 +245,7 @@ func (w *wizard) makeGenesis() {
 		fBalance := big.NewInt(0) // 16m
 		fBalance.Add(fBalance, big.NewInt(16*1000*1000))
 		fBalance.Mul(fBalance, big.NewInt(1000000000000000000))
-		genesis.Alloc[common.HexToAddress(common.FoudationAddr)] = core.GenesisAccount{
+		genesis.Alloc[common.HexToAddress(common.FoundationAddr)] = core.GenesisAccount{
 			Balance: fBalance,
 			Code:    code,
 			Storage: storage,
@@ -451,6 +452,10 @@ func (w *wizard) manageGenesis() {
 		fmt.Println()
 		fmt.Printf("Which block should TIP TomoX cancellation fee come into effect? (default = %v)\n", w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock)
 		w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock = w.readDefaultBigInt(w.conf.Genesis.Config.TIPTomoXCancellationFeeBlock)
+
+		fmt.Println()
+		fmt.Printf("Which block should Saigon come into effect? (default = %v)\n", w.conf.Genesis.Config.SaigonBlock)
+		w.conf.Genesis.Config.SaigonBlock = w.readDefaultBigInt(w.conf.Genesis.Config.SaigonBlock)
 
 		out, _ := json.MarshalIndent(w.conf.Genesis.Config, "", "  ")
 		fmt.Printf("Chain configuration updated:\n\n%s\n", out)

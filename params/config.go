@@ -24,29 +24,23 @@ import (
 )
 
 var (
-	TomoMainnetGenesisHash = common.HexToHash("9326145f8a2c8c00bbe13afc7d7f3d9c868b5ef39d89f2f4e9390e9720298624") // Tomo Mainnet genesis hash to enforce below configs on
-	MainnetGenesisHash     = common.HexToHash("8d13370621558f4ed0da587934473c0404729f28b0ff1d50e5fdd840457a2f17") // Mainnet genesis hash to enforce below configs on
-	TestnetGenesisHash     = common.HexToHash("dffc8ae3b45965404b4fd73ce7f0e13e822ac0fc23ce7e95b42bc5f1e57023a5") // Testnet genesis hash to enforce below configs on
+	VicMainnetGenesisHash = common.HexToHash("9326145f8a2c8c00bbe13afc7d7f3d9c868b5ef39d89f2f4e9390e9720298624") // Tomo Mainnet genesis hash to enforce below configs on
+	VicDevnetGenesisHash  = common.HexToHash("20715576c924c005be520aa4f01d9cd5cce8b56f6e3083077f8d6131e3c9d16b")
+	MainnetGenesisHash    = common.HexToHash("8d13370621558f4ed0da587934473c0404729f28b0ff1d50e5fdd840457a2f17") // Mainnet genesis hash to enforce below configs on
+	TestnetGenesisHash    = common.HexToHash("dffc8ae3b45965404b4fd73ce7f0e13e822ac0fc23ce7e95b42bc5f1e57023a5") // Testnet genesis hash to enforce below configs on
 )
 
 var (
 	// VicMainnetChainConfig contains the chain parameters to run a Viction node on the main network.
 	VicMainnetChainConfig = &ChainConfig{
-		ChainId:                      big.NewInt(88),
-		HomesteadBlock:               big.NewInt(1),
-		EIP150Block:                  big.NewInt(2),
-		EIP150Hash:                   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-		EIP155Block:                  big.NewInt(3),
-		EIP158Block:                  big.NewInt(3),
-		ByzantiumBlock:               big.NewInt(4),
-		TIP2019Block:                 big.NewInt(1050000),
-		TIPSigningBlock:              big.NewInt(3000000),
-		TIPRandomizeBlock:            big.NewInt(3464000),
-		BlackListHFBlock:             big.NewInt(9349100),
-		TIPTRC21FeeBlock:             big.NewInt(13523400),
-		TIPTomoXBlock:                big.NewInt(20581700),
-		TIPTomoXLendingBlock:         big.NewInt(21430200),
-		TIPTomoXCancellationFeeBlock: big.NewInt(30915660),
+		ChainId:        big.NewInt(88),
+		HomesteadBlock: big.NewInt(1),
+		EIP150Block:    big.NewInt(2),
+		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:    big.NewInt(3),
+		EIP158Block:    big.NewInt(3),
+		ByzantiumBlock: big.NewInt(4),
+		SaigonBlock:    big.NewInt(81469885),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -59,24 +53,33 @@ var (
 
 	// VicTestnetChainConfig contains the chain parameters to run a Viction node on the test network.
 	VicTestnetChainConfig = &ChainConfig{
-		ChainId:                      big.NewInt(89),
-		HomesteadBlock:               big.NewInt(0),
-		DAOForkBlock:                 nil,
-		DAOForkSupport:               false,
-		EIP150Block:                  big.NewInt(0),
-		EIP150Hash:                   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-		EIP155Block:                  big.NewInt(0),
-		EIP158Block:                  big.NewInt(0),
-		ByzantiumBlock:               big.NewInt(0),
-		ConstantinopleBlock:          big.NewInt(0),
-		TIP2019Block:                 big.NewInt(0),
-		TIPSigningBlock:              big.NewInt(0),
-		TIPRandomizeBlock:            big.NewInt(0),
-		BlackListHFBlock:             big.NewInt(0),
-		TIPTRC21FeeBlock:             big.NewInt(0),
-		TIPTomoXBlock:                big.NewInt(0),
-		TIPTomoXLendingBlock:         big.NewInt(0),
-		TIPTomoXCancellationFeeBlock: big.NewInt(0),
+		ChainId:        big.NewInt(89),
+		HomesteadBlock: big.NewInt(0),
+		EIP150Block:    big.NewInt(0),
+		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:    big.NewInt(0),
+		EIP158Block:    big.NewInt(0),
+		ByzantiumBlock: big.NewInt(0),
+		Posv: &PosvConfig{
+			Period:              2,
+			Epoch:               900,
+			Reward:              250,
+			RewardCheckpoint:    900,
+			Gap:                 5,
+			FoudationWalletAddr: common.HexToAddress("0x0000000000000000000000000000000000000068"),
+		},
+	}
+
+	// VicDevnetChainConfig contains the chain parameters to run a Viction node on the developing network.
+	VicDevnetChainConfig = &ChainConfig{
+		ChainId:        big.NewInt(989898),
+		HomesteadBlock: big.NewInt(1),
+		EIP150Block:    big.NewInt(2),
+		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:    big.NewInt(3),
+		EIP158Block:    big.NewInt(3),
+		ByzantiumBlock: big.NewInt(4),
+		SaigonBlock:    big.NewInt(1000),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -166,7 +169,12 @@ var (
 		EIP158Block:       big.NewInt(0),
 		ByzantiumBlock:    big.NewInt(0),
 		TIPRandomizeBlock: big.NewInt(0),
-		Posv:              &PosvConfig{Period: 0, Epoch: 30000},
+		SaigonBlock:       big.NewInt(0),
+		Posv: &PosvConfig{
+			Period: 0,
+			Reward: 250,
+			Epoch:  30000,
+		},
 	}
 
 	// TestChainConfig is used for testing purposes only
@@ -213,6 +221,7 @@ type ChainConfig struct {
 	TIPTomoXBlock                *big.Int `json:"tipTomoXBlock,omitempty"`                // TIPTomoX switch block (nil = no fork, 0 = already activated)
 	TIPTomoXLendingBlock         *big.Int `json:"tipTomoXLendingBlock,omitempty"`         // TIPTomoXLending switch block (nil = no fork, 0 = already activated)
 	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
+	SaigonBlock                  *big.Int `json:"SaigonBlock,omitempty"`                  // SaigonBlock switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
@@ -265,7 +274,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Saigon: %v Engine: %v}",
 		c.ChainId,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -275,6 +284,7 @@ func (c *ChainConfig) String() string {
 		c.EIP158Block,
 		c.ByzantiumBlock,
 		c.ConstantinopleBlock,
+		c.SaigonBlock,
 		engine,
 	)
 }
@@ -351,6 +361,10 @@ func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
 
 func (c *ChainConfig) IsTIPTomoXCancellationFee(num *big.Int) bool {
 	return isForked(common.TIPTomoXCancellationFeeBlock, num)
+}
+
+func (c *ChainConfig) IsSaigon(num *big.Int) bool {
+	return isForked(c.SaigonBlock, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
@@ -440,6 +454,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock, head) {
 		return newCompatError("TIPTomoXCancellationFee fork block", c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock)
 	}
+	if isForkIncompatible(c.SaigonBlock, newcfg.SaigonBlock, head) {
+		return newCompatError("Saigon fork block", c.SaigonBlock, newcfg.SaigonBlock)
+	}
 	return nil
 }
 
@@ -509,7 +526,7 @@ type Rules struct {
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsTIP2019, IsTIPSigning, IsTIPRandomize, IsBlackListHF  bool
 	IsTIPTRC21Fee, IsTIPTomoX, IsTIPTomoXLending            bool
-	IsTIPTomoXCancellationFee                               bool
+	IsTIPTomoXCancellationFee, IsSaigon                     bool
 }
 
 func (c *ChainConfig) Rules(num *big.Int) Rules {
@@ -535,5 +552,6 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		IsTIPTomoX:                c.IsTIPTomoX(num),
 		IsTIPTomoXLending:         c.IsTIPTomoXLending(num),
 		IsTIPTomoXCancellationFee: c.IsTIPTomoXCancellationFee(num),
+		IsSaigon:                  c.IsSaigon(num),
 	}
 }

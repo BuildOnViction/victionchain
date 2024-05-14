@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core/rawdb"
@@ -1174,6 +1176,30 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	if st, _ := blockchain.State(); st.Exist(theAddr) {
 		t.Error("account should not exist")
 	}
+}
+
+func TestVICEcoPoolBalanceOfSaigon(t *testing.T) {
+	chainCfg := params.TestChainConfig
+	chainCfg.SaigonBlock = big.NewInt(5) // set the fork block to 5 for testing
+	// Configure and generate a sample blockchain
+	var (
+		db            = rawdb.NewMemoryDatabase()
+		gspec         = &Genesis{Config: chainCfg}
+		genesis       = gspec.MustCommit(db)
+		cacheConfig   = &CacheConfig{Disabled: false, TrieNodeLimit: 256, TrieTimeLimit: 5 * time.Minute}
+		blockchain, _ = NewBlockChain(db, cacheConfig, gspec.Config, ethash.NewFaker(), vm.Config{})
+	)
+	defer blockchain.Stop()
+
+	GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 10, func(i int, block *BlockGen) {
+		if i >= 4 {
+			assert.Equal(t, common.TotalAllocationOfEcoPool.String(), block.statedb.GetBalance(common.HexToAddress(common.FoundationAddr)).String(),
+				"Viction Eco Pool balance mismatch at block", i)
+		} else {
+			assert.Equal(t, "0", block.statedb.GetBalance(common.HexToAddress(common.FoundationAddr)).String(),
+				"Viction Eco Pool balance mismatch at block", i)
+		}
+	})
 }
 
 // This is a regression test (i.e. as weird as it is, don't delete it ever), which

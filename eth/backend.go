@@ -513,8 +513,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 				start := time.Now()
 				// Get signers in blockSigner smartcontract.
 				// Get reward inflation.
-				chainReward := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
-				chainReward = rewardInflation(chainReward, number, common.BlocksPerYear)
+				chainReward := new(big.Int).Add(preSaigonEpochReward(chain.Config(), number, common.BlocksPerYear), postSaigonEpochReward(chain.Config(), header.Number, common.BlocksPerYear))
 
 				totalSigner := new(uint64)
 				signers, err := contracts.GetRewardForCheckpoint(c, chain, header, rCheckpoint, totalSigner)
@@ -898,15 +897,34 @@ func GetValidators(bc *core.BlockChain, masternodes []common.Address) ([]byte, e
 	return nil, core.ErrNotFoundM1
 }
 
-func rewardInflation(chainReward *big.Int, number uint64, blockPerYear uint64) *big.Int {
+// preSaigonEpochReward returns the epoch reward with inflation calculation before Saigon hard-fork.
+// This epoch reward is halved in the second and fifth years, and stop after 8 years running.
+func preSaigonEpochReward(config *params.ChainConfig, number uint64, blockPerYear uint64) *big.Int {
+	chainReward := new(big.Int).Mul(new(big.Int).SetUint64(config.Posv.Reward), new(big.Int).SetUint64(params.Ether))
 	if blockPerYear*2 <= number && number < blockPerYear*5 {
 		chainReward.Div(chainReward, new(big.Int).SetUint64(2))
 	}
 	if blockPerYear*5 <= number {
 		chainReward.Div(chainReward, new(big.Int).SetUint64(4))
 	}
-
+	// Stop pre-Saigon epoch reward after 8 years running.
+	if blockPerYear*8 <= number {
+		return common.Big0
+	}
 	return chainReward
+}
+
+// preSaigonEpochReward returns the additional epoch reward with inflation calculation after Saigon hard-fork.
+// This epoch reward will be halved every 4 years running from Saigon hard-fork.
+func postSaigonEpochReward(config *params.ChainConfig, number *big.Int, blockPerYear uint64) *big.Int {
+	// This reward is 0 before Saigon hard-fork
+	if !config.IsSaigon(number) {
+		return common.Big0
+	}
+	// After Saigon hard-fork, the initial external epoch reward is 250 VIC. This amount will be halved every 4 years running.
+	blockSinceSaigon := number.Uint64() - config.SaigonBlock.Uint64()
+	inflationCoef := new(big.Int).Exp(new(big.Int).SetInt64(2), new(big.Int).SetUint64(blockSinceSaigon/blockPerYear/4), nil)
+	return new(big.Int).Div(common.InitialSaigonRewardPerEpoch, inflationCoef)
 }
 
 func (s *Ethereum) GetPeer() int {
