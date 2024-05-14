@@ -17,6 +17,10 @@ package core
 
 import (
 	"fmt"
+	"math/big"
+	"math/rand"
+	"strings"
+
 	ethereum "github.com/tomochain/tomochain"
 	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/common"
@@ -25,9 +29,6 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/log"
-	"math/big"
-	"math/rand"
-	"strings"
 )
 
 const (
@@ -46,6 +47,8 @@ func (m callmsg) Nonce() uint64             { return 0 }
 func (m callmsg) CheckNonce() bool          { return false }
 func (m callmsg) To() *common.Address       { return m.CallMsg.To }
 func (m callmsg) GasPrice() *big.Int        { return m.CallMsg.GasPrice }
+func (m callmsg) GasFeeCap() *big.Int       { return m.CallMsg.GasFeeCap }
+func (m callmsg) GasTipCap() *big.Int       { return m.CallMsg.GasTipCap }
 func (m callmsg) Gas() uint64               { return m.CallMsg.Gas }
 func (m callmsg) Value() *big.Int           { return m.CallMsg.Value }
 func (m callmsg) Data() []byte              { return m.CallMsg.Data }
@@ -85,7 +88,7 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, contractA
 	return unpackResult, nil
 }
 
-//FIXME: please use copyState for this function
+// FIXME: please use copyState for this function
 // CallContractWithState executes a contract call at the given state.
 func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
 	// Ensure message is initialized properly.

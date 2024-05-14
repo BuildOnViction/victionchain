@@ -62,6 +62,7 @@ var (
 		executablePath("rlpdump"),
 		executablePath("swarm"),
 		executablePath("wnode"),
+		executablePath("rlp/rlpgen"),
 	}
 )
 
