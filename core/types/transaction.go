@@ -445,7 +445,7 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 		return nil, fmt.Errorf("%w: r: %s, s: %s, v: %s", ErrInvalidSig, r, s, v)
 	}
 	cpy := tx.inner.copy()
-	cpy.setSignatureValues(tx.ChainId(), v, r, s)
+	cpy.setSignatureValues(signer.ChainID(), v, r, s)
 	return &Transaction{inner: cpy}, nil
 }
 
@@ -765,6 +765,7 @@ type TxByPrice struct {
 
 func (s TxByPrice) Len() int { return len(s.txs) }
 func (s TxByPrice) Less(i, j int) bool {
+	// Price sorting now based on the effective miner gasTipCap which miner will actually receive, not the gas price
 	i_price := s.txs[i].fees
 	if s.txs[i].tx.To() != nil {
 		if _, ok := s.payersSwap[*s.txs[i].tx.To()]; ok {
@@ -820,8 +821,8 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 	heads := TxByPrice{}
 	heads.payersSwap = payersSwap
 	specialTxs := Transactions{}
-	for _, accTxs := range txs {
-		from, _ := Sender(signer, accTxs[0])
+	for from, accTxs := range txs {
+		// Special transactions are always included in the block, whether they satisfy the base fee requirement or not
 		var normalTxs Transactions
 		lastSpecialTx := -1
 		if len(signers) > 0 {
@@ -844,6 +845,8 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 		if len(normalTxs) > 0 {
 			wrapped, err := newTxWithMinerFee(normalTxs[0], from, baseFee)
 			if err != nil {
+				// Remove all normal transactions left from this address.
+				// Because the transactions have been sorted by nonce already.
 				delete(txs, from)
 				continue
 			}
@@ -853,7 +856,6 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 		}
 	}
 	heap.Init(&heads)
-
 	// Assemble and return the transaction set
 	return &TransactionsByPriceAndNonce{
 		txs:     txs,
