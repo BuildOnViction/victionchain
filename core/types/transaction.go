@@ -766,20 +766,20 @@ type TxByPrice struct {
 func (s TxByPrice) Len() int { return len(s.txs) }
 func (s TxByPrice) Less(i, j int) bool {
 	// Price sorting now based on the effective miner gasTipCap which miner will actually receive, not the gas price
-	i_price := s.txs[i].fees
+	iPrice := s.txs[i].fees
 	if s.txs[i].tx.To() != nil {
 		if _, ok := s.payersSwap[*s.txs[i].tx.To()]; ok {
-			i_price = common.TRC21GasPrice
+			iPrice = common.TRC21GasPrice
 		}
 	}
 
-	j_price := s.txs[j].fees
+	jPrice := s.txs[j].fees
 	if s.txs[j].tx.To() != nil {
 		if _, ok := s.payersSwap[*s.txs[j].tx.To()]; ok {
-			j_price = common.TRC21GasPrice
+			jPrice = common.TRC21GasPrice
 		}
 	}
-	return i_price.Cmp(j_price) > 0
+	return iPrice.Cmp(jPrice) > 0
 }
 func (s TxByPrice) Swap(i, j int) { s.txs[i], s.txs[j] = s.txs[j], s.txs[i] }
 
@@ -851,7 +851,6 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 				continue
 			}
 			heads.txs = append(heads.txs, wrapped)
-			// Ensure the sender address is from the signer
 			txs[from] = normalTxs[1:]
 		}
 	}
@@ -882,9 +881,8 @@ func (t *TransactionsByPriceAndNonce) Shift() {
 			heap.Fix(&t.heads, 0)
 			return
 		}
-	} else {
-		heap.Pop(&t.heads)
 	}
+	heap.Pop(&t.heads)
 }
 
 // Pop removes the best transaction, *not* replacing it with the next one from
