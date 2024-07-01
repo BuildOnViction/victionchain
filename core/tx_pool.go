@@ -616,7 +616,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	if !pool.chainconfig.IsEIP1559(pool.currentHead.Load().Number) && tx.Type() == types.DynamicFeeTxType {
-		return fmt.Errorf("%w: type %d rejected, pool not yet in London", types.ErrTxTypeNotSupported, tx.Type())
+		return fmt.Errorf("%w: type %d rejected, pool not yet in EIP-1559", types.ErrTxTypeNotSupported, tx.Type())
 	}
 
 	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks

@@ -18,10 +18,12 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
+	cmath "github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
@@ -213,6 +215,34 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
+
+	// Make sure that transaction gasFeeCap is greater than the baseFee (post EIP-1559)
+	if st.evm.ChainConfig().IsEIP1559(st.evm.Context.BlockNumber) {
+		// Skip the checks if gas fields are zero and baseFee was explicitly disabled (eth_call)
+		skipCheck := st.evm.Config.NoBaseFee && msg.GasFeeCap().BitLen() == 0 && msg.GasTipCap().BitLen() == 0
+		if !skipCheck {
+			if l := msg.GasFeeCap().BitLen(); l > 256 {
+				return fmt.Errorf("%w: address %v, maxFeePerGas bit length: %d", ErrFeeCapVeryHigh,
+					msg.From().Hex(), l)
+			}
+			if l := msg.GasTipCap().BitLen(); l > 256 {
+				return fmt.Errorf("%w: address %v, maxPriorityFeePerGas bit length: %d", ErrTipVeryHigh,
+					msg.From().Hex(), l)
+			}
+			if msg.GasFeeCap().Cmp(msg.GasTipCap()) < 0 {
+				return fmt.Errorf("%w: address %v, maxPriorityFeePerGas: %s, maxFeePerGas: %s", ErrTipAboveFeeCap,
+					msg.From().Hex(), msg.GasTipCap(), msg.GasFeeCap())
+			}
+			// This will panic if baseFee is nil, but basefee presence is verified
+			// as part of header validation.
+			// And skip special transactions
+			if msg.GasFeeCap().Cmp(st.evm.Context.BaseFee) < 0 && !common.SpecialSMCAddressesMap[st.to().Address().String()] {
+				return fmt.Errorf("%w: address %v, maxFeePerGas: %s, baseFee: %s", ErrFeeCapTooLow,
+					msg.From().Hex(), msg.GasFeeCap(), st.evm.Context.BaseFee)
+			}
+		}
+	}
+
 	return st.buyGas()
 }
 
@@ -244,6 +274,7 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 		// not assigned to err, except for insufficient balance
 		// error.
 		vmerr error
+		rules = st.evm.ChainConfig().Rules(st.evm.Context.BlockNumber)
 	)
 	// for debugging purpose
 	// TODO: clean it after fixing the issue https://github.com/tomochain/tomochain/issues/401
@@ -270,12 +301,23 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	}
 	st.refundGas()
 
-	if st.evm.BlockNumber.Cmp(common.TIPTRC21FeeBlock) > 0 {
-		if (owner != common.Address{}) {
-			st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
-		}
+	effectiveTip := msg.GasPrice()
+	if rules.IsEIP1559 {
+		effectiveTip = cmath.BigMin(msg.GasTipCap(), new(big.Int).Sub(msg.GasFeeCap(), st.evm.Context.BaseFee))
+	}
+
+	if st.evm.Config.NoBaseFee && msg.GasFeeCap().Sign() == 0 && msg.GasTipCap().Sign() == 0 {
+		// Skip fee payment when NoBaseFee is set and the fee fields
+		// are 0. This avoids a negative effectiveTip being applied to
+		// the coinbase when simulating calls.
 	} else {
-		st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+		if st.evm.BlockNumber.Cmp(common.TIPTRC21FeeBlock) > 0 {
+			if (owner != common.Address{}) {
+				st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+			}
+		} else {
+			st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
+		}
 	}
 
 	return ret, st.gasUsed(), vmerr != nil, err
@@ -284,6 +326,7 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 func (st *StateTransition) refundGas() {
 	// Apply refund counter, capped to half of the used gas.
 	refund := st.gasUsed() / 2
+	fmt.Printf("@@@@@@@@@@@@@@@@@@ refund: %v, GetRefund: %v\n", refund, st.state.GetRefund())
 	if refund > st.state.GetRefund() {
 		refund = st.state.GetRefund()
 	}
@@ -295,6 +338,7 @@ func (st *StateTransition) refundGas() {
 		// Return ETH for remaining gas, exchanged at the original rate.
 		remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
 		st.state.AddBalance(from.Address(), remaining)
+		fmt.Println("@@@@@@@@@@@ refund", remaining.String())
 	}
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.

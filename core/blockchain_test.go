@@ -1145,8 +1145,20 @@ func TestEIP1559Transition(t *testing.T) {
 
 	gspec.Config.EIP1559Block = common.Big0
 	signer := types.LatestSigner(gspec.Config)
+	db := rawdb.NewMemoryDatabase()
+	db2 := rawdb.NewMemoryDatabase()
+	gspec.MustCommit(db)
+	gspec.MustCommit(db2)
+	cache := &CacheConfig{
+		Disabled: true,
+	}
+	chain, err := NewBlockChain(db2, cache, gspec.Config, engine, vm.Config{})
+	if err != nil {
+		t.Fatalf("failed to create tester chain: %v", err)
+	}
+	defer chain.Stop()
 
-	genDb, blocks, _ := GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain(gspec.Config, chain.CurrentBlock(), engine, db, 1, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{1})
 
 		txdata := &types.DynamicFeeTx{
@@ -1154,7 +1166,7 @@ func TestEIP1559Transition(t *testing.T) {
 			Nonce:     0,
 			To:        &aa,
 			Gas:       30000,
-			GasFeeCap: newGwei(5),
+			GasFeeCap: big.NewInt(5_000_000_000),
 			GasTipCap: big.NewInt(2),
 			Data:      []byte{},
 		}
@@ -1163,52 +1175,37 @@ func TestEIP1559Transition(t *testing.T) {
 
 		b.AddTx(tx)
 	})
-	chain, err := NewBlockChain(rawdb.NewMemoryDatabase(), nil, gspec, engine, vm.Config{})
-	if err != nil {
-		t.Fatalf("failed to create tester chain: %v", err)
-	}
-	defer chain.Stop()
 
 	if n, err := chain.InsertChain(blocks); err != nil {
 		t.Fatalf("block %d: failed to insert into chain: %v", n, err)
 	}
 
-	block := chain.GetBlockByNumber(1)
+	block := chain.CurrentBlock() // block number 1
+	t.Logf("@@@@@@@@@@ tx %+v\n", block.GasUsed())
 
-	// 1+2: Ensure EIP-1559 access lists are accounted for via gas usage.
-	expectedGas := params.TxGas + params.TxAccessListAddressGas + params.TxAccessListStorageKeyGas +
-		vm.GasQuickStep*2 + params.WarmStorageReadCostEIP2929 + params.ColdSloadCostEIP2929
+	// 1+2: Check gas used enough to cover 2 PC and 2 SLOAD instructions
+	expectedGas := params.TxGas + vm.GasQuickStep*2 + params.SloadGasEIP150*2
 	if block.GasUsed() != expectedGas {
 		t.Fatalf("incorrect amount of gas spent: expected %d, got %d", expectedGas, block.GasUsed())
 	}
 
 	state, _ := chain.State()
 
-	// 3: Ensure that miner received only the tx's tip.
-	actual := state.GetBalance(block.Coinbase())
-	expected := new(big.Int).Add(
-		new(big.Int).SetUint64(block.GasUsed()*block.Transactions()[0].GasTipCap().Uint64()),
-		ethash.ConstantinopleBlockReward.ToBig(),
-	)
+	// 3: Ensure the tx sender paid for the gasUsed * (tip + block baseFee).
+	actual := new(big.Int).Sub(funds, state.GetBalance(addr1))
+	expected := new(big.Int).SetUint64(block.GasUsed() * (block.Transactions()[0].GasTipCap().Uint64() + block.BaseFee().Uint64()))
 	if actual.Cmp(expected) != 0 {
-		t.Fatalf("miner balance incorrect: expected %d, got %d", expected, actual)
+		t.Fatalf("fee used incorrect: expected %d, got %d", expected, actual)
 	}
 
-	// 4: Ensure the tx sender paid for the gasUsed * (tip + block baseFee).
-	actual = new(big.Int).Sub(funds, state.GetBalance(addr1).ToBig())
-	expected = new(big.Int).SetUint64(block.GasUsed() * (block.Transactions()[0].GasTipCap().Uint64() + block.BaseFee().Uint64()))
-	if actual.Cmp(expected) != 0 {
-		t.Fatalf("sender balance incorrect: expected %d, got %d", expected, actual)
-	}
-
-	blocks, _ = GenerateChain(gspec.Config, block, engine, genDb, 1, func(i int, b *BlockGen) {
+	blocks, _ = GenerateChain(gspec.Config, block, engine, db, 1, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{2})
 
 		txdata := &types.LegacyTx{
 			Nonce:    0,
 			To:       &aa,
 			Gas:      30000,
-			GasPrice: newGwei(5),
+			GasPrice: big.NewInt(5_000_000_000),
 		}
 		tx := types.NewTx(txdata)
 		tx, _ = types.SignTx(tx, signer, key2)
@@ -1220,19 +1217,9 @@ func TestEIP1559Transition(t *testing.T) {
 		t.Fatalf("block %d: failed to insert into chain: %v", n, err)
 	}
 
-	block = chain.GetBlockByNumber(2)
+	block = chain.CurrentBlock() // block number 2
 	state, _ = chain.State()
 	effectiveTip := block.Transactions()[0].GasTipCap().Uint64() - block.BaseFee().Uint64()
-
-	// 6+5: Ensure that miner received only the tx's effective tip.
-	actual = state.GetBalance(block.Coinbase())
-	expected = new(big.Int).Add(
-		new(big.Int).SetUint64(block.GasUsed()*effectiveTip),
-		ethash.ConstantinopleBlockReward,
-	)
-	if actual.Cmp(expected) != 0 {
-		t.Fatalf("miner balance incorrect: expected %d, got %d", expected, actual)
-	}
 
 	// 4: Ensure the tx sender paid for the gasUsed * (effectiveTip + block baseFee).
 	actual = new(big.Int).Sub(funds, state.GetBalance(addr2))

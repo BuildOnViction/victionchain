@@ -1134,7 +1134,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 // Call executes the given transaction on the state for the given block number.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber) (hexutil.Bytes, error) {
-	result, _, _, err := s.doCall(ctx, args, blockNr, vm.Config{}, 5*time.Second)
+	result, _, _, err := s.doCall(ctx, args, blockNr, vm.Config{NoBaseFee: true}, 5*time.Second)
 	return (hexutil.Bytes)(result), err
 }
 
@@ -1163,7 +1163,7 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	executable := func(gas uint64) bool {
 		args.Gas = hexutil.Uint64(gas)
 
-		_, _, failed, err := s.doCall(ctx, args, rpc.LatestBlockNumber, vm.Config{}, 0)
+		_, _, failed, err := s.doCall(ctx, args, rpc.LatestBlockNumber, vm.Config{NoBaseFee: true}, 0)
 		if err != nil || failed {
 			return false
 		}

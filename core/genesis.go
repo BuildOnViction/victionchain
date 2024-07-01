@@ -60,6 +60,7 @@ type Genesis struct {
 	Number     uint64      `json:"number"`
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
+	BaseFee    *big.Int    `json:"baseFeePerGas"` // EIP-1559
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -254,6 +255,13 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
+	}
+	if g.Config != nil && g.Config.IsEIP1559(common.Big0) {
+		if g.BaseFee != nil {
+			head.BaseFee = g.BaseFee
+		} else {
+			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+		}
 	}
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
