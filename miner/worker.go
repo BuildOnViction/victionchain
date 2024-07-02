@@ -21,6 +21,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/tomochain/tomochain/consensus/misc/eip1559"
+
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
@@ -41,7 +43,6 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/log"
@@ -314,7 +315,7 @@ func (self *worker) update() {
 				acc, _ := types.Sender(self.current.signer, ev.Tx)
 				txs := map[common.Address]types.Transactions{acc: {ev.Tx}}
 				feeCapacity := state.GetTRC21FeeCapacityFromState(self.current.state)
-				txset, specialTxs := types.NewTransactionsByPriceAndNonce(self.current.signer, txs, nil, feeCapacity)
+				txset, specialTxs := types.NewTransactionsByPriceAndNonce(self.current.signer, txs, nil, feeCapacity, self.current.header.BaseFee)
 				self.current.commitTransactions(self.mux, feeCapacity, txset, specialTxs, self.chain, self.coinbase)
 				self.currentMu.Unlock()
 			} else {
@@ -474,7 +475,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 
 	work := &Work{
 		config:       self.config,
-		signer:       types.NewEIP155Signer(self.config.ChainId),
+		signer:       types.MakeSigner(self.config, header.Number),
 		state:        state,
 		parentState:  state.Copy(),
 		tradingState: tomoxState,
@@ -586,6 +587,13 @@ func (self *worker) commitNewWork() {
 		Extra:      self.extra,
 		Time:       big.NewInt(tstamp),
 	}
+	// Set baseFee and GasLimit if we are on an EIP-1559 chain
+	if self.config.IsEIP1559(header.Number) {
+		header.BaseFee = eip1559.CalcBaseFee(self.config, parent.Header())
+		if !self.config.IsEIP1559(parent.Number()) {
+			header.GasLimit = core.CalcGasLimit(parent)
+		}
+	}
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
@@ -643,7 +651,7 @@ func (self *worker) commitNewWork() {
 			log.Error("Failed to fetch pending transactions", "err", err)
 			return
 		}
-		txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity)
+		txs, specialTxs = types.NewTransactionsByPriceAndNonce(self.current.signer, pending, signers, feeCapacity, self.current.header.BaseFee)
 	}
 	if atomic.LoadInt32(&self.mining) == 1 {
 		wallet, err := self.eth.AccountManager().Find(accounts.Account{Address: self.coinbase})
@@ -1076,7 +1084,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 func (env *Work) commitTransaction(balanceFee map[common.Address]*big.Int, tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log, bool, uint64) {
 	snap := env.state.Snapshot()
 
-	receipt, gas, err, tokenFeeUsed := core.ApplyTransaction(env.config, balanceFee, bc, &coinbase, gp, env.state, env.tradingState, env.header, tx, &env.header.GasUsed, vm.Config{})
+	receipt, gas, err, tokenFeeUsed := core.ApplyTransaction(env.config, balanceFee, bc, &coinbase, gp, env.state, env.tradingState, env.header, tx, &env.header.GasUsed, *bc.GetVMConfig())
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil, false, 0

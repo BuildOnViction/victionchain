@@ -70,7 +70,7 @@ func NewSimulatedBackend(alloc core.GenesisAlloc) *SimulatedBackend {
 	database := rawdb.NewMemoryDatabase()
 	genesis := core.Genesis{Config: params.AllEthashProtocolChanges, Alloc: alloc, GasLimit: 42000000}
 	genesis.MustCommit(database)
-	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{NoBaseFee: true})
 
 	backend := &SimulatedBackend{
 		database:   database,
@@ -225,7 +225,7 @@ func (b *SimulatedBackend) CallContractWithState(call tomochain.CallMsg, chain c
 	evmContext := core.NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(evmContext, statedb, nil, chain.Config(), vm.Config{})
+	vmenv := vm.NewEVM(evmContext, statedb, nil, chain.Config(), vm.Config{NoBaseFee: true})
 	gaspool := new(core.GasPool).AddGas(1000000)
 	owner := common.Address{}
 	rval, _, _, err := core.NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
@@ -285,7 +285,6 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call tomochain.CallM
 
 		snapshot := b.pendingState.Snapshot()
 		_, _, failed, err := b.callContract(ctx, call, b.pendingBlock, b.pendingState)
-		fmt.Println("EstimateGas", err, failed)
 		b.pendingState.RevertToSnapshot(snapshot)
 
 		if err != nil || failed {
@@ -462,6 +461,8 @@ func (m callmsg) Nonce() uint64             { return 0 }
 func (m callmsg) CheckNonce() bool          { return false }
 func (m callmsg) To() *common.Address       { return m.CallMsg.To }
 func (m callmsg) GasPrice() *big.Int        { return m.CallMsg.GasPrice }
+func (m callmsg) GasFeeCap() *big.Int       { return m.CallMsg.GasFeeCap }
+func (m callmsg) GasTipCap() *big.Int       { return m.CallMsg.GasTipCap }
 func (m callmsg) Gas() uint64               { return m.CallMsg.Gas }
 func (m callmsg) Value() *big.Int           { return m.CallMsg.Value }
 func (m callmsg) Data() []byte              { return m.CallMsg.Data }

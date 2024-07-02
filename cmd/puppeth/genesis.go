@@ -35,10 +35,11 @@ type cppEthereumGenesisSpec struct {
 	Params     struct {
 		AccountStartNonce       hexutil.Uint64 `json:"accountStartNonce"`
 		HomesteadForkBlock      hexutil.Uint64 `json:"homesteadForkBlock"`
-		EIP150ForkBlock         hexutil.Uint64 `json:"EIP150ForkBlock"`
-		EIP158ForkBlock         hexutil.Uint64 `json:"EIP158ForkBlock"`
+		EIP150ForkBlock         hexutil.Uint64 `json:"eip150ForkBlock"`
+		EIP158ForkBlock         hexutil.Uint64 `json:"eip158ForkBlock"`
 		ByzantiumForkBlock      hexutil.Uint64 `json:"byzantiumForkBlock"`
 		ConstantinopleForkBlock hexutil.Uint64 `json:"constantinopleForkBlock"`
+		EIP1559ForkBlock        hexutil.Uint64 `json:"eip1559ForkBlock"`
 		NetworkID               hexutil.Uint64 `json:"networkID"`
 		ChainID                 hexutil.Uint64 `json:"chainID"`
 		MaximumExtraDataSize    hexutil.Uint64 `json:"maximumExtraDataSize"`
@@ -102,6 +103,7 @@ func newCppEthereumGenesisSpec(network string, genesis *core.Genesis) (*cppEther
 	spec.Params.EIP158ForkBlock = (hexutil.Uint64)(genesis.Config.EIP158Block.Uint64())
 	spec.Params.ByzantiumForkBlock = (hexutil.Uint64)(genesis.Config.ByzantiumBlock.Uint64())
 	spec.Params.ConstantinopleForkBlock = (hexutil.Uint64)(math.MaxUint64)
+	spec.Params.EIP1559ForkBlock = (hexutil.Uint64)(genesis.Config.EIP1559Block.Uint64())
 
 	spec.Params.NetworkID = (hexutil.Uint64)(genesis.Config.ChainId.Uint64())
 	spec.Params.ChainID = (hexutil.Uint64)(genesis.Config.ChainId.Uint64())

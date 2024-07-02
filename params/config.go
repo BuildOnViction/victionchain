@@ -32,21 +32,14 @@ var (
 var (
 	// VicMainnetChainConfig contains the chain parameters to run a Viction node on the main network.
 	VicMainnetChainConfig = &ChainConfig{
-		ChainId:                      big.NewInt(88),
-		HomesteadBlock:               big.NewInt(1),
-		EIP150Block:                  big.NewInt(2),
-		EIP150Hash:                   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-		EIP155Block:                  big.NewInt(3),
-		EIP158Block:                  big.NewInt(3),
-		ByzantiumBlock:               big.NewInt(4),
-		TIP2019Block:                 big.NewInt(1050000),
-		TIPSigningBlock:              big.NewInt(3000000),
-		TIPRandomizeBlock:            big.NewInt(3464000),
-		BlackListHFBlock:             big.NewInt(9349100),
-		TIPTRC21FeeBlock:             big.NewInt(13523400),
-		TIPTomoXBlock:                big.NewInt(20581700),
-		TIPTomoXLendingBlock:         big.NewInt(21430200),
-		TIPTomoXCancellationFeeBlock: big.NewInt(30915660),
+		ChainId:        big.NewInt(88),
+		HomesteadBlock: big.NewInt(1),
+		EIP150Block:    big.NewInt(2),
+		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:    big.NewInt(3),
+		EIP158Block:    big.NewInt(3),
+		ByzantiumBlock: big.NewInt(4),
+		EIP1559Block:   big.NewInt(0),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -77,6 +70,7 @@ var (
 		TIPTomoXBlock:                big.NewInt(0),
 		TIPTomoXLendingBlock:         big.NewInt(0),
 		TIPTomoXCancellationFeeBlock: big.NewInt(0),
+		EIP1559Block:                 big.NewInt(0),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -150,6 +144,7 @@ var (
 		TIPSigningBlock:              big.NewInt(0),
 		TIPRandomizeBlock:            big.NewInt(0),
 		TIPTomoXCancellationFeeBlock: big.NewInt(0),
+		EIP1559Block:                 big.NewInt(0),
 		Ethash:                       new(EthashConfig),
 	}
 
@@ -166,6 +161,7 @@ var (
 		EIP158Block:       big.NewInt(0),
 		ByzantiumBlock:    big.NewInt(0),
 		TIPRandomizeBlock: big.NewInt(0),
+		EIP1559Block:      big.NewInt(0),
 		Posv:              &PosvConfig{Period: 0, Epoch: 30000},
 	}
 
@@ -178,6 +174,7 @@ var (
 		EIP158Block:     big.NewInt(0),
 		ByzantiumBlock:  big.NewInt(0),
 		TIPSigningBlock: big.NewInt(0),
+		EIP1559Block:    big.NewInt(0),
 		Ethash:          new(EthashConfig),
 	}
 )
@@ -213,6 +210,7 @@ type ChainConfig struct {
 	TIPTomoXBlock                *big.Int `json:"tipTomoXBlock,omitempty"`                // TIPTomoX switch block (nil = no fork, 0 = already activated)
 	TIPTomoXLendingBlock         *big.Int `json:"tipTomoXLendingBlock,omitempty"`         // TIPTomoXLending switch block (nil = no fork, 0 = already activated)
 	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
+	EIP1559Block                 *big.Int `json:"eip1559Block,omitempty"`                 // EIP1559 switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
@@ -265,7 +263,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v EIP1559: %v Engine: %v}",
 		c.ChainId,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -275,6 +273,7 @@ func (c *ChainConfig) String() string {
 		c.EIP158Block,
 		c.ByzantiumBlock,
 		c.ConstantinopleBlock,
+		c.EIP1559Block,
 		engine,
 	)
 }
@@ -351,6 +350,10 @@ func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
 
 func (c *ChainConfig) IsTIPTomoXCancellationFee(num *big.Int) bool {
 	return isForked(common.TIPTomoXCancellationFeeBlock, num)
+}
+
+func (c *ChainConfig) IsEIP1559(num *big.Int) bool {
+	return isForked(c.EIP1559Block, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
@@ -440,7 +443,20 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock, head) {
 		return newCompatError("TIPTomoXCancellationFee fork block", c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock)
 	}
+	if isForkIncompatible(c.EIP1559Block, newcfg.EIP1559Block, head) {
+		return newCompatError("EIP1559 fork block", c.EIP1559Block, newcfg.EIP1559Block)
+	}
 	return nil
+}
+
+// BaseFeeChangeDenominator bounds the amount the base fee can change between blocks.
+func (c *ChainConfig) BaseFeeChangeDenominator() uint64 {
+	return DefaultBaseFeeChangeDenominator
+}
+
+// ElasticityMultiplier bounds the maximum gas limit an EIP-1559 block may have.
+func (c *ChainConfig) ElasticityMultiplier() uint64 {
+	return DefaultElasticityMultiplier
 }
 
 // isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to
@@ -510,6 +526,7 @@ type Rules struct {
 	IsTIP2019, IsTIPSigning, IsTIPRandomize, IsBlackListHF  bool
 	IsTIPTRC21Fee, IsTIPTomoX, IsTIPTomoXLending            bool
 	IsTIPTomoXCancellationFee                               bool
+	IsEIP1559                                               bool
 }
 
 func (c *ChainConfig) Rules(num *big.Int) Rules {
@@ -535,5 +552,6 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		IsTIPTomoX:                c.IsTIPTomoX(num),
 		IsTIPTomoXLending:         c.IsTIPTomoXLending(num),
 		IsTIPTomoXCancellationFee: c.IsTIPTomoXCancellationFee(num),
+		IsEIP1559:                 c.IsEIP1559(num),
 	}
 }
