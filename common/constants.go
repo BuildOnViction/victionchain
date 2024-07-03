@@ -16,15 +16,16 @@ const (
 	EpocBlockRandomize         = 900
 	MaxMasternodes             = 150
 	LimitPenaltyEpoch          = 4
-	BlocksPerYear              = uint64(15768000)
 	LimitThresholdNonceInQueue = 10
 	DefaultMinGasPrice         = 250000000
 	MergeSignRange             = 15
 	RangeReturnSigner          = 150
 	MinimunMinerBlockPerEpoch  = 1
 	IgnoreSignerCheckBlock     = uint64(14458500)
-	OneYear                    = uint64(365 * 86400)
 	LiquidateLendingTradeBlock = uint64(100)
+	OneYear                    = uint64(31536000)
+	BlocksPerYear              = uint64(15768000)
+	EpochsPerYear              = uint64(17520)
 )
 
 var Rewound = uint64(0)
