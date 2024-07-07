@@ -16,54 +16,60 @@ const (
 	EpocBlockRandomize         = 900
 	MaxMasternodes             = 150
 	LimitPenaltyEpoch          = 4
-	BlocksPerYear              = uint64(15768000)
 	LimitThresholdNonceInQueue = 10
 	DefaultMinGasPrice         = 250000000
 	MergeSignRange             = 15
 	RangeReturnSigner          = 150
 	MinimunMinerBlockPerEpoch  = 1
 	IgnoreSignerCheckBlock     = uint64(14458500)
-	OneYear                    = uint64(365 * 86400)
 	LiquidateLendingTradeBlock = uint64(100)
+	OneYear                    = uint64(31536000)
+	BlocksPerYear              = uint64(15768000)
+	EpochsPerYear              = uint64(17520)
 )
 
 var Rewound = uint64(0)
 
 // hardforks
-var TIP2019Block = big.NewInt(1050000)
-var TIPSigningBlock = big.NewInt(3000000)
-var TIPRandomizeBlock = big.NewInt(3464000)
-var BlackListHFNumberBlock = uint64(9349100)
-var TIPTRC21FeeBlock = big.NewInt(13523400)
-var TIPTomoXBlock = big.NewInt(20581700)
-var TIPTomoXLendingBlock = big.NewInt(21430200)
-var TIPTomoXCancellationFeeBlock = big.NewInt(30915660)
-var IsTestnet bool = false
-var StoreRewardFolder string
-var RollbackHash Hash
-var BasePrice = big.NewInt(1000000000000000000)                         // 1
-var RelayerLockedFund = big.NewInt(20000)                               // 20000 TOMO
-var RelayerFee = big.NewInt(1000000000000000)                           // 0.001
-var TomoXBaseFee = big.NewInt(10000)                                    // 1 / TomoXBaseFee
-var RelayerCancelFee = big.NewInt(100000000000000)                      // 0.0001
-var TomoXBaseCancelFee = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (TomoXBaseFee *10)
-var RelayerLendingFee = big.NewInt(10000000000000000)                   // 0.01
-var RelayerLendingCancelFee = big.NewInt(1000000000000000)              // 0.001
-var BaseLendingInterest = big.NewInt(100000000)                         // 1e8
+var (
+	TIP2019Block                      = big.NewInt(1050000)
+	TIPSigningBlock                   = big.NewInt(3000000)
+	TIPRandomizeBlock                 = big.NewInt(3464000)
+	BlackListHFNumberBlock            = uint64(9349100)
+	TIPTRC21FeeBlock                  = big.NewInt(13523400)
+	TIPTomoXBlock                     = big.NewInt(20581700)
+	TIPTomoXLendingBlock              = big.NewInt(21430200)
+	TIPTomoXCancellationFeeBlock      = big.NewInt(30915660)
+	IsTestnet                    bool = false
+	StoreRewardFolder            string
+	RollbackHash                 Hash
+	BasePrice                    = big.NewInt(1000000000000000000)                // 1
+	RelayerLockedFund            = big.NewInt(20000)                              // 20000 TOMO
+	RelayerFee                   = big.NewInt(1000000000000000)                   // 0.001
+	TomoXBaseFee                 = big.NewInt(10000)                              // 1 / TomoXBaseFee
+	RelayerCancelFee             = big.NewInt(100000000000000)                    // 0.0001
+	TomoXBaseCancelFee           = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (TomoXBaseFee *10)
+	RelayerLendingFee            = big.NewInt(10000000000000000)                  // 0.01
+	RelayerLendingCancelFee      = big.NewInt(1000000000000000)                   // 0.001
+	BaseLendingInterest          = big.NewInt(100000000)                          // 1e8
+)
 
-var MinGasPrice = big.NewInt(DefaultMinGasPrice)
-var RelayerRegistrationSMC = "0x16c63b79f9C8784168103C0b74E6A59EC2de4a02"
-var RelayerRegistrationSMCTestnet = "0xA1996F69f47ba14Cb7f661010A7C31974277958c"
-var LendingRegistrationSMC = "0x7d761afd7ff65a79e4173897594a194e3c506e57"
-var LendingRegistrationSMCTestnet = "0x28d7fC2Cf5c18203aaCD7459EFC6Af0643C97bE8"
-var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
-var TomoXListingSMC = HexToAddress("0xDE34dD0f536170993E8CFF639DdFfCF1A85D3E53")
-var TomoXListingSMCTestNet = HexToAddress("0x14B2Bf043b9c31827A472CE4F94294fE9a6277e0")
-var TRC21GasPriceBefore = big.NewInt(2500)
-var TRC21GasPrice = big.NewInt(250000000)
-var RateTopUp = big.NewInt(90) // 90%
-var BaseTopUp = big.NewInt(100)
-var BaseRecall = big.NewInt(100)
+var (
+	MinGasPrice                   = big.NewInt(DefaultMinGasPrice)
+	RelayerRegistrationSMC        = "0x16c63b79f9C8784168103C0b74E6A59EC2de4a02"
+	RelayerRegistrationSMCTestnet = "0xA1996F69f47ba14Cb7f661010A7C31974277958c"
+	LendingRegistrationSMC        = "0x7d761afd7ff65a79e4173897594a194e3c506e57"
+	LendingRegistrationSMCTestnet = "0x28d7fC2Cf5c18203aaCD7459EFC6Af0643C97bE8"
+	TRC21IssuerSMC                = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
+	TomoXListingSMC               = HexToAddress("0xDE34dD0f536170993E8CFF639DdFfCF1A85D3E53")
+	TomoXListingSMCTestNet        = HexToAddress("0x14B2Bf043b9c31827A472CE4F94294fE9a6277e0")
+	TRC21GasPriceBefore           = big.NewInt(2500)
+	TRC21GasPrice                 = big.NewInt(250000000)
+	RateTopUp                     = big.NewInt(90) // 90%
+	BaseTopUp                     = big.NewInt(100)
+	BaseRecall                    = big.NewInt(100)
+)
+
 var Blacklist = map[Address]bool{
 	HexToAddress("0x5248bfb72fd4f234e062d3e9bb76f08643004fcd"): true,
 	HexToAddress("0x5ac26105b35ea8935be382863a70281ec7a985e9"): true,
