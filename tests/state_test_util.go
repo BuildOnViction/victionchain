@@ -259,7 +259,7 @@ func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (*types.Mes
 		return nil, errors.New("no gas price provided")
 	}
 
-	msg := types.NewMessage(from, to, tx.Nonce, value, gasLimit, tx.GasPrice, tx.MaxFeePerGas, tx.MaxPriorityFeePerGas, data, true, nil)
+	msg := types.NewMessage(from, to, tx.Nonce, value, gasLimit, tx.GasPrice, tx.MaxFeePerGas, tx.MaxPriorityFeePerGas, data, true, nil, baseFee)
 	return &msg, nil
 }
 

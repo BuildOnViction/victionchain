@@ -39,7 +39,7 @@ var (
 		EIP155Block:    big.NewInt(3),
 		EIP158Block:    big.NewInt(3),
 		ByzantiumBlock: big.NewInt(4),
-		EIP1559Block:   big.NewInt(0),
+		EIP1559Block:   nil, // Todo: TBD
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,

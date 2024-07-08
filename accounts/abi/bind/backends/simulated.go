@@ -69,6 +69,7 @@ type SimulatedBackend struct {
 func NewSimulatedBackend(alloc core.GenesisAlloc) *SimulatedBackend {
 	database := rawdb.NewMemoryDatabase()
 	genesis := core.Genesis{Config: params.AllEthashProtocolChanges, Alloc: alloc, GasLimit: 42000000}
+	genesis.Config.EIP1559Block = nil
 	genesis.MustCommit(database)
 	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{NoBaseFee: true})
 

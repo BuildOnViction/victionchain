@@ -255,6 +255,8 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 // Tests that the contract codes can be retrieved based on account addresses.
 func TestGetCodeLes1(t *testing.T) { testGetCode(t, 1) }
 func TestGetCodeLes2(t *testing.T) { testGetCode(t, 2) }
+func TestGetCodeLes3(t *testing.T) { testGetCode(t, 3) }
+func TestGetCodeLes4(t *testing.T) { testGetCode(t, 4) }
 
 func testGetCode(t *testing.T, protocol int) {
 	// Assemble the test environment

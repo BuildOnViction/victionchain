@@ -913,11 +913,11 @@ type Message struct {
 }
 
 func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int,
-	gasFeeCap *big.Int, gasTipCap *big.Int, data []byte, checkNonce bool, balanceTokenFee *big.Int) Message {
+	gasFeeCap *big.Int, gasTipCap *big.Int, data []byte, checkNonce bool, balanceTokenFee *big.Int, baseFee *big.Int) Message {
 	if balanceTokenFee != nil {
 		gasPrice = common.TRC21GasPrice
 	}
-	return Message{
+	msg := Message{
 		from:            from,
 		to:              to,
 		nonce:           nonce,
@@ -930,6 +930,11 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		checkNonce:      checkNonce,
 		balanceTokenFee: balanceTokenFee,
 	}
+	if baseFee != nil {
+		// If baseFee provided, set gasPrice to effectiveGasPrice.
+		msg.gasPrice = cmath.BigMin(msg.gasPrice.Add(msg.gasTipCap, baseFee), msg.gasFeeCap)
+	}
+	return msg
 }
 
 func (m Message) From() common.Address      { return m.from }

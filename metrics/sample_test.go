@@ -1,11 +1,14 @@
 package metrics
 
 import (
+	"math"
 	"math/rand"
 	"runtime"
 	"testing"
 	"time"
 )
+
+const epsilonPercentile = .00000000001
 
 // Benchmark{Compute,Copy}{1000,1000000} demonstrate that, even for relatively
 // expensive computations like Variance, the cost of copying the Sample, as
@@ -304,29 +307,29 @@ func testExpDecaySampleStatistics(t *testing.T, s Sample) {
 }
 
 func testUniformSampleStatistics(t *testing.T, s Sample) {
-	if count := s.Count(); 10000 != count {
+	if count := s.Count(); count != 10000 {
 		t.Errorf("s.Count(): 10000 != %v\n", count)
 	}
-	if min := s.Min(); 37 != min {
+	if min := s.Min(); min != 37 {
 		t.Errorf("s.Min(): 37 != %v\n", min)
 	}
-	if max := s.Max(); 9989 != max {
+	if max := s.Max(); max != 9989 {
 		t.Errorf("s.Max(): 9989 != %v\n", max)
 	}
-	if mean := s.Mean(); 4748.14 != mean {
+	if mean := s.Mean(); mean != 4748.14 {
 		t.Errorf("s.Mean(): 4748.14 != %v\n", mean)
 	}
-	if stdDev := s.StdDev(); 2826.684117548333 != stdDev {
+	if stdDev := s.StdDev(); stdDev != 2826.684117548333 {
 		t.Errorf("s.StdDev(): 2826.684117548333 != %v\n", stdDev)
 	}
 	ps := s.Percentiles([]float64{0.5, 0.75, 0.99})
-	if 4599 != ps[0] {
+	if ps[0] != 4599 {
 		t.Errorf("median: 4599 != %v\n", ps[0])
 	}
-	if 7380.5 != ps[1] {
+	if ps[1] != 7380.5 {
 		t.Errorf("75th percentile: 7380.5 != %v\n", ps[1])
 	}
-	if 9986.429999999998 != ps[2] {
+	if math.Abs(9986.429999999998-ps[2]) > epsilonPercentile {
 		t.Errorf("99th percentile: 9986.429999999998 != %v\n", ps[2])
 	}
 }
