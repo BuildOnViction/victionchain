@@ -244,7 +244,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 			balanceFee = value
 		}
 	}
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number)
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, header.BaseFee)
 	if err != nil {
 		return nil, 0, err, false
 	}

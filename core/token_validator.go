@@ -111,7 +111,7 @@ func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, 
 	evmContext := NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(evmContext, statedb, nil, chain.Config(), vm.Config{})
+	vmenv := vm.NewEVM(evmContext, statedb, nil, chain.Config(), vm.Config{NoBaseFee: true})
 	gaspool := new(GasPool).AddGas(1000000)
 	owner := common.Address{}
 	rval, _, _, err := NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)

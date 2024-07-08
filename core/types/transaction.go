@@ -26,7 +26,7 @@ import (
 	"sync/atomic"
 
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/common/math"
+	cmath "github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
 )
@@ -323,7 +323,7 @@ func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 	if gasFeeCap.Cmp(baseFee) == -1 {
 		err = ErrGasFeeCapTooLow
 	}
-	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
+	return cmath.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
 }
 
 // EffectiveGasTipValue is identical to EffectiveGasTip, but does not return an
@@ -409,7 +409,7 @@ func (tx *Transaction) Size() common.StorageSize {
 // AsMessage requires a signer to derive the sender.
 //
 // XXX Rename message to something less arbitrary?
-func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int) (Message, error) {
+func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int, baseFee *big.Int) (Message, error) {
 	msg := Message{
 		nonce:           tx.Nonce(),
 		gasLimit:        tx.Gas(),
@@ -430,6 +430,9 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int)
 		} else {
 			msg.gasPrice = common.TRC21GasPriceBefore
 		}
+	} else if baseFee != nil {
+		// If baseFee provided, set gasPrice to effectiveGasPrice.
+		msg.gasPrice = cmath.BigMin(msg.gasPrice.Add(msg.gasTipCap, baseFee), msg.gasFeeCap)
 	}
 	return msg, err
 }
