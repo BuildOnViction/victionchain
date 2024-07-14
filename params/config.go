@@ -40,6 +40,7 @@ var (
 		EIP155Block:    big.NewInt(3),
 		EIP158Block:    big.NewInt(3),
 		ByzantiumBlock: big.NewInt(4),
+		SaigonBlock:    big.NewInt(84000000),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -203,6 +204,7 @@ type ChainConfig struct {
 	TIPTomoXBlock                *big.Int `json:"tipTomoXBlock,omitempty"`                // TIPTomoX switch block (nil = no fork, 0 = already activated)
 	TIPTomoXLendingBlock         *big.Int `json:"tipTomoXLendingBlock,omitempty"`         // TIPTomoXLending switch block (nil = no fork, 0 = already activated)
 	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
+	SaigonBlock                  *big.Int `json:"saigonBlock,omitempty"`                  // Saigon switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
@@ -343,6 +345,10 @@ func (c *ChainConfig) IsTIPTomoXCancellationFee(num *big.Int) bool {
 	return isForked(common.TIPTomoXCancellationFeeBlock, num)
 }
 
+func (c *ChainConfig) IsSaigon(num *big.Int) bool {
+	return isForked(c.SaigonBlock, num)
+}
+
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.
@@ -430,6 +436,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock, head) {
 		return newCompatError("TIPTomoXCancellationFee fork block", c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock)
 	}
+	if isForkIncompatible(c.SaigonBlock, newcfg.SaigonBlock, head) {
+		return newCompatError("Saigon fork block", c.SaigonBlock, newcfg.SaigonBlock)
+	}
 	return nil
 }
 
@@ -499,7 +508,7 @@ type Rules struct {
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsTIP2019, IsTIPSigning, IsTIPRandomize, IsBlackListHF  bool
 	IsTIPTRC21Fee, IsTIPTomoX, IsTIPTomoXLending            bool
-	IsTIPTomoXCancellationFee                               bool
+	IsTIPTomoXCancellationFee, IsSaigon                     bool
 }
 
 func (c *ChainConfig) Rules(num *big.Int) Rules {
@@ -525,5 +534,6 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		IsTIPTomoX:                c.IsTIPTomoX(num),
 		IsTIPTomoXLending:         c.IsTIPTomoXLending(num),
 		IsTIPTomoXCancellationFee: c.IsTIPTomoXCancellationFee(num),
+		IsSaigon:                  c.IsSaigon(num),
 	}
 }

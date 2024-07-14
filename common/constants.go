@@ -52,6 +52,8 @@ var (
 	RelayerLendingFee            = big.NewInt(10000000000000000)                  // 0.01
 	RelayerLendingCancelFee      = big.NewInt(1000000000000000)                   // 0.001
 	BaseLendingInterest          = big.NewInt(100000000)                          // 1e8
+	SaigonRewardPerEpoch         = big.NewInt(250)                                // 250 VIC
+	SaigonEcoSystemFund          = big.NewInt(80_000_000)                         // 80M VIC
 )
 
 var (

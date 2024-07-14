@@ -79,6 +79,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) == 0 {
+		ecoSystemFund := new(big.Int).Mul(common.SaigonEcoSystemFund, new(big.Int).SetUint64(params.Ether))
+		statedb.AddBalance(common.HexToAddress(common.FoundationAddr), ecoSystemFund)
+	}
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
@@ -147,6 +151,10 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	// Mutate the the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
+	}
+	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) == 0 {
+		ecoSystemFund := new(big.Int).Mul(common.SaigonEcoSystemFund, new(big.Int).SetUint64(params.Ether))
+		statedb.AddBalance(common.HexToAddress(common.FoundationAddr), ecoSystemFund)
 	}
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))

@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core/rawdb"
@@ -1174,6 +1175,48 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	if st, _ := blockchain.State(); st.Exist(theAddr) {
 		t.Error("account should not exist")
 	}
+}
+
+func TestSaigonEcoSystemFund(t *testing.T) {
+	// Configure and generate a sample blockchain
+	var (
+		db                = rawdb.NewMemoryDatabase()
+		foundationAddress = common.HexToAddress(common.FoundationAddr)
+		gspec             = &Genesis{
+			Config: &params.ChainConfig{
+				ChainId:     big.NewInt(1),
+				SaigonBlock: big.NewInt(7),
+				Posv: &params.PosvConfig{
+					Period:              2,
+					Epoch:               900,
+					Reward:              250,
+					RewardCheckpoint:    900,
+					Gap:                 5,
+					FoudationWalletAddr: common.HexToAddress(common.FoundationAddr),
+				},
+			},
+			Alloc: GenesisAlloc{
+				foundationAddress: {
+					Balance: new(big.Int).Mul(big.NewInt(60_000_000), big.NewInt(params.Ether)),
+				},
+			},
+		}
+		genesis     = gspec.MustCommit(db)
+		cacheConfig = &CacheConfig{Disabled: false, TrieNodeLimit: 256, TrieTimeLimit: 5 * time.Minute}
+	)
+	blockchain, _ := NewBlockChain(db, cacheConfig, gspec.Config, ethash.NewFaker(), vm.Config{})
+	defer blockchain.Stop()
+
+	initialFoundationBalance := new(big.Int).Mul(big.NewInt(60_000_000), big.NewInt(params.Ether))
+	postSaigonFoundationBalance := new(big.Int).Mul(new(big.Int).Add(big.NewInt(60_000_000), common.SaigonEcoSystemFund), big.NewInt(params.Ether))
+	GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 10, func(i int, block *BlockGen) {
+		foundationBalance := block.statedb.GetBalance(common.HexToAddress(common.FoundationAddr))
+		if i < 6 {
+			assert.True(t, foundationBalance.Cmp(initialFoundationBalance) == 0, "EcoSystem address balance mismatch at block %v", i)
+		} else {
+			assert.True(t, foundationBalance.Cmp(postSaigonFoundationBalance) == 0, "EcoSystem address balance mismatch at block %v", i)
+		}
+	})
 }
 
 // This is a regression test (i.e. as weird as it is, don't delete it ever), which
