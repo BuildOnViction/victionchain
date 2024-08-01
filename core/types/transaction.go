@@ -416,11 +416,7 @@ func (tx *Transaction) IsTomoXApplyTransaction() bool {
 		return false
 	}
 
-	addr := common.TomoXListingSMC
-	if common.IsTestnet {
-		addr = common.TomoXListingSMCTestNet
-	}
-	if tx.To().String() != addr.String() {
+	if tx.To().String() != common.TomoXListingSMC.String() {
 		return false
 	}
 
@@ -443,11 +439,7 @@ func (tx *Transaction) IsTomoZApplyTransaction() bool {
 		return false
 	}
 
-	addr := common.TRC21IssuerSMC
-	if common.IsTestnet {
-		addr = common.TRC21IssuerSMCTestNet
-	}
-	if tx.To().String() != addr.String() {
+	if tx.To().String() != common.TRC21IssuerSMC.String() {
 		return false
 	}
 

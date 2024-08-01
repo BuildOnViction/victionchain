@@ -20,13 +20,14 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"gopkg.in/urfave/cli.v1"
 	"io"
 	"math/big"
 	"os"
 	"reflect"
 	"strings"
 	"unicode"
+
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/naoina/toml"
 	"github.com/tomochain/tomochain/cmd/utils"
@@ -156,10 +157,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Check testnet is enable.
 	if ctx.GlobalBool(utils.TomoTestnetFlag.Name) {
 		common.IsTestnet = true
-		common.TRC21IssuerSMC = common.TRC21IssuerSMCTestNet
 		cfg.Eth.NetworkId = 89
-		common.RelayerRegistrationSMC = common.RelayerRegistrationSMCTestnet
-		common.TIPTRC21Fee = common.TIPTomoXTestnet
 		common.TIPSigning = big.NewInt(0)
 		common.TIPRandomize = big.NewInt(0)
 		common.TIP2019Block = big.NewInt(0)

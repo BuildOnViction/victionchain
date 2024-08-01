@@ -37,7 +37,6 @@ var BlackListHFNumber = uint64(9349100)
 var TIPTomoX = big.NewInt(20581700)
 var TIPTomoXLending = big.NewInt(21430200)
 var TIPTomoXCancellationFee = big.NewInt(30915660)
-var TIPTomoXTestnet = big.NewInt(0)
 var IsTestnet bool = false
 var StoreRewardFolder string
 var RollbackHash Hash
@@ -53,13 +52,9 @@ var BaseLendingInterest = big.NewInt(100000000)                         // 1e8
 
 var MinGasPrice = big.NewInt(DefaultMinGasPrice)
 var RelayerRegistrationSMC = "0x16c63b79f9C8784168103C0b74E6A59EC2de4a02"
-var RelayerRegistrationSMCTestnet = "0xA1996F69f47ba14Cb7f661010A7C31974277958c"
 var LendingRegistrationSMC = "0x7d761afd7ff65a79e4173897594a194e3c506e57"
-var LendingRegistrationSMCTestnet = "0x28d7fC2Cf5c18203aaCD7459EFC6Af0643C97bE8"
-var TRC21IssuerSMCTestNet = HexToAddress("0x0E2C88753131CE01c7551B726b28BFD04e44003F")
 var TRC21IssuerSMC = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
 var TomoXListingSMC = HexToAddress("0xDE34dD0f536170993E8CFF639DdFfCF1A85D3E53")
-var TomoXListingSMCTestNet = HexToAddress("0x14B2Bf043b9c31827A472CE4F94294fE9a6277e0")
 var TRC21GasPriceBefore = big.NewInt(2500)
 var TRC21GasPrice = big.NewInt(250000000)
 var RateTopUp = big.NewInt(90) // 90%
