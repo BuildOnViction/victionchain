@@ -1,13 +1,14 @@
 package trc21issuer
 
 import (
+	"math/big"
+	"testing"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/crypto"
-	"math/big"
-	"testing"
 )
 
 var (
@@ -82,7 +83,7 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 		t.Fatal("can't transaction's receipt ", err, "hash", tx.Hash())
 	}
 	fee := big.NewInt(0).SetUint64(receipt.GasUsed)
-	if receipt.Logs[0].BlockNumber > common.TIPTRC21Fee.Uint64() {
+	if receipt.Logs[0].BlockNumber > common.TIPTRC21FeeBlock.Uint64() {
 		fee = fee.Mul(fee, common.TRC21GasPrice)
 	}
 	remainFee := big.NewInt(0).Sub(minApply, fee)
@@ -134,7 +135,7 @@ func TestFeeTxWithTRC21Token(t *testing.T) {
 		t.Fatal("can't transaction's receipt ", err, "hash", tx.Hash())
 	}
 	fee = big.NewInt(0).SetUint64(receipt.GasUsed)
-	if receipt.Logs[0].BlockNumber > common.TIPTRC21Fee.Uint64() {
+	if receipt.Logs[0].BlockNumber > common.TIPTRC21FeeBlock.Uint64() {
 		fee = fee.Mul(fee, common.TRC21GasPrice)
 	}
 	remainFee = big.NewInt(0).Sub(remainFee, fee)
