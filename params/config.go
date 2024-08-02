@@ -214,6 +214,8 @@ type ChainConfig struct {
 	TIPTomoXLendingBlock         *big.Int `json:"tipTomoXLendingBlock,omitempty"`         // TIPTomoXLending switch block (nil = no fork, 0 = already activated)
 	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
 
+	SaigonBlock *big.Int `json:"saigonBlock,omitempty"` // Saigon switch block (nil = no fork, 0 = already activated)
+
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
@@ -265,7 +267,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v TIP2019: %v TIPSigning: %v TIPRandomize: %v BlackListHF: %v TIPTRC21Fee: %v TIPTomoX: %v TIPTomoXLending: %v TIPTomoXCancellationFee: %v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v TIP2019: %v TIPSigning: %v TIPRandomize: %v BlackListHF: %v TIPTRC21Fee: %v TIPTomoX: %v TIPTomoXLending: %v TIPTomoXCancellationFee: %v Saigon: %v Engine: %v}",
 		c.ChainId,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -283,6 +285,7 @@ func (c *ChainConfig) String() string {
 		c.TIPTomoXBlock,
 		c.TIPTomoXLendingBlock,
 		c.TIPTomoXCancellationFeeBlock,
+		c.SaigonBlock,
 		engine,
 	)
 }
@@ -353,6 +356,10 @@ func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
 
 func (c *ChainConfig) IsTIPTomoXCancellationFee(num *big.Int) bool {
 	return isForked(common.TIPTomoXCancellationFeeBlock, num)
+}
+
+func (c *ChainConfig) IsSaigon(num *big.Int) bool {
+	return isForked(c.SaigonBlock, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
@@ -442,6 +449,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock, head) {
 		return newCompatError("TIPTomoXCancellationFee fork block", c.TIPTomoXCancellationFeeBlock, newcfg.TIPTomoXCancellationFeeBlock)
 	}
+	if isForkIncompatible(c.SaigonBlock, newcfg.SaigonBlock, head) {
+		return newCompatError("Saigon fork block", c.SaigonBlock, newcfg.SaigonBlock)
+	}
 	return nil
 }
 
@@ -512,6 +522,7 @@ type Rules struct {
 	IsTIP2019, IsTIPSigning, IsTIPRandomize                  bool
 	IsBlackListHF, IsTIPTRC21Fee                             bool
 	IsTIPTomoX, IsTIPTomoXLending, IsTIPTomoXCancellationFee bool
+	IsSaigon                                                 bool
 }
 
 func (c *ChainConfig) Rules(num *big.Int) Rules {
@@ -538,5 +549,6 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		IsTIPTomoX:                c.IsTIPTomoX(num),
 		IsTIPTomoXLending:         c.IsTIPTomoXLending(num),
 		IsTIPTomoXCancellationFee: c.IsTIPTomoXCancellationFee(num),
+		IsSaigon:                  c.IsSaigon(num),
 	}
 }

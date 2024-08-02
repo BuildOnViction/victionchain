@@ -622,6 +622,10 @@ func (self *worker) commitNewWork() {
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if self.config.SaigonBlock != nil && self.config.SaigonBlock.Cmp(header.Number) == 0 && self.config.Posv != nil {
+		ecoSystemFund := new(big.Int).Mul(common.SaigonEcoSystemFund, new(big.Int).SetUint64(params.Ether))
+		work.state.AddBalance(self.config.Posv.FoudationWalletAddr, ecoSystemFund)
+	}
 	// won't grasp txs at checkpoint
 	var (
 		txs                                                                  *types.TransactionsByPriceAndNonce
