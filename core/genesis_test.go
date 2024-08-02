@@ -17,12 +17,13 @@
 package core
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/tomochain/tomochain/core/rawdb"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core/vm"
@@ -31,13 +32,13 @@ import (
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {
-	block := DefaultGenesisBlock().ToBlock(nil)
-	if block.Hash() != params.TomoMainnetGenesisHash {
-		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash().String(), params.TomoMainnetGenesisHash.String())
+	block := DefaultVicMainnetGenesisBlock().ToBlock(nil)
+	if block.Hash() != params.VicMainnetGenesisHash {
+		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash().String(), params.VicMainnetGenesisHash.String())
 	}
-	block = DefaultTestnetGenesisBlock().ToBlock(nil)
-	if block.Hash() != params.TestnetGenesisHash {
-		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash().String(), params.TestnetGenesisHash.String())
+	block = DefaultVicTestnetGenesisBlock().ToBlock(nil)
+	if block.Hash() != params.VicTestnetGenesisHash {
+		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash().String(), params.VicTestnetGenesisHash.String())
 	}
 }
 
@@ -73,17 +74,17 @@ func TestSetupGenesis(t *testing.T) {
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   params.TomoMainnetGenesisHash,
-			wantConfig: params.TomoMainnetChainConfig,
+			wantHash:   params.VicMainnetGenesisHash,
+			wantConfig: params.VicMainnetChainConfig,
 		},
 		{
 			name: "mainnet block in DB, genesis == nil",
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
-				DefaultGenesisBlock().MustCommit(db)
+				DefaultVicMainnetGenesisBlock().MustCommit(db)
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   params.TomoMainnetGenesisHash,
-			wantConfig: params.TomoMainnetChainConfig,
+			wantHash:   params.VicMainnetGenesisHash,
+			wantConfig: params.VicMainnetChainConfig,
 		},
 		{
 			name: "custom block in DB, genesis == nil",

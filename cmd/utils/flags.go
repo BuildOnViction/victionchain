@@ -624,15 +624,15 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
 		}
 	// case ctx.GlobalBool(TestnetFlag.Name):
-	// 	urls = params.TestnetBootnodes
+	// 	urls = params.RostenBootnodes
 	// case ctx.GlobalBool(RinkebyFlag.Name):
 	// 	urls = params.RinkebyBootnodes
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
 	case !ctx.GlobalIsSet(BootnodesFlag.Name):
-		urls = params.MainnetBootnodes
+		urls = params.VicMainnetBootnodes
 	case ctx.GlobalBool(TomoTestnetFlag.Name):
-		urls = params.TestnetBootnodes
+		urls = params.VicTestnetBootnodes
 	}
 	cfg.BootstrapNodes = make([]*discover.Node, 0, len(urls))
 	for _, url := range urls {

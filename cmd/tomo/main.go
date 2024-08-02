@@ -27,7 +27,6 @@ import (
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/accounts/keystore"
 	"github.com/tomochain/tomochain/cmd/utils"
-	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/posv"
 	"github.com/tomochain/tomochain/console"
 	"github.com/tomochain/tomochain/core"
@@ -297,19 +296,10 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 	if _, ok := ethereum.Engine().(*posv.Posv); ok {
 		go func() {
 			started := false
-			ok := false
 			slaveMode := ctx.GlobalIsSet(utils.TomoSlaveModeFlag.Name)
-			var err error
-			if common.IsTestnet {
-				ok, err = ethereum.ValidateMasternodeTestnet()
-				if err != nil {
-					utils.Fatalf("Can't verify masternode permission: %v", err)
-				}
-			} else {
-				ok, err = ethereum.ValidateMasternode()
-				if err != nil {
-					utils.Fatalf("Can't verify masternode permission: %v", err)
-				}
+			ok, err := ethereum.ValidateMasternode()
+			if err != nil {
+				utils.Fatalf("Can't verify masternode permission: %v", err)
 			}
 			if ok {
 				if slaveMode {
@@ -338,16 +328,9 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 			defer close(core.CheckpointCh)
 			for range core.CheckpointCh {
 				log.Info("Checkpoint!!! It's time to reconcile node's state...")
-				if common.IsTestnet {
-					ok, err = ethereum.ValidateMasternodeTestnet()
-					if err != nil {
-						utils.Fatalf("Can't verify masternode permission: %v", err)
-					}
-				} else {
-					ok, err = ethereum.ValidateMasternode()
-					if err != nil {
-						utils.Fatalf("Can't verify masternode permission: %v", err)
-					}
+				ok, err := ethereum.ValidateMasternode()
+				if err != nil {
+					utils.Fatalf("Can't verify masternode permission: %v", err)
 				}
 				if !ok {
 					if started {
