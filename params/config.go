@@ -67,6 +67,7 @@ var (
 		TIPTomoXBlock:                big.NewInt(0),
 		TIPTomoXLendingBlock:         big.NewInt(0),
 		TIPTomoXCancellationFeeBlock: big.NewInt(0),
+		SaigonBlock:                  big.NewInt(10004200),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
