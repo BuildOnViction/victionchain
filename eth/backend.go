@@ -515,10 +515,14 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 			rewards := make(map[string]interface{})
 			if number > 0 && number-rCheckpoint > 0 && foundationWalletAddr != (common.Address{}) {
 				start := time.Now()
-				// Get signers in blockSigner smartcontract.
-				// Get reward inflation.
-				chainReward := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
-				chainReward = rewardInflation(chainReward, number, common.BlocksPerYear)
+				// Get initial reward
+				initialRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
+				chainReward := calcInitialReward(initialRewardPerEpoch, number, common.BlocksPerYear)
+				// Get additional reward for Saigon upgrade
+				if chain.Config().IsSaigon(chain.Config().SaigonBlock) {
+					saigonRewardPerEpoch := new(big.Int).Mul(common.SaigonRewardPerEpoch, new(big.Int).SetUint64(params.Ether))
+					chainReward = new(big.Int).Add(chainReward, calcSaigonReward(saigonRewardPerEpoch, chain.Config().SaigonBlock, number, common.BlocksPerYear))
+				}
 
 				totalSigner := new(uint64)
 				signers, err := contracts.GetRewardForCheckpoint(c, chain, header, rCheckpoint, totalSigner)
@@ -902,15 +906,30 @@ func GetValidators(bc *core.BlockChain, masternodes []common.Address) ([]byte, e
 	return nil, core.ErrNotFoundM1
 }
 
-func rewardInflation(chainReward *big.Int, number uint64, blockPerYear uint64) *big.Int {
-	if blockPerYear*2 <= number && number < blockPerYear*5 {
-		chainReward.Div(chainReward, new(big.Int).SetUint64(2))
+func calcInitialReward(rewardPerEpoch *big.Int, number uint64, blockPerYear uint64) *big.Int {
+	// Stop reward from 8th year onwards
+	if blockPerYear*8 <= number {
+		return big.NewInt(0)
 	}
 	if blockPerYear*5 <= number {
-		chainReward.Div(chainReward, new(big.Int).SetUint64(4))
+		return new(big.Int).Div(rewardPerEpoch, new(big.Int).SetUint64(4))
 	}
+	if blockPerYear*2 <= number {
+		return new(big.Int).Div(rewardPerEpoch, new(big.Int).SetUint64(2))
+	}
+	return new(big.Int).Set(rewardPerEpoch)
+}
 
-	return chainReward
+func calcSaigonReward(rewardPerEpoch *big.Int, saigonBlock *big.Int, number uint64, blockPerYear uint64) *big.Int {
+	headBlock := new(big.Int).SetUint64(number)
+	yearsFromHardfork := new(big.Int).Div(new(big.Int).Sub(headBlock, saigonBlock), new(big.Int).SetUint64(blockPerYear))
+	// Additional reward for Saigon upgrade will last for 16 years
+	if yearsFromHardfork.Cmp(big.NewInt(0)) < 0 || yearsFromHardfork.Cmp(big.NewInt(16)) >= 0 {
+		return big.NewInt(0)
+	}
+	cyclesFromHardfork := new(big.Int).Div(yearsFromHardfork, big.NewInt(4))
+	rewardHalving := new(big.Int).Exp(big.NewInt(2), cyclesFromHardfork, nil)
+	return new(big.Int).Div(rewardPerEpoch, rewardHalving)
 }
 
 func (s *Ethereum) GetPeer() int {
