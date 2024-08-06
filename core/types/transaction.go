@@ -261,7 +261,7 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int)
 	var err error
 	msg.from, err = Sender(s, tx)
 	if balanceFee != nil {
-		if number.Cmp(common.TIPTRC21Fee) > 0 {
+		if number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 			msg.gasPrice = common.TRC21GasPrice
 		} else {
 			msg.gasPrice = common.TRC21GasPriceBefore
@@ -416,11 +416,7 @@ func (tx *Transaction) IsTomoXApplyTransaction() bool {
 		return false
 	}
 
-	addr := common.TomoXListingSMC
-	if common.IsTestnet {
-		addr = common.TomoXListingSMCTestNet
-	}
-	if tx.To().String() != addr.String() {
+	if tx.To().String() != common.TomoXListingSMC.String() {
 		return false
 	}
 
@@ -443,11 +439,7 @@ func (tx *Transaction) IsTomoZApplyTransaction() bool {
 		return false
 	}
 
-	addr := common.TRC21IssuerSMC
-	if common.IsTestnet {
-		addr = common.TRC21IssuerSMCTestNet
-	}
-	if tx.To().String() != addr.String() {
+	if tx.To().String() != common.TRC21IssuerSMC.String() {
 		return false
 	}
 

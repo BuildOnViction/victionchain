@@ -21,9 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -33,6 +30,10 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
+	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/accounts"
@@ -348,9 +349,6 @@ func (c *Posv) verifyHeaderWithCache(chain consensus.ChainReader, header *types.
 // looking those up from the database. This is useful for concurrently verifying
 // a batch of new headers.
 func (c *Posv) verifyHeader(chain consensus.ChainReader, header *types.Header, parents []*types.Header, fullVerify bool) error {
-	if common.IsTestnet {
-		fullVerify = false
-	}
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -580,15 +578,6 @@ func whoIsCreator(snap *Snapshot, header *types.Header) (common.Address, error) 
 
 func (c *Posv) YourTurn(chain consensus.ChainReader, parent *types.Header, signer common.Address) (int, int, int, bool, error) {
 	masternodes := c.GetMasternodes(chain, parent)
-
-	if common.IsTestnet {
-		// Only three mns hard code for tomo testnet.
-		masternodes = []common.Address{
-			common.HexToAddress("0xfFC679Dcdf444D2eEb0491A998E7902B411CcF20"),
-			common.HexToAddress("0xd76fd76F7101811726DCE9E43C2617706a4c45c8"),
-			common.HexToAddress("0x8A97753311aeAFACfd76a68Cf2e2a9808d3e65E8"),
-		}
-	}
 
 	snap, err := c.GetSnapshot(chain, parent)
 	if err != nil {
@@ -1278,15 +1267,6 @@ func Hop(len, pre, cur int) int {
 
 func (c *Posv) CheckMNTurn(chain consensus.ChainReader, parent *types.Header, signer common.Address) bool {
 	masternodes := c.GetMasternodes(chain, parent)
-
-	if common.IsTestnet {
-		// Only three mns hard code for tomo testnet.
-		masternodes = []common.Address{
-			common.HexToAddress("0xfFC679Dcdf444D2eEb0491A998E7902B411CcF20"),
-			common.HexToAddress("0xd76fd76F7101811726DCE9E43C2617706a4c45c8"),
-			common.HexToAddress("0x8A97753311aeAFACfd76a68Cf2e2a9808d3e65E8"),
-		}
-	}
 
 	snap, err := c.GetSnapshot(chain, parent)
 	if err != nil {

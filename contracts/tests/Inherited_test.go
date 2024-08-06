@@ -2,15 +2,16 @@ package tests
 
 import (
 	"fmt"
+	"math/big"
+	"os"
+	"testing"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/log"
-	"math/big"
-	"os"
-	"testing"
 )
 
 var (
@@ -22,7 +23,7 @@ func TestPriceFeed(t *testing.T) {
 	glogger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(false)))
 	glogger.Verbosity(log.LvlTrace)
 	log.Root().SetHandler(glogger)
-	common.TIPTomoXCancellationFee = big.NewInt(0)
+	common.TIPTomoXCancellationFeeBlock = big.NewInt(0)
 	// init genesis
 	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
 		mainAddr: {Balance: big.NewInt(0).Mul(big.NewInt(10000000000000), big.NewInt(10000000000000))},

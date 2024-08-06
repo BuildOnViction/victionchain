@@ -20,13 +20,14 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"gopkg.in/urfave/cli.v1"
 	"io"
 	"math/big"
 	"os"
 	"reflect"
 	"strings"
 	"unicode"
+
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/naoina/toml"
 	"github.com/tomochain/tomochain/cmd/utils"
@@ -156,14 +157,23 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Check testnet is enable.
 	if ctx.GlobalBool(utils.TomoTestnetFlag.Name) {
 		common.IsTestnet = true
-		common.TRC21IssuerSMC = common.TRC21IssuerSMCTestNet
 		cfg.Eth.NetworkId = 89
-		common.RelayerRegistrationSMC = common.RelayerRegistrationSMCTestnet
-		common.TIPTRC21Fee = common.TIPTomoXTestnet
-		common.TIPSigning = big.NewInt(0)
-		common.TIPRandomize = big.NewInt(0)
+
+		// Testnet hard fork blocks
 		common.TIP2019Block = big.NewInt(0)
-		common.BlackListHFNumber = uint64(0)
+		common.TIPSigningBlock = big.NewInt(0)
+		common.TIPRandomizeBlock = big.NewInt(0)
+		common.BlackListHFBlock = uint64(0)
+		common.TIPTRC21FeeBlock = big.NewInt(0)
+		common.TIPTomoXBlock = big.NewInt(0)
+		common.TIPTomoXLendingBlock = big.NewInt(0)
+		common.TIPTomoXCancellationFeeBlock = big.NewInt(0)
+
+		// Backward-compability for current testnet
+		// TODO: Remove if start new testnet again
+		common.LendingRegistrationSMC = "0x28d7fC2Cf5c18203aaCD7459EFC6Af0643C97bE8"
+		common.RelayerRegistrationSMC = "0xA1996F69f47ba14Cb7f661010A7C31974277958c"
+		common.TomoXListingSMC = common.HexToAddress("0x14B2Bf043b9c31827A472CE4F94294fE9a6277e0")
 	}
 
 	// Rewound

@@ -17,12 +17,13 @@
 package main
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
@@ -88,7 +89,7 @@ func TestDAOForkBlockNewChain(t *testing.T) {
 		expectVote  bool
 	}{
 		// Test DAO Default Mainnet
-		// {"", params.TomoMainnetChainConfig.DAOForkBlock, false},
+		// {"", params.VicMainnetChainConfig.DAOForkBlock, false},
 		// test DAO Init Old Privnet
 		{daoOldGenesis, nil, false},
 		// test DAO Default No Fork Privnet

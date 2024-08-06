@@ -21,12 +21,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"io/ioutil"
 	"math/big"
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
@@ -567,7 +568,7 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 	}
 	size, _ := database.TrieDB().Size()
 	log.Info("Historical state regenerated", "block", block.NumberU64(), "elapsed", time.Since(start), "size", size)
-	return statedb,tomoxState, nil
+	return statedb, tomoxState, nil
 }
 
 // TraceTransaction returns the structured logs created during the execution of EVM
@@ -669,7 +670,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	}
 	// Recompute transactions up to the target index.
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-	if common.TIPSigning.Cmp(block.Header().Number) == 0 {
+	if common.TIPSigningBlock.Cmp(block.Header().Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	core.InitSignerInTransactions(api.config, block.Header(), block.Transactions())
@@ -701,7 +702,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 
 		if tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
-			if block.Header().Number.Cmp(common.TIPTRC21Fee) > 0 {
+			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
 			feeCapacity[*tx.To()] = new(big.Int).Sub(feeCapacity[*tx.To()], fee)
