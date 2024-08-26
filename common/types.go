@@ -283,10 +283,18 @@ func RemoveItemFromArray(array []Address, items []Address) []Address {
 }
 
 // Extract validators from byte array.
-func ExtractAddressToBytes(penalties []Address) []byte {
+func ExtractAddressToBytes(addresses []Address) []byte {
 	data := []byte{}
-	for _, signer := range penalties {
+	for _, signer := range addresses {
 		data = append(data, signer[:]...)
+	}
+	return data
+}
+
+func ExtractAddressToHexes(addresses []Address) []string {
+	data := []string{}
+	for _, signer := range addresses {
+		data = append(data, signer.Hex())
 	}
 	return data
 }

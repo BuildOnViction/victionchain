@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -455,9 +454,9 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 		}
 
 		/*
-		   HookGetSignersFromContract return list masternode for current state (block)
-		   This is a solution for work around issue return wrong list signers from snapshot
-		*/
+		 * Returns list masternode for current state (block)
+		 * This is a solution for work around issue return wrong list signers from snapshot
+		 */
 		c.HookGetSignersFromContract = func(block common.Hash) ([]common.Address, error) {
 			client, err := eth.blockchain.GetClient()
 			if err != nil {
@@ -489,13 +488,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 					candidates = append(candidates, posv.Masternode{Address: address, Stake: v})
 				}
 			}
-			// sort candidates by stake descending
-			sort.Slice(candidates, func(i, j int) bool {
-				return candidates[i].Stake.Cmp(candidates[j].Stake) >= 0
-			})
-			if len(candidates) > 150 {
-				candidates = candidates[:150]
-			}
+
 			result := []common.Address{}
 			for _, candidate := range candidates {
 				result = append(result, candidate.Address)

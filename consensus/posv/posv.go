@@ -454,7 +454,7 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 	if err != nil {
 		return err
 	}
-	err = c.checkSignersOnCheckpoint(chain, header, signers)
+	err = c.checkSignersOnCheckpointFallback(chain, snap, header, signers)
 	if err == nil {
 		return c.verifySeal(chain, header, parents, fullVerify)
 	}
@@ -498,7 +498,10 @@ func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *typ
 	validSigners := compareSignersLists(masternodesFromCheckpointHeader, signers)
 
 	if !validSigners {
-		log.Error("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", masternodesFromCheckpointHeader, "masternodes_in_snapshot", signers, "penList", penPenalties)
+		headerSignerAddresses := common.ExtractAddressToHexes(masternodesFromCheckpointHeader)
+		snapshotSignerAddresses := common.ExtractAddressToHexes(signers)
+		penaltyAddresses := common.ExtractAddressToHexes(penPenalties)
+		log.Warn("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", headerSignerAddresses, "masternodes_in_snapshot", snapshotSignerAddresses, "penList", penaltyAddresses)
 		return errInvalidCheckpointSigners
 	}
 	if c.HookVerifyMNs != nil {
@@ -507,6 +510,75 @@ func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *typ
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (c *Posv) checkSignersOnCheckpointFallback(chain consensus.ChainReader, snap *Snapshot, header *types.Header, signers []common.Address) error {
+	number := header.Number.Uint64()
+
+	penPenalties := []common.Address{}
+	if c.HookPenalty != nil || c.HookPenaltyTIPSigning != nil {
+		var err error
+		if chain.Config().IsTIPSigning(header.Number) {
+			penPenalties, err = c.HookPenaltyTIPSigning(chain, header, signers)
+		} else {
+			penPenalties, err = c.HookPenalty(chain, number)
+		}
+		if err != nil {
+			return err
+		}
+		for _, address := range penPenalties {
+			log.Debug("Penalty Info", "address", address, "number", number)
+		}
+		bytePenalties := common.ExtractAddressToBytes(penPenalties)
+		if !bytes.Equal(header.Penalties, bytePenalties) {
+			return errInvalidCheckpointPenalties
+		}
+	}
+	signers = common.RemoveItemFromArray(signers, penPenalties)
+	for i := 1; i <= common.LimitPenaltyEpoch; i++ {
+		if number > uint64(i)*c.config.Epoch {
+			signers = RemovePenaltiesFromBlock(chain, signers, number-uint64(i)*c.config.Epoch)
+		}
+	}
+	extraSuffix := len(header.Extra) - extraSeal
+	masternodesFromCheckpointHeader := common.ExtractAddressFromBytes(header.Extra[extraVanity:extraSuffix])
+
+	validSigners := compareSignersLists2(masternodesFromCheckpointHeader, signers)
+	if !validSigners {
+		headerSignerAddresses := common.ExtractAddressToHexes(masternodesFromCheckpointHeader)
+		snapshotSignerAddresses := common.ExtractAddressToHexes(signers)
+		penaltyAddresses := common.ExtractAddressToHexes(penPenalties)
+		log.Error("Masternodes lists are different in checkpoint header and snapshot", "number", number, "masternodes_from_checkpoint_header", headerSignerAddresses, "masternodes_in_snapshot", snapshotSignerAddresses, "penList", penaltyAddresses)
+		return errInvalidCheckpointSigners
+	}
+
+	if c.HookVerifyMNs != nil {
+		err := c.HookVerifyMNs(header, masternodesFromCheckpointHeader)
+		if err != nil {
+			return err
+		}
+	}
+
+	// update snapshot's Signers into Cache at Checkpoint Block - 1 and not consider order of Signers based on Stake
+	var penaltiesList []common.Address
+	for i := 1; i <= common.LimitPenaltyEpoch; i++ {
+		if number > uint64(i)*c.config.Epoch {
+			penaltiesFromBlock := GetPenaltiesFromBlock(chain, number-uint64(i)*c.config.Epoch)
+			penaltiesList = append(penaltiesList, penaltiesFromBlock...)
+		}
+	}
+	var newSignersList []common.Address
+	newSignersList = append(newSignersList, masternodesFromCheckpointHeader...)
+	newSignersList = append(newSignersList, penaltiesList...)
+	newSignersList = append(newSignersList, penPenalties...)
+	newMNsList := make(map[common.Address]struct{})
+	for _, signer := range newSignersList {
+		newMNsList[signer] = struct{}{}
+	}
+	snap.Signers = newMNsList
+	c.recents.Add(snap.Hash, snap)
 
 	return nil
 }
@@ -524,6 +596,21 @@ func compareSignersLists(list1 []common.Address, list2 []common.Address) bool {
 		return list2[i].String() <= list2[j].String()
 	})
 	return reflect.DeepEqual(list1, list2)
+}
+
+// compare 2 signers lists
+// return true is list1 is subset of list2
+func compareSignersLists2(list1 []common.Address, list2 []common.Address) bool {
+	list2Address := make(map[string]struct{})
+	for _, value := range list2 {
+		list2Address[value.String()] = struct{}{}
+	}
+	for _, value := range list1 {
+		if _, ok := list2Address[value.String()]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Posv) GetSnapshot(chain consensus.ChainReader, header *types.Header) (*Snapshot, error) {
@@ -1192,6 +1279,14 @@ func RemovePenaltiesFromBlock(chain consensus.ChainReader, masternodes []common.
 	return masternodes
 }
 
+func GetPenaltiesFromBlock(chain consensus.ChainReader, epochNumber uint64) []common.Address {
+	header := chain.GetHeaderByNumber(epochNumber)
+	block := chain.GetBlock(header.Hash(), epochNumber)
+	penalties := block.Penalties()
+
+	return common.ExtractAddressFromBytes(penalties)
+}
+
 // Get masternodes address from checkpoint Header.
 func GetMasternodesFromCheckpointHeader(checkpointHeader *types.Header) []common.Address {
 	masternodes := make([]common.Address, (len(checkpointHeader.Extra)-extraVanity-extraSeal)/common.AddressLength)
@@ -1301,7 +1396,7 @@ func (c *Posv) GetSignersFromContract(chain consensus.ChainReader, checkpointHea
 	}
 	signers, err := c.HookGetSignersFromContract(startGapBlockHeader.Hash())
 	if err != nil {
-		return []common.Address{}, fmt.Errorf("Can't get signers from Smart Contract . Err: %v", err)
+		return []common.Address{}, fmt.Errorf("Can't get signers from Smart Contract. Err: %v", err)
 	}
 	return signers, nil
 }
