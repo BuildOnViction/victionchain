@@ -1,182 +1,170 @@
-# TomoChain
+# Viction Blockchain
 
-[![Build Status](https://travis-ci.org/tomochain/tomochain.svg?branch=master)](https://travis-ci.org/tomochain/tomochain)
-[![codecov](https://codecov.io/gh/tomochain/tomochain/branch/master/graph/badge.svg)](https://codecov.io/gh/tomochain/tomochain)
-[![Join the chat at https://gitter.im/tomochain/tomochain](https://badges.gitter.im/tomochain/tomochain.svg)](https://gitter.im/tomochain/tomochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-## About TomoChain
-
-TomoChain is an innovative solution to the scalability problem with the Ethereum blockchain.
+Viction Blockchain (or Viction for short) is an innovative solution to the scalability problem with the Ethereum blockchain.
 Our mission is to be a leading force in building the Internet of Value, and its infrastructure.
 We are working to create an alternative, scalable financial system which is more secure, transparent, efficient, inclusive, and equitable for everyone.
 
-TomoChain relies on a system of 150 Masternodes with a Proof of Stake Voting consensus that can support near-zero fee, and 2-second transaction confirmation times.
-Security, stability, and chain finality are guaranteed via novel techniques such as double validation, staking via smart-contracts, and "true" randomization processes.
+Viction relies on a system of 150 Masternodes with a Proof of Stake Voting consensus that can support near-zero fee, and 2-second transaction confirmation times. Security, stability, and chain finality are guaranteed via novel techniques such as double validation, staking via smart-contracts, and "true" randomization processes.
 
-Tomochain supports all EVM-compatible smart-contracts, protocols, and atomic cross-chain token transfers.
-New scaling techniques such as sharding, private-chain generation, and hardware integration will be continuously researched and incorporated into Tomochain's masternode architecture. This architecture will be an ideal scalable smart-contract public blockchain for decentralized apps, token issuances, and token integrations for small and big businesses.
+Viction supports all EVM-compatible smart-contracts, protocols, and atomic cross-chain token transfers.
+New scaling techniques such as sharding, private-chain generation, and hardware integration will be continuously researched and incorporated into Viction Blockchain's masternode architecture. This architecture will be an ideal scalable smart-contract public blockchain for decentralized apps, token issuances, and token integrations for small and big businesses.
 
-More details can be found at our [technical white paper](https://tomochain.com/docs/technical-whitepaper---1.0.pdf)
+More details can be found at our [white papers](https://docs.viction.xyz/whitepaper-and-research).
 
 Read more about us on:
 
-- our website: http://tomochain.com
-- our blogs and announcements: https://medium.com/tomochain
-- our documentation portal: https://docs.tomochain.com
-- our blockchain explorer: https://scan.tomochain.com/
+- our website: [https://viction.xyz](https://viction.xyz)
+- our documentation portal: [https://docs.viction.xyz](https://docs.viction.xyz)
+- our blockchain explorer: [https://vicscan.xyz](https://vicscan.xyz)
 
-## Building the source
+## How To Build
 
-Tomochain provides a client binary called `tomo` for both running a masternode and running a full-node.
-Building `tomo` requires both a Go (1.7+) and C compiler; install both of these.
+Viction supports both binaries build and Docker build for your convenience. Building Viction requires Go lang and C compiler on all platforms (Linux, Windows, MacOS).
 
-Once the dependencies are installed, just run the below commands:
+### Binary Build
+
+#### Install Go1.13.15
+
+Due to some changes in Go-lang, Viction need to be build specificly with Go `1.13`. The following command will install Go 1.13.15 side-by-side with current system wide Go version:
 
 ```bash
-$ git clone https://github.com/tomochain/tomochain tomochain
-$ cd tomochain
-$ make tomo
+go install golang.org/dl/g1.13.15@latest
+go1.13.15 download
 ```
 
-Alternatively, you could quickly download our pre-complied binary from our [github release page](https://github.com/tomochain/tomochain/releases)
+#### Build `tomo`
+
+Clone this repository and change working directory to where you clone it, then run the following commands:
+
+```bash
+go1.13.15 run build/ci.go install
+```
+
+### Docker Build
+
+Clone this repository and change working directory to where you clone it, then run the following commands:
+
+```bash
+docker build --file Dockerfile.node -t "viction:2.4.0" .
+```
+
+### Pre-built Bianries
+
+Alternatively, you could quickly download our pre-complied binary from our [github release page](https://github.com/BuildOnViction/victionchain/releases)
 
 ## Running `tomo`
 
-### Running a tomo masternode
+Going through all the possible command line flags is out of scope here, but we've enumerated a few common parameter combos to get you up to speed quickly on how you can run your own `tomo` instance.
 
-Please refer to the [official documentation](https://docs.tomochain.com/get-started/run-node/) on how to run a node if your goal is to run a masternode.
-The recommanded ways of running a node and applying to become a masternode are explained in detail there.
+### Initialize / Import accounts for the node keystore
 
-### Attaching to the Tomochain test network
+Viction requires an account when running the node, even it's a full node. If you already had an existing account, import it. Otherwise, please initialize new accounts.
 
-We published our test network 2.0 with full implementation of PoSV consensus at https://stats.testnet.tomochain.com.
-If you'd like to experiment with smart contract creation and DApps, you might be interested to give these a try on our Testnet.
-
-In order to connect to one of the masternodes on the Testnet, just run the command below:
+Initialize new account
 
 ```bash
-$ tomo attach https://rpc.testnet.tomochain.com
+tomo account new --password /path/to/password_file --keystore /path/to/keystore_dir
 ```
 
-This will open the JavaScript console and let you query the blockchain directly via RPC.
-
-### Running `tomo` locally
-
-#### Download genesis block
-$GENESIS_PATH : location of genesis file you would like to put
-```bash
-export GENESIS_PATH=path/to/genesis.json
-```
-- Testnet
-```bash
-curl -L https://raw.githubusercontent.com/tomochain/tomochain/master/genesis/testnet.json -o $GENESIS_PATH
-```
-
-- Mainnet
-```bash
-curl -L https://raw.githubusercontent.com/tomochain/tomochain/master/genesis/mainnet.json -o $GENESIS_PATH
-```
-
-#### Create datadir
-- create a folder to store tomochain data on your machine
+Import account
 
 ```bash
-export DATA_DIR=/path/to/your/data/folder 
-mkdir -p $DATA_DIR/tomo
+tomo account import /path/to/privatekey_file --password /path/to/password_file --keystore /path/to/keystore_dir
 ```
-#### Initialize the chain from genesis
+
+### Run a full node on mainnet
+
+To run full node with default settings, simply run this command.
 
 ```bash
-tomo init $GENESIS_PATH --datadir $DATA_DIR
+tomo --datadir /path/to/data_dir --keystore /path/to/keystore_dir --password /path/to/password_file --unlock 0
 ```
 
-#### Initialize / Import accounts for the nodes's keystore
-If you already had an existing account, import it. Otherwise, please initialize new accounts 
+The following also run a full node on mainnet, with more customization.
 
 ```bash
-export KEYSTORE_DIR=path/to/keystore
+tomo --datadir /path/to/data_dir \
+  --keystore /path/to/keystore_dir \
+  --password /path/to/password_file --unlock 0 \
+  --identity my-full-node \
+  --networkid 88 \
+  --gasprice 250000000 \
+  --rpc --rpcaddr 0.0.0.0 --rpcport 8545 --rpcvhosts "*" --rpccorsdomain "*" \
+  --rpcapi "eth,debug,net,db,personal,web3" \
+  --ws --wsaddr 0.0.0.0 --wsport 8546 --wsorigins "*" \
+  --mine \
+  --bootnodes "enode://fd3da177f9492a39d1e7ce036b05745512894df251399cb3ec565081cb8c6dfa1092af8fac27991e66b6af47e9cb42e02420cc89f8549de0ce513ee25ebffc3a@3.212.20.0:30303,enode://97f0ca95a653e3c44d5df2674e19e9324ea4bf4d47a46b1d8560f3ed4ea328f725acec3fcfcb37eb11706cf07da669e9688b091f1543f89b2425700a68bc8876@104.248.98.78:30301,enode://b72927f349f3a27b789d0ca615ffe3526f361665b496c80e7cc19dace78bd94785fdadc270054ab727dbb172d9e3113694600dd31b2558dd77ad85a869032dea@188.166.207.189:30301,enode://c8f2f0643527d4efffb8cb10ef9b6da4310c5ac9f2e988a7f85363e81d42f1793f64a9aa127dbaff56b1e8011f90fe9ff57fa02a36f73220da5ff81d8b8df351@104.248.98.60:30301" \
+  --port 30303 \
+  --syncmode "full" --gcmode "full" \
+  --ethstats my-full-node:getty-site-pablo-auger-room-sos-blair-shin-whiz-delhi@stats.viction.xyz \
+  --verbosity 3
 ```
 
-##### Initialize new accounts
-```bash
-tomo account new \
-  --password [YOUR_PASSWORD_FILE_TO_LOCK_YOUR_ACCOUNT] \
-  --keystore $KEYSTORE_DIR
-```
-    
-##### Import accounts
-```bash
-tomo  account import [PRIVATE_KEY_FILE_OF_YOUR_ACCOUNT] \
-     --keystore $KEYSTORE_DIR \
-     --password [YOUR_PASSWORD_FILE_TO_LOCK_YOUR_ACCOUNT]
-```
+Brief explainations on the used flags:
 
-##### List all available accounts in keystore folder
-
-```bash
-tomo account list --datadir ./  --keystore $KEYSTORE_DIR
-```
-
-#### Start a node
-##### Environment variables
-   - $IDENTITY: the name of your node
-   - $PASSWORD: the password file to unlock your account
-   - $YOUR_COINBASE_ADDRESS: address of your account which generated in the previous step
-   - $NETWORK_ID: the networkId. Mainnet: 88. Testnet: 89
-   - $BOOTNODES: The comma separated list of bootnodes. Find them [here](https://docs.tomochain.com/general/networks/)
-   - $WS_SECRET: The password to send data to the stats website. Find them [here](https://docs.tomochain.com/general/networks/)
-   - $NETSTATS_HOST: The stats website to report to, regarding to your environment. Find them [here](https://docs.tomochain.com/general/networks/)
-   - $NETSTATS_PORT: The port used by the stats website (usually 443)
-    
-##### Let's start a node
-```bash
-tomo  --syncmode "full" \    
-    --datadir $DATA_DIR --networkid $NETWORK_ID --port 30303 \   
-    --keystore $KEYSTORE_DIR --password $PASSWORD \    
-    --rpc --rpccorsdomain "*" --rpcaddr 0.0.0.0 --rpcport 8545 --rpcvhosts "*" \   
-    --rpcapi "db,eth,net,web3,personal,debug" \    
-    --gcmode "archive" \   
-    --ws --wsaddr 0.0.0.0 --wsport 8546 --wsorigins "*" --unlock "$YOUR_COINBASE_ADDRESS" \   
-    --identity $IDENTITY \  
-    --mine --gasprice 2500 \  
-    --bootnodes $BOOTNODES \   
-    --ethstats $IDENTITY:$WS_SECRET@$NETSTATS_HOST:$NETSTATS_PORT 
-    console
-```
-
-
-##### Some explanations on the flags   
-```
---verbosity: log level from 1 to 5. Here we're using 4 for debug messages
+```text
 --datadir: path to your data directory created above.
 --keystore: path to your account's keystore created above.
---identity: your full-node's name.
 --password: your account's password.
+--identity: your full node's name.
 --networkid: our network ID.
---tomo-testnet: required when the networkid is testnet(89).
---port: your full-node's listening port (default to 30303)
---rpc, --rpccorsdomain, --rpcaddr, --rpcport, --rpcvhosts: your full-node will accept RPC requests at 8545 TCP.
---ws, --wsaddr, --wsport, --wsorigins: your full-node will accept Websocket requests at 8546 TCP.
---mine: your full-node wants to register to be a candidate for masternode selection.
+--tomo-testnet: required when running a network other than Mainnet
 --gasprice: Minimal gas price to accept for mining a transaction.
---targetgaslimit: Target gas limit sets the artificial target gas floor for the blocks to mine (default: 4712388)
---bootnode: bootnode information to help to discover other nodes in the network
+--rpc, --rpcaddr, --rpcport, --rpcvhosts, --rpccorsdomain: configure HTTP-RPC.
+--ws, --wsaddr, --wsport, --wsorigins: configure Websocket.
+--mine: your full-node wants to register to be a candidate for masternode selection.
+--bootnodes: list of enodes of other peers that your full-node will try to connect at startup
+--port: your full-node's listening port (default to 30303)
+--nat NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>) to let other peer connect to your node easier
+--synmode: blockchain sync mode ("fast", "full", or "light". More detail: https://github.com/BuildOnViction/victionchain/blob/master/eth/downloader/modes.go#L24)
 --gcmode: blockchain garbage collection mode ("full", "archive")
---synmode: blockchain sync mode ("fast", "full", or "light". More detail: https://github.com/tomochain/tomochain/blob/master/eth/downloader/modes.go#L24)           
+--store-reward: store reward report. must be used in conjuction with --gcmode archive for archive node
 --ethstats: send data to stats website
+--verbosity: log level from 1 to 5. Here we're using 4 for debug messages
 ```
-To see all flags usage
-   
+
+### Run Docker
+
+From the above built image. Run the following command for full node on mainnet:
+
 ```bash
-tomo --help
+docker run --name viction \
+  -v "/path/to/data_dir:/tomochain/data" \
+  -v "/path/to/keystore_dir:/tomochain/keystore" \
+  -v "/path/to/password_file:/tomochain/password" \
+  -p 8545:8545 \
+  -p 8546:8546 \
+  -p 30303:30303 \
+  -e IDENTITY=my-full-node \
+  -e NETWORK_ID=88
+  -e BOOTNODES=enode://fd3da177f9492a39d1e7ce036b05745512894df251399cb3ec565081cb8c6dfa1092af8fac27991e66b6af47e9cb42e02420cc89f8549de0ce513ee25ebffc3a@3.212.20.0:30303,enode://97f0ca95a653e3c44d5df2674e19e9324ea4bf4d47a46b1d8560f3ed4ea328f725acec3fcfcb37eb11706cf07da669e9688b091f1543f89b2425700a68bc8876@104.248.98.78:30301,enode://b72927f349f3a27b789d0ca615ffe3526f361665b496c80e7cc19dace78bd94785fdadc270054ab727dbb172d9e3113694600dd31b2558dd77ad85a869032dea@188.166.207.189:30301,enode://c8f2f0643527d4efffb8cb10ef9b6da4310c5ac9f2e988a7f85363e81d42f1793f64a9aa127dbaff56b1e8011f90fe9ff57fa02a36f73220da5ff81d8b8df351@104.248.98.60:30301 \
+  -e NETSTATS_HOST=stats.viction.xyz \
+  -e NETSTATS_PORT=443 \
+  -e WS_SECRET=getty-site-pablo-auger-room-sos-blair-shin-whiz-delhi \
+  -e VERBOSITY=3 \
+  docker.io/library/viction:2.4.0
 ```
 
-#### See your node on stats page
-   - Testnet: https://stats.testnet.tomochain.com
-   - Mainnet: http://stats.tomochain.com
+Brief explainations on the supported variables:
 
+```text
+EXTIP: Your IP on the internet to let other peers connect to your nodes. Only use this if you have trouble connecting to peers.
+IDENTITY: your full node's name.
+PRIVATE_KEY: Private key of node's account in plain text.
+PASSWORD: Password to encrypt/decrypt node's account in plain text.
+NETWORK_ID: our network ID.
+BOOTNODES: list of enodes of other peers that your full-node will try to connect at startup.
+NETSTATS_HOST: Hostname of Ethstats service.
+NETSTATS_PORT: Port of Ethstats service.
+WS_SECRET: Secret of Ethstats service.
+VERBOSITY: log level from 1 to 5. Here we're using 4 for debug messages.
+```
 
-## Contributing and technical discussion
+### Other usecases
+
+For full featured guide. Please check our docs: [https://docs.viction.xyz/masternode](https://docs.viction.xyz/masternode)
+
+## Contribution
 
 Thank you for considering to try out our network and/or help out with the source code.
 We would love to get your help; feel free to lend a hand.
@@ -189,7 +177,5 @@ Please also make sure your contributions adhere to the base coding guidelines:
 - Code must adhere to official Go [formatting](https://golang.org/doc/effective_go.html#formatting) guidelines (i.e uses [gofmt](https://golang.org/cmd/gofmt/)).
 - Code comments must adhere to the official Go [commentary](https://golang.org/doc/effective_go.html#commentary) guidelines.
 - Pull requests need to be based on and opened against the `master` branch.
-- Any code you are trying to contribute must be well-explained as an issue on our [github issue page](https://github.com/tomochain/tomochain/issues)
+- Any code you are trying to contribute must be well-explained as an issue on our [github issue page](https://github.com/BuildOnViction/victionchain/issues)
 - Commit messages should be short but clear enough and should refer to the corresponding pre-logged issue mentioned above.
-
-For technical discussion, feel free to join our chat at [Gitter](https://gitter.im/tomochain/tomochain).
