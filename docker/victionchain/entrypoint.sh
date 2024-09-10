@@ -22,7 +22,7 @@ KEYSTORE_DIR="keystore"
 genesisPath=""
 params=""
 accountsCount=$(
-  tomo account list --datadir $DATA_DIR  --keystore $KEYSTORE_DIR \
+  viction account list --datadir $DATA_DIR --keystore $KEYSTORE_DIR \
   2> /dev/null \
   | wc -l
 )
@@ -76,7 +76,7 @@ fi
 # data dir
 if [[ ! -d $DATA_DIR/tomo ]]; then
   echo "No blockchain data, creating genesis block."
-  tomo init $genesisPath --datadir $DATA_DIR 2> /dev/null
+  viction init $genesisPath --datadir $DATA_DIR 2> /dev/null
 fi
 
 # identity
@@ -101,21 +101,21 @@ if [[ $accountsCount -le 0 ]]; then
   if [[ ! -z $PRIVATE_KEY ]]; then
     echo "Creating account from private key"
     echo "$PRIVATE_KEY" > ./private_key
-    tomo  account import ./private_key \
+    viction account import ./private_key \
       --datadir $DATA_DIR \
       --keystore $KEYSTORE_DIR \
       --password ./password
     rm ./private_key
   else
     echo "Creating new account"
-    tomo account new \
+    viction account new \
       --datadir $DATA_DIR \
       --keystore $KEYSTORE_DIR \
       --password ./password
   fi
 fi
 account=$(
-  tomo account list --datadir $DATA_DIR  --keystore $KEYSTORE_DIR \
+  viction account list --datadir $DATA_DIR --keystore $KEYSTORE_DIR \
   2> /dev/null \
   | head -n 1 \
   | cut -d"{" -f 2 | cut -d"}" -f 1
@@ -171,7 +171,7 @@ echo "dump: $IDENTITY $account $BOOTNODES"
 
 set -x
 
-exec tomo $params \
+exec viction $params \
   --verbosity $VERBOSITY \
   --datadir $DATA_DIR \
   --keystore $KEYSTORE_DIR \

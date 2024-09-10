@@ -40,14 +40,14 @@ import (
 )
 
 const (
-	clientIdentifier = "tomo" // Client identifier to advertise over the network
+	clientIdentifier = "viction" // Client identifier to advertise over the network
 )
 
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
 	gitCommit = ""
 	// The app that holds all commands and flags.
-	app = utils.NewApp(gitCommit, "the tomochain command line interface")
+	app = utils.NewApp(gitCommit, "the Viction Blockchain command line interface")
 	// flags that configure the node
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
@@ -155,7 +155,7 @@ func init() {
 	// Initialize the CLI app and start tomo
 	app.Action = tomo
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright (c) 2018 Tomochain"
+	app.Copyright = "Copyright (c) 2024 Viction Blockchain"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,

@@ -1,35 +1,35 @@
-FROM golang:1.13-alpine as builder
+FROM golang:1.13-alpine AS builder
 
 RUN apk add --no-cache make gcc musl-dev linux-headers git
 
 ADD . /tomochain
 
 RUN cd /tomochain \
-    && make tomo \
-    && chmod +x /tomochain/build/bin/tomo
+    && make viction \
+    && chmod +x /tomochain/build/bin/viction
 
 FROM alpine:latest
 
 WORKDIR /tomochain
 
-COPY --from=builder /tomochain/build/bin/tomo /usr/local/bin/tomo
+COPY --from=builder /tomochain/build/bin/viction /usr/local/bin/viction
 
-ENV IDENTITY ''
-ENV PASSWORD ''
-ENV PRIVATE_KEY ''
-ENV BOOTNODES ''
-ENV EXTIP ''
-ENV VERBOSITY 3
-ENV SYNC_MODE 'full'
-ENV NETWORK_ID '88'
-ENV WS_SECRET ''
-ENV NETSTATS_HOST 'netstats-server'
-ENV NETSTATS_PORT '3000'
-ENV ANNOUNCE_TXS ''
+ENV IDENTITY=''
+ENV PASSWORD=''
+ENV PRIVATE_KEY=''
+ENV BOOTNODES=''
+ENV EXTIP=''
+ENV VERBOSITY=3
+ENV SYNC_MODE='full'
+ENV NETWORK_ID='88'
+ENV WS_SECRET=''
+ENV NETSTATS_HOST='netstats-server'
+ENV NETSTATS_PORT='3000'
+ENV ANNOUNCE_TXS=''
 
 RUN apk add --no-cache ca-certificates
 
-COPY docker/tomochain ./
+COPY docker/victionchain ./
 COPY genesis/ ./
 
 EXPOSE 8545 8546 30303 30303/udp

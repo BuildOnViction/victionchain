@@ -1,6 +1,6 @@
-.PHONY: tomo tomo-cross evm all test clean
-.PHONY: tomo-linux tomo-linux-386 tomo-linux-amd64 tomo-linux-mips64 tomo-linux-mips64le
-.PHONY: tomo-darwin tomo-darwin-386 tomo-darwin-amd64
+.PHONY: tomo vic-cross evm all test clean
+.PHONY: vic-linux vic-linux-386 vic-linux-amd64 vic-linux-mips64 vic-linux-mips64le
+.PHONY: vic-darwin vic-darwin-386 vic-darwin-amd64
 
 GOBIN = $(shell pwd)/build/bin
 GOFMT = gofmt
@@ -10,10 +10,10 @@ GO_FILES := $(shell find $(shell go list -f '{{.Dir}}' $(GO_PACKAGES)) -name \*.
 
 GIT = git
 
-tomo:
-	go run build/ci.go install ./cmd/tomo
+viction:
+	go run build/ci.go install ./cmd/viction
 	@echo "Done building."
-	@echo "Run \"$(GOBIN)/tomo\" to launch tomo."
+	@echo "Run \"$(GOBIN)/viction\" to launch Viction."
 
 gc:
 	go run build/ci.go install ./cmd/gc
@@ -41,62 +41,62 @@ clean:
 
 # Cross Compilation Targets (xgo)
 
-tomo-cross: tomo-windows-amd64 tomo-darwin-amd64 tomo-linux
+vic-cross: vic-windows-amd64 vic-darwin-amd64 vic-linux
 	@echo "Full cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-*
+	@ls -ld $(GOBIN)/vic-*
 
-tomo-linux: tomo-linux-386 tomo-linux-amd64 tomo-linux-mips64 tomo-linux-mips64le
+vic-linux: vic-linux-386 vic-linux-amd64 vic-linux-mips64 vic-linux-mips64le
 	@echo "Linux cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-linux-*
+	@ls -ld $(GOBIN)/vic-linux-*
 
-tomo-linux-386:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/386 -v ./cmd/tomo
+vic-linux-386:
+	go run build/ci.go xgo -- --go=$(GO) --targets=linux/386 -v ./cmd/viction
 	@echo "Linux 386 cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-linux-* | grep 386
+	@ls -ld $(GOBIN)/vic-linux-* | grep 386
 
-tomo-linux-amd64:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/amd64 -v ./cmd/tomo
+vic-linux-amd64:
+	go run build/ci.go xgo -- --go=$(GO) --targets=linux/amd64 -v ./cmd/viction
 	@echo "Linux amd64 cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-linux-* | grep amd64
+	@ls -ld $(GOBIN)/vic-linux-* | grep amd64
 
-tomo-linux-mips:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips --ldflags '-extldflags "-static"' -v ./cmd/tomo
+vic-linux-mips:
+	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips --ldflags '-extldflags "-static"' -v ./cmd/viction
 	@echo "Linux MIPS cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-linux-* | grep mips
+	@ls -ld $(GOBIN)/vic-linux-* | grep mips
 
-tomo-linux-mipsle:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mipsle --ldflags '-extldflags "-static"' -v ./cmd/tomo
+vic-linux-mipsle:
+	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mipsle --ldflags '-extldflags "-static"' -v ./cmd/viction
 	@echo "Linux MIPSle cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-linux-* | grep mipsle
+	@ls -ld $(GOBIN)/vic-linux-* | grep mipsle
 
-tomo-linux-mips64:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips64 --ldflags '-extldflags "-static"' -v ./cmd/tomo
+vic-linux-mips64:
+	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips64 --ldflags '-extldflags "-static"' -v ./cmd/viction
 	@echo "Linux MIPS64 cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-linux-* | grep mips64
+	@ls -ld $(GOBIN)/vic-linux-* | grep mips64
 
-tomo-linux-mips64le:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips64le --ldflags '-extldflags "-static"' -v ./cmd/tomo
+vic-linux-mips64le:
+	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips64le --ldflags '-extldflags "-static"' -v ./cmd/viction
 	@echo "Linux MIPS64le cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-linux-* | grep mips64le
+	@ls -ld $(GOBIN)/vic-linux-* | grep mips64le
 
-tomo-darwin: tomo-darwin-386 tomo-darwin-amd64
+vic-darwin: vic-darwin-386 vic-darwin-amd64
 	@echo "Darwin cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-darwin-*
+	@ls -ld $(GOBIN)/vic-darwin-*
 
-tomo-darwin-386:
-	go run build/ci.go xgo -- --go=$(GO) --targets=darwin/386 -v ./cmd/tomo
+vic-darwin-386:
+	go run build/ci.go xgo -- --go=$(GO) --targets=darwin/386 -v ./cmd/viction
 	@echo "Darwin 386 cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-darwin-* | grep 386
+	@ls -ld $(GOBIN)/vic-darwin-* | grep 386
 
-tomo-darwin-amd64:
-	go run build/ci.go xgo -- --go=$(GO) --targets=darwin/amd64 -v ./cmd/tomo
+vic-darwin-amd64:
+	go run build/ci.go xgo -- --go=$(GO) --targets=darwin/amd64 -v ./cmd/viction
 	@echo "Darwin amd64 cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-darwin-* | grep amd64
+	@ls -ld $(GOBIN)/vic-darwin-* | grep amd64
 
-tomo-windows-amd64:
-	go run build/ci.go xgo -- --go=$(GO) -buildmode=mode -x --targets=windows/amd64 -v ./cmd/tomo
+vic-windows-amd64:
+	go run build/ci.go xgo -- --go=$(GO) -buildmode=mode -x --targets=windows/amd64 -v ./cmd/viction
 	@echo "Windows amd64 cross compilation done:"
-	@ls -ld $(GOBIN)/tomo-windows-* | grep amd64
+	@ls -ld $(GOBIN)/vic-windows-* | grep amd64
 gofmt:
 	$(GOFMT) -s -w $(GO_FILES)
 	$(GIT) checkout vendor
