@@ -40,6 +40,7 @@ var (
 		EIP155Block:    big.NewInt(3),
 		EIP158Block:    big.NewInt(3),
 		ByzantiumBlock: big.NewInt(4),
+		SaigonBlock:    big.NewInt(85619448),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
