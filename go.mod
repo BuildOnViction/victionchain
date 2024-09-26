@@ -12,13 +12,16 @@ require (
 	github.com/cespare/cp v1.1.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v0.0.0-20180603214616-504e848d77ea
+	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/docker/docker v1.4.2-0.20180625184442-8e610b2b55bf
+	github.com/dop251/goja v0.0.0-20200106141417-aaec0e7bde29
 	github.com/edsrzf/mmap-go v1.0.0
 	github.com/elastic/gosigar v0.10.5
 	github.com/ethereum/go-ethereum v1.9.9
 	github.com/fatih/color v1.6.0
 	github.com/gizak/termui v2.2.0+incompatible
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
+	github.com/go-sourcemap/sourcemap v2.1.2+incompatible // indirect
 	github.com/go-stack/stack v1.8.0
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1
