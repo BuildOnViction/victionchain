@@ -1034,7 +1034,6 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	}
 	// Set sender address or use a default if none specified
 	addr := args.From
-	fmt.Println("From addr:", addr)
 	if addr == (common.Address{}) {
 		if wallets := s.b.AccountManager().Wallets(); len(wallets) > 0 {
 			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
@@ -1052,7 +1051,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	}
 	balanceTokenFee := big.NewInt(0).SetUint64(gas)
 	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
-	fmt.Println("balanceTokenFee:", balanceTokenFee)
+
 	// Create new call message
 	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false, balanceTokenFee)
 
