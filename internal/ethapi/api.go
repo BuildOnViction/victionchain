@@ -1180,13 +1180,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumb
 	}
 	// Set sender address or use a default if none specified
 	var addr common.Address
-	if args.From == nil {
-		if wallets := b.AccountManager().Wallets(); len(wallets) > 0 {
-			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
-				addr = accounts[0].Address
-			}
-		}
-	} else {
+	if args.From != nil {
 		addr = *args.From
 	}
 	// Set default gas & gas price if none were set
@@ -1281,6 +1275,11 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNr rpc.Bl
 		hi = block.GasLimit()
 	}
 	cap = hi
+
+	// Use zero address if sender unspecified.
+	if args.From == nil {
+		args.From = new(common.Address)
+	}
 
 	// Create a helper to check if a gas allowance results in an executable transaction
 	executable := func(gas uint64) bool {
