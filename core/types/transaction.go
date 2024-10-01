@@ -689,9 +689,9 @@ type Message struct {
 }
 
 func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, balanceTokenFee *big.Int) Message {
-	if balanceTokenFee != nil {
-		gasPrice = common.TRC21GasPrice
-	}
+	//if balanceTokenFee != nil {
+	//	gasPrice = common.TRC21GasPrice
+	//}
 	return Message{
 		from:            from,
 		to:              to,
