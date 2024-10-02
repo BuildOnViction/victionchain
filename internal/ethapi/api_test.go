@@ -123,7 +123,6 @@ func (t testBackend) GetTd(blockHash common.Hash) *big.Int {
 }
 
 func (b testBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	//state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg, header, b.chain, nil)
@@ -358,12 +357,6 @@ func TestEstimateGas(t *testing.T) {
 			want:      21000,
 		},
 		// empty create
-		{
-			blockNumber: rpc.LatestBlockNumber,
-			call:        CallArgs{},
-			expectErr:   nil,
-			want:        53000,
-		},
 		{
 			blockNumber: rpc.LatestBlockNumber,
 			call:        CallArgs{},

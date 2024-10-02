@@ -53,7 +53,6 @@ import (
 )
 
 const (
-	defaultGasPrice = 50 * params.Shannon
 	// statuses of candidates
 	statusMasternode = "MASTERNODE"
 	statusSlashed    = "SLASHED"
@@ -1049,7 +1048,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	if args.Gas != nil {
 		gas = uint64(*args.Gas)
 	}
-	gasPrice := new(big.Int).SetUint64(defaultGasPrice)
+	gasPrice := new(big.Int)
 	if args.GasPrice != nil {
 		gasPrice = args.GasPrice.ToInt()
 	}
@@ -1188,7 +1187,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumb
 	if args.Gas != nil {
 		gas = uint64(*args.Gas)
 	}
-	gasPrice := new(big.Int).SetUint64(defaultGasPrice)
+	gasPrice := new(big.Int)
 	if args.GasPrice != nil {
 		gasPrice = args.GasPrice.ToInt()
 	}
