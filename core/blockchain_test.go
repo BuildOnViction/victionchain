@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
@@ -1207,14 +1206,34 @@ func TestSaigonEcoSystemFund(t *testing.T) {
 	blockchain, _ := NewBlockChain(db, cacheConfig, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()
 
+	common.SaigonEcoSystemFundInterval = 12
 	initialFoundationBalance := new(big.Int).Mul(big.NewInt(60_000_000), big.NewInt(params.Ether))
-	postSaigonFoundationBalance := new(big.Int).Mul(new(big.Int).Add(big.NewInt(60_000_000), common.SaigonEcoSystemFund), big.NewInt(params.Ether))
-	GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 10, func(i int, block *BlockGen) {
+	postSaigonFoundationBalance1 := new(big.Int).Mul(new(big.Int).Add(big.NewInt(60_000_000), common.SaigonEcoSystemFundAnnually), big.NewInt(params.Ether))
+	postSaigonFoundationBalance2 := new(big.Int).Add(postSaigonFoundationBalance1, new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, big.NewInt(params.Ether)))
+	postSaigonFoundationBalance3 := new(big.Int).Add(postSaigonFoundationBalance2, new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, big.NewInt(params.Ether)))
+	postSaigonFoundationBalance4 := new(big.Int).Add(postSaigonFoundationBalance3, new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, big.NewInt(params.Ether)))
+	GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 70, func(i int, block *BlockGen) {
 		foundationBalance := block.statedb.GetBalance(common.HexToAddress(common.FoudationAddr))
 		if i < 6 {
-			assert.True(t, foundationBalance.Cmp(initialFoundationBalance) == 0, "EcoSystem address balance mismatch at block %v", i)
+			if foundationBalance.Cmp(initialFoundationBalance) != 0 {
+				t.Fatalf("EcoSystem address balance mismatch at block %v", i+1)
+			}
+		} else if i < 18 {
+			if foundationBalance.Cmp(postSaigonFoundationBalance1) != 0 {
+				t.Fatalf("EcoSystem address balance mismatch at block %v", i+1)
+			}
+		} else if i < 30 {
+			if foundationBalance.Cmp(postSaigonFoundationBalance2) != 0 {
+				t.Fatalf("EcoSystem address balance mismatch at block %v", i+1)
+			}
+		} else if i < 42 {
+			if foundationBalance.Cmp(postSaigonFoundationBalance3) != 0 {
+				t.Fatalf("EcoSystem address balance mismatch at block %v", i+1)
+			}
 		} else {
-			assert.True(t, foundationBalance.Cmp(postSaigonFoundationBalance) == 0, "EcoSystem address balance mismatch at block %v", i)
+			if foundationBalance.Cmp(postSaigonFoundationBalance4) != 0 {
+				t.Fatalf("EcoSystem address balance mismatch at block %v", i+1)
+			}
 		}
 	})
 }

@@ -18,8 +18,10 @@ package misc
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/params"
 )
@@ -40,4 +42,17 @@ func VerifyForkHashes(config *params.ChainConfig, header *types.Header, uncle bo
 	}
 	// All ok, return
 	return nil
+}
+
+// ApplyDAOHardFork mint additional token to FoundationWallet preiodly for 4 years
+func ApplySaigonHardFork(statedb *state.StateDB, posv *params.PosvConfig, saigonBlock *big.Int, headBlock *big.Int) {
+	endBlock := new(big.Int).Add(saigonBlock, new(big.Int).SetUint64(common.SaigonEcoSystemFundInterval*(common.SaigonEcoSystemFundTotalRepeat-1))) // additional token will be minted at block 0 of each interval 4 intervals
+	if headBlock.Cmp(saigonBlock) < 0 || headBlock.Cmp(endBlock) > 0 {
+		return
+	}
+	blockOfInterval := new(big.Int).Mod(new(big.Int).Sub(headBlock, saigonBlock), new(big.Int).SetUint64(common.SaigonEcoSystemFundInterval))
+	if blockOfInterval.Cmp(big.NewInt(0)) == 0 {
+		ecoSystemFund := new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, new(big.Int).SetUint64(params.Ether))
+		statedb.AddBalance(posv.FoudationWalletAddr, ecoSystemFund)
+	}
 }
