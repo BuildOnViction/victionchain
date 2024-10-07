@@ -128,7 +128,8 @@ func (c *BoundContract) Call(opts *CallOpts, result interface{}, method string, 
 		return err
 	}
 	var (
-		msg    = tomochain.CallMsg{From: opts.From, To: &c.address, Data: input, GasPrice: common.MinGasPrice, Gas: uint64(4200000)}
+		//msg    = tomochain.CallMsg{From: opts.From, To: &c.address, Data: input, GasPrice: common.MinGasPrice, Gas: uint64(4200000)}
+		msg    = tomochain.CallMsg{From: opts.From, To: &c.address, Data: input}
 		ctx    = ensureContext(opts.Context)
 		code   []byte
 		output []byte
@@ -270,7 +271,7 @@ func (c *BoundContract) FilterLogs(opts *FilterOpts, name string, query ...[]int
 		config.ToBlock = new(big.Int).SetUint64(*opts.End)
 	}
 	/* TODO(karalabe): Replace the rest of the method below with this when supported
-	sub, err := c.filterer.SubscribeFilterLogs(ensureContext(opts.Context), config, logs)
+	   sub, err := c.filterer.SubscribeFilterLogs(ensureContext(opts.Context), config, logs)
 	*/
 	buff, err := c.filterer.FilterLogs(ensureContext(opts.Context), config)
 	if err != nil {
