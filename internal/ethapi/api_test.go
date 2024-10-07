@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
@@ -325,9 +324,7 @@ func TestEstimateGas(t *testing.T) {
 		}
 		b.AddTx(tx)
 	}))
-	blockNumber := rpc.LatestBlockNumber
-	balance, _ := api.GetBalance(context.Background(), randomAccounts[0].addr, blockNumber)
-	fmt.Println("Random account address:", randomAccounts[0].addr.Hex(), "Balance", balance)
+
 	var testSuite = []struct {
 		blockNumber rpc.BlockNumber
 		call        CallArgs
@@ -374,7 +371,7 @@ func TestEstimateGas(t *testing.T) {
 		},
 	}
 	for i, tc := range testSuite {
-		result, err := api.NewEstimateGas(context.Background(), tc.call)
+		result, err := api.EstimateGas(context.Background(), tc.call, &tc.blockNumber)
 		if tc.expectErr != nil {
 			if err == nil {
 				t.Errorf("test %d: want error %v, have nothing", i, tc.expectErr)
