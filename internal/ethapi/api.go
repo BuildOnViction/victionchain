@@ -1321,7 +1321,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNr rpc.Bl
 		available := new(big.Int).Set(balance)
 		if args.Value != nil {
 			if args.Value.ToInt().Cmp(available) >= 0 {
-				return 0, errors.New("insufficient funds for transfer")
+				return 0, core.ErrInsufficientFundsForTransfer
 			}
 			available.Sub(available, args.Value.ToInt())
 		}
@@ -1397,8 +1397,12 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNr rpc.Bl
 
 // NewEstimateGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block.
-func (s *PublicBlockChainAPI) NewEstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
-	return DoEstimateGas(ctx, s.b, args, rpc.LatestBlockNumber)
+func (s *PublicBlockChainAPI) NewEstimateGas(ctx context.Context, args CallArgs, blockNr *rpc.BlockNumber) (hexutil.Uint64, error) {
+	bNr := rpc.BlockNumber(rpc.LatestBlockNumber)
+	if blockNr != nil {
+		bNr = *blockNr
+	}
+	return DoEstimateGas(ctx, s.b, args, bNr)
 }
 
 // ExecutionResult groups all structured logs emitted by the EVM
