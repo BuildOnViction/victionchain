@@ -82,9 +82,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) == 0 && p.config.Posv != nil {
-		ecoSystemFund := new(big.Int).Mul(common.SaigonEcoSystemFund, new(big.Int).SetUint64(params.Ether))
-		statedb.AddBalance(p.config.Posv.FoudationWalletAddr, ecoSystemFund)
+	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
+		misc.ApplySaigonHardFork(statedb, p.config.SaigonBlock, block.Number())
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
@@ -155,9 +154,8 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) == 0 && p.config.Posv != nil {
-		ecoSystemFund := new(big.Int).Mul(common.SaigonEcoSystemFund, new(big.Int).SetUint64(params.Ether))
-		statedb.AddBalance(p.config.Posv.FoudationWalletAddr, ecoSystemFund)
+	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
+		misc.ApplySaigonHardFork(statedb, p.config.SaigonBlock, block.Number())
 	}
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
