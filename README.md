@@ -45,7 +45,7 @@ go1.13.15 run build/ci.go install
 Clone this repository and change working directory to where you clone it, then run the following commands:
 
 ```bash
-docker build --file Dockerfile.node -t "viction:2.4.0" .
+docker build --file Dockerfile.node -t "viction:2.4.1" .
 ```
 
 ### Pre-built Bianries
@@ -125,8 +125,6 @@ Brief explainations on the used flags:
 
 ### Run Docker
 
-From the above built image. Run the following command for full node on mainnet:
-
 ```bash
 docker run --name viction \
   -v "/path/to/data_dir:/tomochain/data" \
@@ -142,7 +140,7 @@ docker run --name viction \
   -e NETSTATS_PORT=443 \
   -e WS_SECRET=getty-site-pablo-auger-room-sos-blair-shin-whiz-delhi \
   -e VERBOSITY=3 \
-  docker.io/library/viction:2.4.0
+  buildonviction/node:2.4.1
 ```
 
 Brief explainations on the supported variables:
