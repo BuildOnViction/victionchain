@@ -1196,7 +1196,10 @@ func TestSaigonEcoSystemFund(t *testing.T) {
 			},
 			Alloc: GenesisAlloc{
 				foundationAddress: {
-					Balance: new(big.Int).Mul(big.NewInt(60_000_000), big.NewInt(params.Ether)),
+					Balance: new(big.Int).Mul(big.NewInt(60000000), big.NewInt(params.Ether)),
+				},
+				common.SaigonEcoSystemFundAddress: {
+					Balance: new(big.Int).Mul(big.NewInt(17000000), big.NewInt(params.Ether)),
 				},
 			},
 		}
@@ -1207,15 +1210,15 @@ func TestSaigonEcoSystemFund(t *testing.T) {
 	defer blockchain.Stop()
 
 	common.SaigonEcoSystemFundInterval = 12
-	initialFoundationBalance := new(big.Int).Mul(big.NewInt(60_000_000), big.NewInt(params.Ether))
-	postSaigonFoundationBalance1 := new(big.Int).Mul(new(big.Int).Add(big.NewInt(60_000_000), common.SaigonEcoSystemFundAnnually), big.NewInt(params.Ether))
+	initialEcoSystemBalance := new(big.Int).Mul(big.NewInt(17000000), big.NewInt(params.Ether))
+	postSaigonFoundationBalance1 := new(big.Int).Add(initialEcoSystemBalance, new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, big.NewInt(params.Ether)))
 	postSaigonFoundationBalance2 := new(big.Int).Add(postSaigonFoundationBalance1, new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, big.NewInt(params.Ether)))
 	postSaigonFoundationBalance3 := new(big.Int).Add(postSaigonFoundationBalance2, new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, big.NewInt(params.Ether)))
 	postSaigonFoundationBalance4 := new(big.Int).Add(postSaigonFoundationBalance3, new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, big.NewInt(params.Ether)))
 	GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 70, func(i int, block *BlockGen) {
-		foundationBalance := block.statedb.GetBalance(common.HexToAddress(common.FoudationAddr))
+		foundationBalance := block.statedb.GetBalance(common.SaigonEcoSystemFundAddress)
 		if i < 6 {
-			if foundationBalance.Cmp(initialFoundationBalance) != 0 {
+			if foundationBalance.Cmp(initialEcoSystemBalance) != 0 {
 				t.Fatalf("EcoSystem address balance mismatch at block %v", i+1)
 			}
 		} else if i < 18 {

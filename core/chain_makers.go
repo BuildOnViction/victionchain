@@ -206,8 +206,8 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		if config.DAOForkSupport && config.DAOForkBlock != nil && config.DAOForkBlock.Cmp(b.header.Number) == 0 {
 			misc.ApplyDAOHardFork(statedb)
 		}
-		if config.SaigonBlock != nil && config.SaigonBlock.Cmp(b.header.Number) <= 0 && config.Posv != nil {
-			misc.ApplySaigonHardFork(statedb, config.Posv, config.SaigonBlock, b.header.Number)
+		if config.SaigonBlock != nil && config.SaigonBlock.Cmp(b.header.Number) <= 0 {
+			misc.ApplySaigonHardFork(statedb, config.SaigonBlock, b.header.Number)
 		}
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
