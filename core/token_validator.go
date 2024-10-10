@@ -85,7 +85,7 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, contractA
 	return unpackResult, nil
 }
 
-//FIXME: please use copyState for this function
+// FIXME: please use copyState for this function
 // CallContractWithState executes a contract call at the given state.
 func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
 	// Ensure message is initialized properly.
@@ -111,11 +111,11 @@ func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, 
 	vmenv := vm.NewEVM(evmContext, statedb, nil, chain.Config(), vm.Config{})
 	gaspool := new(GasPool).AddGas(1000000)
 	owner := common.Address{}
-	rval, _, _, err := NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
+	result, err := NewStateTransition(vmenv, msg, gaspool).TransitionDb(owner)
 	if err != nil {
 		return nil, err
 	}
-	return rval, err
+	return result.Return(), err
 }
 
 // make sure that balance of token is at slot 0
