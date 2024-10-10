@@ -1081,7 +1081,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumb
 	return doCall(ctx, b, args, state, header, vmCfg, timeout)
 }
 
-func doCall(ctx context.Context, b Backend, args CallArgs, state *state.StateDB, header *types.Header, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
+func doCall(ctx context.Context, b Backend, args CallArgs, st *state.StateDB, header *types.Header, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
 	// Set sender address or use a default if none specified
 	var addr common.Address
 	if args.From != nil {
@@ -1107,8 +1107,13 @@ func doCall(ctx context.Context, b Backend, args CallArgs, state *state.StateDB,
 		data = []byte(*args.Data)
 	}
 
-	balanceTokenFee := big.NewInt(0).SetUint64(gas)
-	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
+	var balanceTokenFee *big.Int
+	feeCapacity := state.GetTRC21FeeCapacityFromState(st)
+	if args.To != nil {
+		if value, ok := feeCapacity[*args.To]; ok {
+			balanceTokenFee = new(big.Int).Set(value)
+		}
+	}
 
 	// Create new call message
 	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, balanceTokenFee)
@@ -1139,7 +1144,7 @@ func doCall(ctx context.Context, b Backend, args CallArgs, state *state.StateDB,
 	}
 
 	// Get a new instance of the EVM.
-	evm, vmError, err := b.GetEVM(ctx, msg, state, tomoxState, header, vmCfg)
+	evm, vmError, err := b.GetEVM(ctx, msg, st, tomoxState, header, vmCfg)
 	if err != nil {
 		return nil, err
 	}
