@@ -316,26 +316,6 @@ func (st *StateTransition) TransitionDb(owner common.Address) (*ExecutionResult,
 	}, err
 }
 
-//func (st *StateTransition) refundGas() {
-//	// Apply refund counter, capped to half of the used gas.
-//	refund := st.gasUsed() / 2
-//	if refund > st.state.GetRefund() {
-//		refund = st.state.GetRefund()
-//	}
-//	st.gas += refund
-//
-//	balanceTokenFee := st.balanceTokenFee()
-//	if balanceTokenFee == nil {
-//		from := st.from()
-//		// Return ETH for remaining gas, exchanged at the original rate.
-//		remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-//		st.state.AddBalance(from.Address(), remaining)
-//	}
-//	// Also return remaining gas to the block gas counter so it is
-//	// available for the next transaction.
-//	st.gp.AddGas(st.gas)
-//}
-
 func (st *StateTransition) refundGas() {
 	// Apply refund counter, capped to half of the used gas.
 	refund := st.gasUsed() / 2
@@ -344,11 +324,13 @@ func (st *StateTransition) refundGas() {
 	}
 	st.gas += refund
 
-	from := st.from()
-	// Return ETH for remaining gas, exchanged at the original rate.
-	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-	st.state.AddBalance(from.Address(), remaining)
-
+	balanceTokenFee := st.balanceTokenFee()
+	if balanceTokenFee == nil {
+		from := st.from()
+		// Return ETH for remaining gas, exchanged at the original rate.
+		remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
+		st.state.AddBalance(from.Address(), remaining)
+	}
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.
 	st.gp.AddGas(st.gas)
