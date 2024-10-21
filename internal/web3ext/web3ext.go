@@ -457,6 +457,13 @@ web3._extend({
 			inputFormatter: [web3._extend.formatters.inputTransactionFormatter]
 		}),
 		new web3._extend.Method({
+			name: 'estimateGas',
+			call: 'eth_estimateGas',
+			params: 2,
+			inputFormatter: [web3._extend.formatters.inputCallFormatter, web3._extend.formatters.inputBlockNumberFormatter],
+			outputFormatter: web3._extend.utils.toDecimal
+		}),
+		new web3._extend.Method({
 			name: 'submitTransaction',
 			call: 'eth_submitTransaction',
 			params: 1,
@@ -667,7 +674,7 @@ web3._extend({
             call: 'tomox_sendLendingRawTransaction',
             params: 1
 		}),
-		
+
 		new web3._extend.Method({
             name: 'sendOrderTransaction',
             call: 'tomox_sendOrder',
