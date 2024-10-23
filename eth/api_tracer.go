@@ -628,7 +628,12 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
 	if message.To().String() == common.TradingStateAddr || message.To().String() == common.TomoXLendingAddress || message.To().String() == common.TomoXAddr || message.To().String() == common.TomoXLendingFinalizedTradeAddress {
-		return &ethapi.ExecutionResult{}, nil
+		return &ethapi.ExecutionResult{
+			Gas:         0,
+			Failed:      false,
+			ReturnValue: "",
+			StructLogs:  make([]ethapi.StructLogRes, 0),
+		}, nil
 	}
 	// Run the transaction with tracing enabled.
 	vmenv := vm.NewEVM(vmctx, statedb, nil, api.config, vm.Config{Debug: true, Tracer: tracer})
