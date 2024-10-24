@@ -205,7 +205,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 							balacne = value
 						}
 					}
-					msg, _ := tx.AsMessage(signer, balacne, task.block.Number())
+					msg, _ := tx.AsMessage(signer, balacne, task.block.Number(), false)
 					vmctx := core.NewEVMContext(msg, task.block.Header(), api.eth.blockchain, nil)
 
 					res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -445,7 +445,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 						balacne = value
 					}
 				}
-				msg, _ := txs[task.index].AsMessage(signer, balacne, block.Number())
+				msg, _ := txs[task.index].AsMessage(signer, balacne, block.Number(), false)
 				vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 				res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -470,7 +470,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 			}
 		}
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer, balacne, block.Number())
+		msg, _ := tx.AsMessage(signer, balacne, block.Number(), false)
 		// Run trace for each type of transaction
 		if tx.To() != nil && tx.To().String() == common.TradingStateAddr {
 			continue
@@ -640,10 +640,6 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 	default:
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
-	if message.To().String() == common.TradingStateAddr || message.To().String() == common.TomoXLendingAddress || message.To().String() == common.TomoXAddr || message.To().String() == common.TomoXLendingFinalizedTradeAddress {
-		// update temp nonce for the address to by pass the nonce check
-		statedb.SetNonce(message.From(), message.Nonce())
-	}
 	// Run the transaction with tracing enabled.
 	vmenv := vm.NewEVM(vmctx, statedb, nil, api.config, vm.Config{Debug: true, Tracer: tracer})
 
@@ -705,7 +701,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 					balanceFee = value
 				}
 			}
-			msg, err := tx.AsMessage(types.MakeSigner(api.config, block.Header().Number), balanceFee, block.Number())
+			msg, err := tx.AsMessage(types.MakeSigner(api.config, block.Header().Number), balanceFee, block.Number(), false)
 			if err != nil {
 				return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 			}
