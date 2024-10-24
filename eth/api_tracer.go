@@ -199,13 +199,13 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				feeCapacity := state.GetTRC21FeeCapacityFromState(task.statedb)
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
-					var balacne *big.Int
+					var balance *big.Int
 					if tx.To() != nil {
 						if value, ok := feeCapacity[*tx.To()]; ok {
-							balacne = value
+							balance = value
 						}
 					}
-					msg, _ := tx.AsMessage(signer, balacne, task.block.Number(), false)
+					msg, _ := tx.AsMessage(signer, balance, task.block.Number(), false)
 					vmctx := core.NewEVMContext(msg, task.block.Header(), api.eth.blockchain, nil)
 
 					res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
