@@ -641,7 +641,7 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
 	if message.To().String() == common.TradingStateAddr || message.To().String() == common.TomoXLendingAddress || message.To().String() == common.TomoXAddr || message.To().String() == common.TomoXLendingFinalizedTradeAddress {
-		// update temp nonce for the address
+		// update temp nonce for the address to by pass the nonce check
 		statedb.SetNonce(message.From(), message.Nonce())
 	}
 	// Run the transaction with tracing enabled.
