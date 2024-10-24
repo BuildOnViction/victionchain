@@ -471,14 +471,39 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 		}
 		// Generate the next state snapshot fast without tracing
 		msg, _ := tx.AsMessage(signer, balacne, block.Number())
-		vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
+		// Run trace for each type of transaction
+		if tx.To() != nil && tx.To().String() == common.TradingStateAddr {
+			if _, err := api.traceEmptyTx(msg); err != nil {
+				failed = err
+				break
+			}
+		} else if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress {
+			if _, err := api.traceEmptyTx(msg); err != nil {
+				failed = err
+				break
+			}
+		} else if tx.IsTradingTransaction() {
+			if _, err := api.traceEmptyTx(msg); err != nil {
+				failed = err
+				break
+			}
+		} else if tx.IsLendingFinalizedTradeTransaction() {
+			if _, err := api.traceEmptyTx(msg); err != nil {
+				failed = err
+				break
+			}
+		} else {
+			// only open EVM with normal transaction
+			vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
-		vmenv := vm.NewEVM(vmctx, statedb, tomoxState, api.config, vm.Config{})
-		owner := common.Address{}
-		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
-			failed = err
-			break
+			vmenv := vm.NewEVM(vmctx, statedb, tomoxState, api.config, vm.Config{})
+			owner := common.Address{}
+			if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
+				failed = err
+				break
+			}
 		}
+
 		// Finalize the state so any modifications are written to the trie
 		statedb.Finalise(true)
 	}
@@ -595,6 +620,11 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
 func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, vmctx vm.Context, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+	// return empty trace for some special address
+	if message.To().String() == common.TradingStateAddr || message.To().String() == common.TomoXLendingAddress || message.To().String() == common.TomoXAddr || message.To().String() == common.TomoXLendingFinalizedTradeAddress {
+		return api.traceEmptyTx(message)
+	}
+
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer vm.Tracer
@@ -627,14 +657,6 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 	default:
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
-	if message.To().String() == common.TradingStateAddr || message.To().String() == common.TomoXLendingAddress || message.To().String() == common.TomoXAddr || message.To().String() == common.TomoXLendingFinalizedTradeAddress {
-		return &ethapi.ExecutionResult{
-			Gas:         0,
-			Failed:      false,
-			ReturnValue: "",
-			StructLogs:  make([]ethapi.StructLogRes, 0),
-		}, nil
-	}
 	// Run the transaction with tracing enabled.
 	vmenv := vm.NewEVM(vmctx, statedb, nil, api.config, vm.Config{Debug: true, Tracer: tracer})
 
@@ -659,6 +681,16 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 	default:
 		panic(fmt.Sprintf("bad tracer type %T", tracer))
 	}
+}
+
+func (api *PrivateDebugAPI) traceEmptyTx(message core.Message) (interface{}, error) {
+	// return empty struct because we don't apply anything for empty transaction
+	return &ethapi.ExecutionResult{
+		Gas:         0,
+		Failed:      false,
+		ReturnValue: "",
+		StructLogs:  make([]ethapi.StructLogRes, 0),
+	}, nil
 }
 
 // computeTxEnv returns the execution environment of a certain transaction.
