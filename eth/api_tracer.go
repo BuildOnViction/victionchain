@@ -471,25 +471,13 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 		}
 		// Generate the next state snapshot fast without tracing
 		msg, _ := tx.AsMessage(signer, balacne, block.Number(), false)
-		// Run trace for each type of transaction
-		if tx.To() != nil && tx.To().String() == common.TradingStateAddr {
-			continue
-		} else if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress {
-			continue
-		} else if tx.IsTradingTransaction() {
-			continue
-		} else if tx.IsLendingFinalizedTradeTransaction() {
-			continue
-		} else {
-			// only open EVM with normal transaction
-			vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
+		vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
-			vmenv := vm.NewEVM(vmctx, statedb, tomoxState, api.config, vm.Config{})
-			owner := common.Address{}
-			if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
-				failed = err
-				break
-			}
+		vmenv := vm.NewEVM(vmctx, statedb, tomoxState, api.config, vm.Config{})
+		owner := common.Address{}
+		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
+			failed = err
+			break
 		}
 
 		// Finalize the state so any modifications are written to the trie
