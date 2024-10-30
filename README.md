@@ -25,7 +25,7 @@ Viction supports both binaries build and Docker build for your convenience. Buil
 
 #### Install Go1.18.10
 
-Due to some changes in Go-lang, Viction need to be build specificly with Go `1.13`. The following command will install Go 1.18.10 side-by-side with current system wide Go version:
+Due to some changes in Go-lang, Viction need to be build specificly with Go `1.18`. The following command will install Go 1.18.10 side-by-side with current system wide Go version:
 
 ```bash
 go install golang.org/dl/go1.18.10@latest
@@ -45,7 +45,7 @@ go1.18.10 run build/ci.go install
 Clone this repository and change working directory to where you clone it, then run the following commands:
 
 ```bash
-docker build --file Dockerfile.node -t "viction:2.4.1" .
+docker build --file Dockerfile.node -t "viction:2.4.2" .
 ```
 
 ### Pre-built Bianries
@@ -140,7 +140,7 @@ docker run --name viction \
   -e NETSTATS_PORT=443 \
   -e WS_SECRET=getty-site-pablo-auger-room-sos-blair-shin-whiz-delhi \
   -e VERBOSITY=3 \
-  buildonviction/node:2.4.1
+  buildonviction/node:2.4.2
 ```
 
 Brief explainations on the supported variables:
