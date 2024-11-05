@@ -5,6 +5,12 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
@@ -25,10 +31,6 @@ import (
 	"github.com/tomochain/tomochain/tomox"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending"
-	"math/big"
-	"slices"
-	"testing"
-	"time"
 )
 
 type testBackend struct {
@@ -397,5 +399,133 @@ func TestEstimateGas(t *testing.T) {
 		if uint64(result) != tc.want {
 			t.Errorf("test %d, result mismatch, have\n%v\n, want\n%v\n", i, uint64(result), tc.want)
 		}
+	}
+}
+
+func TestPublicBlockChainAPI_GetProof(t *testing.T) {
+	t.Parallel()
+	var (
+		accounts = newAccounts(2)
+		genesis  = &core.Genesis{
+			Config: params.TestChainConfig,
+			Alloc: core.GenesisAlloc{
+				accounts[0].addr: {Balance: big.NewInt(params.Ether)},
+				accounts[1].addr: {Balance: big.NewInt(params.Ether)},
+			},
+		}
+		genBlocks = 10
+		signer    = types.HomesteadSigner{}
+	)
+
+	backend := newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
+		tx, err := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, nil, nil), signer, accounts[0].key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.AddTx(tx)
+	})
+
+	api := NewPublicBlockChainAPI(backend)
+
+	testCases := []struct {
+		name        string
+		address     common.Address
+		storageKeys []string
+		blockNr     rpc.BlockNumber
+		wantErr     bool
+		errMsg      string
+		expected    *AccountResult
+	}{
+		{
+		    name:        "Valid account proof latest block",
+		    address:     accounts[0].addr,
+		    storageKeys: []string{},
+		    blockNr:     rpc.LatestBlockNumber,
+		    wantErr:     false,
+		},
+		{
+		    name:        "Valid account with storage proof",
+		    address:     accounts[0].addr,
+		    storageKeys: []string{"0x0000000000000000000000000000000000000000000000000000000000000000"},
+		    blockNr:     rpc.LatestBlockNumber,
+		    wantErr:     false,
+		},
+		{
+		    name:        "Non-existent account",
+		    address:     common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		    storageKeys: []string{},
+		    blockNr:     rpc.LatestBlockNumber,
+		    wantErr:     false,
+		},
+		{
+			name:        "Invalid block number",
+			address:     accounts[0].addr,
+			storageKeys: []string{},
+			blockNr:     rpc.BlockNumber(-5), // Using -5 to ensure it's invalid
+			wantErr:     false,
+			expected:    nil,
+		},
+		// {
+		//     name:        "Pending block",
+		//     address:     accounts[0].addr,
+		//     storageKeys: []string{},
+		//     blockNr:     rpc.PendingBlockNumber,
+		//     wantErr:     true,
+		//     errMsg:      "proof not supported for pending block",
+		// },
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := api.GetProof(context.Background(), tc.address, tc.storageKeys, tc.blockNr)
+
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error containing '%s' but got none", tc.errMsg)
+					return
+				}
+				if !strings.Contains(err.Error(), tc.errMsg) {
+					t.Errorf("expected error containing '%s', got '%v'", tc.errMsg, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			// Verify result fields
+			if result == nil && tc.expected == nil {
+				return
+			}
+
+			if result.Address != tc.address {
+				t.Errorf("address mismatch: got %v, want %v", result.Address, tc.address)
+			}
+
+			if len(result.AccountProof) == 0 {
+			    t.Error("account proof should not be empty")
+			}
+
+			if result.Balance == nil {
+			    t.Error("balance should not be nil")
+			}
+
+			if result.CodeHash == (common.Hash{}) {
+			    t.Error("codehash should not be empty")
+			}
+
+			if result.StorageHash == (common.Hash{}) {
+			    t.Error("storagehash should not be empty")
+			}
+
+			if len(tc.storageKeys) > 0 {
+			    if len(result.StorageProof) != len(tc.storageKeys) {
+			        t.Errorf("storage proof length mismatch: got %d, want %d",
+			            len(result.StorageProof), len(tc.storageKeys))
+			    }
+			}
+		})
 	}
 }
