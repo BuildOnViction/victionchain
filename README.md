@@ -23,13 +23,13 @@ Viction supports both binaries build and Docker build for your convenience. Buil
 
 ### Binary Build
 
-#### Install Go1.13.15
+#### Install Go1.18.10
 
-Due to some changes in Go-lang, Viction need to be build specificly with Go `1.13`. The following command will install Go 1.13.15 side-by-side with current system wide Go version:
+Due to some changes in Go-lang, Viction need to be build specificly with Go `1.18`. The following command will install Go 1.18.10 side-by-side with current system wide Go version:
 
 ```bash
-go install golang.org/dl/g1.13.15@latest
-go1.13.15 download
+go install golang.org/dl/go1.18.10@latest
+go1.18.10 download
 ```
 
 #### Build `tomo`
@@ -37,7 +37,7 @@ go1.13.15 download
 Clone this repository and change working directory to where you clone it, then run the following commands:
 
 ```bash
-go1.13.15 run build/ci.go install
+go1.18.10 run build/ci.go install
 ```
 
 ### Docker Build
@@ -45,7 +45,7 @@ go1.13.15 run build/ci.go install
 Clone this repository and change working directory to where you clone it, then run the following commands:
 
 ```bash
-docker build --file Dockerfile.node -t "viction:2.4.1" .
+docker build --file Dockerfile.node -t "viction:2.4.2" .
 ```
 
 ### Pre-built Bianries
@@ -140,7 +140,7 @@ docker run --name viction \
   -e NETSTATS_PORT=443 \
   -e WS_SECRET=getty-site-pablo-auger-room-sos-blair-shin-whiz-delhi \
   -e VERBOSITY=3 \
-  buildonviction/node:2.4.1
+  buildonviction/node:2.4.2
 ```
 
 Brief explainations on the supported variables:
@@ -155,6 +155,7 @@ BOOTNODES: list of enodes of other peers that your full-node will try to connect
 NETSTATS_HOST: Hostname of Ethstats service.
 NETSTATS_PORT: Port of Ethstats service.
 WS_SECRET: Secret of Ethstats service.
+DEBUG_MODE: Enable archive mode.
 VERBOSITY: log level from 1 to 5. Here we're using 4 for debug messages.
 ```
 
