@@ -2,6 +2,7 @@ package ethapi
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/require"
@@ -26,6 +27,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -279,6 +281,23 @@ func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i i
 
 	backend := &testBackend{db: db, chain: chain, TomoX: tomo}
 	return backend
+}
+
+type Account struct {
+	key  *ecdsa.PrivateKey
+	addr common.Address
+}
+
+func newAccounts(n int) (accounts []Account) {
+	for i := 0; i < n; i++ {
+		key, _ := crypto.GenerateKey()
+		addr := crypto.PubkeyToAddress(key.PublicKey)
+		accounts = append(accounts, Account{key: key, addr: addr})
+	}
+	slices.SortFunc(accounts, func(a, b Account) int {
+		return a.addr.Cmp(b.addr)
+	})
+	return accounts
 }
 
 func TestRPCGetBlockReceipts(t *testing.T) {
