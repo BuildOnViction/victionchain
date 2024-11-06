@@ -247,7 +247,7 @@ func (tx *Transaction) Size() common.StorageSize {
 // AsMessage requires a signer to derive the sender.
 //
 // XXX Rename message to something less arbitrary?
-func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int) (Message, error) {
+func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int, checkNonce bool) (Message, error) {
 	msg := Message{
 		nonce:           tx.data.AccountNonce,
 		gasLimit:        tx.data.GasLimit,
@@ -255,7 +255,7 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int)
 		to:              tx.data.Recipient,
 		amount:          tx.data.Amount,
 		data:            tx.data.Payload,
-		checkNonce:      true,
+		checkNonce:      checkNonce,
 		balanceTokenFee: balanceFee,
 	}
 	var err error
