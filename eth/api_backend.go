@@ -101,8 +101,11 @@ func (b *EthApiBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 	if blockNr == rpc.FinalizedBlockNumber {
 		pubChainAPI := ethapi.NewPublicBlockChainAPI(b)
 		finalizedBlock, err := pubChainAPI.GetBlockFinalityByNumber(ctx, blockNr)
-		if err != nil || finalizedBlock == 0 {
-			return nil, err
+		if err != nil {
+			return nil, errors.New("finalized block not found")
+		}
+		if finalizedBlock == 0 {
+			return nil, errors.New("finalized block must be better than 0")
 		}
 		return b.eth.blockchain.GetBlockByNumber(uint64(finalizedBlock)), nil
 	}

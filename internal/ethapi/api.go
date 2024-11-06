@@ -520,7 +520,6 @@ func (s *PublicBlockChainAPI) GetRewardByHash(hash common.Hash) map[string]map[s
 // given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
 // block numbers are also allowed.
 func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*big.Int, error) {
-	fmt.Println("=> levien:GetBalance", address.String(), blockNr)
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err
@@ -676,22 +675,25 @@ func (s *PublicBlockChainAPI) GetNearestBlockFinalityByBlockNumber(ctx context.C
 	engine, _ := s.b.GetEngine().(*posv.Posv)
 
 	masternodes, err := s.GetMasternodes(ctx, checkpointBlock)
-	if err != nil || len(masternodes) == 0 {
-		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
+	if err != nil {
+		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes), "checkpoint", checkpointBlock.Number())
 		return nil, err
+	}
+	if len(masternodes) == 0 {
+		log.Error("Failed to get masternodes", "len(masternodes)", len(masternodes), "checkpoint", checkpointBlock.Number())
+		return nil, errors.New("masternodes is empty")
 	}
 
 	for i := blockNumber; i >= checkpoint; i-- {
 		tBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(i))
 		blockSigners, _ := s.getSigners(ctx, tBlock, engine)
 		threadHold := uint(100 * len(blockSigners) / len(masternodes))
-		//log.Info("=> result", "number", tBlock.NumberU64(), "hash", tBlock.Hash().String(), "thread", threadHold)
 		if threadHold == 100 {
 			return tBlock, nil
 		}
 	}
 
-	return nil, errors.New("Can't find finality block")
+	return nil, errors.New("can't find nearest finality block")
 }
 
 func (s *PublicBlockChainAPI) GetBlockFinalityByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (uint, error) {
@@ -701,10 +703,10 @@ func (s *PublicBlockChainAPI) GetBlockFinalityByNumber(ctx context.Context, bloc
 		block = s.b.CurrentBlock()
 	} else {
 		tBlock, err := s.b.BlockByNumber(ctx, blockNumber)
-		block = tBlock
-		if err != nil || block == nil {
+		if err != nil {
 			return uint(0), err
 		}
+		block = tBlock
 	}
 
 	fBlock, err := s.GetNearestBlockFinalityByBlockNumber(ctx, block.Number().Int64())
@@ -1345,7 +1347,6 @@ Use blocksHashCache for to keep track - refer core/blockchain.go for more detail
 func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.Block, masternodes []common.Address) (uint, error) {
 	engine, _ := s.b.GetEngine().(*posv.Posv)
 	signedBlock := s.findNearestSignedBlock(ctx, b)
-	log.Info("findNearestSignedBlock", "inblock", b.Number().String(), "number", signedBlock.Number().String())
 	if signedBlock == nil {
 		return 0, nil
 	}
@@ -1434,9 +1435,6 @@ func (s *PublicBlockChainAPI) getSigners(ctx context.Context, block *types.Block
 			}
 		}
 	}
-	//for _, sn := range filterSigners {
-	//	log.Info("=> getSigners:signer", "signer", sn.String())
-	//}
 	return filterSigners, nil
 }
 
@@ -2985,7 +2983,6 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 				blkHash := common.BytesToHash(signtx.Data()[len(signtx.Data())-32:])
 				from, _ := types.Sender(signer, signtx)
 				if blkHash == blockHash && mapMN[from] {
-					//log.Info("signTx", "tx", signtx.Hash().String(), "from", signtx.From().String(), "to", signtx.To().String(), "data", signtx.IsSigningTransaction(), "bHash", blkHash.String(), "number", blockData.Number().String(), "hash", blockHash.String(), "same", blkHash == blockHash && mapMN[from])
 					addrs = append(addrs, from)
 					delete(mapMN, from)
 				}
