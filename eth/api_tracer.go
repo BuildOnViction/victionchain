@@ -401,10 +401,13 @@ func (api *PrivateDebugAPI) TraceBlockFromFile(ctx context.Context, file string,
 // executes all the transactions contained within. The return value will be one item
 // per transaction, dependent on the requestd tracer.
 func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, config *TraceConfig) ([]*txTraceResult, error) {
-	// Create the parent state database
-	if err := api.eth.engine.VerifyHeader(api.eth.blockchain, block.Header(), true); err != nil {
-		return nil, err
+	if block.NumberU64() > common.TIPSigningBlock.Uint64() {
+		// only verify header for block number > TIPSigning
+		if err := api.eth.engine.VerifyHeader(api.eth.blockchain, block.Header(), true); err != nil {
+			return nil, err
+		}
 	}
+	// Create the parent state database
 	parent := api.eth.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
 		return nil, fmt.Errorf("parent %x not found", block.ParentHash())
