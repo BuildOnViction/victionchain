@@ -100,14 +100,12 @@ func (b *EthApiBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 	// Finalized block handler
 	if blockNr == rpc.FinalizedBlockNumber {
 		pubChainAPI := ethapi.NewPublicBlockChainAPI(b)
-		finalizedBlock, err := pubChainAPI.GetBlockFinalityByNumber(ctx, blockNr)
+		block := b.CurrentBlock()
+		fBlock, err := pubChainAPI.GetNearestBlockFinalityByBlockNumber(ctx, block.Number().Int64())
 		if err != nil {
-			return nil, errors.New("finalized block not found")
+			return nil, err
 		}
-		if finalizedBlock == 0 {
-			return nil, errors.New("finalized block must be better than 0")
-		}
-		return b.eth.blockchain.GetBlockByNumber(uint64(finalizedBlock)), nil
+		return fBlock, nil
 	}
 	return b.eth.blockchain.GetBlockByNumber(uint64(blockNr)), nil
 }

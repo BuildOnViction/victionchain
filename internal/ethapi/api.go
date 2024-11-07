@@ -670,50 +670,33 @@ func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockH
 }
 
 func (s *PublicBlockChainAPI) GetNearestBlockFinalityByBlockNumber(ctx context.Context, blockNumber int64) (*types.Block, error) {
-	checkpoint := blockNumber - (blockNumber % common.EpocBlockRandomize)
-	checkpointBlock, err := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpoint))
-	engine, _ := s.b.GetEngine().(*posv.Posv)
-
-	masternodes, err := s.GetMasternodes(ctx, checkpointBlock)
-	if err != nil {
-		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes), "checkpoint", checkpointBlock.Number())
-		return nil, err
-	}
-	if len(masternodes) == 0 {
-		log.Error("Failed to get masternodes", "len(masternodes)", len(masternodes), "checkpoint", checkpointBlock.Number())
-		return nil, errors.New("masternodes is empty")
+	backMergeSignRangeBlock := blockNumber - blockNumber%common.MergeSignRange
+	if backMergeSignRangeBlock == 0 {
+		rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(0))
+		return rBlock, nil
 	}
 
-	for i := blockNumber; i >= checkpoint; i-- {
-		tBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(i))
-		blockSigners, _ := s.getSigners(ctx, tBlock, engine)
-		threadHold := uint(100 * len(blockSigners) / len(masternodes))
-		if threadHold == 100 {
-			return tBlock, nil
+	toBlock := backMergeSignRangeBlock
+	for toBlock >= 0 {
+		if toBlock == 0 {
+			rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
+			return rBlock, nil
 		}
+
+		checkpoint := toBlock - (toBlock % common.EpocBlockRandomize)
+		checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpoint))
+		masternodes, _ := s.GetMasternodes(ctx, checkpointBlock)
+
+		rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
+		threadHold, _ := s.findFinalityOfBlock(ctx, rBlock, masternodes)
+		if threadHold == 100 {
+			return rBlock, nil
+		}
+
+		toBlock = toBlock - common.MergeSignRange
 	}
 
 	return nil, errors.New("can't find nearest finality block")
-}
-
-func (s *PublicBlockChainAPI) GetBlockFinalityByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (uint, error) {
-	var block *types.Block
-
-	if blockNumber == rpc.FinalizedBlockNumber {
-		block = s.b.CurrentBlock()
-	} else {
-		tBlock, err := s.b.BlockByNumber(ctx, blockNumber)
-		if err != nil {
-			return uint(0), err
-		}
-		block = tBlock
-	}
-
-	fBlock, err := s.GetNearestBlockFinalityByBlockNumber(ctx, block.Number().Int64())
-	if err != nil {
-		return uint(0), err
-	}
-	return uint(fBlock.NumberU64()), nil
 }
 
 // GetMasternodes returns masternodes set at the starting block of epoch of the given block
