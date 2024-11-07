@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
@@ -115,7 +117,6 @@ func (t testBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*type
 }
 
 func (t testBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
-	//TODO implement me
 	return core.GetBlockReceipts(t.db, blockHash, core.GetBlockNumber(t.db, blockHash)), nil
 }
 
@@ -298,6 +299,79 @@ func newAccounts(n int) (accounts []Account) {
 		return a.addr.Cmp(b.addr)
 	})
 	return accounts
+}
+
+func TestEstimateGas(t *testing.T) {
+	t.Parallel()
+	// Initialize test accounts
+	var (
+		accounts = newAccounts(2)
+		genesis  = &core.Genesis{
+			Config: params.TestChainConfig,
+			Alloc: core.GenesisAlloc{
+				accounts[0].addr: {Balance: big.NewInt(params.Ether)},
+				accounts[1].addr: {Balance: big.NewInt(params.Ether)},
+			},
+		}
+		genBlocks = 10
+		signer    = types.HomesteadSigner{}
+	)
+	api := NewPublicBlockChainAPI(newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
+		// Transfer from account[0] to account[1]
+		//    value: 1000 wei
+		//    fee:   0 wei
+		//tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{Nonce: uint64(i), To: &accounts[1].addr, Value: big.NewInt(1000), Gas: params.TxGas, GasPrice: b.BaseFee(), Data: nil}), signer, accounts[0].key)
+		tx, err := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, nil, nil), signer, accounts[0].key)
+		if err != nil {
+			panic(err)
+		}
+		b.AddTx(tx)
+	}))
+	var testSuite = []struct {
+		blockNumber rpc.BlockNumber
+		call        CallArgs
+		expectErr   error
+		want        uint64
+	}{
+		// simple transfer on latest block
+		{
+			blockNumber: rpc.LatestBlockNumber,
+			call: CallArgs{
+				From:  accounts[0].addr,
+				To:    &accounts[1].addr,
+				Value: (hexutil.Big)(*big.NewInt(1000)),
+			},
+			expectErr: nil,
+			want:      21000,
+		},
+		// empty create
+		{
+			blockNumber: rpc.LatestBlockNumber,
+			call:        CallArgs{},
+			expectErr:   nil,
+			want:        53000,
+		},
+	}
+	for i, tc := range testSuite {
+		result, err := api.EstimateGas(context.Background(), tc.call, &tc.blockNumber)
+		if tc.expectErr != nil {
+			if err == nil {
+				t.Errorf("test %d: want error %v, have nothing", i, tc.expectErr)
+				continue
+			}
+			if !errors.Is(err, tc.expectErr) {
+				t.Errorf("test %d: error mismatch, want %v, have %v", i, tc.expectErr, err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("test %d: want no error, have %v", i, err)
+			continue
+		}
+		if uint64(result) != tc.want {
+			t.Errorf("test %d, result mismatch, have\n%v\n, want\n%v\n", i, uint64(result), tc.want)
+		}
+	}
 }
 
 func TestRPCGetBlockReceipts(t *testing.T) {
