@@ -671,10 +671,6 @@ func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockH
 
 func (s *PublicBlockChainAPI) GetNearestBlockFinalityByBlockNumber(ctx context.Context, blockNumber int64) (*types.Block, error) {
 	backMergeSignRangeBlock := blockNumber - blockNumber%common.MergeSignRange
-	if backMergeSignRangeBlock == 0 {
-		rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(0))
-		return rBlock, nil
-	}
 
 	toBlock := backMergeSignRangeBlock
 	for toBlock >= 0 {
