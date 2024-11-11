@@ -18,6 +18,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -34,6 +35,17 @@ import (
 type revision struct {
 	id           int
 	journalIndex int
+}
+
+type proofList [][]byte
+
+func (n *proofList) Put(key []byte, value []byte) error {
+	*n = append(*n, value)
+	return nil
+}
+
+func (n *proofList) Delete(key []byte) error {
+	panic("not supported")
 }
 
 var (
@@ -90,6 +102,29 @@ func (self *StateDB) SubRefund(gas uint64) {
 		panic(fmt.Sprintf("Refund counter below zero (gas: %d > refund: %d)", gas, self.refund))
 	}
 	self.refund -= gas
+}
+
+// GetProof returns the Merkle proof for a given account.
+func (s *StateDB) GetProof(addr common.Address) ([][]byte, error) {
+	return s.GetProofByHash(crypto.Keccak256Hash(addr.Bytes()))
+}
+
+// GetProofByHash returns the Merkle proof for a given account.
+func (s *StateDB) GetProofByHash(addrHash common.Hash) ([][]byte, error) {
+	var proof proofList
+	err := s.trie.Prove(addrHash[:], 0, &proof)
+	return proof, err
+}
+
+// GetStorageProof returns the Merkle proof for given storage slot.
+func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, error) {
+	var proof proofList
+	trie := s.StorageTrie(a)
+	if trie == nil {
+		return proof, errors.New("storage trie for requested address does not exist")
+	}
+	err := trie.Prove(crypto.Keccak256(key.Bytes()), 0, &proof)
+	return proof, err
 }
 
 func (self *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
