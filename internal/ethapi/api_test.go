@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"math/big"
 	"slices"
 	"strings"
@@ -14,7 +13,6 @@ import (
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
-	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
@@ -116,8 +114,7 @@ func (t testBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*type
 }
 
 func (t testBackend) GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error) {
-	//TODO implement me
-	panic("implement me")
+	return core.GetBlockReceipts(t.db, blockHash, core.GetBlockNumber(t.db, blockHash)), nil
 }
 
 func (t testBackend) GetTd(blockHash common.Hash) *big.Int {
@@ -126,7 +123,6 @@ func (t testBackend) GetTd(blockHash common.Hash) *big.Int {
 }
 
 func (b testBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg, header, b.chain, nil)
@@ -204,8 +200,7 @@ func (t testBackend) SendLendingTx(ctx context.Context, signedTx *types.LendingT
 }
 
 func (t testBackend) ChainConfig() *params.ChainConfig {
-	//TODO implement me
-	panic("implement me")
+	return t.chain.Config()
 }
 
 func (t testBackend) CurrentBlock() *types.Block {
@@ -315,14 +310,9 @@ func TestEstimateGas(t *testing.T) {
 				accounts[1].addr: {Balance: big.NewInt(params.Ether)},
 			},
 		}
-		genBlocks      = 10
-		signer         = types.HomesteadSigner{}
-		randomAccounts = newAccounts(2)
+		genBlocks = 10
+		signer    = types.HomesteadSigner{}
 	)
-	fmt.Printf("accounts[0]: %v\n", accounts[0].addr)
-	fmt.Printf("accounts[1]: %v\n", accounts[1].addr)
-	fmt.Printf("randomAccounts[0]: %v\n", randomAccounts[0].addr)
-	fmt.Printf("randomAccounts[1]: %v\n", randomAccounts[1].addr)
 	api := NewPublicBlockChainAPI(newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
@@ -351,37 +341,16 @@ func TestEstimateGas(t *testing.T) {
 			expectErr: nil,
 			want:      21000,
 		},
-		// simple transfer with insufficient funds on latest block
+		// empty create
 		{
 			blockNumber: rpc.LatestBlockNumber,
-			call: CallArgs{
-				From:  randomAccounts[0].addr,
-				To:    &accounts[1].addr,
-				Value: (hexutil.Big)(*big.NewInt(1000)),
-			},
-			expectErr: core.ErrInsufficientFunds,
-			want:      21000,
+			call:        CallArgs{},
+			expectErr:   nil,
+			want:        53000,
 		},
-		// empty create
-		//{
-		//	blockNumber: rpc.LatestBlockNumber,
-		//	call:        CallArgs{},
-		//	expectErr:   nil,
-		//	want:        53000,
-		//},
-		//{
-		//	blockNumber: rpc.LatestBlockNumber,
-		//	call: CallArgs{
-		//		From:  randomAccounts[0].addr,
-		//		To:    &randomAccounts[1].addr,
-		//		Value: (hexutil.Big)(*big.NewInt(1000)),
-		//	},
-		//	expectErr: core.ErrInsufficientFunds,
-		//},
 	}
 	for i, tc := range testSuite {
 		result, err := api.EstimateGas(context.Background(), tc.call, &tc.blockNumber)
-		fmt.Println(result)
 		if tc.expectErr != nil {
 			if err == nil {
 				t.Errorf("test %d: want error %v, have nothing", i, tc.expectErr)

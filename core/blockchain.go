@@ -1757,7 +1757,11 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	if verifiedM2 {
 		if result, check := bc.resultProcess.Get(block.HashNoValidator()); check {
 			log.Debug("Get result block from cache ", "number", block.NumberU64(), "hash", block.Hash(), "hash no validator", block.HashNoValidator())
-			return result.(*ResultProcessBlock), nil
+			b := result.(*ResultProcessBlock)
+			for _, log := range b.logs {
+				log.BlockHash = block.Hash()
+			}
+			return b, nil
 		}
 		log.Debug("Not found cache prepare block ", "number", block.NumberU64(), "hash", block.Hash(), "validator", block.HashNoValidator())
 		if calculatedBlock, _ := bc.calculatingBlock.Get(block.HashNoValidator()); calculatedBlock != nil {
