@@ -56,8 +56,11 @@ var (
 	TomoXBaseFee            = big.NewInt(10000)                              // 1 / TomoXBaseFee
 	TomoXBaseCancelFee      = new(big.Int).Mul(TomoXBaseFee, big.NewInt(10)) // 1/ (TomoXBaseFee *10)
 
-	SaigonRewardPerEpoch = big.NewInt(250)        // 250 VIC
-	SaigonEcoSystemFund  = big.NewInt(80_000_000) // 80M VIC
+	SaigonRewardPerEpoch           = big.NewInt(250) // 250 VIC
+	SaigonEcoSystemFundAddress     = HexToAddress("0xeDC9f7873a33763c84b82157B034988728445a0E")
+	SaigonEcoSystemFundAnnually    = big.NewInt(20000000) // 20M VIC
+	SaigonEcoSystemFundInterval    = uint64(13800000)
+	SaigonEcoSystemFundTotalRepeat = uint64(4)
 
 	MinGasPrice         = big.NewInt(DefaultMinGasPrice)
 	TRC21GasPriceBefore = big.NewInt(2500)

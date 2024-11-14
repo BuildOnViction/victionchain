@@ -206,9 +206,8 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		if config.DAOForkSupport && config.DAOForkBlock != nil && config.DAOForkBlock.Cmp(b.header.Number) == 0 {
 			misc.ApplyDAOHardFork(statedb)
 		}
-		if config.SaigonBlock != nil && config.SaigonBlock.Cmp(b.header.Number) == 0 && config.Posv != nil {
-			ecoSystemFund := new(big.Int).Mul(common.SaigonEcoSystemFund, new(big.Int).SetUint64(params.Ether))
-			statedb.AddBalance(config.Posv.FoudationWalletAddr, ecoSystemFund)
+		if config.SaigonBlock != nil && config.SaigonBlock.Cmp(b.header.Number) <= 0 {
+			misc.ApplySaigonHardFork(statedb, config.SaigonBlock, b.header.Number)
 		}
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
@@ -240,6 +239,19 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		parent = block
 	}
 	return blocks, receipts
+}
+
+// GenerateChainWithGenesis is a wrapper of GenerateChain which will initialize
+// genesis block to database first according to the provided genesis specification
+// then generate chain on top.
+func GenerateChainWithGenesis(genesis *Genesis, engine consensus.Engine, n int, gen func(int, *BlockGen)) (ethdb.Database, []*types.Block, []types.Receipts) {
+	db := rawdb.NewMemoryDatabase()
+	_, err := genesis.Commit(db)
+	if err != nil {
+		panic(err)
+	}
+	blocks, receipts := GenerateChain(genesis.Config, genesis.ToBlock(db), engine, db, n, gen)
+	return db, blocks, receipts
 }
 
 func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
