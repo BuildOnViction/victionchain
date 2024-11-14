@@ -630,8 +630,8 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx context.Context, address common.A
 }
 
 // GetBlockReceipts returns the block receipts for the given block hash or number or tag.
-func (api *PublicBlockChainAPI) GetBlockReceipts(ctx context.Context, blockNr rpc.BlockNumber) ([]map[string]interface{}, error) {
-	block, err := api.b.BlockByNumber(ctx, blockNr)
+func (api *PublicBlockChainAPI) GetBlockReceipts(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) ([]map[string]interface{}, error) {
+	block, err := api.b.BlockByNumberOrHash(ctx, blockNrOrHash)
 	if block == nil || err != nil {
 		// When the block doesn't exist, the RPC method should return JSON null
 		// as per specification.

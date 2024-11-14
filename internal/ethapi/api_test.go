@@ -101,6 +101,27 @@ func (b testBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumber) 
 	return b.chain.GetBlockByNumber(uint64(number)), nil
 }
 
+func (b *testBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block, error) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		return b.BlockByNumber(ctx, blockNr)
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		header := b.chain.GetHeaderByHash(hash)
+		if header == nil {
+			return nil, errors.New("header for hash not found")
+		}
+		if blockNrOrHash.RequireCanonical && b.chain.GetCanonicalHash(header.Number.Uint64()) != hash {
+			return nil, errors.New("hash is not currently canonical")
+		}
+		block := b.chain.GetBlock(hash, header.Number.Uint64())
+		if block == nil {
+			return nil, errors.New("header found, but block body is missing")
+		}
+		return block, nil
+	}
+	return nil, errors.New("invalid arguments; neither block nor hash specified")
+}
+
 func (b testBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Otherwise resolve the block number and return its state
 	header, err := b.HeaderByNumber(ctx, blockNr)
@@ -393,32 +414,110 @@ func TestRPCGetBlockReceipts(t *testing.T) {
 	}
 
 	var testSuite = []struct {
-		test rpc.BlockNumber
+		test rpc.BlockNumberOrHash
 		want string
 	}{
+		// 0. block without any txs(hash)
+		{
+			test: rpc.BlockNumberOrHashWithHash(blockHashes[0], false),
+			want: `[]`,
+		},
 		// 1. block without any txs(number)
 		{
-			test: rpc.BlockNumber(0),
+			test: rpc.BlockNumberOrHashWithNumber(0),
 			want: `[]`,
 		},
 		// 2. earliest tag
 		{
-			test: rpc.EarliestBlockNumber,
+			test: rpc.BlockNumberOrHashWithNumber(rpc.EarliestBlockNumber),
 			want: `[]`,
 		},
 		// 3. latest tag
 		{
-			test: rpc.LatestBlockNumber,
-			want: `[{"blockHash":"0x7b30611be396a2b3135482fb49975fa1641b9703da2bb9e8ddef4dd5ab0c36e8", "blockNumber":"0x3", "contractAddress":null, "cumulativeGasUsed":"0xea60", "from":"0x703c4b2bd70c169f5717101caee543299fc946c7", "gasUsed":"0xea60", "logs":[], "logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "status":"0x0", "to":"0x0000000000000000000000000000000000031ec7", "transactionHash":"0x0fa8c0c52f331c690c832c11c9cdc6c9e635bc5b055729230b1eb2b35c53419f", "transactionIndex":"0x0"}]`,
+			test: rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber),
+			want: `[{
+						"blockHash":"0x7b30611be396a2b3135482fb49975fa1641b9703da2bb9e8ddef4dd5ab0c36e8",
+						"blockNumber":"0x3",
+						"contractAddress":null,
+						"cumulativeGasUsed":"0xea60",
+						"from":"0x703c4b2bd70c169f5717101caee543299fc946c7",
+						"gasUsed":"0xea60",
+						"logs":[],
+						"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+						"status":"0x0",
+						"to":"0x0000000000000000000000000000000000031ec7",
+						"transactionHash":"0x0fa8c0c52f331c690c832c11c9cdc6c9e635bc5b055729230b1eb2b35c53419f",
+						"transactionIndex":"0x0"
+					}]`,
+		},
+		// 4. block with legacy transfer tx(hash)
+		{
+			test: rpc.BlockNumberOrHashWithHash(blockHashes[1], false),
+			want: `[{
+						"blockHash":"0x5c4c3bb56758668a5de41d23f5a24860e245f2c4ca65bb65cb9a8c02426d4e00",
+						"blockNumber":"0x1",
+						"contractAddress":null,
+						"cumulativeGasUsed":"0x5208",
+						"from":"0x703c4b2bd70c169f5717101caee543299fc946c7",
+						"gasUsed":"0x5208",
+						"logs":[],
+						"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+						"status":"0x1",
+						"to":"0x0d3ab14bbad3d99f4203bd7a11acb94882050e7e",
+						"transactionHash":"0x309a030e44058e435a2b01302006880953e2c9319009db97013eb130d7a24eab",
+						"transactionIndex":"0x0"
+					}]`,
 		},
 		// 5. block with contract create tx(number)
 		{
-			test: rpc.BlockNumber(2),
-			want: `[{"blockHash":"0xa56b19f6ed7acd69a6b17ab17388cca59de28fe8c49ae62be68752476386b39d","blockNumber":"0x2","contractAddress":null,"cumulativeGasUsed":"0x5318","from":"0x703c4b2bd70c169f5717101caee543299fc946c7","gasUsed":"0x5318","logs":[],"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","status":"0x1","to":"0x0000000000000000000000000000000000000000","transactionHash":"0x537c16d5b0f04d33a2a40bc879f892c2a8e5866a3a7db99eeb78165b003d3d55","transactionIndex":"0x0"}]`,
+			test: rpc.BlockNumberOrHashWithNumber(2),
+			want: `[{
+						"blockHash":"0xa56b19f6ed7acd69a6b17ab17388cca59de28fe8c49ae62be68752476386b39d",
+						"blockNumber":"0x2",
+						"contractAddress":null,
+						"cumulativeGasUsed":"0x5318",
+						"from":"0x703c4b2bd70c169f5717101caee543299fc946c7",
+						"gasUsed":"0x5318",
+						"logs":[],
+						"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+						"status":"0x1",
+						"to":"0x0000000000000000000000000000000000000000",
+						"transactionHash":"0x537c16d5b0f04d33a2a40bc879f892c2a8e5866a3a7db99eeb78165b003d3d55",
+						"transactionIndex":"0x0"
+					}]`,
+		},
+		// 6. block with legacy contract call tx(hash)
+		{
+			test: rpc.BlockNumberOrHashWithHash(blockHashes[3], false),
+			want: `[{
+						"blockHash":"0x7b30611be396a2b3135482fb49975fa1641b9703da2bb9e8ddef4dd5ab0c36e8",
+						"blockNumber":"0x3",
+						"contractAddress":null,
+						"cumulativeGasUsed":"0xea60",
+						"from":"0x703c4b2bd70c169f5717101caee543299fc946c7",
+						"gasUsed":"0xea60",
+						"logs":[],
+						"logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+						"status":"0x0",
+						"to":"0x0000000000000000000000000000000000031ec7",
+						"transactionHash":"0x0fa8c0c52f331c690c832c11c9cdc6c9e635bc5b055729230b1eb2b35c53419f",
+						"transactionIndex":
+						"0x0"
+					}]`,
+		},
+		// 8. block is empty
+		{
+			test: rpc.BlockNumberOrHashWithHash(common.Hash{}, false),
+			want: `null`,
+		},
+		// 9. block is not found
+		{
+			test: rpc.BlockNumberOrHashWithHash(common.HexToHash("deadbeef"), false),
+			want: `null`,
 		},
 		// 10. block is not found
 		{
-			test: rpc.BlockNumber(genBlocks + 1),
+			test: rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(genBlocks + 1)),
 			want: `null`,
 		},
 	}
@@ -480,17 +579,14 @@ func setupReceiptBackend(t *testing.T, genBlocks int) (*testBackend, []common.Ha
 		switch i {
 		case 0:
 			// transfer 1000wei
-			//tx, err = types.SignTx(types.NewTx(&types.LegacyTx{Nonce: uint64(i), To: &acc2Addr, Value: big.NewInt(1000), Gas: params.TxGas, GasPrice: b.BaseFee(), Data: nil}), types.HomesteadSigner{}, acc1Key)
 			tx, err = types.SignTx(types.NewTransaction(uint64(i), acc2Addr, big.NewInt(1000), params.TxGas, nil, nil), signer, acc1Key)
 		case 1:
 			// create contract
-			//tx, err = types.SignTx(types.NewTx(&types.LegacyTx{Nonce: uint64(i), To: nil, Gas: 53100, GasPrice: b.BaseFee(), Data: common.FromHex("0x60806040")}), signer, acc1Key)
 			tx, err = types.SignTx(types.NewTransaction(uint64(i), common.Address{}, nil, 53100, nil, common.FromHex("0x60806040")), signer, acc1Key)
 		case 2:
 			// with logs
 			// transfer(address to, uint256 value)
 			data := fmt.Sprintf("0xa9059cbb%s%s", common.HexToHash(common.BigToAddress(big.NewInt(int64(i + 1))).Hex()).String()[2:], common.BytesToHash([]byte{byte(i + 11)}).String()[2:])
-			//tx, err = types.SignTx(types.NewTx(&types.LegacyTx{Nonce: uint64(i), To: &contract, Gas: 60000, GasPrice: b.BaseFee(), Data: common.FromHex(data)}), signer, acc1Key)
 			tx, err = types.SignTx(types.NewTransaction(uint64(i), contract, nil, 60000, nil, common.FromHex(data)), signer, acc1Key)
 		}
 		if err != nil {
