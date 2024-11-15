@@ -203,11 +203,17 @@ func (self *worker) pending() (*types.Block, *state.StateDB) {
 		// return a snapshot to avoid contention on currentMu mutex
 		self.snapshotMu.RLock()
 		defer self.snapshotMu.RUnlock()
+		if self.snapshotBlock == nil {
+			return nil, nil
+		}
 		return self.snapshotBlock, self.snapshotState.Copy()
 	}
 
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
+	if self.current == nil {
+		return nil, nil
+	}
 	return self.current.Block, self.current.state.Copy()
 }
 
