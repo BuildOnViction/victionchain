@@ -6,7 +6,9 @@ package sort_test
 
 import (
 	"runtime"
-	. "sort"
+
+	"github.com/tomochain/tomochain/sort"
+
 	"testing"
 )
 
@@ -50,7 +52,7 @@ var tests = []struct {
 
 func TestSearch(t *testing.T) {
 	for _, e := range tests {
-		i := Search(e.n, e.f)
+		i := sort.Search(e.n, e.f)
 		if i != e.i {
 			t.Errorf("%s: expected index %d; got %d", e.name, e.i, i)
 		}
@@ -59,7 +61,6 @@ func TestSearch(t *testing.T) {
 
 // log2 computes the binary logarithm of x, rounded up to the next integer.
 // (log2(0) == 0, log2(1) == 0, log2(2) == 1, log2(3) == 2, etc.)
-//
 func log2(x int) int {
 	n := 0
 	for p := 1; p < x; p += p {
@@ -79,7 +80,7 @@ func TestSearchEfficiency(t *testing.T) {
 		max := log2(n)
 		for x := 0; x < n; x += step {
 			count := 0
-			i := Search(n, func(i int) bool { count++; return i >= x })
+			i := sort.Search(n, func(i int) bool { count++; return i >= x })
 			if i != x {
 				t.Errorf("n = %d: expected index %d; got %d", n, x, i)
 			}
@@ -102,12 +103,12 @@ var wrappertests = []struct {
 	result int
 	i      int
 }{
-	{"SearchInts", SearchInts(data, 11), 8},
-	{"SearchFloat64s", SearchFloat64s(fdata, 2.1), 4},
-	{"SearchStrings", SearchStrings(sdata, ""), 0},
-	{"IntSlice.Search", IntSlice(data).Search(0), 2},
-	{"Float64Slice.Search", Float64Slice(fdata).Search(2.0), 3},
-	{"StringSlice.Search", StringSlice(sdata).Search("x"), 3},
+	{"SearchInts", sort.SearchInts(data, 11), 8},
+	{"SearchFloat64s", sort.SearchFloat64s(fdata, 2.1), 4},
+	{"SearchStrings", sort.SearchStrings(sdata, ""), 0},
+	{"IntSlice.Search", sort.IntSlice(data).Search(0), 2},
+	{"Float64Slice.Search", sort.Float64Slice(fdata).Search(2.0), 3},
+	{"StringSlice.Search",sort.StringSlice(sdata).Search("x"), 3},
 }
 
 func TestSearchWrappers(t *testing.T) {
@@ -119,12 +120,12 @@ func TestSearchWrappers(t *testing.T) {
 }
 
 func runSearchWrappers() {
-	SearchInts(data, 11)
-	SearchFloat64s(fdata, 2.1)
-	SearchStrings(sdata, "")
-	IntSlice(data).Search(0)
-	Float64Slice(fdata).Search(2.0)
-	StringSlice(sdata).Search("x")
+	sort.SearchInts(data, 11)
+	sort.SearchFloat64s(fdata, 2.1)
+	sort.SearchStrings(sdata, "")
+	sort.IntSlice(data).Search(0)
+	sort.Float64Slice(fdata).Search(2.0)
+	sort.StringSlice(sdata).Search("x")
 }
 
 func TestSearchWrappersDontAlloc(t *testing.T) {
@@ -152,7 +153,7 @@ func BenchmarkSearchWrappers(b *testing.B) {
 func TestSearchExhaustive(t *testing.T) {
 	for size := 0; size <= 100; size++ {
 		for targ := 0; targ <= size; targ++ {
-			i := Search(size, func(i int) bool { return i >= targ })
+			i := sort.Search(size, func(i int) bool { return i >= targ })
 			if i != targ {
 				t.Errorf("Search(%d, %d) = %d", size, targ, i)
 			}

@@ -6,7 +6,8 @@ package sort_test
 
 import (
 	"fmt"
-	"sort"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 // A couple of type definitions to make the units clear.

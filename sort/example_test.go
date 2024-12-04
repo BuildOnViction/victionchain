@@ -7,7 +7,8 @@ package sort_test
 import (
 	"fmt"
 	"math"
-	"sort"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 func ExampleInts() {

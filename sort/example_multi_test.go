@@ -6,7 +6,8 @@ package sort_test
 
 import (
 	"fmt"
-	"sort"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 // A Change is a record of source code changes, recording user, language, and delta size.
