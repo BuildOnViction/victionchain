@@ -24,7 +24,6 @@ import (
 	"crypto/rand"
 	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
-	"sort"
 	"sync"
 	"testing"
 
@@ -40,6 +39,7 @@ import (
 	"github.com/tomochain/tomochain/p2p"
 	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/sort"
 )
 
 var (

@@ -33,11 +33,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const SizeLimit = 300 // maximum encoded size of a node record in bytes

@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"math/big"
-	"sort"
 	"strings"
 	"time"
 
@@ -50,6 +49,7 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

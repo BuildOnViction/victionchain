@@ -1,8 +1,9 @@
 package metrics
 
 import (
-	"sort"
 	"testing"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 func TestMetricsSorting(t *testing.T) {

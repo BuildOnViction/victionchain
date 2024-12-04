@@ -29,7 +29,6 @@ import (
 	"fmt"
 	mrand "math/rand"
 	"net"
-	"sort"
 	"sync"
 	"time"
 
@@ -37,6 +36,7 @@ import (
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/p2p/netutil"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

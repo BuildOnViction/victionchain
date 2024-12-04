@@ -17,10 +17,11 @@
 package jsre
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/dop251/goja"
+	
+	"github.com/tomochain/tomochain/sort"
 )
 
 // CompleteKeywords returns potential continuations for the given line. Since line is

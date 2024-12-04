@@ -21,7 +21,6 @@ import (
 	"math"
 	"reflect"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/node"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/sort"
 	"gopkg.in/urfave/cli.v1"
 )
 

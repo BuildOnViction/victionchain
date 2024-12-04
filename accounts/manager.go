@@ -17,11 +17,11 @@
 package accounts
 
 import (
-	"reflect"
-	"sort"
+	"reflect"	
 	"sync"
 
 	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // Manager is an overarching account manager that can communicate with various

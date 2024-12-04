@@ -21,8 +21,8 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
+	"github.com/tomochain/tomochain/sort"
 	"math/big"
-	"sort"
 )
 
 type DumpOrderList struct {

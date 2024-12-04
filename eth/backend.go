@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -62,6 +61,7 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rpc"
 	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/sort"
 )
 
 type LesServer interface {

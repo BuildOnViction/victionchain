@@ -25,7 +25,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,6 +33,7 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/log"
 	"golang.org/x/crypto/ssh/terminal"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // config contains all the configurations needed by puppeth that should be saved

@@ -19,12 +19,12 @@ package memorydb
 
 import (
 	"errors"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/sort"
 )
 
 var (

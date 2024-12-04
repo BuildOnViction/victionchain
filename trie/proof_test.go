@@ -20,13 +20,13 @@ import (
 	"bytes"
 	crand "crypto/rand"
 	mrand "math/rand"
-	"sort"
 	"testing"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/ethdb/memorydb"
+	"github.com/tomochain/tomochain/sort"
 )
 
 func init() {

@@ -20,7 +20,6 @@ package state
 import (
 	"fmt"
 	"math/big"
-	"sort"
 	"sync"
 
 	"github.com/tomochain/tomochain/common"
@@ -29,6 +28,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
+	"github.com/tomochain/tomochain/sort"
 )
 
 type revision struct {

@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +30,7 @@ import (
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // Minimum amount of time between cache reloads. This limit applies if the platform does

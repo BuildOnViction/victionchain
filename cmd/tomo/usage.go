@@ -20,10 +20,10 @@ package main
 
 import (
 	"io"
-	"sort"
 
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/internal/debug"
+	"github.com/tomochain/tomochain/sort"
 	"gopkg.in/urfave/cli.v1"
 )
 

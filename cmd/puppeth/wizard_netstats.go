@@ -19,13 +19,13 @@ package main
 import (
 	"encoding/json"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // networkStats verifies the status of network components and generates a protip

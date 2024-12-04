@@ -22,11 +22,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/tomochain/tomochain/swarm/api"
 	"github.com/tomochain/tomochain/swarm/testutil"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // TestClientUploadDownloadRaw test uploading and downloading raw data to swarm

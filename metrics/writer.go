@@ -3,8 +3,9 @@ package metrics
 import (
 	"fmt"
 	"io"
-	"sort"
 	"time"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 // Write sorts writes each metric in the given registry periodically to the

@@ -20,11 +20,11 @@ import (
 	"container/heap"
 	"math"
 	"math/big"
-	"sort"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for

@@ -17,14 +17,14 @@
 package kademlia
 
 import (
-	"fmt"
-	"sort"
+	"fmt"	
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
+	"github.com/tomochain/tomochain/sort"
 )
 
 //metrics variables

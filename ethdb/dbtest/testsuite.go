@@ -19,10 +19,10 @@ package dbtest
 import (
 	"bytes"
 	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // TestDatabaseSuite runs a suite of tests against a KeyValueStore database

@@ -3,9 +3,10 @@ package metrics
 import (
 	"math"
 	"math/rand"
-	"sort"
 	"sync"
 	"time"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 const rescaleThreshold = time.Hour

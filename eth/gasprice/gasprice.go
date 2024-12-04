@@ -19,7 +19,6 @@ package gasprice
 import (
 	"context"
 	"math/big"
-	"sort"
 	"sync"
 
 	"github.com/tomochain/tomochain/common"
@@ -27,6 +26,7 @@ import (
 	"github.com/tomochain/tomochain/internal/ethapi"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/sort"
 )
 
 var maxPrice = big.NewInt(500 * params.Shannon)

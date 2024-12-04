@@ -22,8 +22,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"strings"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 var lan4, lan6, special4, special6 Netlist

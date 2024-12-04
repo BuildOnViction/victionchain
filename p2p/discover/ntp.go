@@ -22,10 +22,10 @@ package discover
 import (
 	"fmt"
 	"net"
-	"sort"
 	"time"
 
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

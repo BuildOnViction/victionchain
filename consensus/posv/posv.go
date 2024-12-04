@@ -26,7 +26,6 @@ import (
 	"math/rand"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -51,6 +50,7 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

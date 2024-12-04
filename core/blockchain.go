@@ -23,7 +23,6 @@ import (
 	"io"
 	"math/big"
 	"os"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,6 +50,7 @@ import (
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
+	"github.com/tomochain/tomochain/sort"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
