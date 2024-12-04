@@ -25,11 +25,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"sort"
 	"strings"
 	"testing"
 
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/sort"
 )
 
 var (

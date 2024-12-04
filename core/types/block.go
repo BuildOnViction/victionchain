@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"sort"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -31,6 +30,7 @@ import (
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/sort"
 )
 
 var (

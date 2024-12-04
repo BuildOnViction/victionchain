@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"sort"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/mclock"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

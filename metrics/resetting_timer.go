@@ -2,9 +2,10 @@ package metrics
 
 import (
 	"math"
-	"sort"
 	"sync"
 	"time"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 // Initial slice capacity for the values stored in a ResettingTimer

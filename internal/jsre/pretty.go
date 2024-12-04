@@ -20,12 +20,13 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/dop251/goja"
 	"github.com/fatih/color"
+
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

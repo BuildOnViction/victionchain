@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -44,6 +43,7 @@ import (
 	"github.com/tomochain/tomochain/swarm"
 	bzzapi "github.com/tomochain/tomochain/swarm/api"
 	swarmmetrics "github.com/tomochain/tomochain/swarm/metrics"
+	"github.com/tomochain/tomochain/sort"
 
 	"gopkg.in/urfave/cli.v1"
 )

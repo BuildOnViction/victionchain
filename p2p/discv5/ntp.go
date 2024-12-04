@@ -22,11 +22,11 @@ package discv5
 import (
 	"fmt"
 	"net"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/tomochain/tomochain/log"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

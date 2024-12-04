@@ -22,7 +22,6 @@ import (
 	"github.com/tomochain/tomochain/consensus"
 	"math"
 	"math/big"
-	"sort"
 	"sync"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/sort"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

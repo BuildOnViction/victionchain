@@ -21,7 +21,6 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +28,7 @@ import (
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/event"
+	"github.com/tomochain/tomochain/sort"
 )
 
 var testSigData = make([]byte, 32)

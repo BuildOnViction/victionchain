@@ -22,8 +22,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"reflect"
-	"sort"
+	"reflect"	
 	"testing"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/sort"
 )
 
 var (
