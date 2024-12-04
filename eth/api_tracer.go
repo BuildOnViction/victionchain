@@ -473,6 +473,8 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 
 		vmenv := vm.NewEVM(vmctx, statedb, tomoxState, api.config, vm.Config{})
 		owner := common.Address{}
+
+		bypassBlacklistAddresses(*block.Number(), tx.From().Hex(), statedb)
 		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
 			failed = err
 			break
@@ -626,14 +628,100 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 	default:
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
+
+	bypassBlacklistAddresses(*vmctx.BlockNumber, message.From().Hex(), statedb)
 	// Run the transaction with tracing enabled.
 	vmenv := vm.NewEVM(vmctx, statedb, nil, api.config, vm.Config{Debug: true, Tracer: tracer})
 
 	owner := common.Address{}
 	
+	ret, gas, failed, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()), owner)
+	if err != nil {
+		return nil, fmt.Errorf("tracing failed: %v", err)
+	}
+	// Depending on the tracer type, format and return the output
+	switch tracer := tracer.(type) {
+	case *vm.StructLogger:
+		return &ethapi.ExecutionResult{
+			Gas:         gas,
+			Failed:      failed,
+			ReturnValue: fmt.Sprintf("%x", ret),
+			StructLogs:  ethapi.FormatLogs(tracer.StructLogs()),
+		}, nil
+
+	case *tracers.Tracer:
+		return tracer.GetResult()
+
+	default:
+		panic(fmt.Sprintf("bad tracer type %T", tracer))
+	}
+}
+
+// computeTxEnv returns the execution environment of a certain transaction.
+func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (core.Message, vm.Context, *state.StateDB, error) {
+	// Create the parent state database
+	block := api.eth.blockchain.GetBlockByHash(blockHash)
+	if block == nil {
+		return nil, vm.Context{}, nil, fmt.Errorf("block %x not found", blockHash)
+	}
+	parent := api.eth.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+	if parent == nil {
+		return nil, vm.Context{}, nil, fmt.Errorf("parent %x not found", block.ParentHash())
+	}
+	statedb, tomoxState, err := api.computeStateDB(parent, reexec)
+	if err != nil {
+		return nil, vm.Context{}, nil, err
+	}
+	// Recompute transactions up to the target index.
+	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
+	if common.TIPSigningBlock.Cmp(block.Header().Number) == 0 {
+		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
+	}
+	core.InitSignerInTransactions(api.config, block.Header(), block.Transactions())
+	balanceUpdated := map[common.Address]*big.Int{}
+	totalFeeUsed := big.NewInt(0)
+	gp := new(core.GasPool).AddGas(block.GasLimit())
+	usedGas := new(uint64)
+	// Iterate over and process the individual transactions
+	for idx, tx := range block.Transactions() {
+		statedb.Prepare(tx.Hash(), block.Hash(), idx)
+		if idx == txIndex {
+			var balanceFee *big.Int
+			if tx.To() != nil {
+				if value, ok := feeCapacity[*tx.To()]; ok {
+					balanceFee = value
+				}
+			}
+			msg, err := tx.AsMessage(types.MakeSigner(api.config, block.Header().Number), balanceFee, block.Number(), false)
+			if err != nil {
+				return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
+			}
+			context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
+			return msg, context, statedb, nil
+		}
+		_, gas, err, tokenFeeUsed := core.ApplyTransaction(api.config, feeCapacity, api.eth.blockchain, nil, gp, statedb, tomoxState, block.Header(), tx, usedGas, vm.Config{})
+		if err != nil {
+			return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
+		}
+
+		if tokenFeeUsed {
+			fee := new(big.Int).SetUint64(gas)
+			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
+				fee = fee.Mul(fee, common.TRC21GasPrice)
+			}
+			feeCapacity[*tx.To()] = new(big.Int).Sub(feeCapacity[*tx.To()], fee)
+			balanceUpdated[*tx.To()] = feeCapacity[*tx.To()]
+			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+		}
+	}
+	statedb.DeleteSuicides()
+	return nil, vm.Context{}, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
+}
+
+func bypassBlacklistAddresses(currentBlockNumber big.Int, addrFrom string, statedb *state.StateDB) {
 	// Bypass blacklist address
 	maxBlockNumber := new(big.Int).SetInt64(9147459)
-	if vmctx.BlockNumber.Cmp(maxBlockNumber) <= 0 {
+	if currentBlockNumber.Cmp(maxBlockNumber) <= 0 {
 		addrMap := make(map[string]string)
 		addrMap["0x5248bfb72fd4f234e062d3e9bb76f08643004fcd"] = "29410"
 		addrMap["0x5ac26105b35ea8935be382863a70281ec7a985e9"] = "23551"
@@ -759,10 +847,7 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 		blockMap[9147453] = "0x3538a544021c07869c16b764424c5987409cba48"
 		blockMap[9147459] = "0xe187cf86c2274b1f16e8225a7da9a75aba4f1f5f"
 
-		addrFrom := message.From().Hex()
-
-		currentBlockNumber := vmctx.BlockNumber.Int64()
-		if addr, ok := blockMap[currentBlockNumber]; ok {
+		if addr, ok := blockMap[currentBlockNumber.Int64()]; ok {
 			if strings.ToLower(addr) == strings.ToLower(addrFrom) {
 				bal := addrMap[addr]
 				hBalance := new(big.Int)
@@ -773,87 +858,4 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 			}
 		}
 	}
-	// End Bypass blacklist address
-	
-	ret, gas, failed, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()), owner)
-	if err != nil {
-		return nil, fmt.Errorf("tracing failed: %v", err)
-	}
-	// Depending on the tracer type, format and return the output
-	switch tracer := tracer.(type) {
-	case *vm.StructLogger:
-		return &ethapi.ExecutionResult{
-			Gas:         gas,
-			Failed:      failed,
-			ReturnValue: fmt.Sprintf("%x", ret),
-			StructLogs:  ethapi.FormatLogs(tracer.StructLogs()),
-		}, nil
-
-	case *tracers.Tracer:
-		return tracer.GetResult()
-
-	default:
-		panic(fmt.Sprintf("bad tracer type %T", tracer))
-	}
-}
-
-// computeTxEnv returns the execution environment of a certain transaction.
-func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (core.Message, vm.Context, *state.StateDB, error) {
-	// Create the parent state database
-	block := api.eth.blockchain.GetBlockByHash(blockHash)
-	if block == nil {
-		return nil, vm.Context{}, nil, fmt.Errorf("block %x not found", blockHash)
-	}
-	parent := api.eth.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
-	if parent == nil {
-		return nil, vm.Context{}, nil, fmt.Errorf("parent %x not found", block.ParentHash())
-	}
-	statedb, tomoxState, err := api.computeStateDB(parent, reexec)
-	if err != nil {
-		return nil, vm.Context{}, nil, err
-	}
-	// Recompute transactions up to the target index.
-	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-	if common.TIPSigningBlock.Cmp(block.Header().Number) == 0 {
-		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
-	}
-	core.InitSignerInTransactions(api.config, block.Header(), block.Transactions())
-	balanceUpdated := map[common.Address]*big.Int{}
-	totalFeeUsed := big.NewInt(0)
-	gp := new(core.GasPool).AddGas(block.GasLimit())
-	usedGas := new(uint64)
-	// Iterate over and process the individual transactions
-	for idx, tx := range block.Transactions() {
-		statedb.Prepare(tx.Hash(), block.Hash(), idx)
-		if idx == txIndex {
-			var balanceFee *big.Int
-			if tx.To() != nil {
-				if value, ok := feeCapacity[*tx.To()]; ok {
-					balanceFee = value
-				}
-			}
-			msg, err := tx.AsMessage(types.MakeSigner(api.config, block.Header().Number), balanceFee, block.Number(), false)
-			if err != nil {
-				return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
-			}
-			context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
-			return msg, context, statedb, nil
-		}
-		_, gas, err, tokenFeeUsed := core.ApplyTransaction(api.config, feeCapacity, api.eth.blockchain, nil, gp, statedb, tomoxState, block.Header(), tx, usedGas, vm.Config{})
-		if err != nil {
-			return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
-		}
-
-		if tokenFeeUsed {
-			fee := new(big.Int).SetUint64(gas)
-			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
-				fee = fee.Mul(fee, common.TRC21GasPrice)
-			}
-			feeCapacity[*tx.To()] = new(big.Int).Sub(feeCapacity[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = feeCapacity[*tx.To()]
-			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
-		}
-	}
-	statedb.DeleteSuicides()
-	return nil, vm.Context{}, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
 }
