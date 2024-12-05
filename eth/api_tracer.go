@@ -474,7 +474,9 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 		vmenv := vm.NewEVM(vmctx, statedb, tomoxState, api.config, vm.Config{})
 		owner := common.Address{}
 
-		bypassBlacklistAddresses(*block.Number(), tx.From().Hex(), statedb)
+		if common.Blacklist[msg.From()] {
+			bypassBlacklistAddresses(*block.Number(), tx.From().Hex(), statedb)
+		}
 		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
 			failed = err
 			break
@@ -629,12 +631,14 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
 
-	bypassBlacklistAddresses(*vmctx.BlockNumber, message.From().Hex(), statedb)
 	// Run the transaction with tracing enabled.
 	vmenv := vm.NewEVM(vmctx, statedb, nil, api.config, vm.Config{Debug: true, Tracer: tracer})
 
 	owner := common.Address{}
-	
+
+	if common.Blacklist[message.From()] {
+		bypassBlacklistAddresses(*vmctx.BlockNumber, message.From().Hex(), statedb)
+	}
 	ret, gas, failed, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()), owner)
 	if err != nil {
 		return nil, fmt.Errorf("tracing failed: %v", err)
@@ -848,7 +852,7 @@ func bypassBlacklistAddresses(currentBlockNumber big.Int, addrFrom string, state
 		blockMap[9147459] = "0xe187cf86c2274b1f16e8225a7da9a75aba4f1f5f"
 
 		if addr, ok := blockMap[currentBlockNumber.Int64()]; ok {
-			if strings.ToLower(addr) == strings.ToLower(addrFrom) {
+			if strings.EqualFold(addr, addrFrom) {
 				bal := addrMap[addr]
 				hBalance := new(big.Int)
 				hBalance.SetString(bal+"000000000000000000", 10)
