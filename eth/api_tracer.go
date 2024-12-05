@@ -475,7 +475,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 		owner := common.Address{}
 
 		if common.Blacklist[msg.From()] {
-			bypassBlacklistAddresses(*block.Number(), tx.From().Hex(), statedb)
+			resolveBlacklistBalance(*block.Number(), tx.From().Hex(), statedb)
 		}
 		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
 			failed = err
@@ -637,7 +637,7 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 	owner := common.Address{}
 
 	if common.Blacklist[message.From()] {
-		bypassBlacklistAddresses(*vmctx.BlockNumber, message.From().Hex(), statedb)
+		resolveBlacklistBalance(*vmctx.BlockNumber, message.From().Hex(), statedb)
 	}
 	ret, gas, failed, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()), owner)
 	if err != nil {
@@ -722,7 +722,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	return nil, vm.Context{}, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
 }
 
-func bypassBlacklistAddresses(currentBlockNumber big.Int, addrFrom string, statedb *state.StateDB) {
+func resolveBlacklistBalance(currentBlockNumber big.Int, addrFrom string, statedb *state.StateDB) {
 	// Bypass blacklist address
 	maxBlockNumber := new(big.Int).SetInt64(9147459)
 	if currentBlockNumber.Cmp(maxBlockNumber) <= 0 {
