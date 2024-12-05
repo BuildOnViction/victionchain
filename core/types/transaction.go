@@ -23,11 +23,16 @@ import (
 	"io"
 	"math/big"
 	"sync/atomic"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
+)
+
+const (
+	LegacyTxType = 0x00
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -53,28 +58,116 @@ func deriveSigner(V *big.Int) Signer {
 }
 
 type Transaction struct {
-	data txdata
+	inner TxData    // Consensus contents of a transaction
+	time  time.Time // Time first seen locally (spam avoidance)
 	// caches
 	hash atomic.Value
 	size atomic.Value
 	from atomic.Value
 }
 
-type txdata struct {
-	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
-	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
-	GasLimit     uint64          `json:"gas"      gencodec:"required"`
-	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
-	Amount       *big.Int        `json:"value"    gencodec:"required"`
-	Payload      []byte          `json:"input"    gencodec:"required"`
+// TxData is the underlying data of a transaction.
+// This is implemented by LegacyTx and AccessListTx.
+type TxData interface {
+	txType() byte // returns the type ID
+	copy() TxData // creates a deep copy and initializes all fields
 
-	// Signature values
-	V *big.Int `json:"v" gencodec:"required"`
-	R *big.Int `json:"r" gencodec:"required"`
-	S *big.Int `json:"s" gencodec:"required"`
+	chainID() *big.Int
+	data() []byte
+	gas() uint64
+	gasPrice() *big.Int
+	value() *big.Int
+	nonce() uint64
+	to() *common.Address
 
-	// This is only used when marshaling to JSON.
-	Hash *common.Hash `json:"hash" rlp:"-"`
+	rawSignatureValues() (v, r, s *big.Int)
+	setSignatureValues(chainID, v, r, s *big.Int)
+}
+
+// NewTx creates a new transaction.
+func NewTx(inner TxData) *Transaction {
+	tx := new(Transaction)
+	tx.setDecoded(inner.copy(), 0)
+	return tx
+}
+
+// setDecoded sets the inner transaction and size after decoding.
+func (tx *Transaction) setDecoded(inner TxData, size int) {
+	tx.inner = inner
+	tx.time = time.Now()
+	if size > 0 {
+		tx.size.Store(common.StorageSize(size))
+	}
+}
+
+// Type returns type of transaction
+func (tx *Transaction) Type() uint8 {
+	return tx.inner.txType()
+}
+
+// Data returns data of transaction
+func (tx *Transaction) Data() []byte {
+	return tx.inner.data()
+}
+
+// Gas returns gas limit of transaciton
+func (tx *Transaction) Gas() uint64 {
+	return tx.inner.gas()
+}
+
+// GasPrice returns gas price in wei of transaction
+func (tx *Transaction) GasPrice() *big.Int {
+	return tx.inner.gasPrice()
+}
+
+// Value returns amount native coin of transaction
+func (tx *Transaction) Value() *big.Int {
+	return tx.inner.value()
+}
+
+// Nonce returns nonce of send on transaction
+func (tx *Transaction) Nonce() uint64 {
+	return tx.inner.nonce()
+}
+
+// To returns recipient of transaction
+func (tx *Transaction) To() *common.Address {
+	ito := tx.inner.to()
+	if ito == nil {
+		return nil
+	}
+	cpy := *ito
+	return &cpy
+}
+
+// Cost returns gas * gasPrice + value (amount)
+func (tx *Transaction) Cost() *big.Int {
+	total := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
+	total.Add(total, tx.Value())
+	return total
+}
+
+// TRC21Cost returns amount + gasprice * gaslimit.
+func (tx *Transaction) TRC21Cost() *big.Int {
+	total := new(big.Int).Mul(common.TRC21GasPrice, new(big.Int).SetUint64(tx.inner.copy().gas()))
+	total.Add(total, tx.Value())
+	return total
+}
+
+// return R, S, V signature values of transaction
+func (tx *Transaction) RawSignatureValues() (v, r, s *big.Int) {
+	return tx.inner.rawSignatureValues()
+}
+
+// return the true RLP encoded storage size of transaction, either by encoding and returning it, or returning a previously cached value.
+func (tx *Transaction) Size() common.StorageSize {
+	if size := tx.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	c := writeCounter(0)
+	rlp.Encode(&c, &tx.inner)
+	tx.size.Store(common.StorageSize(c))
+	return common.StorageSize(c)
 }
 
 type txdataMarshaling struct {
@@ -88,53 +181,25 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
-}
-
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
-}
-
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	if len(data) > 0 {
-		data = common.CopyBytes(data)
-	}
-	d := txdata{
-		AccountNonce: nonce,
-		Recipient:    to,
-		Payload:      data,
-		Amount:       new(big.Int),
-		GasLimit:     gasLimit,
-		Price:        new(big.Int),
-		V:            new(big.Int),
-		R:            new(big.Int),
-		S:            new(big.Int),
-	}
-	if amount != nil {
-		d.Amount.Set(amount)
-	}
-	if gasPrice != nil {
-		d.Price.Set(gasPrice)
-	}
-
-	return &Transaction{data: d}
-}
-
 // ChainId returns which chain id this transaction was signed for (if at all)
 func (tx *Transaction) ChainId() *big.Int {
-	return deriveChainId(tx.data.V)
+	return tx.inner.chainID()
 }
 
 // Protected returns whether the transaction is protected from replay protection.
 func (tx *Transaction) Protected() bool {
-	return isProtectedV(tx.data.V)
+	switch tx := tx.inner.(type) {
+	case *LegacyTx:
+		return tx.V != nil && isProtectedV(tx.V)
+	default:
+		return true
+	}
 }
 
 func isProtectedV(V *big.Int) bool {
 	if V.BitLen() <= 8 {
 		v := V.Uint64()
-		return v != 27 && v != 28
+		return v != 27 && v != 28 && v != 1 && v != 0
 	}
 	// anything not 27 or 28 are considered unprotected
 	return true
@@ -285,13 +350,6 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 // Cost returns amount + gasprice * gaslimit.
 func (tx *Transaction) Cost() *big.Int {
 	total := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))
-	total.Add(total, tx.data.Amount)
-	return total
-}
-
-// Cost returns amount + gasprice * gaslimit.
-func (tx *Transaction) TRC21Cost() *big.Int {
-	total := new(big.Int).Mul(common.TRC21GasPrice, new(big.Int).SetUint64(tx.data.GasLimit))
 	total.Add(total, tx.data.Amount)
 	return total
 }
@@ -714,3 +772,12 @@ func (m Message) Gas() uint64               { return m.gasLimit }
 func (m Message) Nonce() uint64             { return m.nonce }
 func (m Message) Data() []byte              { return m.data }
 func (m Message) CheckNonce() bool          { return m.checkNonce }
+
+// copyAddressPtr copies an address.
+func copyAddressPtr(a *common.Address) *common.Address {
+	if a == nil {
+		return nil
+	}
+	cpy := *a
+	return &cpy
+}
