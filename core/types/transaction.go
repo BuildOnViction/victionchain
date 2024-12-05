@@ -17,6 +17,7 @@
 package types
 
 import (
+	"bytes"
 	"container/heap"
 	"errors"
 	"fmt"
@@ -38,8 +39,12 @@ const (
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
 
 var (
-	ErrInvalidSig               = errors.New("invalid transaction v, r, s values")
-	errNoSigner                 = errors.New("missing signing methods")
+	ErrInvalidSig           = errors.New("invalid transaction v, r, s values")
+	errNoSigner             = errors.New("missing signing methods")
+	ErrUnexpectedProtection = errors.New("transaction type does not supported EIP-155 protected signatures")
+	ErrShortTypedTx         = errors.New("typed transaction too short")
+	ErrTxTypeNotSupported   = errors.New("transaction type not supported")
+
 	skipNonceDestinationAddress = map[string]bool{
 		common.TomoXAddr:                         true,
 		common.TradingStateAddr:                  true,
@@ -82,6 +87,9 @@ type TxData interface {
 
 	rawSignatureValues() (v, r, s *big.Int)
 	setSignatureValues(chainID, v, r, s *big.Int)
+
+	encode(*bytes.Buffer) error
+	decode([]byte) error
 }
 
 // NewTx creates a new transaction.
@@ -92,12 +100,36 @@ func NewTx(inner TxData) *Transaction {
 }
 
 // setDecoded sets the inner transaction and size after decoding.
-func (tx *Transaction) setDecoded(inner TxData, size int) {
+func (tx *Transaction) setDecoded(inner TxData, size uint64) {
 	tx.inner = inner
 	tx.time = time.Now()
 	if size > 0 {
 		tx.size.Store(common.StorageSize(size))
 	}
+}
+
+func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected bool) error {
+	if isProtectedV(v) && !maybeProtected {
+		return ErrUnexpectedProtection
+	}
+	var plainV byte
+	if isProtectedV(v) {
+		chainID := deriveChainId(v).Uint64()
+		plainV = byte(v.Uint64() - 35 - 2*chainID)
+	} else if maybeProtected {
+		plainV = byte(v.Uint64() - 27)
+	} else {
+		plainV = byte(v.Uint64())
+	}
+	if !crypto.ValidateSignatureValues(plainV, r, s, false) {
+		return ErrInvalidSig
+	}
+	return nil
+}
+
+// ChainId returns which chain id this transaction was signed for (if at all)
+func (tx *Transaction) ChainId() *big.Int {
+	return tx.inner.chainID()
 }
 
 // Type returns type of transaction
@@ -128,6 +160,21 @@ func (tx *Transaction) Value() *big.Int {
 // Nonce returns nonce of send on transaction
 func (tx *Transaction) Nonce() uint64 {
 	return tx.inner.nonce()
+}
+
+// From returns creator of transaction
+func (tx *Transaction) From() *common.Address {
+	v, _, _ := tx.RawSignatureValues()
+	if v != nil {
+		signer := deriveSigner(v)
+		if f, err := Sender(signer, tx); err != nil {
+			return nil
+		} else {
+			return &f
+		}
+	} else {
+		return nil
+	}
 }
 
 // To returns recipient of transaction
@@ -170,22 +217,6 @@ func (tx *Transaction) Size() common.StorageSize {
 	return common.StorageSize(c)
 }
 
-type txdataMarshaling struct {
-	AccountNonce hexutil.Uint64
-	Price        *hexutil.Big
-	GasLimit     hexutil.Uint64
-	Amount       *hexutil.Big
-	Payload      hexutil.Bytes
-	V            *hexutil.Big
-	R            *hexutil.Big
-	S            *hexutil.Big
-}
-
-// ChainId returns which chain id this transaction was signed for (if at all)
-func (tx *Transaction) ChainId() *big.Int {
-	return tx.inner.chainID()
-}
-
 // Protected returns whether the transaction is protected from replay protection.
 func (tx *Transaction) Protected() bool {
 	switch tx := tx.inner.(type) {
@@ -205,20 +236,81 @@ func isProtectedV(V *big.Int) bool {
 	return true
 }
 
+// encodeTyped writes the canonical encoding of a typed transaction to w.
+func (tx *Transaction) encodeTyped(w *bytes.Buffer) error {
+	w.WriteByte(tx.Type())
+	return tx.inner.encode(w)
+}
+
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, &tx.data)
+	if tx.Type() == LegacyTxType {
+		return rlp.Encode(w, &tx.inner)
+	}
+	buffer := encodeBufferPool.Get().(*bytes.Buffer)
+	defer encodeBufferPool.Put(buffer)
+	buffer.Reset()
+	if err := tx.encodeTyped(buffer); err != nil {
+		return err
+	}
+	return rlp.Encode(w, buffer.Bytes())
 }
 
 // DecodeRLP implements rlp.Decoder
 func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
-	_, size, _ := s.Kind()
-	err := s.Decode(&tx.data)
-	if err == nil {
-		tx.size.Store(common.StorageSize(rlp.ListSize(size)))
+	kind, size, err := s.Kind()
+	switch {
+	case err != nil:
+		return err
+	case kind == rlp.List: // LegacyTxType
+		var inner LegacyTx
+		err := s.Decode(&inner)
+		if err == nil {
+			tx.setDecoded(&inner, rlp.ListSize(size))
+		}
+		return err
+	case kind == rlp.Byte:
+		return ErrShortTypedTx
+	default:
+		// It's an EIP-2718 typed TX envelope.
+		// First read the tx payload bytes into a temporary buffer.
+		b, buf, err := getPooledBuffer(size)
+		if err != nil {
+			return err
+		}
+		defer encodeBufferPool.Put(buf)
+		if err := s.ReadBytes(b); err != nil {
+			return err
+		}
+		// Now decode the inner transaction.
+		inner, err := tx.decodeTyped(b)
+		if err == nil {
+			tx.setDecoded(inner, size)
+		}
+		return err
 	}
+}
 
-	return err
+// decodeTyped decodes a typed transaction from the canonical format.
+func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
+	if len(b) <= 1 {
+		return nil, ErrShortTypedTx
+	}
+	switch b[0] {
+	default:
+		return nil, ErrTxTypeNotSupported
+	}
+}
+
+type txdataMarshaling struct {
+	AccountNonce hexutil.Uint64
+	Price        *hexutil.Big
+	GasLimit     hexutil.Uint64
+	Amount       *hexutil.Big
+	Payload      hexutil.Bytes
+	V            *hexutil.Big
+	R            *hexutil.Big
+	S            *hexutil.Big
 }
 
 // MarshalJSON encodes the web3 RPC transaction format.
@@ -249,36 +341,6 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
-func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
-func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
-func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
-func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
-func (tx *Transaction) CheckNonce() bool   { return true }
-
-// To returns the recipient address of the transaction.
-// It returns nil if the transaction is a contract creation.
-func (tx *Transaction) To() *common.Address {
-	if tx.data.Recipient == nil {
-		return nil
-	}
-	to := *tx.data.Recipient
-	return &to
-}
-
-func (tx *Transaction) From() *common.Address {
-	if tx.data.V != nil {
-		signer := deriveSigner(tx.data.V)
-		if f, err := Sender(signer, tx); err != nil {
-			return nil
-		} else {
-			return &f
-		}
-	} else {
-		return nil
-	}
-}
-
 // Hash hashes the RLP encoding of tx.
 // It uniquely identifies the transaction.
 func (tx *Transaction) Hash() common.Hash {
@@ -293,18 +355,6 @@ func (tx *Transaction) Hash() common.Hash {
 func (tx *Transaction) CacheHash() {
 	v := rlpHash(tx)
 	tx.hash.Store(v)
-}
-
-// Size returns the true RLP encoded storage size of the transaction, either by
-// encoding and returning it, or returning a previsouly cached value.
-func (tx *Transaction) Size() common.StorageSize {
-	if size := tx.size.Load(); size != nil {
-		return size.(common.StorageSize)
-	}
-	c := writeCounter(0)
-	rlp.Encode(&c, &tx.data)
-	tx.size.Store(common.StorageSize(c))
-	return common.StorageSize(c)
 }
 
 // AsMessage returns the transaction as a core.Message.
@@ -345,17 +395,6 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	cpy := &Transaction{data: tx.data}
 	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
 	return cpy, nil
-}
-
-// Cost returns amount + gasprice * gaslimit.
-func (tx *Transaction) Cost() *big.Int {
-	total := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))
-	total.Add(total, tx.data.Amount)
-	return total
-}
-
-func (tx *Transaction) RawSignatureValues() (*big.Int, *big.Int, *big.Int) {
-	return tx.data.V, tx.data.R, tx.data.S
 }
 
 func (tx *Transaction) IsSpecialTransaction() bool {
