@@ -61,6 +61,13 @@ func medianOfThree_func(data lessSwap, m1, m0, m2 int) {
 	}
 }
 
+// Auto-generated variant of sort.go:swapRange
+func swapRange_func(data lessSwap, a, b, n int) {
+	for i := 0; i < n; i++ {
+		data.Swap(a+i, b+i)
+	}
+}
+
 // Auto-generated variant of sort.go:doPivot
 func doPivot_func(data lessSwap, lo, hi int) (midlo, midhi int) {
 	m := int(uint(lo+hi) >> 1)
@@ -150,4 +157,109 @@ func quickSort_func(data lessSwap, a, b, maxDepth int) {
 		}
 		insertionSort_func(data, a, b)
 	}
+}
+
+// Auto-generated variant of sort.go:stable
+func stable_func(data lessSwap, n int) {
+	blockSize := 20
+	a, b := 0, blockSize
+	for b <= n {
+		insertionSort_func(data, a, b)
+		a = b
+		b += blockSize
+	}
+	insertionSort_func(data, a, n)
+	for blockSize < n {
+		a, b = 0, 2*blockSize
+		for b <= n {
+			symMerge_func(data, a, a+blockSize, b)
+			a = b
+			b += 2 * blockSize
+		}
+		if m := a + blockSize; m < n {
+			symMerge_func(data, a, m, n)
+		}
+		blockSize *= 2
+	}
+}
+
+// Auto-generated variant of sort.go:symMerge
+func symMerge_func(data lessSwap, a, m, b int) {
+	if m-a == 1 {
+		i := m
+		j := b
+		for i < j {
+			h := int(uint(i+j) >> 1)
+			if data.Less(h, a) {
+				i = h + 1
+			} else {
+				j = h
+			}
+		}
+		for k := a; k < i-1; k++ {
+			data.Swap(k, k+1)
+		}
+		return
+	}
+	if b-m == 1 {
+		i := a
+		j := m
+		for i < j {
+			h := int(uint(i+j) >> 1)
+			if !data.Less(m, h) {
+				i = h + 1
+			} else {
+				j = h
+			}
+		}
+		for k := m; k > i; k-- {
+			data.Swap(k, k-1)
+		}
+		return
+	}
+	mid := int(uint(a+b) >> 1)
+	n := mid + m
+	var start, r int
+	if m > mid {
+		start = n - b
+		r = mid
+	} else {
+		start = a
+		r = m
+	}
+	p := n - 1
+	for start < r {
+		c := int(uint(start+r) >> 1)
+		if !data.Less(p-c, c) {
+			start = c + 1
+		} else {
+			r = c
+		}
+	}
+	end := n - start
+	if start < m && m < end {
+		rotate_func(data, start, m, end)
+	}
+	if a < start && start < mid {
+		symMerge_func(data, a, start, mid)
+	}
+	if mid < end && end < b {
+		symMerge_func(data, mid, end, b)
+	}
+}
+
+// Auto-generated variant of sort.go:rotate
+func rotate_func(data lessSwap, a, m, b int) {
+	i := m - a
+	j := b - m
+	for i != j {
+		if i > j {
+			swapRange_func(data, m-i, m, j)
+			i -= j
+		} else {
+			swapRange_func(data, m-i, m+j-i, i)
+			j -= i
+		}
+	}
+	swapRange_func(data, m-i, m, i)
 }
