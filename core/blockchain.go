@@ -23,11 +23,11 @@ import (
 	"io"
 	"math/big"
 	"os"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/tomochain/tomochain/common/sort"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"github.com/tomochain/tomochain/accounts/abi/bind"
