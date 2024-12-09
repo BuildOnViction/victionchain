@@ -107,7 +107,7 @@ func doInstall(cmdline []string) {
 	)
 	flag.CommandLine.Parse(cmdline)
 	env := build.Env()
-	goinstall := goTool("install", buildFlags(env)...)
+	goinstall := goToolArch(*arch, *cc, "install", buildFlags(env)...)
 
 	if *race {
 		goinstall.Args = append(goinstall.Args, "-race")
