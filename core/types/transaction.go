@@ -313,34 +313,6 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-// MarshalJSON encodes the web3 RPC transaction format.
-func (tx *Transaction) MarshalJSON() ([]byte, error) {
-	hash := tx.Hash()
-	data := tx.data
-	data.Hash = &hash
-	return data.MarshalJSON()
-}
-
-// UnmarshalJSON decodes the web3 RPC transaction format.
-func (tx *Transaction) UnmarshalJSON(input []byte) error {
-	var dec txdata
-	if err := dec.UnmarshalJSON(input); err != nil {
-		return err
-	}
-	var V byte
-	if isProtectedV(dec.V) {
-		chainID := deriveChainId(dec.V).Uint64()
-		V = byte(dec.V.Uint64() - 35 - 2*chainID)
-	} else {
-		V = byte(dec.V.Uint64() - 27)
-	}
-	if !crypto.ValidateSignatureValues(V, dec.R, dec.S, false) {
-		return ErrInvalidSig
-	}
-	*tx = Transaction{data: dec}
-	return nil
-}
-
 // Hash hashes the RLP encoding of tx.
 // It uniquely identifies the transaction.
 func (tx *Transaction) Hash() common.Hash {
@@ -364,12 +336,12 @@ func (tx *Transaction) CacheHash() {
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int, checkNonce bool) (Message, error) {
 	msg := Message{
-		nonce:           tx.data.AccountNonce,
-		gasLimit:        tx.data.GasLimit,
-		gasPrice:        new(big.Int).Set(tx.data.Price),
-		to:              tx.data.Recipient,
-		amount:          tx.data.Amount,
-		data:            tx.data.Payload,
+		nonce:           tx.Nonce(),
+		gasLimit:        tx.Gas(),
+		gasPrice:        new(big.Int).Set(tx.GasPrice()),
+		to:              tx.To(),
+		amount:          tx.Value(),
+		data:            tx.Data(),
 		checkNonce:      checkNonce,
 		balanceTokenFee: balanceFee,
 	}
@@ -556,11 +528,10 @@ func (tx *Transaction) IsTomoZApplyTransaction() bool {
 
 func (tx *Transaction) String() string {
 	var from, to string
-	if tx.data.V != nil {
-		// make a best guess about the signer and use that to derive
-		// the sender.
-		signer := deriveSigner(tx.data.V)
-		if f, err := Sender(signer, tx); err != nil { // derive but don't cache
+	v, r, s := tx.RawSignatureValues()
+	if v != nil {
+		signer := deriveSigner(v)
+		if f, err := Sender(signer, tx); err != nil {
 			from = "[invalid sender: invalid sig]"
 		} else {
 			from = fmt.Sprintf("%x", f[:])
@@ -569,12 +540,14 @@ func (tx *Transaction) String() string {
 		from = "[invalid sender: nil V field]"
 	}
 
-	if tx.data.Recipient == nil {
+	if tx.Data() == nil {
 		to = "[contract creation]"
 	} else {
-		to = fmt.Sprintf("%x", tx.data.Recipient[:])
+		to = fmt.Sprintf("%x", tx.inner.to().Hex())
 	}
-	enc, _ := rlp.EncodeToBytes(&tx.data)
+
+	enc, _ := rlp.EncodeToBytes(&tx.inner)
+
 	return fmt.Sprintf(`
 	TX(%x)
 	Contract: %v
@@ -591,17 +564,17 @@ func (tx *Transaction) String() string {
 	Hex:      %x
 `,
 		tx.Hash(),
-		tx.data.Recipient == nil,
+		tx.inner.to() == nil,
 		from,
 		to,
-		tx.data.AccountNonce,
-		tx.data.Price,
-		tx.data.GasLimit,
-		tx.data.Amount,
-		tx.data.Payload,
-		tx.data.V,
-		tx.data.R,
-		tx.data.S,
+		tx.Nonce(),
+		tx.GasPrice(),
+		tx.Gas(),
+		tx.Value(),
+		tx.Data(),
+		v,
+		r,
+		s,
 		enc,
 	)
 }
@@ -645,7 +618,7 @@ func TxDifference(a, b Transactions) (keep Transactions) {
 type TxByNonce Transactions
 
 func (s TxByNonce) Len() int           { return len(s) }
-func (s TxByNonce) Less(i, j int) bool { return s[i].data.AccountNonce < s[j].data.AccountNonce }
+func (s TxByNonce) Less(i, j int) bool { return s[i].Nonce() < s[j].Nonce() }
 func (s TxByNonce) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // TxByPrice implements both the sort and the heap interface, making it useful
@@ -657,14 +630,14 @@ type TxByPrice struct {
 
 func (s TxByPrice) Len() int { return len(s.txs) }
 func (s TxByPrice) Less(i, j int) bool {
-	i_price := s.txs[i].data.Price
+	i_price := s.txs[i].inner.gasPrice()
 	if s.txs[i].To() != nil {
 		if _, ok := s.payersSwap[*s.txs[i].To()]; ok {
 			i_price = common.TRC21GasPrice
 		}
 	}
 
-	j_price := s.txs[j].data.Price
+	j_price := s.txs[j].inner.gasPrice()
 	if s.txs[j].To() != nil {
 		if _, ok := s.payersSwap[*s.txs[j].To()]; ok {
 			j_price = common.TRC21GasPrice
