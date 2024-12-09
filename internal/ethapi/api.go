@@ -21,11 +21,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 	"math/big"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 
@@ -696,17 +697,30 @@ func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockH
 	return s.findFinalityOfBlock(ctx, block, masternodes)
 }
 
-func (s *PublicBlockChainAPI) GetBlockFinalityByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (uint, error) {
-	block, err := s.b.BlockByNumber(ctx, blockNumber)
-	if err != nil || block == nil {
-		return uint(0), err
+func (s *PublicBlockChainAPI) GetNearestBlockFinalityByBlockNumber(ctx context.Context, blockNumber int64) (*types.Block, error) {
+	backMergeSignRangeBlock := blockNumber - blockNumber%common.MergeSignRange
+
+	toBlock := backMergeSignRangeBlock
+	for toBlock >= 0 {
+		if toBlock == 0 {
+			rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
+			return rBlock, nil
+		}
+
+		checkpoint := toBlock - (toBlock % common.EpocBlockRandomize)
+		checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpoint))
+		masternodes, _ := s.GetMasternodes(ctx, checkpointBlock)
+
+		rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
+		threadHold, _ := s.findFinalityOfBlock(ctx, rBlock, masternodes)
+		if threadHold == 100 {
+			return rBlock, nil
+		}
+
+		toBlock = toBlock - common.MergeSignRange
 	}
-	masternodes, err := s.GetMasternodes(ctx, block)
-	if err != nil || len(masternodes) == 0 {
-		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
-		return uint(0), err
-	}
-	return s.findFinalityOfBlock(ctx, block, masternodes)
+
+	return nil, errors.New("can't find nearest finality block")
 }
 
 // GetMasternodes returns masternodes set at the starting block of epoch of the given block
@@ -1345,7 +1359,6 @@ Use blocksHashCache for to keep track - refer core/blockchain.go for more detail
 func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.Block, masternodes []common.Address) (uint, error) {
 	engine, _ := s.b.GetEngine().(*posv.Posv)
 	signedBlock := s.findNearestSignedBlock(ctx, b)
-
 	if signedBlock == nil {
 		return 0, nil
 	}
@@ -1364,7 +1377,6 @@ func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.
 		if blockSigners == nil {
 			return 0, err
 		}
-
 		return uint(100 * len(blockSigners) / len(masternodes)), nil
 	}
 
@@ -1386,7 +1398,7 @@ func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.
 	}
 
 	// return 0 if not same path with any signed block
-	if len(signedBlockSamePath) == 0 {
+	if (signedBlockSamePath == common.Hash{}) {
 		return 0, nil
 	}
 
@@ -1427,7 +1439,6 @@ func (s *PublicBlockChainAPI) getSigners(ctx context.Context, block *types.Block
 	creator, _ := engine.RecoverSigner(block.Header())
 	signers = append(signers, validator)
 	signers = append(signers, creator)
-
 	for _, masternode := range masternodes {
 		for _, signer := range signers {
 			if signer == masternode {
