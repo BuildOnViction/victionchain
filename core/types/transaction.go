@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
 )
@@ -40,7 +39,6 @@ const (
 
 var (
 	ErrInvalidSig           = errors.New("invalid transaction v, r, s values")
-	errNoSigner             = errors.New("missing signing methods")
 	ErrUnexpectedProtection = errors.New("transaction type does not supported EIP-155 protected signatures")
 	ErrShortTypedTx         = errors.New("typed transaction too short")
 	ErrTxTypeNotSupported   = errors.New("transaction type not supported")
@@ -302,17 +300,6 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 	}
 }
 
-type txdataMarshaling struct {
-	AccountNonce hexutil.Uint64
-	Price        *hexutil.Big
-	GasLimit     hexutil.Uint64
-	Amount       *hexutil.Big
-	Payload      hexutil.Bytes
-	V            *hexutil.Big
-	R            *hexutil.Big
-	S            *hexutil.Big
-}
-
 // Hash hashes the RLP encoding of tx.
 // It uniquely identifies the transaction.
 func (tx *Transaction) Hash() common.Hash {
@@ -364,9 +351,12 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	if err != nil {
 		return nil, err
 	}
-	cpy := &Transaction{data: tx.data}
-	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
-	return cpy, nil
+	if r == nil || s == nil || v == nil {
+		return nil, fmt.Errorf("%w: r: %s, s: %s, v: %s", ErrInvalidSig, r, s, v)
+	}
+	cpy := tx.inner.copy()
+	cpy.setSignatureValues(signer.ChainID(), v, r, s)
+	return &Transaction{inner: cpy, time: tx.time}, nil
 }
 
 func (tx *Transaction) IsSpecialTransaction() bool {
