@@ -57,3 +57,8 @@ func (s *senderFromServer) Hash(tx *types.Transaction) common.Hash {
 func (s *senderFromServer) SignatureValues(tx *types.Transaction, sig []byte) (R, S, V *big.Int, err error) {
 	panic("can't sign with senderFromServer")
 }
+
+// ChainID implements types.Signer.
+func (s *senderFromServer) ChainID() *big.Int {
+	panic("unimplemented")
+}
