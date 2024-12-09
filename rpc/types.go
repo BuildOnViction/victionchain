@@ -17,7 +17,9 @@
 package rpc
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/tomochain/tomochain/common"
 	"math"
 	"reflect"
 	"strings"
@@ -166,6 +168,22 @@ func (bn BlockNumber) Int64() int64 {
 	return (int64)(bn)
 }
 
+func (bn BlockNumber) String() string {
+	switch bn {
+	case EarliestBlockNumber:
+		return "earliest"
+	case LatestBlockNumber:
+		return "latest"
+	case PendingBlockNumber:
+		return "pending"
+	default:
+		if bn < 0 {
+			return fmt.Sprintf("<invalid %d>", bn)
+		}
+		return hexutil.Uint64(bn).String()
+	}
+}
+
 func (e *EpochNumber) UnmarshalJSON(data []byte) error {
 	input := trimData(data)
 	if input == "latest" {
@@ -195,4 +213,105 @@ func trimData(data []byte) string {
 		input = input[1 : len(input)-1]
 	}
 	return input
+}
+
+type BlockNumberOrHash struct {
+	BlockNumber      *BlockNumber `json:"blockNumber,omitempty"`
+	BlockHash        *common.Hash `json:"blockHash,omitempty"`
+	RequireCanonical bool         `json:"requireCanonical,omitempty"`
+}
+
+func (bnh *BlockNumberOrHash) UnmarshalJSON(data []byte) error {
+	type erased BlockNumberOrHash
+	e := erased{}
+	err := json.Unmarshal(data, &e)
+	if err == nil {
+		if e.BlockNumber != nil && e.BlockHash != nil {
+			return fmt.Errorf("cannot specify both BlockHash and BlockNumber, choose one or the other")
+		}
+		bnh.BlockNumber = e.BlockNumber
+		bnh.BlockHash = e.BlockHash
+		bnh.RequireCanonical = e.RequireCanonical
+		return nil
+	}
+	var input string
+	err = json.Unmarshal(data, &input)
+	if err != nil {
+		return err
+	}
+	switch input {
+	case "earliest":
+		bn := EarliestBlockNumber
+		bnh.BlockNumber = &bn
+		return nil
+	case "latest":
+		bn := LatestBlockNumber
+		bnh.BlockNumber = &bn
+		return nil
+	case "pending":
+		bn := PendingBlockNumber
+		bnh.BlockNumber = &bn
+		return nil
+	default:
+		if len(input) == 66 {
+			hash := common.Hash{}
+			err := hash.UnmarshalText([]byte(input))
+			if err != nil {
+				return err
+			}
+			bnh.BlockHash = &hash
+			return nil
+		} else {
+			blckNum, err := hexutil.DecodeUint64(input)
+			if err != nil {
+				return err
+			}
+			if blckNum > math.MaxInt64 {
+				return fmt.Errorf("blocknumber too high")
+			}
+			bn := BlockNumber(blckNum)
+			bnh.BlockNumber = &bn
+			return nil
+		}
+	}
+}
+
+func (bnh *BlockNumberOrHash) Number() (BlockNumber, bool) {
+	if bnh.BlockNumber != nil {
+		return *bnh.BlockNumber, true
+	}
+	return BlockNumber(0), false
+}
+
+func (bnh *BlockNumberOrHash) String() string {
+	if bnh.BlockNumber != nil {
+		return bnh.BlockNumber.String()
+	}
+	if bnh.BlockHash != nil {
+		return bnh.BlockHash.String()
+	}
+	return "nil"
+}
+
+func (bnh *BlockNumberOrHash) Hash() (common.Hash, bool) {
+	if bnh.BlockHash != nil {
+		return *bnh.BlockHash, true
+	}
+	return common.Hash{}, false
+}
+
+func BlockNumberOrHashWithNumber(blockNr BlockNumber) BlockNumberOrHash {
+	return BlockNumberOrHash{
+		BlockNumber:      &blockNr,
+		BlockHash:        nil,
+		RequireCanonical: false,
+	}
+}
+
+func BlockNumberOrHashWithHash(hash common.Hash, canonical bool) BlockNumberOrHash {
+	return BlockNumberOrHash{
+		BlockNumber:      nil,
+		BlockHash:        &hash,
+		RequireCanonical: canonical,
+	}
 }
