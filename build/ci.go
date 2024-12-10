@@ -223,10 +223,11 @@ func goToolArch(arch string, cc string, subcmd string, args ...string) *exec.Cmd
 // "tests" also includes static analysis tools such as vet.
 
 func doTest(cmdline []string) {
-	// var (
-	// 	coverage = flag.Bool("coverage", false, "Whether to record code coverage")
-	// )
-	coverage := flag.Bool("coverage", false, "Whether to record code coverage")
+	var (
+		coverage = flag.Bool("coverage", false, "Whether to record code coverage")
+		race     = flag.Bool("race", false, "Execute the race detector")
+	)
+	//coverage := flag.Bool("coverage", false, "Whether to record code coverage")
 	flag.CommandLine.Parse(cmdline)
 	env := build.Env()
 
@@ -246,6 +247,9 @@ func doTest(cmdline []string) {
 	// Test a single package at a time. CI builders are slow
 	// and some tests run into timeouts under load.
 	gotest := goTool("test", buildFlags(env)...)
+	if *race {
+		gotest.Args = append(gotest.Args, "-race")
+	}
 	gotest.Args = append(gotest.Args, "-p", "1")
 	if *coverage {
 		gotest.Args = append(gotest.Args, "-covermode=atomic", "-cover", "-coverprofile=coverage.txt")
