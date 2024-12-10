@@ -41,6 +41,9 @@ all:
 test: all
 	go run build/ci.go test
 
+test-race-detector:
+	go run build/ci.go test --race
+
 clean:
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
 
