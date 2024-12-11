@@ -13,6 +13,7 @@
 # - WS_SECRET (default to empty)
 # - NETSTATS_HOST (default to 'netstats-server:3000')
 # - NETSTATS_PORT (default to 'netstats-server:3000')
+# - P2P_PORT (default to '30303') 
 
 # constants
 DATA_DIR="data"
@@ -146,6 +147,11 @@ else
   echo "WS_SECRET not set, will not report to netstats server."
 fi
 
+# P2P_PORT
+if [[ ! -z $P2P_PORT ]]; then
+  params="$params --port $P2P_PORT"
+fi
+
 # annonce txs
 if [[ ! -z $ANNOUNCE_TXS ]]; then
   params="$params --announce-txs"
@@ -178,7 +184,6 @@ exec tomo $params \
   --identity $IDENTITY \
   --maxpeers $MAXPEERS \
   --password ./password \
-  --port 30303 \
   --txpool.globalqueue 5000 \
   --txpool.globalslots 5000 \
   --rpc \
