@@ -133,6 +133,7 @@ docker run --name viction \
   -p 8545:8545 \
   -p 8546:8546 \
   -p 30303:30303 \
+  -e P2P_PORT=30303 \
   -e IDENTITY=my-full-node \
   -e NETWORK_ID=88
   -e BOOTNODES=enode://fd3da177f9492a39d1e7ce036b05745512894df251399cb3ec565081cb8c6dfa1092af8fac27991e66b6af47e9cb42e02420cc89f8549de0ce513ee25ebffc3a@3.212.20.0:30303,enode://97f0ca95a653e3c44d5df2674e19e9324ea4bf4d47a46b1d8560f3ed4ea328f725acec3fcfcb37eb11706cf07da669e9688b091f1543f89b2425700a68bc8876@104.248.98.78:30301,enode://b72927f349f3a27b789d0ca615ffe3526f361665b496c80e7cc19dace78bd94785fdadc270054ab727dbb172d9e3113694600dd31b2558dd77ad85a869032dea@188.166.207.189:30301,enode://c8f2f0643527d4efffb8cb10ef9b6da4310c5ac9f2e988a7f85363e81d42f1793f64a9aa127dbaff56b1e8011f90fe9ff57fa02a36f73220da5ff81d8b8df351@104.248.98.60:30301 \
@@ -157,6 +158,7 @@ NETSTATS_PORT: Port of Ethstats service.
 WS_SECRET: Secret of Ethstats service.
 DEBUG_MODE: Enable archive mode.
 VERBOSITY: log level from 1 to 5. Here we're using 4 for debug messages.
+P2P_PORT: Port for P2P network connections. Defaults to 30303 if not set.
 ```
 
 ### Other usecases
