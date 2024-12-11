@@ -8,6 +8,8 @@ import (
 	"github.com/tomochain/tomochain/rlp"
 )
 
+var uncleanShutdownKey = []byte("unclean-shutdown") // config prefix for the db
+
 // crashList is a list of unclean-shutdown-markers, for rlp-encoding to the
 // database
 type crashList struct {
