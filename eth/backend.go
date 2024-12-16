@@ -237,7 +237,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 		signHook := func(block *types.Block) error {
 			eb, err := eth.Etherbase()
 			if err != nil {
-				log.Warn("Cannot get etherbase for append m2 header", "err", err)
+				log.Error("Cannot get etherbase for append m2 header", "err", err)
 				return fmt.Errorf("etherbase missing: %v", err)
 			}
 			ok := eth.txPool.IsSigner != nil && eth.txPool.IsSigner(eb)
@@ -284,8 +284,10 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 			return block, false, nil
 		}
 
-		eth.protocolManager.fetcher.SetSignHook(signHook)
-		eth.protocolManager.fetcher.SetAppendM2HeaderHook(appendM2HeaderHook)
+		if ctx.GetConfig().KeyStoreDir != "" {
+			eth.protocolManager.fetcher.SetSignHook(signHook)
+			eth.protocolManager.fetcher.SetAppendM2HeaderHook(appendM2HeaderHook)
+		}
 
 		// Hook prepares validators M2 for the current epoch at checkpoint block
 		c.HookValidator = func(header *types.Header, signers []common.Address) ([]byte, error) {
