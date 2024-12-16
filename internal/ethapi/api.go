@@ -684,45 +684,6 @@ func (s *PublicBlockChainAPI) GetBlockSignersByNumber(ctx context.Context, block
 	return s.rpcOutputBlockSigners(block, ctx, masternodes)
 }
 
-func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockHash common.Hash) (uint, error) {
-	block, err := s.b.GetBlock(ctx, blockHash)
-	if err != nil || block == nil {
-		return uint(0), err
-	}
-	masternodes, err := s.GetMasternodes(ctx, block)
-	if err != nil || len(masternodes) == 0 {
-		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
-		return uint(0), err
-	}
-	return s.findFinalityOfBlock(ctx, block, masternodes)
-}
-
-func (s *PublicBlockChainAPI) GetNearestBlockFinalityByBlockNumber(ctx context.Context, blockNumber int64) (*types.Block, error) {
-	backMergeSignRangeBlock := blockNumber - blockNumber%common.MergeSignRange
-
-	toBlock := backMergeSignRangeBlock
-	for toBlock >= 0 {
-		if toBlock == 0 {
-			rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
-			return rBlock, nil
-		}
-
-		checkpoint := toBlock - (toBlock % common.EpocBlockRandomize)
-		checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpoint))
-		masternodes, _ := s.GetMasternodes(ctx, checkpointBlock)
-
-		rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
-		threadHold, _ := s.findFinalityOfBlock(ctx, rBlock, masternodes)
-		if threadHold == 100 {
-			return rBlock, nil
-		}
-
-		toBlock = toBlock - common.MergeSignRange
-	}
-
-	return nil, errors.New("can't find nearest finality block")
-}
-
 // GetMasternodes returns masternodes set at the starting block of epoch of the given block
 func (s *PublicBlockChainAPI) GetMasternodes(ctx context.Context, b *types.Block) ([]common.Address, error) {
 	var masternodes []common.Address
@@ -773,7 +734,7 @@ func (s *PublicBlockChainAPI) GetCandidateStatus(ctx context.Context, coinbaseAd
 	result[fieldEpoch] = epochNumber.Int64()
 
 	block, err = s.b.BlockByNumber(ctx, checkpointNumber)
-	if err != nil || block == nil { // || checkpointNumber == 0 {
+	if err != nil || block == nil {
 		result[fieldSuccess] = false
 		return result, err
 	}
@@ -826,7 +787,7 @@ func (s *PublicBlockChainAPI) GetCandidateStatus(ctx context.Context, coinbaseAd
 
 	// Second, Find candidates that have masternode status
 	if engine, ok := s.b.GetEngine().(*posv.Posv); ok {
-		masternodes = engine.GetMasternodesFromCheckpointHeader(header, block.Number().Uint64(), s.b.ChainConfig().Posv.Epoch)
+		masternodes = engine.GetMasternodesFromCheckpointHeader(header, block.Number().Uint64(), s.b.ChainConfig().Posv.Epoch) // block 1800
 		if len(masternodes) == 0 {
 			log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes), "blockNum", header.Number.Uint64())
 			result[fieldSuccess] = false
@@ -1487,6 +1448,7 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+	Type             hexutil.Uint64  `json:"type"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1500,6 +1462,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	v, r, s := tx.RawSignatureValues()
 
 	result := &RPCTransaction{
+		Type:     hexutil.Uint64(tx.Type()),
 		From:     from,
 		Gas:      hexutil.Uint64(tx.Gas()),
 		GasPrice: (*hexutil.Big)(tx.GasPrice()),
@@ -1692,6 +1655,7 @@ func marshalReceipt(receipt *types.Receipt, blockHash common.Hash, blockNumber u
 	from, _ := types.Sender(signer, tx)
 
 	fields := map[string]interface{}{
+		"type":              hexutil.Uint(tx.Type()),
 		"blockHash":         blockHash,
 		"blockNumber":       hexutil.Uint64(blockNumber),
 		"transactionHash":   tx.Hash(),
@@ -3072,4 +3036,43 @@ func (s *PublicBlockChainAPI) GetStakerROIMasternode(masternode common.Address) 
 	voterRewardAYear := new(big.Int).Mul(holderReward, new(big.Int).SetUint64(EpochPerYear))
 
 	return 100.0 / float64(totalCap.Div(totalCap, voterRewardAYear).Uint64())
+}
+
+func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockHash common.Hash) (uint, error) {
+	block, err := s.b.GetBlock(ctx, blockHash)
+	if err != nil || block == nil {
+		return uint(0), err
+	}
+	masternodes, err := s.GetMasternodes(ctx, block)
+	if err != nil || len(masternodes) == 0 {
+		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
+		return uint(0), err
+	}
+	return s.findFinalityOfBlock(ctx, block, masternodes)
+}
+
+func (s *PublicBlockChainAPI) GetNearestBlockFinalityByBlockNumber(ctx context.Context, blockNumber int64) (*types.Block, error) {
+	backMergeSignRangeBlock := blockNumber - blockNumber%common.MergeSignRange
+
+	toBlock := backMergeSignRangeBlock
+	for toBlock >= 0 {
+		if toBlock == 0 {
+			rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
+			return rBlock, nil
+		}
+
+		checkpoint := toBlock - (toBlock % common.EpocBlockRandomize)
+		checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpoint))
+		masternodes, _ := s.GetMasternodes(ctx, checkpointBlock)
+
+		rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
+		threadHold, _ := s.findFinalityOfBlock(ctx, rBlock, masternodes)
+		if threadHold == 100 {
+			return rBlock, nil
+		}
+
+		toBlock = toBlock - common.MergeSignRange
+	}
+
+	return nil, errors.New("can't find nearest finality block")
 }
