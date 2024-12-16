@@ -19,9 +19,10 @@ package fetcher
 
 import (
 	"errors"
-	"github.com/hashicorp/golang-lru"
 	"math/rand"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
@@ -717,7 +718,7 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 
 		if f.signHook != nil {
 			if err := f.signHook(block); err != nil {
-				log.Error("Can't sign the imported block", "err", err)
+				log.Warn("Can't sign the imported block", "err", err)
 				return
 			}
 		}

@@ -237,7 +237,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 		signHook := func(block *types.Block) error {
 			eb, err := eth.Etherbase()
 			if err != nil {
-				log.Error("Cannot get etherbase for append m2 header", "err", err)
+				log.Warn("Cannot get etherbase for append m2 header", "err", err)
 				return fmt.Errorf("etherbase missing: %v", err)
 			}
 			ok := eth.txPool.IsSigner != nil && eth.txPool.IsSigner(eb)
