@@ -19,10 +19,9 @@ package fetcher
 
 import (
 	"errors"
+	"github.com/hashicorp/golang-lru"
 	"math/rand"
 	"time"
-
-	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
