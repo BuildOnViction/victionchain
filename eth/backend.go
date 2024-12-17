@@ -284,8 +284,10 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 			return block, false, nil
 		}
 
-		eth.protocolManager.fetcher.SetSignHook(signHook)
-		eth.protocolManager.fetcher.SetAppendM2HeaderHook(appendM2HeaderHook)
+		if ctx.GetConfig().KeyStoreDir != "" {
+			eth.protocolManager.fetcher.SetSignHook(signHook)
+			eth.protocolManager.fetcher.SetAppendM2HeaderHook(appendM2HeaderHook)
+		}
 
 		// Hook prepares validators M2 for the current epoch at checkpoint block
 		c.HookValidator = func(header *types.Header, signers []common.Address) ([]byte, error) {
