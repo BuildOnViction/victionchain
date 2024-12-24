@@ -56,3 +56,11 @@ func ApplySaigonHardFork(statedb *state.StateDB, saigonBlock *big.Int, headBlock
 		statedb.AddBalance(common.SaigonEcoSystemFundAddress, ecoSystemFund)
 	}
 }
+
+// ApplySaigonHardFork mint additional token to EcoSystem Multisig once. For testnet only.
+func ApplySaigonHardForkTestnet(statedb *state.StateDB, saigonBlock *big.Int, headBlock *big.Int, posv *params.PosvConfig) {
+	if headBlock.Cmp(saigonBlock) == 0 && posv != nil {
+		ecoSystemFund := new(big.Int).Mul(new(big.Int).Mul(common.SaigonEcoSystemFundAnnually, new(big.Int).SetUint64(params.Ether)), new(big.Int).SetUint64(common.SaigonEcoSystemFundTotalRepeat))
+		statedb.AddBalance(posv.FoudationWalletAddr, ecoSystemFund)
+	}
+}
