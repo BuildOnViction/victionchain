@@ -630,7 +630,11 @@ func (self *worker) commitNewWork() {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if self.config.SaigonBlock != nil && self.config.SaigonBlock.Cmp(header.Number) <= 0 {
-		misc.ApplySaigonHardFork(work.state, self.config.SaigonBlock, header.Number)
+		if common.IsTestnet {
+			misc.ApplySaigonHardForkTestnet(work.state, self.config.SaigonBlock, header.Number, self.config.Posv)
+		} else {
+			misc.ApplySaigonHardFork(work.state, self.config.SaigonBlock, header.Number)
+		}
 	}
 	// won't grasp txs at checkpoint
 	var (
