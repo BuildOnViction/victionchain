@@ -170,6 +170,8 @@ func init() {
 		consoleCommand,
 		attachCommand,
 		javascriptCommand,
+		// See dbcmd.go:
+		dbCommand,
 		// See misccmd.go:
 		versionCommand,
 		// See config.go
