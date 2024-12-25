@@ -50,10 +50,9 @@ var (
 		},
 	}
 	dbRepairSnapshotCmd = cli.Command{
-		Action:    utils.MigrateFlags(dbRepairSnapshot),
-		Name:      "repair-snapshot",
-		Usage:     "Repair a corrupted snapshot",
-		ArgsUsage: "<dataPath>",
+		Action: utils.MigrateFlags(dbRepairSnapshot),
+		Name:   "repair-snapshot",
+		Usage:  "Repair a corrupted snapshot",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
 		},
@@ -240,6 +239,12 @@ func updateSnapshot(db ethdb.Database, blockHash common.Hash, newCandidates map[
 // Returns:
 // - error: An error if the repair process fails.
 func dbRepairSnapshot(ctx *cli.Context) error {
+	// Check if --datadir is provided
+	dataDir := ctx.GlobalIsSet(utils.DataDirFlag.Name)
+	if !dataDir {
+		return fmt.Errorf("missing required flag: --datadir")
+	}
+
 	// Create the chain database and configuration.
 	stack, config := makeConfigNode(ctx)
 	// Open the chain database.
