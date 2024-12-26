@@ -310,6 +310,10 @@ func dbRepairSnapshot(ctx *cli.Context) error {
 		return masternodes[i].Stake.Cmp(masternodes[j].Stake) >= 0
 	})
 
+	if len(masternodes) == common.MaxMasternodes {
+		masternodes = masternodes[:common.MaxMasternodes]
+	}
+
 	newCandidates := make(map[common.Address]struct{})
 	log.Info("New masternodes list ordered by stake")
 	for _, masternode := range masternodes {
