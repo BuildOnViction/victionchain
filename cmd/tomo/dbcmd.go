@@ -92,14 +92,14 @@ func getNearestGap(db ethdb.Database, config *params.ChainConfig) (blockNumber u
 	headHash := core.GetHeadHeaderHash(db)
 	// Get the block number of the current head block.
 	headBlockNumber := core.GetBlockNumber(db, headHash)
-	// Calculate the nearest epoch block number.
-	nearestEpochBlockNumber := headBlockNumber - (headBlockNumber % config.Posv.Epoch)
-	// If the nearest epoch block is the genesis block, return an error.
-	if nearestEpochBlockNumber == 0 {
-		return 0, common.Hash{}, fmt.Errorf("got genesis block")
+	// Get current sync block number.
+	syncBlockNumber := headBlockNumber + 1
+
+	if syncBlockNumber%config.Posv.Epoch != 0 {
+		return 0, common.Hash{}, fmt.Errorf("mismatched signer only appears at a checkpoint")
 	}
 	// Calculate the nearest gap block number.
-	nearestGapBlockNumber := nearestEpochBlockNumber - config.Posv.Gap
+	nearestGapBlockNumber := syncBlockNumber - config.Posv.Gap
 	// Get the hash of the nearest gap block.
 	gapBlockHash := core.GetCanonicalHash(db, nearestGapBlockNumber)
 	// Return the nearest gap block number and its hash.
@@ -310,7 +310,7 @@ func dbRepairSnapshot(ctx *cli.Context) error {
 		return masternodes[i].Stake.Cmp(masternodes[j].Stake) >= 0
 	})
 
-	if len(masternodes) == common.MaxMasternodes {
+	if len(masternodes) > common.MaxMasternodes {
 		masternodes = masternodes[:common.MaxMasternodes]
 	}
 
