@@ -77,7 +77,7 @@ func (m callmsg) Data() []byte              { return m.CallMsg.Data }
 func (m callmsg) BalanceTokenFee() *big.Int { return m.CallMsg.BalanceTokenFee }
 
 // getNearestGap calculates the nearest gap block number and its hash based on the current head block.
-// It uses the provided database and chain configuration to determine the nearest epoch and gap blocks.
+// It uses the provided database and chain configuration to determine the nearest gap blocks.
 //
 // Parameters:
 // - db: The database containing the blockchain data.
@@ -86,7 +86,7 @@ func (m callmsg) BalanceTokenFee() *big.Int { return m.CallMsg.BalanceTokenFee }
 // Returns:
 // - blockNumber: The nearest gap block number.
 // - blockHash: The hash of the nearest gap block.
-// - err: An error if the nearest epoch is genesis.
+// - err: An error if sync block not checkpoint.
 func getNearestGap(db ethdb.Database, config *params.ChainConfig) (blockNumber uint64, blockHash common.Hash, err error) {
 	// Get the hash of the current head block.
 	headHash := core.GetHeadHeaderHash(db)
