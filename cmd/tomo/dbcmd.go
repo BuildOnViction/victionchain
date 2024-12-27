@@ -1,38 +1,30 @@
-// Copyright 2020 The go-ethereum Authors
-// This file is part of go-ethereum.
+// Copyright (c) 2020 Victionchain
 //
-// go-ethereum is free software: you can redistribute it and/or modify
+// This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// go-ethereum is distributed in the hope that it will be useful,
+// this program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with go-ethereum. If not, see <http://www.gnu.org/licenses/>.
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package main
 
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"sort"
-	"strings"
 
-	"github.com/tomochain/tomochain"
-	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/posv"
-	"github.com/tomochain/tomochain/contracts/validator/contract"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/state"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
@@ -59,22 +51,6 @@ var (
 		Description: `This command sets new list signer of snapshot from contract.`,
 	}
 )
-
-// callmsg implements core.Message to allow passing it as a transaction simulator.
-// Copied from accounts/abi/bind/backends/simulated.go
-type callmsg struct {
-	tomochain.CallMsg
-}
-
-func (m callmsg) From() common.Address      { return m.CallMsg.From }
-func (m callmsg) Nonce() uint64             { return 0 }
-func (m callmsg) CheckNonce() bool          { return false }
-func (m callmsg) To() *common.Address       { return m.CallMsg.To }
-func (m callmsg) GasPrice() *big.Int        { return m.CallMsg.GasPrice }
-func (m callmsg) Gas() uint64               { return m.CallMsg.Gas }
-func (m callmsg) Value() *big.Int           { return m.CallMsg.Value }
-func (m callmsg) Data() []byte              { return m.CallMsg.Data }
-func (m callmsg) BalanceTokenFee() *big.Int { return m.CallMsg.BalanceTokenFee }
 
 // getNearestGap calculates the nearest gap block number and its hash based on the current head block.
 // It uses the provided database and chain configuration to determine the nearest gap blocks.
@@ -104,84 +80,6 @@ func getNearestGap(db ethdb.Database, config *params.ChainConfig) (blockNumber u
 	gapBlockHash := core.GetCanonicalHash(db, nearestGapBlockNumber)
 	// Return the nearest gap block number and its hash.
 	return nearestGapBlockNumber, gapBlockHash, nil
-}
-
-// getCandidateCap retrieves the candidate's stake from the smart contract.
-//
-// Parameters:
-// - stateDB: The copy state database containing the blockchain state.
-// - header: The block header containing the current block information.
-// - config: The chain configuration containing the POSV parameters.
-// - candidate: The address of the candidate whose stake is being retrieved.
-// - contractAddress: The address of the smart contract.
-// - abiContract: The ABI of the smart contract.
-//
-// Returns:
-// - *big.Int: The stake amount of the candidate.
-// - error: An error if the retrieval or unpacking fails.
-func getCandidateCap(stateDB *state.StateDB, header *types.Header, config *params.ChainConfig, candidate common.Address, contractAddress common.Address, abiContract abi.ABI) (*big.Int, error) {
-	// Define the method name to be called on the smart contract.
-	method := "getCandidateCap"
-
-	// Pack the input parameters for the smart contract call.
-	input, err := abiContract.Pack(method, candidate)
-	if err != nil {
-		return big.NewInt(0), fmt.Errorf("failed to pack input: %v", err)
-	}
-
-	// Define a fake caller address.
-	fakeCaller := common.HexToAddress("0x0000000000000000000000000000000000000001")
-	// Retrieve the TRC21 fee capacity from the state database.
-	feeCapacity := state.GetTRC21FeeCapacityFromState(stateDB)
-
-	// Create the call message for the smart contract call.
-	callMsg := tomochain.CallMsg{
-		To:       &contractAddress,
-		Data:     input,
-		From:     fakeCaller,
-		GasPrice: big.NewInt(0),
-		Gas:      1000000,
-		Value:    new(big.Int),
-	}
-
-	// Set the balance token fee for the call message.
-	callMsg.BalanceTokenFee = feeCapacity[*callMsg.To]
-
-	// Wrap the call message in a new callmsg type.
-	newCallMsg := callmsg{callMsg}
-
-	// Create the EVM context for the smart contract call.
-	evmContext := vm.Context{
-		CanTransfer: core.CanTransfer,
-		Transfer:    core.Transfer,
-		GetHash:     nil,
-		Origin:      newCallMsg.From(),
-		Coinbase:    header.Coinbase,
-		BlockNumber: new(big.Int).Set(header.Number),
-		Time:        new(big.Int).Set(header.Time),
-		Difficulty:  new(big.Int).Set(header.Difficulty),
-		GasLimit:    header.GasLimit,
-		GasPrice:    new(big.Int).Set(newCallMsg.GasPrice()),
-	}
-
-	// Create a new EVM instance with the provided context, state database, and configuration.
-	evm := vm.NewEVM(evmContext, stateDB, nil, config, vm.Config{})
-
-	// Create a new gas pool and add the gas from the call message.
-	gasPool := new(core.GasPool).AddGas(callMsg.Gas)
-	owner := common.Address{}
-	// Execute the state transition.
-	returnValue, _, _, err := core.NewStateTransition(evm, newCallMsg, gasPool).TransitionDb(owner)
-	if err != nil {
-		return big.NewInt(0), fmt.Errorf("state transition error: %v", err)
-	}
-
-	// Unpack the result from the call.
-	var candidateStake *big.Int
-	if err := abiContract.Unpack(&candidateStake, method, returnValue); err != nil {
-		return big.NewInt(0), fmt.Errorf("failed to unpack result: %v", err)
-	}
-	return candidateStake, nil
 }
 
 // updateSnapshot updates the snapshot of the blockchain with new candidate signers.
@@ -260,9 +158,8 @@ func dbRepairSnapshot(ctx *cli.Context) error {
 		return err
 	}
 
-	// Retrieve the gap block and its header.
+	// Retrieve the gap block.
 	gapBlock := core.GetBlock(chainDB, gapBlockHash, gapBlockNumber)
-	gapHeader := core.GetHeader(chainDB, gapBlockHash, gapBlockNumber)
 
 	var (
 		candidateAddresses []common.Address
@@ -281,21 +178,9 @@ func dbRepairSnapshot(ctx *cli.Context) error {
 		return fmt.Errorf("no candidates found")
 	}
 
-	contractAddress := common.HexToAddress(common.MasternodeVotingSMC)
-	abiContract, err := abi.JSON(strings.NewReader(contract.TomoValidatorABI))
-	if err != nil {
-		return err
-	}
-
-	// Create a copy of the state database to avoid modifying the original.
-	stateDBCopy := stateDB.Copy()
-
 	// Iterate over the candidate addresses and retrieve their stakes.
 	for _, candidate := range candidateAddresses {
-		candidateStake, err := getCandidateCap(stateDBCopy, gapHeader, chainConfig, candidate, contractAddress, abiContract)
-		if err != nil {
-			return err
-		}
+		candidateStake := state.GetCandidateCap(stateDB, candidate)
 		// Append the candidate to the list if it is valid.
 		if candidate.Cmp(common.Address{}) != 0 {
 			masternodes = append(masternodes, posv.Masternode{
