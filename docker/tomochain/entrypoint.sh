@@ -14,7 +14,7 @@ accountsCount=$(
 )
 
 # file to env
-for env in IDENTITY NETWORK_ID SYNC_MODE RPC_PORT WS_PORT \
+for env in IDENTITY NETWORK_ID SYNC_MODE \
            BOOTNODES EXTIP P2P_PORT NETSTATS_HOST NETSTATS_PORT WS_SECRET \
            PASSWORD PRIVATE_KEY ANNOUNCE_TXS VERBOSITY ''; do
   file=$(eval echo "\$${env}_FILE")
