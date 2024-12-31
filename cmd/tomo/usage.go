@@ -209,6 +209,12 @@ var AppHelpFlagGroups = []flagGroup{
 			//utils.NoCompactionFlag,
 		}, debug.Flags...),
 	},
+
+	{
+		Name:  "METRICS AND STATS",
+		Flags: metricsFlags,
+	},
+
 	//{
 	//	Name:  "WHISPER (EXPERIMENTAL)",
 	//	Flags: whisperFlags,
