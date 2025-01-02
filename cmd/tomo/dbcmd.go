@@ -251,7 +251,7 @@ func initializeState(
 	return stateDB, nil
 }
 
-// finaliseGapBlock processes the transactions in the given block and finalizes the state.
+// finaliseBlock processes the transactions in the given block (usually gap block) and finalizes the state.
 //
 // Parameters:
 // - block: The block containing the transactions to be processed.
