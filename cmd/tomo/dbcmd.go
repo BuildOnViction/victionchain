@@ -17,17 +17,26 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math/big"
 	"sort"
+	"time"
 
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/posv"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
+	"github.com/tomochain/tomochain/tomoxlending"
+	"github.com/tomochain/tomochain/trie"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -47,6 +56,7 @@ var (
 		Usage:  "Repair a corrupted snapshot",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
+			utils.ReexecFlag,
 		},
 		Description: `This command sets new list signer of snapshot from contract.`,
 	}
@@ -137,11 +147,13 @@ func updateSnapshot(db ethdb.Database, blockHash common.Hash, newCandidates map[
 // Returns:
 // - error: An error if the repair process fails.
 func dbRepairSnapshot(ctx *cli.Context) error {
-	// Check if --datadir is provided
+	// Check if flag is provided
 	dataDir := ctx.GlobalIsSet(utils.DataDirFlag.Name)
 	if !dataDir {
 		return fmt.Errorf("missing required flag: --datadir")
 	}
+
+	reexec := uint64(ctx.GlobalInt(utils.ReexecFlag.Name))
 
 	// Create the chain database and configuration.
 	stack, config := makeConfigNode(ctx)
@@ -152,6 +164,28 @@ func dbRepairSnapshot(ctx *cli.Context) error {
 	// Setup the genesis block and retrieve the chain configuration.
 	chainConfig, _, _ := core.SetupGenesisBlock(chainDB, config.Eth.Genesis)
 	log.Info("Current chain configuration", "epoch", chainConfig.Posv.Epoch, "gap", chainConfig.Posv.Gap)
+
+	var (
+		vmConfig    = vm.Config{}
+		cacheConfig = &core.CacheConfig{}
+
+		tomoXService   *tomox.TomoX
+		lendingService *tomoxlending.Lending
+	)
+
+	c := posv.New(chainConfig.Posv, chainDB)
+
+	c.GetTomoXService = func() posv.TradingService {
+		return tomoXService
+	}
+	c.GetLendingService = func() posv.LendingService {
+		return lendingService
+	}
+
+	blockchain, err := core.NewBlockChain(chainDB, cacheConfig, chainConfig, c, vmConfig)
+	if err != nil {
+		return err
+	}
 
 	gapBlockNumber, gapBlockHash, err := getNearestGap(chainDB, chainConfig)
 	if err != nil {
@@ -164,12 +198,103 @@ func dbRepairSnapshot(ctx *cli.Context) error {
 	var (
 		candidateAddresses []common.Address
 		masternodes        []posv.Masternode
+		stateDB            *state.StateDB
+		block              *types.Block
+
+		tomoxState = &tradingstate.TradingStateDB{}
 	)
 
 	// Create a new state database from the gap block.
-	stateDB, err := state.New(gapBlock.Root(), state.NewDatabase(chainDB))
+	stateDB, err = state.New(gapBlock.Root(), state.NewDatabase(chainDB))
+	block = gapBlock
 	if err != nil {
-		return err
+		database := state.NewDatabase(chainDB)
+		for i := uint64(0); i < reexec; i++ {
+			block = blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+			if block == nil {
+				break
+			}
+			if stateDB, err = state.New(block.Root(), database); err == nil {
+				if block.Number().Cmp(common.TIPTomoXBlock) >= 0 {
+					tomoxState, err = tradingstate.New(block.Root(), tradingstate.NewDatabase(tomox.NewLDBEngine(&config.TomoX)))
+				}
+				if err == nil {
+					break
+				}
+			}
+		}
+		if err != nil {
+			switch err.(type) {
+			case *trie.MissingNodeError:
+				return errors.New("required historical state unavailable")
+			default:
+				return err
+			}
+		}
+		// State was available at historical point, regenerate
+		var (
+			start  = time.Now()
+			logged time.Time
+			proot  common.Hash
+		)
+		for block.NumberU64() < gapBlockNumber {
+			// Print progress logs if long enough time elapsed
+			if time.Since(logged) > 8*time.Second {
+				log.Info("Regenerating historical state", "block", block.NumberU64()+1, "target", gapBlockNumber, "elapsed", time.Since(start))
+				logged = time.Now()
+			}
+			// Retrieve the next block to regenerate and process it
+			if block = blockchain.GetBlockByNumber(block.NumberU64() + 1); block == nil {
+				return fmt.Errorf("block #%d not found", block.NumberU64()+1)
+			}
+			feeCapacity := state.GetTRC21FeeCapacityFromState(stateDB)
+			_, _, _, err := blockchain.Processor().Process(block, stateDB, tomoxState, vm.Config{}, feeCapacity)
+			if err != nil {
+				return err
+			}
+			root := stateDB.IntermediateRoot(true)
+			if root != block.Root() {
+				return fmt.Errorf("invalid merkle root (number :%d  got : %x expect: %x)", block.NumberU64(), root.Hex(), block.Root())
+			}
+			// Finalize the state so any modifications are written to the trie
+			root, err = stateDB.Commit(true)
+			if err != nil {
+				return err
+			}
+			if err := stateDB.Reset(root); err != nil {
+				return err
+			}
+			database.TrieDB().Reference(root, common.Hash{})
+			if proot != (common.Hash{}) {
+				database.TrieDB().Dereference(proot)
+			}
+			proot = root
+		}
+		size, _ := database.TrieDB().Size()
+		log.Info("Historical state regenerated", "block", block.NumberU64(), "elapsed", time.Since(start), "size", size)
+	}
+
+	var (
+		signer = types.MakeSigner(chainConfig, block.Number())
+		txs    = block.Transactions()
+	)
+
+	feeCapacity := state.GetTRC21FeeCapacityFromState(stateDB)
+	for _, tx := range txs {
+		var balance *big.Int
+		if tx.To() != nil {
+			if value, ok := feeCapacity[*tx.To()]; ok {
+				balance = value
+			}
+		}
+		msg, _ := tx.AsMessage(signer, balance, block.Number(), false)
+		vmctx := core.NewEVMContext(msg, block.Header(), blockchain, nil)
+		vmenv := vm.NewEVM(vmctx, stateDB, tomoxState, chainConfig, vmConfig)
+		owner := common.Address{}
+		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
+			return err
+		}
+		stateDB.Finalise(true)
 	}
 	// Retrieve the candidate addresses from the state database.
 	candidateAddresses = state.GetCandidates(stateDB)

@@ -560,6 +560,11 @@ var (
 		Name:  "slave",
 		Usage: "Enable slave mode",
 	}
+	ReexecFlag = cli.IntFlag{
+		Name:  "reexec",
+		Usage: "Reexec blocks",
+		Value: 256,
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
