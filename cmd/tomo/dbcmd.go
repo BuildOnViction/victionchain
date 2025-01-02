@@ -231,20 +231,24 @@ func initializeState(
 	block *types.Block,
 	gapBlock *types.Block,
 	blockchain *core.BlockChain,
-) (*state.StateDB, *tradingstate.TradingStateDB, error) {
+) (*state.StateDB, error) {
 	// Attempt to create a new state database from the block root.
 	stateDB, err := state.New(block.Root(), state.NewDatabase(db))
 	if err != nil {
 		// If creating a new state database fails, re-execute blocks to find the latest valid state.
 		stateDB, tomoxState, database, err := reexecState(reexec, db, nodeConfig, block, blockchain)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		// Regenerate the state up to the gap block.
-		return regenerateState(database, block, gapBlock, stateDB, blockchain, tomoxState)
+		stateDB, tomoxState, err = regenerateState(database, block, gapBlock, stateDB, blockchain, tomoxState)
+		if err != nil {
+			return nil, err
+		}
+		return finaliseBlock(block, stateDB, blockchain, blockchain.Config(), tomoxState)
 	}
 	// Return the newly created state database and an empty trading state database.
-	return stateDB, &tradingstate.TradingStateDB{}, nil
+	return stateDB, nil
 }
 
 // finaliseGapBlock processes the transactions in the given block and finalizes the state.
@@ -259,7 +263,7 @@ func initializeState(
 // Returns:
 // - *state.StateDB: The updated state database after processing the transactions.
 // - error: An error if the transaction processing or state finalization fails.
-func finaliseGapBlock(
+func finaliseBlock(
 	block *types.Block,
 	stateDB *state.StateDB,
 	blockchain *core.BlockChain,
@@ -406,12 +410,7 @@ func dbRepairSnapshot(ctx *cli.Context) error {
 
 	// Create a new state database from the gap block.
 	block = gapBlock
-	stateDB, tomoxState, err := initializeState(reexec, chainDB, nodeConfig, block, gapBlock, blockchain)
-	if err != nil {
-		return err
-	}
-
-	stateDB, err = finaliseGapBlock(block, stateDB, blockchain, chainConfig, tomoxState)
+	stateDB, err = initializeState(reexec, chainDB, nodeConfig, block, gapBlock, blockchain)
 	if err != nil {
 		return err
 	}
