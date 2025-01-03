@@ -352,7 +352,7 @@ func updateSnapshot(db ethdb.Database, blockHash common.Hash, newCandidates map[
 	}
 
 	// Log the old masternodes list.
-	log.Info("Old masternodes list in order")
+	log.Info("Old masternodes list")
 	for m := range snap.Signers {
 		log.Info("Masternode", "Address", m.Hex())
 	}
@@ -449,9 +449,9 @@ func dbRepairSnapshot(ctx *cli.Context) error {
 	}
 
 	newCandidates := make(map[common.Address]struct{})
-	log.Info("New masternodes list ordered by stake")
+	log.Info("New masternodes list")
 	for _, masternode := range masternodes {
-		log.Info("Masternode", "Address", masternode.Address.Hex(), "Stake:", masternode.Stake.String())
+		log.Info("Masternode", "Address", masternode.Address.Hex())
 		newCandidates[masternode.Address] = struct{}{}
 	}
 
