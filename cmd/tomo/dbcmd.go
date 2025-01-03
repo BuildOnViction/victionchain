@@ -306,22 +306,27 @@ func finaliseBlock(
 // - blockNumber: The nearest gap block number.
 // - blockHash: The hash of the nearest gap block.
 // - err: An error if sync block not checkpoint.
-func getNearestGap(db ethdb.Database, nodeConfig *params.ChainConfig) (blockNumber uint64, blockHash common.Hash, err error) {
-	// Get the hash of the current head block.
+func getNearestGap(db ethdb.Database, nodeConfig *params.ChainConfig) (uint64, common.Hash, error) {
+	// Retrieve the current head block's hash and number.
 	headHash := core.GetHeadHeaderHash(db)
-	// Get the block number of the current head block.
 	headBlockNumber := core.GetBlockNumber(db, headHash)
-	// Get current sync block number.
-	syncBlockNumber := headBlockNumber + 1
 
-	if syncBlockNumber%nodeConfig.Posv.Epoch != 0 {
-		return 0, common.Hash{}, fmt.Errorf("mismatched signer only appears at a checkpoint")
+	modulo := headBlockNumber % nodeConfig.Posv.Epoch
+	gapThreshold := nodeConfig.Posv.Epoch - nodeConfig.Posv.Gap
+
+	var nearestGapBlockNumber uint64
+
+	switch {
+	case modulo > gapThreshold:
+		nearestGapBlockNumber = headBlockNumber - (modulo % gapThreshold)
+	case modulo < gapThreshold:
+		nearestGapBlockNumber = headBlockNumber - modulo - nodeConfig.Posv.Gap
+	default:
+		nearestGapBlockNumber = headBlockNumber
 	}
-	// Calculate the nearest gap block number.
-	nearestGapBlockNumber := syncBlockNumber - nodeConfig.Posv.Gap
-	// Get the hash of the nearest gap block.
+
+	// Retrieve and return the canonical hash of the nearest gap block.
 	gapBlockHash := core.GetCanonicalHash(db, nearestGapBlockNumber)
-	// Return the nearest gap block number and its hash.
 	return nearestGapBlockNumber, gapBlockHash, nil
 }
 
