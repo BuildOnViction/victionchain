@@ -298,6 +298,7 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 			started := false
 			miningEnable := ctx.GlobalIsSet(utils.StakingEnabledFlag.Name)
 
+			defer close(core.CheckpointCh)
 			if miningEnable {
 				log.Info("Staking mode enabled.")
 				ok, err := ethereum.ValidateMasternode()
@@ -324,7 +325,6 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 					log.Info("Enabled staking node!!!")
 				}
 
-				defer close(core.CheckpointCh)
 				for range core.CheckpointCh {
 					log.Info("Checkpoint!!! It's time to reconcile node's state...")
 					ok, err := ethereum.ValidateMasternode()
@@ -360,6 +360,9 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 				}
 			} else {
 				log.Info("Staking mode disabled.")
+				for range core.CheckpointCh {
+					log.Info("Checkpoint!!! It's time to reconcile node's state...")
+				}
 			}
 		}()
 	}
