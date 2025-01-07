@@ -127,6 +127,7 @@ var (
 		utils.StoreRewardFlag,
 		utils.RollbackFlag,
 		utils.TomoSlaveModeFlag,
+		utils.ReexecFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -175,6 +176,8 @@ func init() {
 		consoleCommand,
 		attachCommand,
 		javascriptCommand,
+		// See dbcmd.go:
+		dbCommand,
 		// See misccmd.go:
 		versionCommand,
 		// See config.go
