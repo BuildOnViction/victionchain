@@ -45,7 +45,7 @@ go1.18.10 run build/ci.go install
 Clone this repository and change working directory to where you clone it, then run the following commands:
 
 ```bash
-docker build --file Dockerfile.node -t "local/viction:v2.4.4" .
+docker build --file Dockerfile.node -t "viction:v2.4.5" .
 ```
 
 ### Pre-built Bianries
@@ -140,7 +140,7 @@ docker run --name viction \
   -e NETSTATS_PORT=443 \
   -e WS_SECRET=getty-site-pablo-auger-room-sos-blair-shin-whiz-delhi \
   -e VERBOSITY=3 \
-  buildonviction/node:v2.4.4
+  buildonviction/node:v2.4.5
 ```
 
 Brief explainations on the supported variables:
@@ -165,6 +165,10 @@ VERBOSITY: log level from 1 to 5. Here we're using 4 for debug messages.
 ### Other usecases
 
 For full featured guide. Please check our docs: [https://docs.viction.xyz/masternode](https://docs.viction.xyz/masternode)
+
+### Network information
+
+For more information about parameters to connect to Viction networks. Please check our docs: [https://docs.viction.xyz/general/network-information](https://docs.viction.xyz/general/network-information)
 
 ## Contribution
 
