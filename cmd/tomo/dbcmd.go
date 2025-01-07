@@ -127,9 +127,9 @@ func reexecState(
 	database := state.NewDatabase(db)
 
 	var (
-		stateDB    *state.StateDB
-		tomoxState *tradingstate.TradingStateDB
-		err        error
+		stateDB      *state.StateDB
+		tomoxStateDB *tradingstate.TradingStateDB
+		err          error
 	)
 
 	// Re-execute to find the latest valid state
@@ -142,7 +142,7 @@ func reexecState(
 		if stateDB, err = state.New(block.Root(), database); err == nil {
 			if block.NumberU64() >= common.TIPTomoXBlock.Uint64() {
 				tomoxDB := tradingstate.NewDatabase(tomox.NewLDBEngine(&nodeConfig.TomoX))
-				tomoxState, err = tradingstate.New(block.Root(), tomoxDB)
+				tomoxStateDB, err = tradingstate.New(block.Root(), tomoxDB)
 			}
 			if err == nil {
 				break
@@ -156,25 +156,39 @@ func reexecState(
 		}
 		return nil, nil, nil, err
 	}
-	return stateDB, tomoxState, database, nil
+	return stateDB, tomoxStateDB, database, nil
 }
 
+// regenerateState regenerates the state from the given block to the target block.
+//
+// Parameters:
+// - database: The state database instance.
+// - block: The current block from which to start regenerating the state.
+// - targetBlock: The target block to which the state needs to be regenerated.
+// - stateDB: The state database to be updated during regeneration.
+// - blockchain: The blockchain instance.
+// - tomoxStateDB: The trading state database.
+//
+// Returns:
+// - *state.StateDB: The updated state database after regeneration.
+// - *tradingstate.TradingStateDB: The updated trading state database after regeneration.
+// - error: An error if the regeneration process fails.
 func regenerateState(
 	database state.Database,
 	block *types.Block,
-	gapBlock *types.Block,
+	targetBlock *types.Block,
 	stateDB *state.StateDB,
 	blockchain *core.BlockChain,
-	tomoxState *tradingstate.TradingStateDB,
+	tomoxStateDB *tradingstate.TradingStateDB,
 ) (*state.StateDB, *tradingstate.TradingStateDB, error) {
 	var (
 		start  = time.Now()
 		logged time.Time
 		proot  common.Hash
 	)
-	for block.NumberU64() < gapBlock.NumberU64() {
+	for block.NumberU64() < targetBlock.NumberU64() {
 		if time.Since(logged) > 8*time.Second {
-			log.Info("Regenerating historical state", "block", block.NumberU64()+1, "target", gapBlock.NumberU64(), "elapsed", time.Since(start))
+			log.Info("Regenerating historical state", "block", block.NumberU64()+1, "target", targetBlock.NumberU64(), "elapsed", time.Since(start))
 			logged = time.Now()
 		}
 		// Retrieve the next block to regenerate and process it
@@ -182,7 +196,7 @@ func regenerateState(
 			return nil, nil, fmt.Errorf("block #%d not found", block.NumberU64()+1)
 		}
 		feeCapacity := state.GetTRC21FeeCapacityFromState(stateDB)
-		_, _, _, err := blockchain.Processor().Process(block, stateDB, tomoxState, vm.Config{}, feeCapacity)
+		_, _, _, err := blockchain.Processor().Process(block, stateDB, tomoxStateDB, vm.Config{}, feeCapacity)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -206,73 +220,31 @@ func regenerateState(
 	}
 	size, _ := database.TrieDB().Size()
 	log.Info("Historical state regenerated", "block", block.NumberU64(), "elapsed", time.Since(start), "size", size)
-	return stateDB, tomoxState, nil
-}
-
-// initializeState initializes the state database and trading state database by either
-// creating a new state from the block root or re-executing blocks to find the latest valid state.
-//
-// Parameters:
-// - reexec: The number of blocks to re-execute.
-// - db: The database containing the blockchain data.
-// - nodeConfig: The chain configuration containing the POSV parameters.
-// - block: The current block from which to start re-executing.
-// - gapBlock: The gap block to which the state needs to be regenerated.
-// - blockchain: The blockchain instance.
-//
-// Returns:
-// - *state.StateDB: The state database after initialization or re-execution.
-// - *tradingstate.TradingStateDB: The trading state database after initialization or re-execution.
-// - error: An error if the initialization or re-execution process fails.
-func initializeState(
-	reexec uint64,
-	db ethdb.Database,
-	nodeConfig tomoConfig,
-	block *types.Block,
-	gapBlock *types.Block,
-	blockchain *core.BlockChain,
-) (*state.StateDB, error) {
-	// Attempt to create a new state database from the block root.
-	stateDB, err := state.New(block.Root(), state.NewDatabase(db))
-	if err != nil {
-		// If creating a new state database fails, re-execute blocks to find the latest valid state.
-		stateDB, tomoxState, database, err := reexecState(reexec, db, nodeConfig, block, blockchain)
-		if err != nil {
-			return nil, err
-		}
-		// Regenerate the state up to the gap block.
-		stateDB, tomoxState, err = regenerateState(database, block, gapBlock, stateDB, blockchain, tomoxState)
-		if err != nil {
-			return nil, err
-		}
-		return finaliseBlock(block, stateDB, blockchain, blockchain.Config(), tomoxState)
-	}
-	// Return the newly created state database and an empty trading state database.
-	return stateDB, nil
+	return stateDB, tomoxStateDB, nil
 }
 
 // finaliseBlock processes the transactions in the given block (usually gap block) and finalizes the state.
 //
 // Parameters:
-// - block: The block containing the transactions to be processed.
+// - targetBlock: The target block containing the transactions to be processed.
 // - stateDB: The state database to be updated with the transaction results.
 // - blockchain: The blockchain instance.
 // - chainConfig: The chain configuration parameters.
-// - tomoxState: The trading state database.
+// - tomoxStateDB: The trading state database.
 //
 // Returns:
 // - *state.StateDB: The updated state database after processing the transactions.
 // - error: An error if the transaction processing or state finalization fails.
 func finaliseBlock(
-	block *types.Block,
+	targetBlock *types.Block,
 	stateDB *state.StateDB,
 	blockchain *core.BlockChain,
 	chainConfig *params.ChainConfig,
-	tomoxState *tradingstate.TradingStateDB,
+	tomoxStateDB *tradingstate.TradingStateDB,
 ) (*state.StateDB, error) {
 	var (
-		signer = types.MakeSigner(chainConfig, block.Number())
-		txs    = block.Transactions()
+		signer = types.MakeSigner(chainConfig, targetBlock.Number())
+		txs    = targetBlock.Transactions()
 	)
 
 	feeCapacity := state.GetTRC21FeeCapacityFromState(stateDB)
@@ -283,15 +255,56 @@ func finaliseBlock(
 				balance = value
 			}
 		}
-		msg, _ := tx.AsMessage(signer, balance, block.Number(), false)
-		vmctx := core.NewEVMContext(msg, block.Header(), blockchain, nil)
-		vmenv := vm.NewEVM(vmctx, stateDB, tomoxState, chainConfig, vm.Config{})
+		msg, _ := tx.AsMessage(signer, balance, targetBlock.Number(), false)
+		vmctx := core.NewEVMContext(msg, targetBlock.Header(), blockchain, nil)
+		vmenv := vm.NewEVM(vmctx, stateDB, tomoxStateDB, chainConfig, vm.Config{})
 		owner := common.Address{}
 		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
 			return nil, err
 		}
 		stateDB.Finalise(true)
 	}
+	return stateDB, nil
+}
+
+// initializeState initializes the state database and trading state database by either
+// creating a new state from the block root or re-executing blocks to find the latest valid state.
+//
+// Parameters:
+// - reexec: The number of blocks to re-execute.
+// - db: The database containing the blockchain data.
+// - nodeConfig: The chain configuration containing the POSV parameters.
+// - block: The current block from which to start re-executing.
+// - targetBlock: The target block to which the state needs to be regenerated.
+// - blockchain: The blockchain instance.
+//
+// Returns:
+// - *state.StateDB: The state database after initialization or re-execution.
+// - error: An error if the initialization or re-execution process fails.
+func initializeState(
+	reexec uint64,
+	db ethdb.Database,
+	nodeConfig tomoConfig,
+	block *types.Block,
+	targetBlock *types.Block,
+	blockchain *core.BlockChain,
+) (*state.StateDB, error) {
+	// Attempt to create a new state database from the block root.
+	stateDB, err := state.New(block.Root(), state.NewDatabase(db))
+	if err != nil {
+		// If creating a new state database fails, re-execute blocks to find the latest valid state.
+		stateDB, tomoxStateDB, database, err := reexecState(reexec, db, nodeConfig, block, blockchain)
+		if err != nil {
+			return nil, err
+		}
+		// Regenerate the state up to the gap block.
+		stateDB, tomoxStateDB, err = regenerateState(database, block, targetBlock, stateDB, blockchain, tomoxStateDB)
+		if err != nil {
+			return nil, err
+		}
+		return finaliseBlock(block, stateDB, blockchain, blockchain.Config(), tomoxStateDB)
+	}
+	// Return the newly created state database.
 	return stateDB, nil
 }
 
