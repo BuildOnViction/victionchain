@@ -129,11 +129,10 @@ func defaultNodeConfig() node.Config {
 func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Load defaults.
 	cfg := tomoConfig{
-		Eth:   eth.DefaultConfig,
-		Shh:   whisper.DefaultConfig,
-		TomoX: tomox.DefaultConfig,
-		Node:  defaultNodeConfig(),
-		// StakeEnable: true,
+		Eth:       eth.DefaultConfig,
+		Shh:       whisper.DefaultConfig,
+		TomoX:     tomox.DefaultConfig,
+		Node:      defaultNodeConfig(),
 		Verbosity: 3,
 		NAT:       "",
 	}
@@ -143,9 +142,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 			utils.Fatalf("%v", err)
 		}
 	}
-	// if ctx.GlobalIsSet(utils.StakingEnabledFlag.Name) {
-	// 	cfg.StakeEnable = ctx.GlobalBool(utils.StakingEnabledFlag.Name)
-	// }
+
 	if !ctx.GlobalIsSet(debug.VerbosityFlag.Name) {
 		debug.Glogger.Verbosity(log.Lvl(cfg.Verbosity))
 	}
