@@ -127,7 +127,6 @@ var (
 		utils.AnnounceTxsFlag,
 		utils.StoreRewardFlag,
 		utils.RollbackFlag,
-		// utils.TomoSlaveModeFlag,
 	}
 
 	rpcFlags = []cli.Flag{
