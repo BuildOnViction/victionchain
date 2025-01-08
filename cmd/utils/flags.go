@@ -21,13 +21,16 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
+	godebug "runtime/debug"
 	"strconv"
 	"strings"
 
+	gopsutil "github.com/shirou/gopsutil/mem"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/accounts/keystore"
 	"github.com/tomochain/tomochain/common"
@@ -294,7 +297,7 @@ var (
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
 		Usage: "Megabytes of memory allocated to internal caching",
-		Value: 1024,
+		Value: 4096,
 	}
 	CacheDatabaseFlag = cli.IntFlag{
 		Name:  "cache.database",
@@ -1117,6 +1120,26 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setGPO(ctx, &cfg.GPO)
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
+
+	// Cap the cache allowance and tune the garbage collector
+	mem, err := gopsutil.VirtualMemory()
+	if err == nil {
+		if 32<<(^uintptr(0)>>63) == 32 && mem.Total > 2*1024*1024*1024 {
+			log.Warn("Lowering memory allowance on 32bit arch", "available", mem.Total/1024/1024, "addressable", 2*1024)
+			mem.Total = 2 * 1024 * 1024 * 1024
+		}
+		allowance := int(mem.Total / 1024 / 1024 / 3)
+		if cache := ctx.Int(CacheFlag.Name); cache > allowance {
+			log.Warn("Sanitizing cache to Go's GC limits", "provided", cache, "updated", allowance)
+			ctx.Set(CacheFlag.Name, strconv.Itoa(allowance))
+		}
+	}
+	// Ensure Go's GC ignores the database cache for trigger percentage
+	cache := ctx.Int(CacheFlag.Name)
+	gogc := math.Max(20, math.Min(100, 100/(float64(cache)/1024)))
+
+	log.Debug("Sanitizing Go's GC trigger", "percent", int(gogc))
+	godebug.SetGCPercent(int(gogc))
 
 	switch {
 	case ctx.GlobalIsSet(SyncModeFlag.Name):

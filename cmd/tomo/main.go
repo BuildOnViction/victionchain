@@ -21,6 +21,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,9 +89,9 @@ var (
 		//utils.LightServFlag,
 		//utils.LightPeersFlag,
 		//utils.LightKDFFlag,
-		//utils.CacheFlag,
-		//utils.CacheDatabaseFlag,
-		//utils.CacheGCFlag,
+		utils.CacheFlag,
+		// utils.CacheDatabaseFlag,
+		// utils.CacheGCFlag,
 		//utils.TrieCacheGenFlag,
 		utils.ListenPortFlag,
 		utils.MaxPeersFlag,
@@ -226,10 +227,29 @@ func main() {
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
 func tomo(ctx *cli.Context) error {
+	prepare(ctx)
 	node, cfg := makeFullNode(ctx)
 	startNode(ctx, node, cfg)
 	node.Wait()
 	return nil
+}
+
+// prepare manipulates memory cache allowance and setups metric system.
+// This function should be called before launching devp2p stack.
+func prepare(ctx *cli.Context) {
+
+	// If we're a full node on mainnet without --cache specified, bump default cache allowance
+	if !ctx.IsSet(utils.CacheFlag.Name) {
+		log.Info("Bumping default cache on mainnet", "value", utils.CacheFlag.Value)
+		ctx.Set(utils.CacheFlag.Name, strconv.Itoa(utils.CacheFlag.Value))
+	}
+	// Note: This features below will be improved and updated in future releases.
+	// Start metrics export if enabled
+	// utils.SetupMetrics(ctx)
+
+	// Start system runtime metrics collection
+	// go metrics.CollectProcessMetrics(3 * time.Second)
+
 }
 
 // startNode boots up the system node and all registered protocols, after which

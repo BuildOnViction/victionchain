@@ -40,7 +40,7 @@ require (
 	golang.org/x/crypto v0.0.0-20191105034135-c7e5f84aec59
 	golang.org/x/net v0.0.0-20190912160710-24e19bdeb0f2
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190912141932-bc967efca4b8
+	golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3
 	golang.org/x/tools v0.0.0-20191104232314-dc038396d1f0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951
@@ -52,6 +52,7 @@ require (
 require (
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/dlclark/regexp2 v1.2.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.2+incompatible // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/google/uuid v1.0.0 // indirect
@@ -65,7 +66,9 @@ require (
 	github.com/naoina/go-stringutil v0.1.0 // indirect
 	github.com/nsf/termbox-go v0.0.0-20170211012700-3540b76b9c77 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
