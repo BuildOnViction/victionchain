@@ -21,13 +21,13 @@ import (
 	"context"
 	"errors"
 	"math"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/tomochain/tomochain/common/bitutil"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // bloomIndexes represents the bit indexes inside the bloom filter that belong

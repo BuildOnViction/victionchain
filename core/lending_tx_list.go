@@ -18,9 +18,9 @@ package core
 
 import (
 	"container/heap"
-	"sort"
 
 	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/sort"
 )
 
 // txSortedMap is a nonce->transaction hash map with a heap based index to allow

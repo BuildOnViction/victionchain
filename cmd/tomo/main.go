@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/node"
+	"github.com/tomochain/tomochain/sort"
 	"gopkg.in/urfave/cli.v1"
 )
 

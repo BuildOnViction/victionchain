@@ -24,7 +24,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"syscall"
 
@@ -35,6 +34,7 @@ import (
 	"github.com/tomochain/tomochain/internal/jsre/deps"
 	"github.com/tomochain/tomochain/internal/web3ext"
 	"github.com/tomochain/tomochain/rpc"
+	"github.com/tomochain/tomochain/sort"
 )
 
 var (

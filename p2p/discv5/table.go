@@ -27,9 +27,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"sort"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

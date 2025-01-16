@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sort"
 	"sync"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/sort"
 )
 
 const (

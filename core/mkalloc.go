@@ -31,11 +31,11 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"sort"
 	"strconv"
 
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/rlp"
+	"github.com/tomochain/tomochain/sort"
 )
 
 type allocItem struct{ Addr, Balance *big.Int }
