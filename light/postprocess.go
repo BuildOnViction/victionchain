@@ -19,9 +19,10 @@ package light
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"time"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/bitutil"
@@ -174,7 +175,7 @@ func (c *ChtIndexerBackend) Process(header *types.Header) {
 
 // Commit implements core.ChainIndexerBackend
 func (c *ChtIndexerBackend) Commit() error {
-	root, err := c.trie.Commit(nil)
+	root, _, err := c.trie.Commit(nil)
 	if err != nil {
 		return err
 	}
@@ -293,7 +294,7 @@ func (b *BloomTrieIndexerBackend) Commit() error {
 			b.trie.Delete(encKey[:])
 		}
 	}
-	root, err := b.trie.Commit(nil)
+	root, _, err := b.trie.Commit(nil)
 	if err != nil {
 		return err
 	}
