@@ -113,9 +113,9 @@ var (
 	invalidTxMeter     = metrics.NewRegisteredMeter("txpool/invalid", nil)
 	underpricedTxMeter = metrics.NewRegisteredMeter("txpool/underpriced", nil)
 
-	pendingCounter = metrics.NewRegisteredCounter("txpool/pending", nil)
-	queuedCounter  = metrics.NewRegisteredCounter("txpool/queued", nil)
-	localCounter   = metrics.NewRegisteredCounter("txpool/local", nil)
+	pendingGauge = metrics.NewRegisteredGauge("txpool/pending", nil)
+	queuedGauge  = metrics.NewRegisteredGauge("txpool/queued", nil)
+	localGauge   = metrics.NewRegisteredGauge("txpool/local", nil)
 )
 
 // TxStatus is the current status of a transaction as seen by the pool.
@@ -774,7 +774,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		pool.locals.add(from)
 	}
 	if local || pool.locals.contains(from) {
-		localCounter.Inc(1)
+		localGauge.Inc(1)
 	}
 	pool.journalTx(from, tx)
 
@@ -804,7 +804,7 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, er
 		queuedReplaceMeter.Mark(1)
 	} else {
 		// Nothing was replaced, bump the queued counter
-		queuedCounter.Inc(1)
+		queuedGauge.Inc(1)
 	}
 	pool.all[hash] = tx
 	pool.priced.Put(tx)
@@ -850,7 +850,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 		pendingReplaceMeter.Mark(1)
 	} else {
 		// Nothing was replaced, bump the pending counter
-		pendingCounter.Inc(1)
+		pendingGauge.Inc(1)
 	}
 	// Failsafe to work around direct pending inserts (tests)
 	if pool.all[hash] == nil {
@@ -881,7 +881,7 @@ func (pool *TxPool) promoteSpecialTx(addr common.Address, tx *types.Transaction)
 		pendingReplaceMeter.Mark(1)
 	} else {
 		// Nothing was replaced, bump the pending counter
-		pendingCounter.Inc(1)
+		pendingGauge.Inc(1)
 	}
 	list.txs.Put(tx)
 	if cost := tx.Cost(); list.costcap.Cmp(cost) < 0 {
@@ -1032,7 +1032,7 @@ func (pool *TxPool) removeTx(hash common.Hash) {
 	pool.priced.Removed()
 
 	if pool.locals.contains(addr) {
-		localCounter.Dec(1)
+		localGauge.Dec(1)
 	}
 
 	// Remove the transaction from the pending lists and reset the account nonce
@@ -1052,7 +1052,7 @@ func (pool *TxPool) removeTx(hash common.Hash) {
 				pool.pendingState.SetNonce(addr, nonce)
 			}
 			// Reduce the pending counter
-			pendingCounter.Dec(int64(1 + len(invalids)))
+			pendingGauge.Dec(int64(1 + len(invalids)))
 			return
 		}
 	}
@@ -1110,7 +1110,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			log.Trace("Promoting queued transaction", "hash", hash)
 			pool.promoteTx(addr, hash, tx)
 		}
-		queuedCounter.Dec(int64(len(readies)))
+		queuedGauge.Dec(int64(len(readies)))
 
 		// Drop all transactions over the allowed limit
 		var caps types.Transactions
@@ -1125,9 +1125,9 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			queuedRateLimitMeter.Mark(int64(len(caps)))
 		}
 
-		queuedCounter.Dec(int64(len(forwards) + len(drops) + len(caps)))
+		queuedGauge.Dec(int64(len(forwards) + len(drops) + len(caps)))
 		if pool.locals.contains(addr) {
-			localCounter.Dec(int64(len(forwards) + len(drops) + len(caps)))
+			localGauge.Dec(int64(len(forwards) + len(drops) + len(caps)))
 		}
 
 		// Delete the entire queue entry if it became empty.
@@ -1180,9 +1180,9 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 							}
 							log.Trace("Removed fairness-exceeding pending transaction", "hash", hash)
 						}
-						pendingCounter.Dec(int64(len(caps)))
+						pendingGauge.Dec(int64(len(caps)))
 						if pool.locals.contains(offenders[i]) {
-							localCounter.Dec(int64(len(caps)))
+							localGauge.Dec(int64(len(caps)))
 						}
 
 						pending--
@@ -1209,9 +1209,9 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 						}
 						log.Trace("Removed fairness-exceeding pending transaction", "hash", hash)
 					}
-					pendingCounter.Dec(int64(len(caps)))
+					pendingGauge.Dec(int64(len(caps)))
 					if pool.locals.contains(addr) {
-						localCounter.Dec(int64(len(caps)))
+						localGauge.Dec(int64(len(caps)))
 					}
 
 					pending--
@@ -1293,9 +1293,9 @@ func (pool *TxPool) demoteUnexecutables() {
 			log.Trace("Demoting pending transaction", "hash", hash)
 			pool.enqueueTx(hash, tx)
 		}
-		pendingCounter.Dec(int64(len(olds) + len(drops) + len(invalids)))
+		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
 		if pool.locals.contains(addr) {
-			localCounter.Dec(int64(len(olds) + len(drops) + len(invalids)))
+			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
 		}
 
 		// If there's a gap in front, warn (should never happen) and postpone all transactions
@@ -1306,7 +1306,7 @@ func (pool *TxPool) demoteUnexecutables() {
 				log.Warn("Demoting invalidated transaction", "hash", hash)
 				pool.enqueueTx(hash, tx)
 			}
-			pendingCounter.Inc(int64(len(gapped)))
+			pendingGauge.Inc(int64(len(gapped)))
 		}
 		// Delete the entire queue entry if it became empty.
 		if list.Empty() {
