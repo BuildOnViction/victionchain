@@ -109,7 +109,7 @@ var (
 	queuedNofundsMeter   = metrics.NewRegisteredMeter("txpool/queued/nofunds", nil)   // Dropped due to out-of-funds
 
 	// General tx metrics
-	validMeter         = metrics.NewRegisteredMeter("txpool/valid", nil)
+	validTxMeter       = metrics.NewRegisteredMeter("txpool/valid", nil)
 	invalidTxMeter     = metrics.NewRegisteredMeter("txpool/invalid", nil)
 	underpricedTxMeter = metrics.NewRegisteredMeter("txpool/underpriced", nil)
 
@@ -941,7 +941,7 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	if err != nil {
 		return err
 	}
-	validMeter.Mark(1)
+	validTxMeter.Mark(1)
 
 	// If we added a new transaction, run promotion checks and return
 	if !replace {
@@ -975,7 +975,7 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) []error {
 			}
 		}
 	}
-	validMeter.Mark(int64(len(dirty)))
+	validTxMeter.Mark(int64(len(dirty)))
 
 	// Only reprocess the internal state if something was actually added
 	if len(dirty) > 0 {
@@ -1306,7 +1306,7 @@ func (pool *TxPool) demoteUnexecutables() {
 				log.Warn("Demoting invalidated transaction", "hash", hash)
 				pool.enqueueTx(hash, tx)
 			}
-			pendingGauge.Inc(int64(len(gapped)))
+			pendingGauge.Dec(int64(len(gapped)))
 		}
 		// Delete the entire queue entry if it became empty.
 		if list.Empty() {
