@@ -26,7 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/types"
@@ -104,6 +104,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		}
 	}
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
+	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 
 	return hc, nil
 }
@@ -185,6 +186,7 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 		}
 		hc.currentHeaderHash = hash
 		hc.currentHeader.Store(types.CopyHeader(header))
+		headHeaderGauge.Update(header.Number.Int64())
 
 		status = CanonStatTy
 	} else {
@@ -400,6 +402,7 @@ func (hc *HeaderChain) SetCurrentHeader(head *types.Header) {
 	}
 	hc.currentHeader.Store(head)
 	hc.currentHeaderHash = head.Hash()
+	headHeaderGauge.Update(head.Number.Int64())
 }
 
 // DeleteCallback is a callback function that is called by SetHead before
@@ -438,6 +441,7 @@ func (hc *HeaderChain) SetHead(head uint64, delFn DeleteCallback) {
 		hc.currentHeader.Store(hc.genesisHeader)
 	}
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
+	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 
 	if err := WriteHeadHeaderHash(hc.chainDb, hc.currentHeaderHash); err != nil {
 		log.Crit("Failed to reset head header hash", "err", err)

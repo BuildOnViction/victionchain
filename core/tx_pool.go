@@ -19,12 +19,13 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/consensus"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/tomochain/tomochain/consensus"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
@@ -1238,11 +1239,14 @@ func (pool *TxPool) demoteUnexecutables() {
 		}
 		// If there's a gap in front, warn (should never happen) and postpone all transactions
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
+			gapped := list.Cap(0)
 			for _, tx := range list.Cap(0) {
 				hash := tx.Hash()
 				log.Warn("Demoting invalidated transaction", "hash", hash)
 				pool.enqueueTx(hash, tx)
 			}
+			// This might happen in a reorg, so log it to the metering
+			blockReorgInvalidatedTx.Mark(int64(len(gapped)))
 		}
 		// Delete the entire queue entry if it became empty.
 		if list.Empty() {
