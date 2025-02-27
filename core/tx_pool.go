@@ -72,7 +72,7 @@ var (
 	// maximum allowance of the current block.
 	ErrGasLimit = errors.New("exceeds block gas limit")
 
-	// ErrNegativeValue is a sanity error to ensure noone is able to specify a
+	// ErrNegativeValue is a sanity error to ensure no one is able to specify a
 	// transaction with a negative value.
 	ErrNegativeValue = errors.New("negative value")
 
@@ -720,7 +720,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if tx.IsSpecialTransaction() && pool.IsSigner != nil && pool.IsSigner(from) && pool.pendingState.GetNonce(from) == tx.Nonce() {
-		return pool.promoteSpecialTx(from, tx)
+		return pool.promoteSpecialTx(from, tx, local)
 	}
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
@@ -864,7 +864,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	go pool.txFeed.Send(TxPreEvent{tx})
 }
 
-func (pool *TxPool) promoteSpecialTx(addr common.Address, tx *types.Transaction) (bool, error) {
+func (pool *TxPool) promoteSpecialTx(addr common.Address, tx *types.Transaction, local bool) (bool, error) {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
 		pool.pending[addr] = newTxList(true)
@@ -884,6 +884,7 @@ func (pool *TxPool) promoteSpecialTx(addr common.Address, tx *types.Transaction)
 		pendingGauge.Inc(1)
 	}
 	list.txs.Put(tx)
+
 	if cost := tx.Cost(); list.costcap.Cmp(cost) < 0 {
 		list.costcap = cost
 	}
@@ -897,6 +898,15 @@ func (pool *TxPool) promoteSpecialTx(addr common.Address, tx *types.Transaction)
 	// Set the potentially new pending nonce and notify any subsystems of the new tx
 	pool.beats[addr] = time.Now()
 	pool.pendingState.SetNonce(addr, tx.Nonce()+1)
+
+	//Mark local addresses
+	if local {
+		pool.locals.add(addr)
+	}
+	if local || pool.locals.contains(addr) {
+		localGauge.Inc(1)
+	}
+
 	go pool.txFeed.Send(TxPreEvent{tx})
 	return true, nil
 }
