@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/tomochain/tomochain/log"
@@ -38,7 +39,7 @@ const (
 	// OptionMethodInvocation is an indication that the codec supports RPC method calls
 	OptionMethodInvocation CodecOption = 1 << iota
 
-	// OptionSubscriptions is an indication that the codec suports RPC notifications
+	// OptionSubscriptions is an indication that the codec supports RPC notifications
 	OptionSubscriptions = 1 << iota // support pub sub
 )
 
@@ -299,6 +300,12 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 		return codec.CreateErrorResponse(&req.id, rpcErr), nil
 	}
 
+	rpcRequestGauge.Inc(1)
+
+	// Start the timer for this RPC method call
+	timer := newRPCServingTimer(req.callb.method.Name, true)
+	start := time.Now()
+
 	arguments := []reflect.Value{req.callb.rcvr}
 	if req.callb.hasCtx {
 		arguments = append(arguments, reflect.ValueOf(ctx))
@@ -310,6 +317,10 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 	// execute RPC method and return result
 	reply := req.callb.method.Func.Call(arguments)
 	if len(reply) == 0 {
+		successfulRequestGauge.Inc(1)
+		rpcServingTimer.UpdateSince(start)
+		timer.UpdateSince(start)
+
 		return codec.CreateResponse(req.id, nil), nil
 	}
 
@@ -317,9 +328,19 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 		if !reply[req.callb.errPos].IsNil() {
 			e := reply[req.callb.errPos].Interface().(error)
 			res := codec.CreateErrorResponse(&req.id, &callbackError{e.Error()})
+
+			failedRequestGauge.Inc(1)
+			rpcServingTimer.UpdateSince(start)
+			timer.UpdateSince(start)
+
 			return res, nil
 		}
 	}
+
+	successfulRequestGauge.Inc(1)
+	rpcServingTimer.UpdateSince(start)
+	timer.UpdateSince(start)
+
 	return codec.CreateResponse(req.id, reply[0].Interface()), nil
 }
 
