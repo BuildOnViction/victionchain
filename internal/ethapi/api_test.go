@@ -6,6 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
+	"slices"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"github.com/tomochain/tomochain/accounts"
 	"github.com/tomochain/tomochain/common"
@@ -26,12 +33,6 @@ import (
 	"github.com/tomochain/tomochain/tomox"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending"
-	"math/big"
-	"os"
-	"path/filepath"
-	"slices"
-	"testing"
-	"time"
 )
 
 type testBackend struct {
@@ -91,6 +92,27 @@ func (b testBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber
 	return b.chain.GetHeaderByNumber(uint64(blockNr)), nil
 }
 
+func (b testBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	return b.chain.GetHeaderByHash(hash), nil
+}
+
+func (b testBackend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		return b.HeaderByNumber(ctx, blockNr)
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		header := b.chain.GetHeaderByHash(hash)
+		if header == nil {
+			return nil, errors.New("header for hash not found")
+		}
+		if blockNrOrHash.RequireCanonical && b.chain.GetCanonicalHash(header.Number.Uint64()) != hash {
+			return nil, errors.New("hash is not currently canonical")
+		}
+		return header, nil
+	}
+	return nil, errors.New("invalid arguments; neither block nor hash specified")
+}
+
 func (b testBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error) {
 	if number == rpc.LatestBlockNumber {
 		return b.chain.CurrentBlock(), nil
@@ -130,6 +152,27 @@ func (b testBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.Blo
 	}
 	stateDb, err := b.chain.StateAt(header.Root)
 	return stateDb, header, err
+}
+
+func (b testBackend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, *types.Header, error) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		return b.StateAndHeaderByNumber(ctx, blockNr)
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		header, err := b.HeaderByHash(ctx, hash)
+		if err != nil {
+			return nil, nil, err
+		}
+		if header == nil {
+			return nil, nil, errors.New("header for hash not found")
+		}
+		if blockNrOrHash.RequireCanonical && b.chain.GetCanonicalHash(header.Number.Uint64()) != hash {
+			return nil, nil, errors.New("hash is not currently canonical")
+		}
+		stateDb, err := b.chain.StateAt(header.Root)
+		return stateDb, header, err
+	}
+	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
 func (t testBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error) {
@@ -374,7 +417,7 @@ func TestEstimateGas(t *testing.T) {
 		},
 	}
 	for i, tc := range testSuite {
-		result, err := api.EstimateGas(context.Background(), tc.call, &tc.blockNumber)
+		result, err := api.EstimateGas(context.Background(), tc.call, &rpc.BlockNumberOrHash{BlockNumber: &tc.blockNumber})
 		if tc.expectErr != nil {
 			if err == nil {
 				t.Errorf("test %d: want error %v, have nothing", i, tc.expectErr)
