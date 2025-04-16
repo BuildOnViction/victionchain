@@ -122,10 +122,11 @@ type BlockNumber int64
 type EpochNumber int64
 
 const (
-	PendingBlockNumber  = BlockNumber(-2)
-	LatestBlockNumber   = BlockNumber(-1)
-	EarliestBlockNumber = BlockNumber(0)
-	LatestEpochNumber   = EpochNumber(-1)
+	FinalizedBlockNumber = BlockNumber(-3)
+	PendingBlockNumber   = BlockNumber(-2)
+	LatestBlockNumber    = BlockNumber(-1)
+	EarliestBlockNumber  = BlockNumber(0)
+	LatestEpochNumber    = EpochNumber(-1)
 )
 
 // UnmarshalJSON parses the given JSON fragment into a BlockNumber. It supports:
@@ -137,6 +138,9 @@ const (
 func (bn *BlockNumber) UnmarshalJSON(data []byte) error {
 	input := trimData(data)
 	switch input {
+	case "finalized":
+		*bn = FinalizedBlockNumber
+		return nil
 	case "earliest":
 		*bn = EarliestBlockNumber
 		return nil

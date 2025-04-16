@@ -100,11 +100,17 @@ type Signer interface {
 	Hash(tx *Transaction) common.Hash
 	// Equal returns true if the given signer is the same as the receiver.
 	Equal(Signer) bool
+	// ChainID
+	ChainID() *big.Int
 }
 
 // EIP155Transaction implements Signer using the EIP155 rules.
 type EIP155Signer struct {
 	chainId, chainIdMul *big.Int
+}
+
+func (s EIP155Signer) ChainID() *big.Int {
+	return s.chainId
 }
 
 func NewEIP155Signer(chainId *big.Int) EIP155Signer {
@@ -125,15 +131,19 @@ func (s EIP155Signer) Equal(s2 Signer) bool {
 var big8 = big.NewInt(8)
 
 func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
+	if tx.Type() != LegacyTxType {
+		return common.Address{}, ErrTxTypeNotSupported
+	}
 	if !tx.Protected() {
 		return HomesteadSigner{}.Sender(tx)
 	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
-	V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
+	V, R, S := tx.RawSignatureValues()
+	V = new(big.Int).Sub(V, s.chainIdMul)
 	V.Sub(V, big8)
-	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
+	return recoverPlain(s.Hash(tx), R, S, V, true)
 }
 
 // WithSignature returns a new transaction with the given signature. This signature
@@ -154,12 +164,12 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 // It does not uniquely identify the transaction.
 func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
 	return rlpHash([]interface{}{
-		tx.data.AccountNonce,
-		tx.data.Price,
-		tx.data.GasLimit,
-		tx.data.Recipient,
-		tx.data.Amount,
-		tx.data.Payload,
+		tx.Nonce(),
+		tx.GasPrice(),
+		tx.Gas(),
+		tx.To(),
+		tx.Value(),
+		tx.Data(),
 		s.chainId, uint(0), uint(0),
 	})
 }
@@ -173,6 +183,10 @@ func (s HomesteadSigner) Equal(s2 Signer) bool {
 	return ok
 }
 
+func (hs HomesteadSigner) ChainID() *big.Int {
+	return nil
+}
+
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (hs HomesteadSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
@@ -180,10 +194,19 @@ func (hs HomesteadSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v 
 }
 
 func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
-	return recoverPlain(hs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, true)
+	if tx.Type() != LegacyTxType {
+		return common.Address{}, ErrTxTypeNotSupported
+	}
+	v, r, s := tx.RawSignatureValues()
+
+	return recoverPlain(hs.Hash(tx), r, s, v, true)
 }
 
 type FrontierSigner struct{}
+
+func (fs FrontierSigner) ChainID() *big.Int {
+	return nil
+}
 
 func (s FrontierSigner) Equal(s2 Signer) bool {
 	_, ok := s2.(FrontierSigner)
@@ -206,17 +229,21 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 // It does not uniquely identify the transaction.
 func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
 	return rlpHash([]interface{}{
-		tx.data.AccountNonce,
-		tx.data.Price,
-		tx.data.GasLimit,
-		tx.data.Recipient,
-		tx.data.Amount,
-		tx.data.Payload,
+		tx.Nonce(),
+		tx.GasPrice(),
+		tx.Gas(),
+		tx.To(),
+		tx.Value(),
+		tx.Data(),
 	})
 }
 
 func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
-	return recoverPlain(fs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, false)
+	if tx.Type() != LegacyTxType {
+		return common.Address{}, ErrTxTypeNotSupported
+	}
+	v, r, s := tx.RawSignatureValues()
+	return recoverPlain(fs.Hash(tx), r, s, v, false)
 }
 
 func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
