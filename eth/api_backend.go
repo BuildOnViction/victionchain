@@ -214,6 +214,13 @@ func (b *EthApiBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg, header, b.eth.BlockChain(), nil)
+
+	// Check if TomoX is disabled via Experimental hardfork
+	if b.ChainConfig().IsExperimental(header.Number) && tomoxState != nil {
+		// If TomoX is disabled, set tomoxState to nil to prevent any TomoX operations
+		tomoxState = nil
+	}
+
 	return vm.NewEVM(context, state, tomoxState, b.eth.chainConfig, vmCfg), vmError, nil
 }
 
@@ -519,9 +526,17 @@ func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 }
 
 func (b *EthApiBackend) TomoxService() *tomox.TomoX {
+	// Return nil if TomoX is disabled due to Experimental hardfork
+	if b.ChainConfig().IsExperimental(b.CurrentBlock().Number()) {
+		return nil
+	}
 	return b.eth.TomoX
 }
 
 func (b *EthApiBackend) LendingService() *tomoxlending.Lending {
+	// Return nil if TomoX is disabled due to Experimental hardfork
+	if b.ChainConfig().IsExperimental(b.CurrentBlock().Number()) {
+		return nil
+	}
 	return b.eth.Lending
 }

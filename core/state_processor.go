@@ -112,13 +112,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				return nil, nil, 0, err
 			}
 		}
-		// validate balance slot, token decimal for TomoX
-		if tx.IsTomoXApplyTransaction() {
-			copyState := statedb.Copy()
-			if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-				return nil, nil, 0, err
+
+		if !p.config.IsExperimental(block.Number()) {
+			// validate balance slot, token decimal for TomoX
+			if tx.IsTomoXApplyTransaction() {
+				copyState := statedb.Copy()
+				if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+					return nil, nil, 0, err
+				}
 			}
 		}
+
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
@@ -197,13 +201,17 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 				return nil, nil, 0, err
 			}
 		}
-		// validate balance slot, token decimal for TomoX
-		if tx.IsTomoXApplyTransaction() {
-			copyState := statedb.Copy()
-			if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-				return nil, nil, 0, err
+
+		if !p.config.IsExperimental(block.Number()) {
+			// validate balance slot, token decimal for TomoX
+			if tx.IsTomoXApplyTransaction() {
+				copyState := statedb.Copy()
+				if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+					return nil, nil, 0, err
+				}
 			}
 		}
+
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
@@ -235,21 +243,35 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*big.Int, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error, bool) {
-	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
-		return ApplySignTransaction(config, statedb, header, tx, usedGas)
-	}
-	if tx.To() != nil && tx.To().String() == common.TradingStateAddr && config.IsTIPTomoX(header.Number) {
-		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
-	}
-	if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress && config.IsTIPTomoX(header.Number) {
-		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
-	}
-	if tx.IsTradingTransaction() && config.IsTIPTomoX(header.Number) {
-		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	// If TomoX is disabled via hardfork, reject all TomoX-related transactions
+	if config.IsExperimental(header.Number) {
+		if (tx.To() != nil && tx.To().String() == common.TradingStateAddr) ||
+			(tx.To() != nil && tx.To().String() == common.TomoXLendingAddress) ||
+			tx.IsTradingTransaction() ||
+			tx.IsLendingFinalizedTradeTransaction() {
+			return nil, 0, fmt.Errorf("TomoX feature is disabled via Experimental hardfork"), false
+		}
+	} else if config.IsTIPTomoX(header.Number) {
+		if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
+			return ApplySignTransaction(config, statedb, header, tx, usedGas)
+		}
+		if tx.To() != nil && tx.To().String() == common.TradingStateAddr {
+			return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+		}
+		if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress {
+			return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+		}
+		if tx.IsTradingTransaction() {
+			return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+		}
+
+		if tx.IsLendingFinalizedTradeTransaction() {
+			return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+		}
 	}
 
-	if tx.IsLendingFinalizedTradeTransaction() && config.IsTIPTomoX(header.Number) {
-		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
+		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
 
 	var balanceFee *big.Int

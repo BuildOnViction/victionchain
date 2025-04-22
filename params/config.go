@@ -352,14 +352,26 @@ func (c *ChainConfig) IsTIPTRC21Fee(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsTIPTomoX(num *big.Int) bool {
+	// If we're at or after the Experimental HF block, disable TomoX
+	if c.ExperimentalBlock != nil && isForked(c.ExperimentalBlock, num) {
+		return false
+	}
 	return isForked(common.TIPTomoXBlock, num)
 }
 
 func (c *ChainConfig) IsTIPTomoXLending(num *big.Int) bool {
+	// If we're at or after the Experimental HF block, disable TomoX Lending
+	if c.ExperimentalBlock != nil && isForked(c.ExperimentalBlock, num) {
+		return false
+	}
 	return isForked(common.TIPTomoXLendingBlock, num)
 }
 
 func (c *ChainConfig) IsTIPTomoXCancellationFee(num *big.Int) bool {
+	// If we're at or after the Experimental HF block, disable TomoX Cancellation Fee
+	if c.ExperimentalBlock != nil && isForked(c.ExperimentalBlock, num) {
+		return false
+	}
 	return isForked(common.TIPTomoXCancellationFeeBlock, num)
 }
 

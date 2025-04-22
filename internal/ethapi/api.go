@@ -1101,14 +1101,24 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	if err != nil {
 		return nil, 0, false, err
 	}
-	author, err := s.b.GetEngine().Author(block.Header())
-	if err != nil {
-		return nil, 0, false, err
+
+	// Try to get the TomoxService - it might be nil if TomoX is disabled
+	var tomoxState *tradingstate.TradingStateDB
+	if !s.b.ChainConfig().IsExperimental(block.Number()) {
+
+		author, err := s.b.GetEngine().Author(block.Header())
+		if err != nil {
+			return nil, 0, false, err
+		}
+		tomoXService := s.b.TomoxService()
+		if tomoXService != nil {
+			tomoxState, err = tomoXService.GetTradingState(block, author)
+			if err != nil {
+				return nil, 0, false, err
+			}
+		}
 	}
-	tomoxState, err := s.b.TomoxService().GetTradingState(block, author)
-	if err != nil {
-		return nil, 0, false, err
-	}
+
 	// Get a new instance of the EVM.
 	evm, vmError, err := s.b.GetEVM(ctx, msg, statedb, tomoxState, header, vmCfg)
 	if err != nil {
