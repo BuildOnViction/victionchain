@@ -167,7 +167,7 @@ func (self *stateOrderList) updateRoot(db Database) error {
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.trie.Commit(nil)
+	root, _, err := self.trie.Commit(nil)
 	if err == nil {
 		self.data.Root = root
 	}

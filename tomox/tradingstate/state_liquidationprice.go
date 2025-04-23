@@ -18,12 +18,13 @@ package tradingstate
 
 import (
 	"fmt"
+	"io"
+	"math/big"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
-	"io"
-	"math/big"
 )
 
 type liquidationPriceState struct {
@@ -130,7 +131,7 @@ func (self *liquidationPriceState) updateRoot(db Database) error {
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.trie.Commit(func(leaf []byte, parent common.Hash) error {
+	root, _, err := self.trie.Commit(func(leaf []byte, parent common.Hash) error {
 		var orderList orderList
 		if err := rlp.DecodeBytes(leaf, &orderList); err != nil {
 			return nil
