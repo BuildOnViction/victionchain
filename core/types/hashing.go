@@ -5,7 +5,17 @@ import (
 	"fmt"
 	"math"
 	"sync"
+
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/rlp"
+	"golang.org/x/crypto/sha3"
 )
+
+// hasherPool holds LegacyKeccak256 hashers for rlpHash.
+var hasherPool = sync.Pool{
+	New: func() interface{} { return sha3.NewLegacyKeccak256() },
+}
 
 // encodeBufferPool holds temporary encoder buffers for DeriveSha and TX encoding.
 var encodeBufferPool = sync.Pool{
@@ -26,4 +36,16 @@ func getPooledBuffer(size uint64) ([]byte, *bytes.Buffer, error) {
 	buf.Grow(int(size))
 	b := buf.Bytes()[:int(size)]
 	return b, buf, nil
+}
+
+// prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
+// It's used for typed transactions.
+func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
+	sha := hasherPool.Get().(crypto.KeccakState)
+	defer hasherPool.Put(sha)
+	sha.Reset()
+	sha.Write([]byte{prefix})
+	rlp.Encode(sha, x)
+	sha.Read(h[:])
+	return h
 }
