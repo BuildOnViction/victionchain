@@ -19,11 +19,12 @@ package lendingstate
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"math/big"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
-	"io"
-	"math/big"
 )
 
 type liquidationTimeState struct {
@@ -170,7 +171,7 @@ func (self *liquidationTimeState) updateRoot(db Database) error {
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.trie.Commit(nil)
+	root, _, err := self.trie.Commit(nil)
 	if err == nil {
 		self.data.Root = root
 	}

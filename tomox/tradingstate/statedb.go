@@ -584,7 +584,7 @@ func (s *TradingStateDB) Commit() (root common.Hash, err error) {
 		}
 	}
 	// Write trie changes.
-	root, err = s.trie.Commit(func(leaf []byte, parent common.Hash) error {
+	root, _, err = s.trie.Commit(func(leaf []byte, parent common.Hash) error {
 		var exchange tradingExchangeObject
 		if err := rlp.DecodeBytes(leaf, &exchange); err != nil {
 			return nil

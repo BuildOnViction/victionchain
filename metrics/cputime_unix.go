@@ -1,4 +1,4 @@
-// Copyright 2016 The go-ethereum Authors
+// Copyright 2018 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,33 +14,23 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package params
+//go:build !windows && !js
+// +build !windows,!js
+
+package metrics
 
 import (
-	"fmt"
+	syscall "golang.org/x/sys/unix"
+
+	"github.com/tomochain/tomochain/log"
 )
 
-const (
-	VersionMajor = 2 // Major version component of the current release
-	VersionMinor = 4 // Minor version component of the current release
-	VersionPatch = 6 // Patch version component of the current release
-
-	VersionMeta = "stable" // Version metadata to append to the version string
-)
-
-// Version holds the textual version string.
-var Version = func() string {
-	v := fmt.Sprintf("%d.%d.%d", VersionMajor, VersionMinor, VersionPatch)
-	if VersionMeta != "" {
-		v += "-" + VersionMeta
+// getProcessCPUTime retrieves the process' CPU time since program startup.
+func getProcessCPUTime() int64 {
+	var usage syscall.Rusage
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &usage); err != nil {
+		log.Warn("Failed to retrieve CPU time", "err", err)
+		return 0
 	}
-	return v
-}()
-
-func VersionWithCommit(gitCommit string) string {
-	vsn := Version
-	if len(gitCommit) >= 8 {
-		vsn += "-" + gitCommit[:8]
-	}
-	return vsn
+	return int64(usage.Utime.Sec+usage.Stime.Sec)*100 + int64(usage.Utime.Usec+usage.Stime.Usec)/10000 //nolint:unconvert
 }

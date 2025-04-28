@@ -24,11 +24,20 @@ import (
 	"github.com/tomochain/tomochain/metrics"
 )
 
+const (
+	// ingressMeterName is the prefix of the per-packet inbound metrics.
+	ingressMeterName = "p2p/ingress"
+
+	// egressMeterName is the prefix of the per-packet outbound metrics.
+	egressMeterName = "p2p/egress"
+)
+
 var (
-	ingressConnectMeter = metrics.NewRegisteredMeter("p2p/InboundConnects", nil)
-	ingressTrafficMeter = metrics.NewRegisteredMeter("p2p/InboundTraffic", nil)
-	egressConnectMeter  = metrics.NewRegisteredMeter("p2p/OutboundConnects", nil)
-	egressTrafficMeter  = metrics.NewRegisteredMeter("p2p/OutboundTraffic", nil)
+	ingressConnectMeter = metrics.NewRegisteredMeter("p2p/serves", nil)
+	ingressTrafficMeter = metrics.NewRegisteredMeter(ingressMeterName, nil)
+	egressConnectMeter  = metrics.NewRegisteredMeter("p2p/dials", nil)
+	egressTrafficMeter  = metrics.NewRegisteredMeter(egressMeterName, nil)
+	activePeerGauge     = metrics.NewRegisteredGauge("p2p/peers", nil)
 )
 
 // meteredConn is a wrapper around a network TCP connection that meters both the
@@ -51,6 +60,7 @@ func newMeteredConn(conn net.Conn, ingress bool) net.Conn {
 	} else {
 		egressConnectMeter.Mark(1)
 	}
+	activePeerGauge.Inc(1)
 	return &meteredConn{conn.(*net.TCPConn)}
 }
 
@@ -68,4 +78,14 @@ func (c *meteredConn) Write(b []byte) (n int, err error) {
 	n, err = c.TCPConn.Write(b)
 	egressTrafficMeter.Mark(int64(n))
 	return
+}
+
+// Close delegates a close operation to the underlying connection, unregisters
+// the peer from the traffic registries and emits close event.
+func (c *meteredConn) Close() error {
+	err := c.TCPConn.Close()
+	if err == nil {
+		activePeerGauge.Dec(1)
+	}
+	return err
 }
