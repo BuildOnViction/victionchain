@@ -1,3 +1,19 @@
+// Copyright 2021 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
 package types
 
 import (
@@ -7,7 +23,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 )
 
-// LegacyTx is the transaciton data of regular Ethereum transactions
+// LegacyTx is the transaction data of the original Viction transactions.
 type LegacyTx struct {
 	Nonce    uint64          // nonce of sender account
 	GasPrice *big.Int        // wei per gas
@@ -76,14 +92,26 @@ func (tx *LegacyTx) copy() TxData {
 }
 
 // accessors for innerTx.
-func (tx *LegacyTx) txType() byte        { return LegacyTxType }
-func (tx *LegacyTx) chainID() *big.Int   { return deriveChainId(tx.V) }
-func (tx *LegacyTx) data() []byte        { return tx.Data }
-func (tx *LegacyTx) gas() uint64         { return tx.Gas }
-func (tx *LegacyTx) gasPrice() *big.Int  { return tx.GasPrice }
-func (tx *LegacyTx) value() *big.Int     { return tx.Value }
-func (tx *LegacyTx) nonce() uint64       { return tx.Nonce }
-func (tx *LegacyTx) to() *common.Address { return tx.To }
+func (tx *LegacyTx) txType() byte           { return LegacyTxType }
+func (tx *LegacyTx) chainID() *big.Int      { return deriveChainId(tx.V) }
+func (tx *LegacyTx) data() []byte           { return tx.Data }
+func (tx *LegacyTx) gas() uint64            { return tx.Gas }
+func (tx *LegacyTx) gasPrice() *big.Int     { return tx.GasPrice }
+func (tx *LegacyTx) gasTipCap() *big.Int    { return tx.GasPrice }
+func (tx *LegacyTx) gasFeeCap() *big.Int    { return tx.GasPrice }
+func (tx *LegacyTx) value() *big.Int        { return tx.Value }
+func (tx *LegacyTx) nonce() uint64          { return tx.Nonce }
+func (tx *LegacyTx) to() *common.Address    { return tx.To }
+func (tx *LegacyTx) accessList() AccessList { return nil }
+func (tx *LegacyTx) expiredTime() uint64    { return 0 }
+
+func (tx *LegacyTx) rawPayerSignatureValues() (v, r, s *big.Int) {
+	return nil, nil, nil
+}
+
+func (tx *LegacyTx) effectiveGasPrice(dst *big.Int, baseFee *big.Int) *big.Int {
+	return dst.Set(tx.GasPrice)
+}
 
 func (tx *LegacyTx) rawSignatureValues() (v, r, s *big.Int) {
 	return tx.V, tx.R, tx.S
