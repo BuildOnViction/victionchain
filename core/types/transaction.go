@@ -32,16 +32,19 @@ import (
 )
 
 const (
-	LegacyTxType = 0x00
+	LegacyTxType    = 0x00
+	SponsoredTxType = 100
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
 
 var (
-	ErrInvalidSig           = errors.New("invalid transaction v, r, s values")
-	ErrUnexpectedProtection = errors.New("transaction type does not supported EIP-155 protected signatures")
-	ErrShortTypedTx         = errors.New("typed transaction too short")
-	ErrTxTypeNotSupported   = errors.New("transaction type not supported")
+	ErrInvalidSig                 = errors.New("invalid transaction v, r, s values")
+	ErrUnexpectedProtection       = errors.New("transaction type does not supported EIP-155 protected signatures")
+	ErrShortTypedTx               = errors.New("typed transaction too short")
+	ErrTxTypeNotSupported         = errors.New("transaction type not supported")
+	ErrSamePayerSenderSponsoredTx = errors.New("payer = sender in sponsored transaction")
+	ErrInvalidTxType              = errors.New("transaction type not valid in this context")
 
 	skipNonceDestinationAddress = map[string]bool{
 		common.TomoXAddr:                         true,
@@ -64,9 +67,10 @@ type Transaction struct {
 	inner TxData    // Consensus contents of a transaction
 	time  time.Time // Time first seen locally (spam avoidance)
 	// caches
-	hash atomic.Value
-	size atomic.Value
-	from atomic.Value
+	hash  atomic.Value
+	size  atomic.Value
+	from  atomic.Value
+	payer atomic.Value
 }
 
 // TxData is the underlying data of a transaction.
@@ -82,6 +86,10 @@ type TxData interface {
 	value() *big.Int
 	nonce() uint64
 	to() *common.Address
+	accessList() AccessList
+	expiredTime() uint64
+
+	rawPayerSignatureValues() (v, r, s *big.Int)
 
 	rawSignatureValues() (v, r, s *big.Int)
 	setSignatureValues(chainID, v, r, s *big.Int)
@@ -159,6 +167,7 @@ func (tx *Transaction) Value() *big.Int {
 func (tx *Transaction) Nonce() uint64 {
 	return tx.inner.nonce()
 }
+func (tx *Transaction) AccessList() AccessList { return nil }
 
 // From returns creator of transaction
 func (tx *Transaction) From() *common.Address {
@@ -185,11 +194,22 @@ func (tx *Transaction) To() *common.Address {
 	return &cpy
 }
 
+// ExpiredTime returns the expired time of the sponsored transaction
+func (tx *Transaction) ExpiredTime() uint64 {
+	return tx.inner.expiredTime()
+}
+
 // Cost returns gas * gasPrice + value (amount)
 func (tx *Transaction) Cost() *big.Int {
 	total := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
 	total.Add(total, tx.Value())
 	return total
+}
+
+// RawSignatureValues returns the V, R, S payer signature values of the transaction.
+// The return values should not be modified by the caller.
+func (tx *Transaction) RawPayerSignatureValues() (v, r, s *big.Int) {
+	return tx.inner.rawPayerSignatureValues()
 }
 
 // TRC21Cost returns amount + gasprice * gaslimit.
@@ -294,10 +314,15 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 	if len(b) <= 1 {
 		return nil, ErrShortTypedTx
 	}
+	var inner TxData
 	switch b[0] {
+	case SponsoredTxType:
+		inner = new(SponsoredTx)
 	default:
 		return nil, ErrTxTypeNotSupported
 	}
+	err := inner.decode(b[1:])
+	return inner, err
 }
 
 // Hash hashes the RLP encoding of tx.
@@ -334,6 +359,23 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int,
 	}
 	var err error
 	msg.from, err = Sender(s, tx)
+	if err != nil {
+		return Message{}, err
+	}
+	if tx.Type() == SponsoredTxType {
+		msg.payer, err = Payer(s, tx)
+		if err != nil {
+			return Message{}, err
+		}
+
+		if msg.payer == msg.from {
+			// Reject sponsored transaction with identical payer and sender
+			return Message{}, ErrSamePayerSenderSponsoredTx
+		}
+		return msg, nil
+	} else {
+		msg.payer = msg.from
+	}
 	if balanceFee != nil {
 		if number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 			msg.gasPrice = common.TRC21GasPrice
@@ -517,11 +559,12 @@ func (tx *Transaction) IsTomoZApplyTransaction() bool {
 }
 
 func (tx *Transaction) String() string {
-	var from, to string
+	var from, to, payer string
 	v, r, s := tx.RawSignatureValues()
 	if v != nil {
 		signer := deriveSigner(v)
-		if f, err := Sender(signer, tx); err != nil {
+		f, err := Sender(signer, tx)
+		if err != nil {
 			from = "[invalid sender: invalid sig]"
 		} else {
 			from = fmt.Sprintf("%x", f[:])
@@ -533,28 +576,46 @@ func (tx *Transaction) String() string {
 	if tx.Data() == nil {
 		to = "[contract creation]"
 	} else {
-		to = fmt.Sprintf("%x", tx.inner.to().Hex())
+		if tx.To() == nil {
+			to = "nil"
+		} else {
+			to = tx.To().Hex()
+		}
 	}
 
 	enc, _ := rlp.EncodeToBytes(&tx.inner)
 
+	// Handle sponsored transaction
+	if tx.Type() == SponsoredTxType {
+		if sponsoredTx, ok := tx.inner.(*SponsoredTx); ok {
+			pv, pr, ps := sponsoredTx.rawPayerSignatureValues()
+			payer = fmt.Sprintf(`
+	Payer:    %s
+	PayerV:   %#x
+	PayerR:   %#x
+	PayerS:   %#x
+	Expired:  %d`, sponsoredTx.payer().Hex(), pv, pr, ps, sponsoredTx.expiredTime())
+		}
+	}
+
 	return fmt.Sprintf(`
 	TX(%x)
+	Type:     %v
 	Contract: %v
 	From:     %s
 	To:       %s
 	Nonce:    %v
 	GasPrice: %#x
-	GasLimit  %#x
+	GasLimit: %#x
 	Value:    %#x
 	Data:     0x%x
 	V:        %#x
 	R:        %#x
-	S:        %#x
-	Hex:      %x
-`,
+	S:        %#x%s
+	Hex:      %x`,
 		tx.Hash(),
-		tx.inner.to() == nil,
+		tx.Type(),
+		tx.To() == nil,
 		from,
 		to,
 		tx.Nonce(),
@@ -565,6 +626,7 @@ func (tx *Transaction) String() string {
 		v,
 		r,
 		s,
+		payer, // Add payer info if sponsored tx
 		enc,
 	)
 }
@@ -746,9 +808,13 @@ type Message struct {
 	data            []byte
 	checkNonce      bool
 	balanceTokenFee *big.Int
+
+	payer       common.Address
+	expiredTime uint64
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, balanceTokenFee *big.Int) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, balanceTokenFee *big.Int, accessList AccessList,
+) Message {
 	if balanceTokenFee != nil {
 		gasPrice = common.TRC21GasPrice
 	}
@@ -762,6 +828,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		data:            data,
 		checkNonce:      checkNonce,
 		balanceTokenFee: balanceTokenFee,
+		payer:           from,
 	}
 }
 
@@ -774,6 +841,8 @@ func (m Message) Gas() uint64               { return m.gasLimit }
 func (m Message) Nonce() uint64             { return m.nonce }
 func (m Message) Data() []byte              { return m.data }
 func (m Message) CheckNonce() bool          { return m.checkNonce }
+func (m Message) Payer() common.Address     { return m.payer }
+func (m Message) ExpiredTime() uint64       { return m.expiredTime }
 
 // copyAddressPtr copies an address.
 func copyAddressPtr(a *common.Address) *common.Address {
