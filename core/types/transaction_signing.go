@@ -28,7 +28,8 @@ import (
 )
 
 var (
-	ErrInvalidChainId = errors.New("invalid chain id for signer")
+	ErrInvalidChainId    = errors.New("invalid chain id for signer")
+	errMissingPayerField = errors.New("transaction has no payer field")
 )
 
 // sigCache is used to cache the derived sender and contains
@@ -42,6 +43,8 @@ type sigCache struct {
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	var signer Signer
 	switch {
+	case config.IsMiko(blockNumber):
+		signer = NewMikoSigner(config.ChainId)
 	case config.IsEIP155(blockNumber):
 		signer = NewEIP155Signer(config.ChainId)
 	case config.IsHomestead(blockNumber):
@@ -52,8 +55,38 @@ func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	return signer
 }
 
+// LatestSigner returns the 'most permissive' Signer available for the given chain
+// configuration. Specifically, this enables support of EIP-155 replay protection and
+// EIP-2930 access list transactions when their respective forks are scheduled to occur at
+// any block number in the chain config.
+//
+// Use this in transaction-handling code where the current block number is unknown. If you
+// have the current block number available, use MakeSigner instead.
+func LatestSigner(config *params.ChainConfig) Signer {
+	if config.ChainId != nil {
+		if config.MikoBlock != nil {
+			return NewMikoSigner(config.ChainId)
+		}
+		if config.EIP155Block != nil {
+			return NewEIP155Signer(config.ChainId)
+		}
+	}
+	return HomesteadSigner{}
+}
+
 // SignTx signs the transaction using the given signer and private key
 func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, error) {
+	h := s.Hash(tx)
+	sig, err := crypto.Sign(h[:], prv)
+	if err != nil {
+		return nil, err
+	}
+	return tx.WithSignature(s, sig)
+}
+
+// SignNewTx creates a transaction and signs it.
+func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, error) {
+	tx := NewTx(txdata)
 	h := s.Hash(tx)
 	sig, err := crypto.Sign(h[:], prv)
 	if err != nil {
@@ -102,6 +135,9 @@ type Signer interface {
 	Equal(Signer) bool
 	// ChainID
 	ChainID() *big.Int
+
+	// Payer returns the payer address of sponsored transaction
+	Payer(tx *Transaction) (common.Address, error)
 }
 
 // EIP155Transaction implements Signer using the EIP155 rules.
@@ -174,6 +210,10 @@ func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
 	})
 }
 
+func (s EIP155Signer) Payer(tx *Transaction) (common.Address, error) {
+	return common.Address{}, ErrInvalidTxType
+}
+
 // HomesteadTransaction implements TransactionInterface using the
 // homestead rules.
 type HomesteadSigner struct{ FrontierSigner }
@@ -211,6 +251,10 @@ func (fs FrontierSigner) ChainID() *big.Int {
 func (s FrontierSigner) Equal(s2 Signer) bool {
 	_, ok := s2.(FrontierSigner)
 	return ok
+}
+
+func (fs FrontierSigner) Payer(tx *Transaction) (common.Address, error) {
+	return common.Address{}, ErrInvalidTxType
 }
 
 // SignatureValues returns signature values. This signature
@@ -295,4 +339,183 @@ func CacheSigner(signer Signer, tx *Transaction) {
 		return
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
+}
+
+type MikoSigner struct {
+	EIP155Signer
+}
+
+func NewMikoSigner(chainId *big.Int) MikoSigner {
+	return MikoSigner{NewEIP155Signer(chainId)}
+}
+
+func (s MikoSigner) Equal(s2 Signer) bool {
+	miko, ok := s2.(MikoSigner)
+	return ok && miko.chainId.Cmp(s.chainId) == 0
+}
+
+func (s MikoSigner) Sender(tx *Transaction) (common.Address, error) {
+	switch tx.Type() {
+	case LegacyTxType:
+		return s.EIP155Signer.Sender(tx)
+	case SponsoredTxType:
+		if tx.ChainId().Cmp(s.chainId) != 0 {
+			return common.Address{}, ErrInvalidChainId
+		}
+		// V in sponsored signature is {0, 1}, but the recoverPlain expects
+		// {0, 1} + 27, so we need to add 27 to V
+		V, R, S := tx.RawSignatureValues()
+		V = new(big.Int).Add(V, big.NewInt(27))
+		return recoverPlain(s.Hash(tx), R, S, V, true)
+	default:
+		return common.Address{}, ErrTxTypeNotSupported
+	}
+}
+
+func (s MikoSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
+	switch tx.Type() {
+	case LegacyTxType:
+		return s.EIP155Signer.SignatureValues(tx, sig)
+	case SponsoredTxType:
+		// V in sponsored signature is {0, 1}, get it directly from raw signature
+		// because decodeSignature returns {0, 1} + 27
+		R, S, _ := decodeSignature(sig)
+		V := big.NewInt(int64(sig[64]))
+		return R, S, V, nil
+	default:
+		return nil, nil, nil, ErrTxTypeNotSupported
+	}
+}
+
+func (s MikoSigner) Hash(tx *Transaction) common.Hash {
+	switch tx.Type() {
+	case LegacyTxType:
+		return s.EIP155Signer.Hash(tx)
+	case SponsoredTxType:
+		payerV, payerR, payerS := tx.RawPayerSignatureValues()
+		return prefixedRlpHash(
+			tx.Type(),
+			[]interface{}{
+				s.chainId,
+				tx.Nonce(),
+				tx.GasPrice(),
+				tx.Gas(),
+				tx.To(),
+				tx.Value(),
+				tx.Data(),
+				tx.ExpiredTime(),
+				payerV, payerR, payerS,
+			},
+		)
+	default:
+		return common.Hash{}
+	}
+}
+
+func payerInternal(s Signer, tx *Transaction) (common.Address, error) {
+	if tx.Type() != SponsoredTxType {
+		return common.Address{}, ErrInvalidTxType
+	}
+
+	sender, err := Sender(s, tx)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	payerV, payerR, payerS := tx.RawPayerSignatureValues()
+	payerHash := rlpHash([]interface{}{
+		tx.ChainId(), // The chainId is checked in Sender already
+		sender,
+		tx.Nonce(),
+		tx.GasPrice(),
+		tx.Gas(),
+		tx.To(),
+		tx.Value(),
+		tx.Data(),
+		tx.ExpiredTime(),
+	})
+
+	// V in payer signature is {0, 1}, but the recoverPlain expects
+	// {0, 1} + 27, so we need to add 27 to V
+	payerV = new(big.Int).Add(payerV, big.NewInt(27))
+	return recoverPlain(payerHash, payerR, payerS, payerV, true)
+}
+
+func (s MikoSigner) Payer(tx *Transaction) (common.Address, error) {
+	return payerInternal(s, tx)
+}
+
+// Payer returns the address derived from payer's signature in sponsored
+// transaction or nil in other transaction types.
+//
+// Payer may cache the address, allowing it to be used regardless of
+// signing method. The cache is invalidated if the cached signer does
+// not match the signer used in the current call.
+func Payer(signer Signer, tx *Transaction) (common.Address, error) {
+	if tx.Type() != SponsoredTxType {
+		return common.Address{}, errMissingPayerField
+	}
+
+	if sc := tx.payer.Load(); sc != nil {
+		sigCache := sc.(sigCache)
+		// If the signer used to derive from in a previous
+		// call is not the same as used current, invalidate
+		// the cache.
+		if sigCache.signer.Equal(signer) {
+			return sigCache.from, nil
+		}
+	}
+
+	addr, err := signer.Payer(tx)
+	if err != nil {
+		return common.Address{}, err
+	}
+	tx.payer.Store(sigCache{signer: signer, from: addr})
+	return addr, nil
+}
+
+// PayerHash returns the hash to be signed by the payer
+func (s MikoSigner) PayerHash(tx *SponsoredTx) common.Hash {
+	return rlpHash([]interface{}{
+		tx.ChainID,
+		tx.Nonce,
+		tx.GasPrice,
+		tx.Gas,
+		tx.To,
+		tx.Value,
+		tx.Data,
+		tx.ExpiredTime,
+	})
+}
+
+func PayerSign(prv *ecdsa.PrivateKey, signer Signer, sender common.Address, txdata TxData) (r, s, v *big.Int, err error) {
+	payerHash := rlpHash([]interface{}{
+		signer.ChainID(),
+		txdata.nonce(),
+		txdata.gasPrice(),
+		txdata.gas(),
+		txdata.to(),
+		txdata.value(),
+		txdata.data(),
+		txdata.expiredTime(),
+	})
+
+	sig, err := crypto.Sign(payerHash[:], prv)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	r, s, _ = decodeSignature(sig)
+	v = big.NewInt(int64(sig[64] + 27))
+	return r, s, v, nil
+}
+
+func decodeSignature(sig []byte) (r, s, v *big.Int) {
+	if len(sig) != crypto.SignatureLength {
+		panic(fmt.Sprintf("wrong size for signature: got %d, want %d", len(sig), crypto.SignatureLength))
+	}
+	r = new(big.Int).SetBytes(sig[:32])
+	s = new(big.Int).SetBytes(sig[32:64])
+	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	return r, s, v
 }

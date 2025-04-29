@@ -20,8 +20,10 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
@@ -339,4 +341,107 @@ func TestDecodeEmptyTypedTx(t *testing.T) {
 	if err != ErrShortTypedTx {
 		t.Fatal("wrong error:", err)
 	}
+}
+
+func TestSponsoredTransaction(t *testing.T) {
+	// Sponsored tx
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payerKey, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	recipient := common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
+	signer := NewMikoSigner(common.Big1)
+	payerAddr := crypto.PubkeyToAddress(payerKey.PublicKey)
+
+	itx := SponsoredTx{
+		ChainID:     big.NewInt(1),
+		Nonce:       0,
+		To:          &recipient,
+		Gas:         123457,
+		GasPrice:    big.NewInt(10),
+		Data:        []byte("abcdef"),
+		ExpiredTime: 100000,
+	}
+	txdata := &itx
+
+	// Sign with payer's key
+	itx.PayerR, itx.PayerS, itx.PayerV, err = PayerSign(payerKey, signer, payerAddr, txdata)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify payer address recovery
+	recoveredPayer := txdata.payer()
+	if recoveredPayer != payerAddr {
+		t.Errorf("payer address mismatch: got %x, want %x", recoveredPayer, payerAddr)
+	}
+
+	// Sign with sender's key
+	tx, err := SignNewTx(key, signer, txdata)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify sender address
+	sender, err := Sender(signer, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedSender := crypto.PubkeyToAddress(key.PublicKey)
+	if sender != expectedSender {
+		t.Errorf("sender address mismatch: got %x, want %x", sender, expectedSender)
+	}
+	fmt.Println("sender", sender.String())
+	fmt.Println("payer", recoveredPayer.String())
+	fmt.Println("receiver", recipient.String())
+
+	// RLP encoding/decoding test
+	parsedTx, err := encodeDecodeBinary(tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEqual(parsedTx, tx)
+
+	// Verify payer address is preserved after RLP encoding/decoding
+	if stx, ok := parsedTx.inner.(*SponsoredTx); !ok || stx.payer() != payerAddr {
+		t.Errorf("payer address mismatch after RLP: got %x, want %x",
+			stx.payer(), payerAddr)
+	}
+	fmt.Println("TestSponsoredTransaction:txn:", tx)
+}
+
+func encodeDecodeBinary(tx *Transaction) (*Transaction, error) {
+	data, err := tx.MarshalBinary()
+	if err != nil {
+		return nil, fmt.Errorf("rlp encoding failed: %v", err)
+	}
+	var parsedTx = &Transaction{}
+	if err := parsedTx.UnmarshalBinary(data); err != nil {
+		return nil, fmt.Errorf("rlp decoding failed: %v", err)
+	}
+	return parsedTx, nil
+}
+
+func assertEqual(orig *Transaction, cpy *Transaction) error {
+	if orig.Type() != cpy.Type() {
+		return errors.New("parsed tx differs from original tx")
+	}
+	// compare nonce, price, gaslimit, recipient, amount, payload, V, R, S
+	if want, got := orig.Hash(), cpy.Hash(); want != got {
+		return fmt.Errorf("parsed tx differs from original tx, want %v, got %v", want, got)
+	}
+	if want, got := orig.ChainId(), cpy.ChainId(); want.Cmp(got) != 0 {
+		return fmt.Errorf("invalid chain id, want %d, got %d", want, got)
+	}
+	if orig.AccessList() != nil {
+		if !reflect.DeepEqual(orig.AccessList(), cpy.AccessList()) {
+			return fmt.Errorf("access list wrong!")
+		}
+	}
+	return nil
 }
