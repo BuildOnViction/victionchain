@@ -62,3 +62,6 @@ func (s *senderFromServer) SignatureValues(tx *types.Transaction, sig []byte) (R
 func (s *senderFromServer) ChainID() *big.Int {
 	panic("unimplemented")
 }
+func (s *senderFromServer) Payer(tx *types.Transaction) (common.Address, error) {
+	panic("can't sign with senderFromServer")
+}

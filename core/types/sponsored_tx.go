@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -98,4 +99,27 @@ func (tx *SponsoredTx) encode(b *bytes.Buffer) error {
 
 func (tx *SponsoredTx) decode(input []byte) error {
 	return rlp.DecodeBytes(input, tx)
+}
+
+func (tx *SponsoredTx) payer() common.Address {
+	if tx.PayerV == nil || tx.PayerR == nil || tx.PayerS == nil {
+		return common.Address{}
+	}
+
+	// Get the hash that was signed
+	signer := NewMikoSigner(tx.ChainID)
+	hash := signer.PayerHash(tx)
+
+	// Recover the payer's address from signature
+	sig := make([]byte, 65)
+	copy(sig[32-len(tx.PayerR.Bytes()):32], tx.PayerR.Bytes())
+	copy(sig[64-len(tx.PayerS.Bytes()):64], tx.PayerS.Bytes())
+	sig[64] = byte(tx.PayerV.Uint64() - 27)
+
+	recovered, err := crypto.Ecrecover(hash[:], sig)
+	if err != nil {
+		return common.Address{}
+	}
+
+	return common.BytesToAddress(crypto.Keccak256(recovered[1:])[12:])
 }

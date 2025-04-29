@@ -19,10 +19,11 @@ package les
 import (
 	"bytes"
 	"context"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
@@ -133,7 +134,7 @@ func odrContractCall(ctx context.Context, db ethdb.Database, config *params.Chai
 				if value, ok := feeCapacity[testContractAddr]; ok {
 					balanceTokenFee = value
 				}
-				msg := callmsg{types.NewMessage(from.Address(), &testContractAddr, 0, new(big.Int), 100000, new(big.Int), data, false, balanceTokenFee)}
+				msg := callmsg{types.NewMessage(from.Address(), &testContractAddr, 0, new(big.Int), 100000, new(big.Int), data, false, balanceTokenFee, nil)}
 
 				context := core.NewEVMContext(msg, header, bc, nil)
 				vmenv := vm.NewEVM(context, statedb, nil, config, vm.Config{})
@@ -153,7 +154,7 @@ func odrContractCall(ctx context.Context, db ethdb.Database, config *params.Chai
 			if value, ok := feeCapacity[testContractAddr]; ok {
 				balanceTokenFee = value
 			}
-			msg := callmsg{types.NewMessage(testBankAddress, &testContractAddr, 0, new(big.Int), 100000, new(big.Int), data, false, balanceTokenFee)}
+			msg := callmsg{types.NewMessage(testBankAddress, &testContractAddr, 0, new(big.Int), 100000, new(big.Int), data, false, balanceTokenFee, nil)}
 			context := core.NewEVMContext(msg, header, lc, nil)
 			vmenv := vm.NewEVM(context, statedb, nil, config, vm.Config{})
 			gp := new(core.GasPool).AddGas(math.MaxUint64)
