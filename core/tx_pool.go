@@ -87,7 +87,8 @@ var (
 
 	ErrDuplicateSpecialTransaction = errors.New("duplicate a special transaction")
 
-	ErrMinDeploySMC = errors.New("smart contract creation cost is under allowance")
+	ErrMinDeploySMC       = errors.New("smart contract creation cost is under allowance")
+	ErrTxTypeNotSupported = errors.New("transaction type not supported")
 )
 
 var (
@@ -591,7 +592,21 @@ func (pool *TxPool) GetSender(tx *types.Transaction) (common.Address, error) {
 
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
-func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
+func (pool *TxPool) validateTx(tx *types.Transaction, header *types.Header, local bool, opts *ValidationOptions) error {
+	// Ensure transactions not implemented by the calling pool are rejected
+	// Check if it's sponsored transaction before using Accept bitmap
+	if tx.Type() == types.SponsoredTxType {
+		if !opts.AcceptSponsoredTx {
+			return fmt.Errorf("%w: tx type %v not supported by this pool", ErrTxTypeNotSupported, tx.Type())
+		}
+	} else {
+		if opts.Accept&(1<<tx.Type()) == 0 {
+			return fmt.Errorf("%w: tx type %v not supported by this pool", ErrTxTypeNotSupported, tx.Type())
+		}
+	}
+	if !opts.Config.IsMiko(header.Number) && tx.Type() == types.SponsoredTxType {
+		return fmt.Errorf("%w: type %d rejected, pool not yet in Miko", ErrTxTypeNotSupported, tx.Type())
+	}
 	// check if sender is in black list
 	if tx.From() != nil && common.Blacklist[*tx.From()] {
 		return fmt.Errorf("Reject transaction with sender in black-list: %v", tx.From().Hex())
@@ -600,9 +615,8 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.To() != nil && common.Blacklist[*tx.To()] {
 		return fmt.Errorf("Reject transaction with receiver in black-list: %v", tx.To().Hex())
 	}
-
 	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks
-	if tx.Size() > 32*1024 {
+	if tx.Size() > common.StorageSize(opts.MaxSize) {
 		return ErrOversizedData
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded
@@ -713,11 +727,11 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 
 	// If the transaction fails basic validation, discard it
-	if err := pool.validateTx(tx, local); err != nil {
+	if err := pool.validateTxBasics(tx, local); err != nil {
 		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
-		invalidTxMeter.Mark(1)
 		return false, err
 	}
+
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if tx.IsSpecialTransaction() && pool.IsSigner != nil && pool.IsSigner(from) && pool.pendingState.GetNonce(from) == tx.Nonce() {
 		return pool.promoteSpecialTx(from, tx, local)
@@ -945,6 +959,12 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	types.CacheSigner(pool.signer, tx)
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
+
+	// validate transaction
+	err := pool.validateTxBasics(tx, local)
+	if err != nil {
+		return err
+	}
 
 	// Try to inject the transaction and update any state
 	replace, err := pool.add(tx, local)
@@ -1326,6 +1346,47 @@ func (pool *TxPool) demoteUnexecutables() {
 			delete(pool.beats, addr)
 		}
 	}
+}
+
+const (
+	// txSlotSize is used to calculate how many data slots a single transaction
+	// takes up based on its size. The slots are used as DoS protection, ensuring
+	// that validating a new transaction remains a constant operation (in reality
+	// O(maxslots), where max slots are 4 currently).
+	txSlotSize = 32 * 1024
+
+	// txMaxSize is the maximum size a single transaction can have. This field has
+	// non-trivial consequences: larger transactions are significantly harder and
+	// more expensive to propagate; larger transactions also take more resources
+	// to validate whether they fit into the pool or not.
+	txMaxSize = 4 * txSlotSize // 128KB
+)
+
+// ValidationOptions define certain differences between transaction validation
+// across the different pools without having to duplicate those checks.
+type ValidationOptions struct {
+	Config *params.ChainConfig // Chain configuration to selectively validate based on current fork rules
+
+	Accept  uint8  // Bitmap of transaction types that should be accepted for the calling pool
+	MaxSize uint64 // Maximum size of a transaction that the caller can meaningfully handle
+
+	// As the Accept bitmap cannot store the sponsored transaction type which is 0x64 (100),
+	// we need to create a separate bool for this case
+	AcceptSponsoredTx bool
+}
+
+func (pool *TxPool) validateTxBasics(tx *types.Transaction, local bool) error {
+	opts := &ValidationOptions{
+		Config: pool.chainconfig,
+		Accept: 0 |
+			1<<types.LegacyTxType,
+		MaxSize:           txMaxSize,
+		AcceptSponsoredTx: true,
+	}
+	if err := pool.validateTx(tx, pool.chain.CurrentBlock().Header(), local, opts); err != nil {
+		return err
+	}
+	return nil
 }
 
 // addressByHeartbeat is an account address tagged with its last activity timestamp.
