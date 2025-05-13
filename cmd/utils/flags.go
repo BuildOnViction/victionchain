@@ -584,6 +584,10 @@ var (
 		Usage: "Reexec blocks",
 		Value: 256,
 	}
+	TraceOutdirFlag = DirectoryFlag{
+		Name:  "trace-outdir",
+		Usage: "Data directory for the trace output",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1171,6 +1175,14 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 			os.Mkdir(common.StoreRewardFolder, os.ModePerm)
 		}
 	}
+	if ctx.GlobalIsSet(TraceOutdirFlag.Name) {
+		absPath, _ := filepath.Abs(ctx.GlobalString(TraceOutdirFlag.Name))
+		common.StoreTraceFolder = absPath
+		if _, err := os.Stat(common.StoreTraceFolder); os.IsNotExist(err) {
+			os.Mkdir(common.StoreTraceFolder, os.ModePerm)
+		}
+	}
+	log.Info("Trace output datadir", "path", common.StoreTraceFolder)
 	// Override any default configs for hard coded networks.
 	switch {
 	case ctx.GlobalBool(TestnetFlag.Name):
