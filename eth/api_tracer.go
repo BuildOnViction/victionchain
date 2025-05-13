@@ -719,7 +719,6 @@ func (api *PrivateDebugAPI) StandardTraceBlocksToFile(ctx context.Context, numbe
 	if common.StoreTraceFolder == "" {
 		return nil, errors.New("trace output directory not set")
 	}
-
 	var allDumps []string
 	for _, number := range numbers {
 		file, err := api.standardTraceBlockToFile(ctx, number, config)
@@ -737,7 +736,6 @@ func (api *PrivateDebugAPI) StandardTraceBlocksToFile(ctx context.Context, numbe
 // to the caller..
 func (api *PrivateDebugAPI) standardTraceBlockToFile(ctx context.Context, number rpc.BlockNumber, config *TraceConfig) (string, error) {
 	var block *types.Block
-
 	switch number {
 	case rpc.PendingBlockNumber:
 		block = api.eth.miner.PendingBlock()
@@ -750,13 +748,10 @@ func (api *PrivateDebugAPI) standardTraceBlockToFile(ctx context.Context, number
 	if block == nil {
 		return "", fmt.Errorf("block #%d not found", number)
 	}
-
 	var results, err = api.traceBlock(ctx, block, config)
-
 	if err != nil {
 		return "", fmt.Errorf("failed to trace block: %v", err)
 	}
-
 	path := filepath.Join(common.StoreTraceFolder, fmt.Sprintf("block_%d.json", block.NumberU64()))
 	log.Info("Writing block trace to file", "file", path)
 	f, err := os.Create(path)
@@ -764,14 +759,11 @@ func (api *PrivateDebugAPI) standardTraceBlockToFile(ctx context.Context, number
 		return "", fmt.Errorf("failed to create trace file: %v", err)
 	}
 	defer f.Close()
-
 	encoder := json.NewEncoder(f)
 	encoder.SetIndent("", "  ") // Pretty print
 	if err := encoder.Encode(results); err != nil {
 		return "", fmt.Errorf("failed to encode trace result: %v", err)
 	}
-
 	log.Info("Wrote block trace", "file", path)
-
 	return path, nil
 }
