@@ -45,6 +45,10 @@ var (
 	ErrTxTypeNotSupported         = errors.New("transaction type not supported")
 	ErrSamePayerSenderSponsoredTx = errors.New("payer = sender in sponsored transaction")
 	ErrInvalidTxType              = errors.New("transaction type not valid in this context")
+	errEmptyTypedTx               = errors.New("empty typed transaction bytes")
+
+	// ErrExpiredSponsoredTx is returned if the sponsored transaction is expired.
+	ErrExpiredSponsoredTx = errors.New("sponsored transaction is expired")
 
 	skipNonceDestinationAddress = map[string]bool{
 		common.TomoXAddr:                         true,
@@ -55,12 +59,19 @@ var (
 )
 
 // deriveSigner makes a *best* guess about which signer to use.
-func deriveSigner(V *big.Int) Signer {
-	if V.Sign() != 0 && isProtectedV(V) {
-		return NewEIP155Signer(deriveChainId(V))
-	} else {
+func deriveSigner(tx *Transaction) Signer {
+	if tx.Type() == SponsoredTxType {
+		if tx.ChainId() != nil {
+			return NewMikoSigner(tx.ChainId())
+		}
 		return HomesteadSigner{}
 	}
+
+	v, _, _ := tx.RawSignatureValues()
+	if v != nil && v.Sign() != 0 && isProtectedV(v) {
+		return NewEIP155Signer(deriveChainId(v))
+	}
+	return HomesteadSigner{}
 }
 
 type Transaction struct {
@@ -87,8 +98,8 @@ type TxData interface {
 	nonce() uint64
 	to() *common.Address
 	accessList() AccessList
-	expiredTime() uint64
 
+	expiredTime() uint64
 	rawPayerSignatureValues() (v, r, s *big.Int)
 
 	rawSignatureValues() (v, r, s *big.Int)
@@ -173,7 +184,7 @@ func (tx *Transaction) AccessList() AccessList { return nil }
 func (tx *Transaction) From() *common.Address {
 	v, _, _ := tx.RawSignatureValues()
 	if v != nil {
-		signer := deriveSigner(v)
+		signer := deriveSigner(tx)
 		if f, err := Sender(signer, tx); err != nil {
 			return nil
 		} else {
@@ -279,45 +290,47 @@ func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
 	kind, size, err := s.Kind()
 	switch {
 	case err != nil:
+		// fmt.Println(">>>>>>> DecodeRLP", err)
 		return err
-	case kind == rlp.List: // LegacyTxType
+	case kind == rlp.List:
+		// fmt.Println(">>>>>>> DecodeRLP:kind == rlp.List", kind, size)
+		// It's a legacy transaction.
 		var inner LegacyTx
 		err := s.Decode(&inner)
+		// fmt.Println(">>>>>>> DecodeRLP:kind == rlp.List::s.Decode(&inner)", err)
 		if err == nil {
-			tx.setDecoded(&inner, rlp.ListSize(size))
+			// fmt.Println(">>>>>>> DecodeRLP:kind == rlp.List::s.Decode(&inner) setDecoded")
+			tx.setDecoded(&inner, uint64(rlp.ListSize(size)))
 		}
 		return err
-	case kind == rlp.Byte:
-		return ErrShortTypedTx
-	default:
+	case kind == rlp.String:
+		// fmt.Println(">>>>>>> DecodeRLP:kind == rlp.String", kind, size)
 		// It's an EIP-2718 typed TX envelope.
-		// First read the tx payload bytes into a temporary buffer.
-		b, buf, err := getPooledBuffer(size)
-		if err != nil {
+		var b []byte
+		if b, err = s.Bytes(); err != nil {
 			return err
 		}
-		defer encodeBufferPool.Put(buf)
-		if err := s.ReadBytes(b); err != nil {
-			return err
-		}
-		// Now decode the inner transaction.
 		inner, err := tx.decodeTyped(b)
 		if err == nil {
-			tx.setDecoded(inner, size)
+			tx.setDecoded(inner, uint64(len(b)))
 		}
 		return err
+	default:
+		return rlp.ErrExpectedList
 	}
 }
 
 // decodeTyped decodes a typed transaction from the canonical format.
 func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
-	if len(b) <= 1 {
-		return nil, ErrShortTypedTx
+	if len(b) == 0 {
+		return nil, errEmptyTypedTx
 	}
 	var inner TxData
 	switch b[0] {
+
 	case SponsoredTxType:
 		inner = new(SponsoredTx)
+
 	default:
 		return nil, ErrTxTypeNotSupported
 	}
@@ -356,6 +369,7 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int,
 		data:            tx.Data(),
 		checkNonce:      checkNonce,
 		balanceTokenFee: balanceFee,
+		expiredTime:     tx.ExpiredTime(),
 	}
 	var err error
 	msg.from, err = Sender(s, tx)
@@ -367,7 +381,7 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int,
 		if err != nil {
 			return Message{}, err
 		}
-
+		fmt.Println("=---= payer", msg.payer.String(), "sender", msg.from.String())
 		if msg.payer == msg.from {
 			// Reject sponsored transaction with identical payer and sender
 			return Message{}, ErrSamePayerSenderSponsoredTx
@@ -562,7 +576,7 @@ func (tx *Transaction) String() string {
 	var from, to, payer string
 	v, r, s := tx.RawSignatureValues()
 	if v != nil {
-		signer := deriveSigner(v)
+		signer := deriveSigner(tx)
 		f, err := Sender(signer, tx)
 		if err != nil {
 			from = "[invalid sender: invalid sig]"
@@ -573,28 +587,26 @@ func (tx *Transaction) String() string {
 		from = "[invalid sender: nil V field]"
 	}
 
-	if tx.Data() == nil {
-		to = "[contract creation]"
+	if tx.To() == nil {
+		to = "nil"
 	} else {
-		if tx.To() == nil {
-			to = "nil"
-		} else {
-			to = tx.To().Hex()
-		}
+		to = tx.To().Hex()
 	}
 
 	enc, _ := rlp.EncodeToBytes(&tx.inner)
-
 	// Handle sponsored transaction
 	if tx.Type() == SponsoredTxType {
 		if sponsoredTx, ok := tx.inner.(*SponsoredTx); ok {
 			pv, pr, ps := sponsoredTx.rawPayerSignatureValues()
+			signer := deriveSigner(tx)
+			addr, _ := Payer(signer, tx)
+
 			payer = fmt.Sprintf(`
 	Payer:    %s
 	PayerV:   %#x
 	PayerR:   %#x
 	PayerS:   %#x
-	Expired:  %d`, sponsoredTx.payer().Hex(), pv, pr, ps, sponsoredTx.expiredTime())
+	Expired:  %d`, addr.String(), pv, pr, ps, sponsoredTx.expiredTime())
 		}
 	}
 
@@ -829,6 +841,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		checkNonce:      checkNonce,
 		balanceTokenFee: balanceTokenFee,
 		payer:           from,
+		expiredTime:     0,
 	}
 }
 
@@ -866,21 +879,25 @@ func (tx *Transaction) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary decodes the canonical encoding of transactions.
-// It supports legacy RLP transactions and EIP-2718 typed transactions.
+// It supports legacy RLP transactions and EIP2718 typed transactions.
 func (tx *Transaction) UnmarshalBinary(b []byte) error {
 	if len(b) > 0 && b[0] > 0x7f {
+		fmt.Println("UnmarshalBinary:legacy transaction")
 		// It's a legacy transaction.
 		var data LegacyTx
 		err := rlp.DecodeBytes(b, &data)
+		fmt.Println("UnmarshalBinary:err", err)
 		if err != nil {
 			return err
 		}
 		tx.setDecoded(&data, uint64(len(b)))
 		return nil
 	}
-	// It's an EIP-2718 typed transaction envelope.
+	fmt.Println("UnmarshalBinary:typed transaction")
+	// It's an EIP2718 typed transaction envelope.
 	inner, err := tx.decodeTyped(b)
 	if err != nil {
+		fmt.Println("UnmarshalBinary:err", err)
 		return err
 	}
 	tx.setDecoded(inner, uint64(len(b)))

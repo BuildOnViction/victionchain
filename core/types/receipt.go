@@ -36,6 +36,7 @@ var (
 )
 
 var errShortTypedReceipt = errors.New("typed receipt too short")
+var errEmptyTypedReceipt = errors.New("empty typed receipt bytes")
 
 const (
 	// ReceiptStatusFailed is the status code of a transaction if execution failed.
@@ -128,7 +129,7 @@ func (r *Receipt) encodeTyped(data *receiptRLP, w *bytes.Buffer) error {
 // DecodeRLP implements rlp.Decoder, and loads the consensus fields of a receipt
 // from an RLP stream.
 func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
-	kind, size, err := s.Kind()
+	kind, _, err := s.Kind()
 	switch {
 	case err != nil:
 		return err
@@ -142,17 +143,26 @@ func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
 		return r.setFromRLP(dec)
 	case kind == rlp.Byte:
 		return errShortTypedReceipt
-	default:
+	case kind == rlp.String:
 		// It's an EIP-2718 typed tx receipt.
-		b, buf, err := getPooledBuffer(size)
+		b, err := s.Bytes()
 		if err != nil {
 			return err
 		}
-		defer encodeBufferPool.Put(buf)
-		if err := s.ReadBytes(b); err != nil {
-			return err
+		if len(b) == 0 {
+			return errEmptyTypedReceipt
 		}
-		return r.decodeTyped(b)
+		r.Type = b[0]
+		if r.Type == SponsoredTxType {
+			var dec receiptRLP
+			if err := rlp.DecodeBytes(b[1:], &dec); err != nil {
+				return err
+			}
+			return r.setFromRLP(dec)
+		}
+		return ErrTxTypeNotSupported
+	default:
+		return rlp.ErrExpectedList
 	}
 }
 
@@ -162,6 +172,14 @@ func (r *Receipt) decodeTyped(b []byte) error {
 		return errShortTypedReceipt
 	}
 	switch b[0] {
+	case SponsoredTxType:
+		var data receiptRLP
+		err := rlp.DecodeBytes(b[1:], &data)
+		if err != nil {
+			return err
+		}
+		r.Type = b[0]
+		return r.setFromRLP(data)
 	default:
 		return ErrTxTypeNotSupported
 	}

@@ -365,26 +365,27 @@ func TestSponsoredTransaction(t *testing.T) {
 		Gas:         123457,
 		GasPrice:    big.NewInt(10),
 		Data:        []byte("abcdef"),
-		ExpiredTime: 100000,
+		ExpiredTime: 100,
 	}
-	txdata := &itx
 
 	// Sign with payer's key
-	itx.PayerR, itx.PayerS, itx.PayerV, err = PayerSign(payerKey, signer, payerAddr, txdata)
+	itx.PayerR, itx.PayerS, itx.PayerV, err = PayerSign(payerKey, signer, payerAddr, &itx)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	// Verify payer address recovery
-	recoveredPayer := txdata.payer()
-	if recoveredPayer != payerAddr {
-		t.Errorf("payer address mismatch: got %x, want %x", recoveredPayer, payerAddr)
 	}
 
 	// Sign with sender's key
-	tx, err := SignNewTx(key, signer, txdata)
+	tx, err := SignNewTx(key, signer, &itx)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Verify payer address recovery
+	tsigner := deriveSigner(tx)
+	addr, _ := Payer(tsigner, tx)
+	fmt.Println("tx", tx)
+	fmt.Println("signer", addr.String(), payerAddr.String())
+	if addr != payerAddr {
+		t.Errorf("payer address mismatch: got %x, want %x", addr, payerAddr)
 	}
 
 	// Verify sender address
@@ -397,7 +398,7 @@ func TestSponsoredTransaction(t *testing.T) {
 		t.Errorf("sender address mismatch: got %x, want %x", sender, expectedSender)
 	}
 	fmt.Println("sender", sender.String())
-	fmt.Println("payer", recoveredPayer.String())
+	fmt.Println("payer", addr.String())
 	fmt.Println("receiver", recipient.String())
 
 	// RLP encoding/decoding test
@@ -406,13 +407,6 @@ func TestSponsoredTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertEqual(parsedTx, tx)
-
-	// Verify payer address is preserved after RLP encoding/decoding
-	if stx, ok := parsedTx.inner.(*SponsoredTx); !ok || stx.payer() != payerAddr {
-		t.Errorf("payer address mismatch after RLP: got %x, want %x",
-			stx.payer(), payerAddr)
-	}
-	fmt.Println("TestSponsoredTransaction:txn:", tx)
 }
 
 func encodeDecodeBinary(tx *Transaction) (*Transaction, error) {

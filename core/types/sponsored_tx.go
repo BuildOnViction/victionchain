@@ -5,21 +5,21 @@ import (
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/rlp"
 )
 
 type SponsoredTx struct {
-	ChainID                *big.Int        // destination chain ID
-	Nonce                  uint64          // nonce of sender account
-	GasPrice               *big.Int        // wei per gas
-	Gas                    uint64          // gas limit
-	To                     *common.Address `rlp:"nil"` // nil means contract creation
-	Value                  *big.Int        // wei amount
-	Data                   []byte          // contract invocation input data
-	ExpiredTime            uint64          // the expired time of payer's signature
-	PayerV, PayerR, PayerS *big.Int        // payer's signature values
-	V, R, S                *big.Int        // sender's signature values
+	ChainID     *big.Int        // destination chain ID
+	Nonce       uint64          // nonce of sender account
+	GasPrice    *big.Int        // wei per gas
+	Gas         uint64          // gas limit
+	To          *common.Address `rlp:"nil"` // nil means contract creation
+	Value       *big.Int        // wei amount
+	Data        []byte          // contract invocation input data
+	ExpiredTime uint64          // the expired time of payer's signature
+
+	PayerV, PayerR, PayerS *big.Int // payer's signature values
+	V, R, S                *big.Int // sender's signature values
 }
 
 func (tx *SponsoredTx) copy() TxData {
@@ -99,27 +99,4 @@ func (tx *SponsoredTx) encode(b *bytes.Buffer) error {
 
 func (tx *SponsoredTx) decode(input []byte) error {
 	return rlp.DecodeBytes(input, tx)
-}
-
-func (tx *SponsoredTx) payer() common.Address {
-	if tx.PayerV == nil || tx.PayerR == nil || tx.PayerS == nil {
-		return common.Address{}
-	}
-
-	// Get the hash that was signed
-	signer := NewMikoSigner(tx.ChainID)
-	hash := signer.PayerHash(tx)
-
-	// Recover the payer's address from signature
-	sig := make([]byte, 65)
-	copy(sig[32-len(tx.PayerR.Bytes()):32], tx.PayerR.Bytes())
-	copy(sig[64-len(tx.PayerS.Bytes()):64], tx.PayerS.Bytes())
-	sig[64] = byte(tx.PayerV.Uint64() - 27)
-
-	recovered, err := crypto.Ecrecover(hash[:], sig)
-	if err != nil {
-		return common.Address{}
-	}
-
-	return common.BytesToAddress(crypto.Keccak256(recovered[1:])[12:])
 }

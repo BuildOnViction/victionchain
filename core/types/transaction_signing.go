@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
@@ -103,6 +104,7 @@ func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, er
 // signing method. The cache is invalidated if the cached signer does
 // not match the signer used in the current call.
 func Sender(signer Signer, tx *Transaction) (common.Address, error) {
+
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		// If the signer used to derive from in a previous
@@ -112,9 +114,9 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 			return sigCache.from, nil
 		}
 	}
-
 	addr, err := signer.Sender(tx)
 	if err != nil {
+		fmt.Println("Sender::err", err, reflect.TypeOf(signer))
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
@@ -298,13 +300,13 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	if !crypto.ValidateSignatureValues(V, R, S, homestead) {
 		return common.Address{}, ErrInvalidSig
 	}
-	// encode the snature in uncompressed format
+	// encode the signature in uncompressed format
 	r, s := R.Bytes(), S.Bytes()
-	sig := make([]byte, 65)
+	sig := make([]byte, crypto.SignatureLength)
 	copy(sig[32-len(r):32], r)
 	copy(sig[64-len(s):64], s)
 	sig[64] = V
-	// recover the public key from the snature
+	// recover the public key from the signature
 	pub, err := crypto.Ecrecover(sighash[:], sig)
 	if err != nil {
 		return common.Address{}, err
@@ -365,8 +367,12 @@ func (s MikoSigner) Sender(tx *Transaction) (common.Address, error) {
 		// V in sponsored signature is {0, 1}, but the recoverPlain expects
 		// {0, 1} + 27, so we need to add 27 to V
 		V, R, S := tx.RawSignatureValues()
+		// fmt.Println("v,r,s::miko", V, R, S)
 		V = new(big.Int).Add(V, big.NewInt(27))
-		return recoverPlain(s.Hash(tx), R, S, V, true)
+		// fmt.Println("v", V)
+		res, err := recoverPlain(s.Hash(tx), R, S, V, true)
+		// fmt.Println("MikoSigner::Sender", res, err)
+		return res, err
 	default:
 		return common.Address{}, ErrTxTypeNotSupported
 	}
@@ -438,7 +444,8 @@ func payerInternal(s Signer, tx *Transaction) (common.Address, error) {
 	// V in payer signature is {0, 1}, but the recoverPlain expects
 	// {0, 1} + 27, so we need to add 27 to V
 	payerV = new(big.Int).Add(payerV, big.NewInt(27))
-	return recoverPlain(payerHash, payerR, payerS, payerV, true)
+	addr, err := recoverPlain(payerHash, payerR, payerS, payerV, true)
+	return addr, err
 }
 
 func (s MikoSigner) Payer(tx *Transaction) (common.Address, error) {
@@ -465,7 +472,6 @@ func Payer(signer Signer, tx *Transaction) (common.Address, error) {
 			return sigCache.from, nil
 		}
 	}
-
 	addr, err := signer.Payer(tx)
 	if err != nil {
 		return common.Address{}, err
@@ -491,6 +497,7 @@ func (s MikoSigner) PayerHash(tx *SponsoredTx) common.Hash {
 func PayerSign(prv *ecdsa.PrivateKey, signer Signer, sender common.Address, txdata TxData) (r, s, v *big.Int, err error) {
 	payerHash := rlpHash([]interface{}{
 		signer.ChainID(),
+		sender,
 		txdata.nonce(),
 		txdata.gasPrice(),
 		txdata.gas(),
@@ -506,7 +513,7 @@ func PayerSign(prv *ecdsa.PrivateKey, signer Signer, sender common.Address, txda
 	}
 
 	r, s, _ = decodeSignature(sig)
-	v = big.NewInt(int64(sig[64] + 27))
+	v = big.NewInt(int64(sig[64]))
 	return r, s, v, nil
 }
 
