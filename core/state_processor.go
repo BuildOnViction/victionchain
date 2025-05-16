@@ -253,7 +253,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	}
 
 	var balanceFee *big.Int
-	if tx.To() != nil {
+	if tx.To() != nil && tx.Type() != types.SponsoredTxType {
 		if value, ok := tokensFee[*tx.To()]; ok {
 			balanceFee = value
 		}
