@@ -135,7 +135,7 @@ func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransac
 	for account, txs := range pending {
 		dump := make(map[string]*RPCTransaction)
 		for _, tx := range txs {
-			dump[fmt.Sprintf("%d", tx.Nonce())] = newRPCPendingTransaction(tx)
+			dump[fmt.Sprintf("%d", tx.Nonce())] = newRPCPendingTransaction(tx, s.b.ChainConfig())
 		}
 		content["pending"][account.Hex()] = dump
 	}
@@ -143,7 +143,7 @@ func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransac
 	for account, txs := range queue {
 		dump := make(map[string]*RPCTransaction)
 		for _, tx := range txs {
-			dump[fmt.Sprintf("%d", tx.Nonce())] = newRPCPendingTransaction(tx)
+			dump[fmt.Sprintf("%d", tx.Nonce())] = newRPCPendingTransaction(tx, s.b.ChainConfig())
 		}
 		content["queued"][account.Hex()] = dump
 	}
@@ -1057,7 +1057,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	balanceTokenFee = balanceTokenFee.Mul(balanceTokenFee, gasPrice)
 
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false, balanceTokenFee)
+	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false, balanceTokenFee, nil)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -1263,7 +1263,7 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 
 		if fullTx {
 			formatTx = func(tx *types.Transaction) (interface{}, error) {
-				return newRPCTransactionFromBlockHash(b, tx.Hash()), nil
+				return newRPCTransactionFromBlockHash(b, tx.Hash(), s.b.ChainConfig()), nil
 			}
 		}
 
@@ -1449,18 +1449,20 @@ type RPCTransaction struct {
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
 	Type             hexutil.Uint64  `json:"type"`
+	ChainID          *hexutil.Big    `json:"chainId,omitempty"`
+	Payer            *common.Address `json:"payer,omitempty"`
+	ExpiredTime      *hexutil.Uint64 `json:"expiredTime,omitempty"`
+	PayerV           *hexutil.Big    `json:"payerV,omitempty"`
+	PayerR           *hexutil.Big    `json:"payerR,omitempty"`
+	PayerS           *hexutil.Big    `json:"payerS,omitempty"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
-func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
-	var signer types.Signer = types.FrontierSigner{}
-	if tx.Protected() {
-		signer = types.NewEIP155Signer(tx.ChainId())
-	}
+func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64, config *params.ChainConfig) *RPCTransaction {
+	signer := types.MakeSigner(config, big.NewInt(0).SetUint64(blockNumber))
 	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
-
 	result := &RPCTransaction{
 		Type:     hexutil.Uint64(tx.Type()),
 		From:     from,
@@ -1480,21 +1482,38 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
 		result.TransactionIndex = hexutil.Uint(index)
 	}
+	switch tx.Type() {
+	case types.LegacyTxType:
+		// if a legacy transaction has an EIP-155 chain id, include it explicitly
+		if id := tx.ChainId(); id.Sign() != 0 {
+			result.ChainID = (*hexutil.Big)(id)
+		}
+	case types.SponsoredTxType:
+		payer, _ := types.Payer(signer, tx)
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		expiredTime := tx.ExpiredTime()
+		result.ExpiredTime = (*hexutil.Uint64)(&expiredTime)
+		v, r, s := tx.RawPayerSignatureValues()
+		result.PayerR = (*hexutil.Big)(r)
+		result.PayerS = (*hexutil.Big)(s)
+		result.PayerV = (*hexutil.Big)(v)
+		result.Payer = &payer
+	}
 	return result
 }
 
 // newRPCPendingTransaction returns a pending transaction that will serialize to the RPC representation
-func newRPCPendingTransaction(tx *types.Transaction) *RPCTransaction {
-	return newRPCTransaction(tx, common.Hash{}, 0, 0)
+func newRPCPendingTransaction(tx *types.Transaction, config *params.ChainConfig) *RPCTransaction {
+	return newRPCTransaction(tx, common.Hash{}, 0, 0, config)
 }
 
 // newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
-func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransaction {
+func newRPCTransactionFromBlockIndex(b *types.Block, index uint64, config *params.ChainConfig) *RPCTransaction {
 	txs := b.Transactions()
 	if index >= uint64(len(txs)) {
 		return nil
 	}
-	return newRPCTransaction(txs[index], b.Hash(), b.NumberU64(), index)
+	return newRPCTransaction(txs[index], b.Hash(), b.NumberU64(), index, config)
 }
 
 // newRPCRawTransactionFromBlockIndex returns the bytes of a transaction given a block and a transaction index.
@@ -1508,10 +1527,10 @@ func newRPCRawTransactionFromBlockIndex(b *types.Block, index uint64) hexutil.By
 }
 
 // newRPCTransactionFromBlockHash returns a transaction that will serialize to the RPC representation.
-func newRPCTransactionFromBlockHash(b *types.Block, hash common.Hash) *RPCTransaction {
+func newRPCTransactionFromBlockHash(b *types.Block, hash common.Hash, config *params.ChainConfig) *RPCTransaction {
 	for idx, tx := range b.Transactions() {
 		if tx.Hash() == hash {
-			return newRPCTransactionFromBlockIndex(b, uint64(idx))
+			return newRPCTransactionFromBlockIndex(b, uint64(idx), config)
 		}
 	}
 	return nil
@@ -1560,7 +1579,7 @@ func (s *PublicTransactionPoolAPI) GetBlockTransactionCountByHash(ctx context.Co
 // GetTransactionByBlockNumberAndIndex returns the transaction for the given block number and index.
 func (s *PublicTransactionPoolAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) *RPCTransaction {
 	if block, _ := s.b.BlockByNumber(ctx, blockNr); block != nil {
-		return newRPCTransactionFromBlockIndex(block, uint64(index))
+		return newRPCTransactionFromBlockIndex(block, uint64(index), s.b.ChainConfig())
 	}
 	return nil
 }
@@ -1568,7 +1587,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionByBlockNumberAndIndex(ctx conte
 // GetTransactionByBlockHashAndIndex returns the transaction for the given block hash and index.
 func (s *PublicTransactionPoolAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint) *RPCTransaction {
 	if block, _ := s.b.GetBlock(ctx, blockHash); block != nil {
-		return newRPCTransactionFromBlockIndex(block, uint64(index))
+		return newRPCTransactionFromBlockIndex(block, uint64(index), s.b.ChainConfig())
 	}
 	return nil
 }
@@ -1612,11 +1631,11 @@ func (s *PublicTransactionPoolAPI) GetTransactionCount(ctx context.Context, addr
 func (s *PublicTransactionPoolAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) *RPCTransaction {
 	// Try to return an already finalized transaction
 	if tx, blockHash, blockNumber, index := core.GetTransaction(s.b.ChainDb(), hash); tx != nil {
-		return newRPCTransaction(tx, blockHash, blockNumber, index)
+		return newRPCTransaction(tx, blockHash, blockNumber, index, s.b.ChainConfig())
 	}
 	// No finalized transaction, try to retrieve it from the pool
 	if tx := s.b.GetPoolTransaction(hash); tx != nil {
-		return newRPCPendingTransaction(tx)
+		return newRPCPendingTransaction(tx, s.b.ChainConfig())
 	}
 	// Transaction unknown, return as such
 	return nil
@@ -1652,10 +1671,9 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 	}
 	receipt := receipts[index]
 
-	var signer types.Signer = types.FrontierSigner{}
-	if tx.Protected() {
-		signer = types.NewEIP155Signer(tx.ChainId())
-	}
+	// Derive the sender.
+	bigblock := new(big.Int).SetUint64(blockNumber)
+	signer := types.MakeSigner(s.b.ChainConfig(), bigblock)
 	return marshalReceipt(receipt, blockHash, blockNumber, signer, tx, int(index)), nil
 }
 
@@ -1679,6 +1697,10 @@ func marshalReceipt(receipt *types.Receipt, blockHash common.Hash, blockNumber u
 	}
 
 	// Assign receipt status or post state.
+	if tx.Type() == types.SponsoredTxType {
+		payer, _ := types.Payer(signer, tx)
+		fields["payer"] = payer
+	}
 	if len(receipt.PostState) > 0 {
 		fields["root"] = hexutil.Bytes(receipt.PostState)
 	} else {
@@ -1859,8 +1881,9 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+
 	tx := new(types.Transaction)
-	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
+	if err := tx.UnmarshalBinary(encodedTx); err != nil {
 		return common.Hash{}, err
 	}
 	return submitTransaction(ctx, s.b, tx)
@@ -2740,6 +2763,7 @@ type SignTransactionResult struct {
 // The node needs to have the private key of the account corresponding with
 // the given from address and it needs to be unlocked.
 func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args SendTxArgs) (*SignTransactionResult, error) {
+	fmt.Println("->>>>> sign transaction", args)
 	if args.Gas == nil {
 		return nil, fmt.Errorf("gas not specified")
 	}
@@ -2779,7 +2803,7 @@ func (s *PublicTransactionPoolAPI) PendingTransactions() ([]*RPCTransaction, err
 		}
 		from, _ := types.Sender(signer, tx)
 		if _, err := s.b.AccountManager().Find(accounts.Account{Address: from}); err == nil {
-			transactions = append(transactions, newRPCPendingTransaction(tx))
+			transactions = append(transactions, newRPCPendingTransaction(tx, s.b.ChainConfig()))
 		}
 	}
 	return transactions, nil

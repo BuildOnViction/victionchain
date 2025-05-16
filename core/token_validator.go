@@ -17,6 +17,10 @@ package core
 
 import (
 	"fmt"
+	"math/big"
+	"math/rand"
+	"strings"
+
 	ethereum "github.com/tomochain/tomochain"
 	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/common"
@@ -25,9 +29,6 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/log"
-	"math/big"
-	"math/rand"
-	"strings"
 )
 
 const (
@@ -39,6 +40,16 @@ const (
 // callmsg implements core.Message to allow passing it as a transaction simulator.
 type callmsg struct {
 	ethereum.CallMsg
+}
+
+// ExpiredTime implements Message.
+func (m callmsg) ExpiredTime() uint64 {
+	panic("unimplemented")
+}
+
+// Payer implements Message.
+func (m callmsg) Payer() common.Address {
+	panic("unimplemented")
 }
 
 func (m callmsg) From() common.Address      { return m.CallMsg.From }
@@ -85,7 +96,7 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, contractA
 	return unpackResult, nil
 }
 
-//FIXME: please use copyState for this function
+// FIXME: please use copyState for this function
 // CallContractWithState executes a contract call at the given state.
 func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
 	// Ensure message is initialized properly.
