@@ -19,14 +19,15 @@ package core
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/tomochain/tomochain/consensus"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
@@ -872,8 +873,10 @@ func testTransactionQueueGlobalLimiting(t *testing.T, nolocals bool) {
 //
 // This logic should not hold for local transactions, unless the local tracking
 // mechanism is disabled.
-func TestTransactionQueueTimeLimiting(t *testing.T)         { testTransactionQueueTimeLimiting(t, false) }
-func TestTransactionQueueTimeLimitingNoLocals(t *testing.T) { testTransactionQueueTimeLimiting(t, true) }
+func TestTransactionQueueTimeLimiting(t *testing.T) { testTransactionQueueTimeLimiting(t, false) }
+func TestTransactionQueueTimeLimitingNoLocals(t *testing.T) {
+	testTransactionQueueTimeLimiting(t, true)
+}
 
 func testTransactionQueueTimeLimiting(t *testing.T, nolocals bool) {
 	common.MinGasPrice = big.NewInt(0)
@@ -981,8 +984,10 @@ func TestTransactionPendingLimiting(t *testing.T) {
 
 // Tests that the transaction limits are enforced the same way irrelevant whether
 // the transactions are added one by one or in batches.
-func TestTransactionQueueLimitingEquivalency(t *testing.T)   { testTransactionLimitingEquivalency(t, 1) }
-func TestTransactionPendingLimitingEquivalency(t *testing.T) { testTransactionLimitingEquivalency(t, 0) }
+func TestTransactionQueueLimitingEquivalency(t *testing.T) { testTransactionLimitingEquivalency(t, 1) }
+func TestTransactionPendingLimitingEquivalency(t *testing.T) {
+	testTransactionLimitingEquivalency(t, 0)
+}
 
 func testTransactionLimitingEquivalency(t *testing.T, origin uint64) {
 	t.Parallel()
@@ -1796,4 +1801,89 @@ func benchmarkPoolBatchInsert(b *testing.B, size int) {
 	for _, batch := range batches {
 		pool.AddRemotes(batch)
 	}
+}
+
+func setupPoolWithConfig(config *params.ChainConfig) (*TxPool, *ecdsa.PrivateKey) {
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()))
+	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
+
+	key, _ := crypto.GenerateKey()
+	pool := NewTxPool(testTxPoolConfig, config, blockchain)
+
+	// wait for the pool to initialize
+	return pool, key
+}
+
+func testAddBalance(pool *TxPool, addr common.Address, amount *big.Int) {
+	pool.mu.Lock()
+	pool.currentState.AddBalance(addr, amount)
+	pool.mu.Unlock()
+}
+
+func TestSponsoredTxBeforeMiko(t *testing.T) {
+	var chainConfig params.ChainConfig
+
+	chainConfig.EIP155Block = common.Big0
+	chainConfig.ChainId = big.NewInt(2020)
+	chainConfig.MikoBlock = common.Big0
+
+	recipient := common.HexToAddress("0x32911b48d723F04c92B8fda38CBa6dC1D2B4d058")
+	txpool, senderKey := setupPoolWithConfig(&chainConfig)
+	payerKey, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testAddBalance(txpool, crypto.PubkeyToAddress(senderKey.PublicKey), big.NewInt(1000000000000000000))
+	testAddBalance(txpool, crypto.PubkeyToAddress(payerKey.PublicKey), big.NewInt(1000000000000000000))
+	defer txpool.Stop()
+
+	mikoSigner := types.NewMikoSigner(big.NewInt(2020))
+	// legacyTx := &types.LegacyTx{
+	// 	To:       &recipient,
+	// 	Nonce:    0,
+	// 	GasPrice: big.NewInt(250000000),
+	// 	Gas:      210000,
+	// 	Value:    common.Big1,
+	// 	Data:     nil,
+	// }
+	// signTx, err := types.SignNewTx(senderKey, mikoSigner, legacyTx)
+	// if err != nil {
+	// 	t.Fatalf("Fail to sign transaction, err %s", err)
+	// }
+	// fmt.Println("signed", signTx)
+	// err = txpool.AddRemote(signTx)
+	// fmt.Println("err", err)
+
+	innerTx := types.SponsoredTx{
+		ChainID:     big.NewInt(2020),
+		Nonce:       uint64(1),
+		GasPrice:    big.NewInt(250000000),
+		Gas:         21000,
+		To:          &recipient,
+		ExpiredTime: 100,
+	}
+
+	innerTx.PayerR, innerTx.PayerS, innerTx.PayerV, err = types.PayerSign(
+		payerKey,
+		mikoSigner,
+		crypto.PubkeyToAddress(senderKey.PublicKey), // assign user public key
+		&innerTx,
+	)
+	if err != nil {
+		t.Fatalf("Payer fails to sign transaction, err %s", err)
+	}
+
+	tx, err := types.SignNewTx(senderKey, mikoSigner, &innerTx)
+	if err != nil {
+		t.Fatalf("Fail to sign transaction, err %s", err)
+	}
+
+	err = txpool.AddLocal(tx)
+	if err != nil {
+		t.Fatalf("Fail to add transaction to pool, err %s", err)
+	}
+	sender := crypto.PubkeyToAddress(senderKey.PublicKey)
+	payer := crypto.PubkeyToAddress(payerKey.PublicKey)
+	fmt.Println("sender", sender.String())
+	fmt.Println("payer", payer.String())
 }

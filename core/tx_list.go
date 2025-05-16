@@ -225,16 +225,35 @@ type txList struct {
 
 	costcap *big.Int // Price of the highest costing transaction (reset only if exceeds balance)
 	gascap  uint64   // Gas limit of the highest spending transaction (reset only if exceeds block limit)
+
+	totalcost       *big.Int               // Total cost of all transactions in the list
+	signer          types.Signer           // The signer of the transaction pool
+	payers          map[common.Address]int // The reference count of payers
+	txpoolPayerCost map[common.Address]*big.Int
 }
 
 // newTxList create a new transaction list for maintaining nonce-indexable fast,
 // gapped, sortable transaction lists.
-func newTxList(strict bool) *txList {
+func newTxList(strict bool, signer types.Signer, txpoolPayerCost map[common.Address]*big.Int) *txList {
 	return &txList{
-		strict:  strict,
-		txs:     newTxSortedMap(),
-		costcap: new(big.Int),
+		strict:          strict,
+		txs:             newTxSortedMap(),
+		costcap:         new(big.Int),
+		totalcost:       new(big.Int),
+		signer:          signer,
+		payers:          make(map[common.Address]int),
+		txpoolPayerCost: txpoolPayerCost,
 	}
+}
+
+// Signer returns the signer of txlist
+func (l *txList) Signer() types.Signer {
+	return l.signer
+}
+
+// The txpool's signer has changed, we need to update the signer of txlist
+func (l *txList) UpdateSigner(signer types.Signer) {
+	l.signer = signer
 }
 
 // Overlaps returns whether the transaction specified has the same nonce as one
@@ -271,7 +290,58 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 	if gas := tx.Gas(); l.gascap < gas {
 		l.gascap = gas
 	}
+	if tx.Type() == types.SponsoredTxType {
+		payer, err := types.Payer(l.signer, tx)
+		if err != nil {
+			log.Error("Failed to get payer from sponsored transaction", "err", err)
+		} else {
+			l.payers[payer]++
+			if l.txpoolPayerCost != nil {
+				gasFee := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
+				if l.txpoolPayerCost[payer] != nil {
+					l.txpoolPayerCost[payer].Add(l.txpoolPayerCost[payer], gasFee)
+				} else {
+					l.txpoolPayerCost[payer] = gasFee
+				}
+			}
+
+			// Add new tx value to sender's total cost
+			l.totalcost.Add(l.totalcost, tx.Value())
+		}
+	} else {
+		// Add new tx cost to totalcost
+		l.totalcost.Add(l.totalcost, tx.Cost())
+	}
 	return true, old
+}
+
+// removeTx updates the tracking fields in txList after
+// removing those transactions
+func (l *txList) removeTx(removed types.Transactions) {
+	l.removePayer(removed)
+	l.subTotalCost(removed)
+}
+
+// removePayer decrease the reference count of payers in the list
+// and remove the payer if the reference count reaches 0
+func (l *txList) removePayer(removed types.Transactions) {
+	for _, removedTx := range removed {
+		if removedTx.Type() == types.SponsoredTxType {
+			payer, _ := types.Payer(l.signer, removedTx)
+			l.payers[payer]--
+			if l.payers[payer] == 0 {
+				delete(l.payers, payer)
+			}
+
+			if l.txpoolPayerCost != nil {
+				gasFee := new(big.Int).Mul(removedTx.GasPrice(), new(big.Int).SetUint64(removedTx.Gas()))
+				balance := l.txpoolPayerCost[payer].Sub(l.txpoolPayerCost[payer], gasFee)
+				if balance.Cmp(common.Big0) == 0 {
+					delete(l.txpoolPayerCost, payer)
+				}
+			}
+		}
+	}
 }
 
 // Forward removes all transactions from the list with a nonce lower than the
@@ -290,7 +360,7 @@ func (l *txList) Forward(threshold uint64) types.Transactions {
 // a point in calculating all the costs or if the balance covers all. If the threshold
 // is lower than the costgas cap, the caps will be reset to a new high after removing
 // the newly invalidated transactions.
-func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, trc21Issuers map[common.Address]*big.Int) (types.Transactions, types.Transactions) {
+func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, payerCostLimit map[common.Address]*big.Int, currentTime uint64, trc21Issuers map[common.Address]*big.Int) (types.Transactions, types.Transactions) {
 	// If all transactions are below the threshold, short circuit
 	if l.costcap.Cmp(costLimit) <= 0 && l.gascap <= gasLimit {
 		return nil, nil
@@ -306,9 +376,24 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, trc21Issuers map[co
 				return new(big.Int).Add(costLimit, feeCapacity).Cmp(tx.TRC21Cost()) < 0 || tx.Gas() > gasLimit
 			}
 		}
-		return tx.Cost().Cmp(maximum) > 0 || tx.Gas() > gasLimit
+		if tx.Type() == types.SponsoredTxType {
+			payer, err := types.Payer(l.signer, tx)
+			if err != nil {
+				return false
+			}
+			gasFee := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
+			expiredTime := tx.ExpiredTime()
+			return gasFee.Cmp(payerCostLimit[payer]) > 0 ||
+				tx.Value().Cmp(costLimit) > 0 ||
+				(expiredTime != 0 && expiredTime <= currentTime)
+		} else {
+			return tx.Cost().Cmp(maximum) > 0 || tx.Gas() > gasLimit
+		}
 	})
 
+	if len(removed) == 0 {
+		return nil, nil
+	}
 	// If the list was strict, filter anything above the lowest nonce
 	var invalids types.Transactions
 
@@ -372,6 +457,29 @@ func (l *txList) Empty() bool {
 // it's requested again before any modifications are made to the contents.
 func (l *txList) Flatten() types.Transactions {
 	return l.txs.Flatten()
+}
+func (l *txList) Payers() []common.Address {
+	payers := make([]common.Address, len(l.payers))
+	i := 0
+	for payer := range l.payers {
+		payers[i] = payer
+		i++
+	}
+
+	return payers
+}
+
+// subTotalCost subtracts the cost of the given transactions from the
+// total cost of all transactions.
+func (l *txList) subTotalCost(txs []*types.Transaction) {
+	for _, tx := range txs {
+		if tx.Type() == types.SponsoredTxType {
+			// In sponsored transaction, only the msg.value is paid by sender
+			l.totalcost.Sub(l.totalcost, tx.Value())
+		} else {
+			l.totalcost.Sub(l.totalcost, tx.Cost())
+		}
+	}
 }
 
 // priceHeap is a heap.Interface implementation over transactions for retrieving

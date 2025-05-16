@@ -20,13 +20,14 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
 )
 
 // Tests that transactions can be added to strict lists and list contents and
 // nonce boundaries are correctly maintained.
-func TestStrictTxListAdd(t *testing.T) {
+func TestStrictListAdd(t *testing.T) {
 	// Generate a list of transactions to insert
 	key, _ := crypto.GenerateKey()
 
@@ -35,7 +36,7 @@ func TestStrictTxListAdd(t *testing.T) {
 		txs[i] = transaction(uint64(i), 0, key)
 	}
 	// Insert the transactions in a random order
-	list := newTxList(true)
+	list := newTxList(true, types.NewEIP155Signer(common.Big1), nil)
 	for _, v := range rand.Perm(len(txs)) {
 		list.Add(txs[v], DefaultTxPoolConfig.PriceBump)
 	}

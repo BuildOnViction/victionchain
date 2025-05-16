@@ -81,6 +81,8 @@ var (
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
 
+	ErrInvalidPayer = errors.New("invalid payer")
+
 	ErrZeroGasPrice = errors.New("zero gas price")
 
 	ErrUnderMinGasPrice = errors.New("under min gas price")
@@ -240,6 +242,9 @@ type TxPool struct {
 	homestead        bool
 	IsSigner         func(address common.Address) bool
 	trc21FeeCapacity map[common.Address]*big.Int
+
+	miko        bool   // Fork indicator whether we are using sponsored trnasactions.
+	currentTime uint64 // Current block time in blockchain head
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -253,7 +258,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		config:           config,
 		chainconfig:      chainconfig,
 		chain:            chain,
-		signer:           types.NewEIP155Signer(chainconfig.ChainId),
+		signer:           types.LatestSigner(chainconfig),
 		pending:          make(map[common.Address]*txList),
 		queue:            make(map[common.Address]*txList),
 		beats:            make(map[common.Address]time.Time),
@@ -664,6 +669,34 @@ func (pool *TxPool) validateTx(tx *types.Transaction, header *types.Header, loca
 			minGasPrice = common.TRC21GasPrice
 		}
 	}
+
+	if tx.Type() == types.SponsoredTxType {
+		// Ensure sponsored transaction is not expired
+		expiredTime := tx.ExpiredTime()
+		if expiredTime != 0 && expiredTime <= header.Time.Uint64() {
+			return types.ErrExpiredSponsoredTx
+		}
+		payer, err := types.Payer(pool.signer, tx)
+		if err != nil {
+			return ErrInvalidPayer
+		}
+		// Ensure payer is different from sender
+		fmt.Println("payer", payer.String(), "sender", from.String())
+		if payer == from {
+			return types.ErrSamePayerSenderSponsoredTx
+		}
+		// Ensure payer can pay for the gas fee == gas fee cap * gas limit
+		payerBalance := pool.currentState.GetBalance(payer)
+		if new(big.Int).Add(payerBalance, feeCapacity).Cmp(tx.Cost()) < 0 {
+			return ErrInsufficientPayerFunds
+		}
+
+		// Ensure sender can pay for the value
+		if pool.currentState.GetBalance(from).Cmp(tx.Value()) < 0 {
+			return ErrInsufficientSenderFunds
+		}
+	}
+
 	if new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
 		return ErrInsufficientFunds
 	}
@@ -695,7 +728,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, header *types.Header, loca
 			return ErrMinDeploySMC
 		}
 	*/
-
 	// validate minFee slot for TomoZ
 	if tx.IsTomoZApplyTransaction() {
 		copyState := pool.currentState.Copy()
@@ -803,7 +835,7 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, er
 	// Try to insert the transaction into the future queue
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
-		pool.queue[from] = newTxList(false)
+		pool.queue[from] = newTxList(false, pool.signer, nil)
 	}
 	inserted, old := pool.queue[from].Add(tx, pool.config.PriceBump)
 	if !inserted {
@@ -843,7 +875,7 @@ func (pool *TxPool) journalTx(from common.Address, tx *types.Transaction) {
 func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
-		pool.pending[addr] = newTxList(true)
+		pool.pending[addr] = newTxList(true, pool.signer, nil)
 	}
 	list := pool.pending[addr]
 
@@ -881,7 +913,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 func (pool *TxPool) promoteSpecialTx(addr common.Address, tx *types.Transaction, local bool) (bool, error) {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
-		pool.pending[addr] = newTxList(true)
+		pool.pending[addr] = newTxList(true, pool.signer, nil)
 	}
 	list := pool.pending[addr]
 	old := list.txs.Get(tx.Nonce())
@@ -959,12 +991,6 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	types.CacheSigner(pool.signer, tx)
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-
-	// validate transaction
-	err := pool.validateTxBasics(tx, local)
-	if err != nil {
-		return err
-	}
 
 	// Try to inject the transaction and update any state
 	replace, err := pool.add(tx, local)
@@ -1123,8 +1149,13 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			delete(pool.all, hash)
 			pool.priced.Removed()
 		}
+		payers := list.Payers()
+		payerCostLimit := make(map[common.Address]*big.Int)
+		for _, payer := range payers {
+			payerCostLimit[payer] = pool.currentState.GetBalance(payer)
+		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, payerCostLimit, pool.currentTime, pool.trc21FeeCapacity)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -1308,8 +1339,13 @@ func (pool *TxPool) demoteUnexecutables() {
 			delete(pool.all, hash)
 			pool.priced.Removed()
 		}
+		payers := list.Payers()
+		payerCostLimit := make(map[common.Address]*big.Int)
+		for _, payer := range payers {
+			payerCostLimit[payer] = pool.currentState.GetBalance(payer)
+		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, payerCostLimit, pool.currentTime, pool.trc21FeeCapacity)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
