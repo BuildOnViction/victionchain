@@ -33,14 +33,15 @@ var (
 var (
 	// VicMainnetChainConfig contains the chain parameters to run a Viction node on the main network.
 	VicMainnetChainConfig = &ChainConfig{
-		ChainId:        big.NewInt(88),
-		HomesteadBlock: big.NewInt(1),
-		EIP150Block:    big.NewInt(2),
-		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-		EIP155Block:    big.NewInt(3),
-		EIP158Block:    big.NewInt(3),
-		ByzantiumBlock: big.NewInt(4),
-		SaigonBlock:    big.NewInt(86158494),
+		ChainId:           big.NewInt(88),
+		HomesteadBlock:    big.NewInt(1),
+		EIP150Block:       big.NewInt(2),
+		EIP150Hash:        common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:       big.NewInt(3),
+		EIP158Block:       big.NewInt(3),
+		ByzantiumBlock:    big.NewInt(4),
+		SaigonBlock:       big.NewInt(86158494),
+		ExperimentalBlock: big.NewInt(94300000),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
