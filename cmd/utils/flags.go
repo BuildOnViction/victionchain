@@ -575,10 +575,6 @@ var (
 		Name:  "tomox.dbReplicaSetName",
 		Usage: "ReplicaSetName if Master-Slave is setup",
 	}
-	TomoSlaveModeFlag = cli.BoolFlag{
-		Name:  "slave",
-		Usage: "Enable slave mode",
-	}
 	ReexecFlag = cli.IntFlag{
 		Name:  "reexec",
 		Usage: "Reexec blocks",
