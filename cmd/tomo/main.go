@@ -310,7 +310,7 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 			started := false
 			ok, err := ethereum.ValidateMasternode()
 			if err != nil {
-				utils.Fatalf("Can't verify masternode permission: %v", err)
+				log.Warn("Cannot get etherbase", "err", err)
 			}
 			if ok {
 				log.Info("Masternode found. Enabling staking mode...")
@@ -325,14 +325,14 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 					utils.Fatalf("Failed to start staking: %v", err)
 				}
 				started = true
-				log.Info("Enabled staking node!!!")
+				log.Info("Enabled mining node!!!")
 			}
 			defer close(core.CheckpointCh)
 			for range core.CheckpointCh {
 				log.Info("Checkpoint!!! It's time to reconcile node's state...")
 				ok, err := ethereum.ValidateMasternode()
 				if err != nil {
-					utils.Fatalf("Can't verify masternode permission: %v", err)
+					log.Warn("Cannot get etherbase", "err", err)
 				}
 				if !ok {
 					if started {
@@ -354,7 +354,7 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 						utils.Fatalf("Failed to start staking: %v", err)
 					}
 					started = true
-					log.Info("Enabled staking node!!!")
+					log.Info("Enabled mining node!!!")
 				}
 			}
 		}()
