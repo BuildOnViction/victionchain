@@ -860,7 +860,9 @@ func (pool *OrderPool) removeTx(hash common.Hash) {
 // invalidated transactions (low nonce, low balance) are deleted.
 func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 	start := time.Now()
-	defer log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
+	defer func() {
+		log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
+	}()
 	// Gather all the accounts potentially needing updates
 	if accounts == nil {
 		accounts = make([]common.Address, 0, len(pool.queue))
