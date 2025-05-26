@@ -81,7 +81,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if p.config.VRC25UpgradeBlock.Cmp(header.Number) == 0 {
+	if p.config.IsExperimental(header.Number) {
 		misc.ApplyVIPVRC25Upgarde(statedb, p.config.VRC25UpgradeBlock, header.Number)
 	}
 
@@ -161,7 +161,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if p.config.VRC25UpgradeBlock.Cmp(header.Number) == 0 {
+	if p.config.IsExperimental(header.Number) {
 		misc.ApplyVIPVRC25Upgarde(statedb, p.config.VRC25UpgradeBlock, header.Number)
 	}
 

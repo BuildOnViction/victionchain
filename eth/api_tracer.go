@@ -672,7 +672,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	if common.TIPSigningBlock.Cmp(block.Header().Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if api.eth.chainConfig.VRC25UpgradeBlock.Cmp(block.Header().Number) == 0 {
+	if api.eth.chainConfig.IsExperimental(block.Header().Number) {
 		misc.ApplyVIPVRC25Upgarde(statedb, api.eth.chainConfig.VRC25UpgradeBlock, block.Header().Number)
 	}
 	core.InitSignerInTransactions(api.config, block.Header(), block.Transactions())

@@ -340,10 +340,6 @@ func (c *ChainConfig) IsTIPSigning(num *big.Int) bool {
 	return isForked(common.TIPSigningBlock, num)
 }
 
-func (c *ChainConfig) IsVIPVRC25Upgrade(num *big.Int) bool {
-	return isForked(c.VRC25UpgradeBlock, num)
-}
-
 func (c *ChainConfig) IsTIPRandomize(num *big.Int) bool {
 	return isForked(common.TIPRandomizeBlock, num)
 }
