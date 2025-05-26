@@ -314,12 +314,8 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 			}
 			if ok {
 				log.Info("Masternode found. Enabling staking mode...")
-				// Use a reduced number of threads if requested
 				if threads := ctx.GlobalInt(utils.StakerThreadsFlag.Name); threads > 0 {
-					type threaded interface {
-						SetThreads(threads int)
-					}
-					if th, ok := ethereum.Engine().(threaded); ok {
+					if th, ok := ethereum.Engine().(concurrentEngine); ok {
 						th.SetThreads(threads)
 					}
 				}
@@ -347,12 +343,8 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 					}
 				} else if !started {
 					log.Info("Masternode found. Enabling staking mode...")
-					// Use a reduced number of threads if requested
 					if threads := ctx.GlobalInt(utils.StakerThreadsFlag.Name); threads > 0 {
-						type threaded interface {
-							SetThreads(threads int)
-						}
-						if th, ok := ethereum.Engine().(threaded); ok {
+						if th, ok := ethereum.Engine().(concurrentEngine); ok {
 							th.SetThreads(threads)
 						}
 					}
@@ -367,4 +359,9 @@ func startNode(ctx *cli.Context, stack *node.Node, cfg tomoConfig) {
 			}
 		}()
 	}
+}
+
+// Interface to check a consensus engine can support many threads.
+type concurrentEngine interface {
+	SetThreads(threads int)
 }
