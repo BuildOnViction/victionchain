@@ -2,30 +2,31 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sort_test
+package sortlgc_test
 
 import (
 	"fmt"
 	"math"
-	"sort"
+
+	"github.com/tomochain/tomochain/sortlgc"
 )
 
 func ExampleInts() {
 	s := []int{5, 2, 6, 3, 1, 4} // unsorted
-	sort.Ints(s)
+	sortlgc.Ints(s)
 	fmt.Println(s)
 	// Output: [1 2 3 4 5 6]
 }
 
 func ExampleIntsAreSorted() {
 	s := []int{1, 2, 3, 4, 5, 6} // sorted ascending
-	fmt.Println(sort.IntsAreSorted(s))
+	fmt.Println(sortlgc.IntsAreSorted(s))
 
 	s = []int{6, 5, 4, 3, 2, 1} // sorted descending
-	fmt.Println(sort.IntsAreSorted(s))
+	fmt.Println(sortlgc.IntsAreSorted(s))
 
 	s = []int{3, 2, 4, 1, 5} // unsorted
-	fmt.Println(sort.IntsAreSorted(s))
+	fmt.Println(sortlgc.IntsAreSorted(s))
 
 	// Output: true
 	// false
@@ -34,11 +35,11 @@ func ExampleIntsAreSorted() {
 
 func ExampleFloat64s() {
 	s := []float64{5.2, -1.3, 0.7, -3.8, 2.6} // unsorted
-	sort.Float64s(s)
+	sortlgc.Float64s(s)
 	fmt.Println(s)
 
 	s = []float64{math.Inf(1), math.NaN(), math.Inf(-1), 0.0} // unsorted
-	sort.Float64s(s)
+	sortlgc.Float64s(s)
 	fmt.Println(s)
 
 	// Output: [-3.8 -1.3 0.7 2.6 5.2]
@@ -47,13 +48,13 @@ func ExampleFloat64s() {
 
 func ExampleFloat64sAreSorted() {
 	s := []float64{0.7, 1.3, 2.6, 3.8, 5.2} // sorted ascending
-	fmt.Println(sort.Float64sAreSorted(s))
+	fmt.Println(sortlgc.Float64sAreSorted(s))
 
 	s = []float64{5.2, 3.8, 2.6, 1.3, 0.7} // sorted descending
-	fmt.Println(sort.Float64sAreSorted(s))
+	fmt.Println(sortlgc.Float64sAreSorted(s))
 
 	s = []float64{5.2, 1.3, 0.7, 3.8, 2.6} // unsorted
-	fmt.Println(sort.Float64sAreSorted(s))
+	fmt.Println(sortlgc.Float64sAreSorted(s))
 
 	// Output: true
 	// false
@@ -62,7 +63,7 @@ func ExampleFloat64sAreSorted() {
 
 func ExampleReverse() {
 	s := []int{5, 2, 6, 3, 1, 4} // unsorted
-	sort.Sort(sort.Reverse(sort.IntSlice(s)))
+	sortlgc.Sort(sortlgc.Reverse(sortlgc.IntSlice(s)))
 	fmt.Println(s)
 	// Output: [6 5 4 3 2 1]
 }
@@ -77,10 +78,10 @@ func ExampleSlice() {
 		{"Vera", 24},
 		{"Bob", 75},
 	}
-	sort.Slice(people, func(i, j int) bool { return people[i].Name < people[j].Name })
+	sortlgc.Slice(people, func(i, j int) bool { return people[i].Name < people[j].Name })
 	fmt.Println("By name:", people)
 
-	sort.Slice(people, func(i, j int) bool { return people[i].Age < people[j].Age })
+	sortlgc.Slice(people, func(i, j int) bool { return people[i].Age < people[j].Age })
 	fmt.Println("By age:", people)
 	// Output: By name: [{Alice 55} {Bob 75} {Gopher 7} {Vera 24}]
 	// By age: [{Gopher 7} {Vera 24} {Alice 55} {Bob 75}]
@@ -103,11 +104,11 @@ func ExampleSliceStable() {
 	}
 
 	// Sort by name, preserving original order
-	sort.SliceStable(people, func(i, j int) bool { return people[i].Name < people[j].Name })
+	sortlgc.SliceStable(people, func(i, j int) bool { return people[i].Name < people[j].Name })
 	fmt.Println("By name:", people)
 
 	// Sort by age preserving name order
-	sort.SliceStable(people, func(i, j int) bool { return people[i].Age < people[j].Age })
+	sortlgc.SliceStable(people, func(i, j int) bool { return people[i].Age < people[j].Age })
 	fmt.Println("By age,name:", people)
 
 	// Output: By name: [{Alice 25} {Alice 75} {Alice 75} {Bob 75} {Bob 25} {Colin 25} {Elizabeth 75} {Elizabeth 25}]
@@ -116,7 +117,7 @@ func ExampleSliceStable() {
 
 func ExampleStrings() {
 	s := []string{"Go", "Bravo", "Gopher", "Alpha", "Grin", "Delta"}
-	sort.Strings(s)
+	sortlgc.Strings(s)
 	fmt.Println(s)
 	// Output: [Alpha Bravo Delta Go Gopher Grin]
 }

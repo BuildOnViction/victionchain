@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sort
+package sortlgc
 
 // Slice sorts the slice x given the provided less function.
 // It panics if x is not a slice.

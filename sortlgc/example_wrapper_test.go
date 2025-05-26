@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sort_test
+package sortlgc_test
 
 import (
 	"fmt"
-	"sort"
+
+	"github.com/tomochain/tomochain/sortlgc"
 )
 
 type Grams int
@@ -45,11 +46,11 @@ func Example_sortWrapper() {
 		{"spleen", 162},
 	}
 
-	sort.Sort(ByWeight{s})
+	sortlgc.Sort(ByWeight{s})
 	fmt.Println("Organs by weight:")
 	printOrgans(s)
 
-	sort.Sort(ByName{s})
+	sortlgc.Sort(ByName{s})
 	fmt.Println("Organs by name:")
 	printOrgans(s)
 

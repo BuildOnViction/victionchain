@@ -4,7 +4,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sort
+package sortlgc
 
 // Auto-generated variant of sort.go:insertionSort
 func insertionSort_func(data lessSwap, a, b int) {

@@ -2,17 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sort_test
+package sortlgc_test
 
 import (
 	"fmt"
-	"internal/testenv"
 	"math"
 	"math/rand"
-	. "sort"
+	"os"
 	"strconv"
 	stringspkg "strings"
 	"testing"
+
+	. "github.com/tomochain/tomochain/sortlgc"
 )
 
 var ints = [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
@@ -635,8 +636,12 @@ func countOps(t *testing.T, algo func(Interface), name string) {
 func TestCountStableOps(t *testing.T) { countOps(t, Stable, "Stable") }
 func TestCountSortOps(t *testing.T)   { countOps(t, Sort, "Sort  ") }
 
+func Builder() string {
+	return os.Getenv("GO_BUILDER_NAME")
+}
+
 func bench(b *testing.B, size int, algo func(Interface), name string) {
-	if stringspkg.HasSuffix(testenv.Builder(), "-race") && size > 1e4 {
+	if stringspkg.HasSuffix(Builder(), "-race") && size > 1e4 {
 		b.Skip("skipping slow benchmark on race builder")
 	}
 	b.StopTimer()

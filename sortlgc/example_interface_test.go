@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sort_test
+package sortlgc_test
 
 import (
 	"fmt"
-	"sort"
+
+	"github.com/tomochain/tomochain/sortlgc"
 )
 
 type Person struct {
@@ -38,7 +39,7 @@ func Example() {
 	// There are two ways to sort a slice. First, one can define
 	// a set of methods for the slice type, as with ByAge, and
 	// call sort.Sort. In this first example we use that technique.
-	sort.Sort(ByAge(people))
+	sortlgc.Sort(ByAge(people))
 	fmt.Println(people)
 
 	// The other way is to use sort.Slice with a custom Less
@@ -46,7 +47,7 @@ func Example() {
 	// case no methods are needed. (And if they exist, they
 	// are ignored.) Here we re-sort in reverse order: compare
 	// the closure with ByAge.Less.
-	sort.Slice(people, func(i, j int) bool {
+	sortlgc.Slice(people, func(i, j int) bool {
 		return people[i].Age > people[j].Age
 	})
 	fmt.Println(people)

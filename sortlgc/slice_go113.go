@@ -5,9 +5,9 @@
 //go:build go1.13
 // +build go1.13
 
-package sort
+package sortlgc
 
-import "internal/reflectlite"
+import "reflect"
 
-var reflectValueOf = reflectlite.ValueOf
-var reflectSwapper = reflectlite.Swapper
+var reflectValueOf = reflect.ValueOf
+var reflectSwapper = reflect.Swapper

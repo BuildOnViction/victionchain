@@ -5,7 +5,7 @@
 //go:generate go run genzfunc.go
 
 // Package sort provides primitives for sorting slices and user-defined collections.
-package sort
+package sortlgc
 
 // An implementation of Interface can be sorted by the routines in this package.
 // The methods refer to elements of the underlying collection by integer index.
@@ -300,7 +300,6 @@ func (x Float64Slice) Len() int { return len(x) }
 // This implementation of Less places NaN values before any others, by using:
 //
 //	x[i] < x[j] || (math.IsNaN(x[i]) && !math.IsNaN(x[j]))
-//
 func (x Float64Slice) Less(i, j int) bool { return x[i] < x[j] || (isNaN(x[i]) && !isNaN(x[j])) }
 func (x Float64Slice) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 

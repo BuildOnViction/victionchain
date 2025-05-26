@@ -4,7 +4,7 @@
 
 // This file implements binary search.
 
-package sort
+package sortlgc
 
 // Search uses binary search to find and return the smallest index i
 // in [0, n) at which f(i) is true, assuming that on the range [0, n),
@@ -55,7 +55,6 @@ package sort
 //		})
 //		fmt.Printf("Your number is %d.\n", answer)
 //	}
-//
 func Search(n int, f func(int) bool) int {
 	// Define f(-1) == false and f(n) == true.
 	// Invariant: f(i-1) == false, f(j) == true.
@@ -79,7 +78,6 @@ func Search(n int, f func(int) bool) int {
 // as specified by Search. The return value is the index to insert x if x is
 // not present (it could be len(a)).
 // The slice must be sorted in ascending order.
-//
 func SearchInts(a []int, x int) int {
 	return Search(len(a), func(i int) bool { return a[i] >= x })
 }
@@ -88,7 +86,6 @@ func SearchInts(a []int, x int) int {
 // as specified by Search. The return value is the index to insert x if x is not
 // present (it could be len(a)).
 // The slice must be sorted in ascending order.
-//
 func SearchFloat64s(a []float64, x float64) int {
 	return Search(len(a), func(i int) bool { return a[i] >= x })
 }
@@ -97,7 +94,6 @@ func SearchFloat64s(a []float64, x float64) int {
 // as specified by Search. The return value is the index to insert x if x is not
 // present (it could be len(a)).
 // The slice must be sorted in ascending order.
-//
 func SearchStrings(a []string, x string) int {
 	return Search(len(a), func(i int) bool { return a[i] >= x })
 }

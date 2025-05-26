@@ -5,7 +5,7 @@
 //go:build go1.8 && !go1.13
 // +build go1.8,!go1.13
 
-package sort
+package sortlgc
 
 import "reflect"
 

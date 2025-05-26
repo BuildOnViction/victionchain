@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sort_test
+package sortlgc_test
 
 import (
 	"fmt"
-	"sort"
+
+	"github.com/tomochain/tomochain/sortlgc"
 )
 
 // A couple of type definitions to make the units clear.
@@ -29,7 +30,7 @@ func (by By) Sort(planets []Planet) {
 		planets: planets,
 		by:      by, // The Sort method's receiver is the function (closure) that defines the sort order.
 	}
-	sort.Sort(ps)
+	sortlgc.Sort(ps)
 }
 
 // planetSorter joins a By function and a slice of Planets to be sorted.

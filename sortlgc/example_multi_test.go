@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sort_test
+package sortlgc_test
 
 import (
 	"fmt"
-	"sort"
+
+	"github.com/tomochain/tomochain/sortlgc"
 )
 
 // A Change is a record of source code changes, recording user, language, and delta size.
@@ -27,7 +28,7 @@ type multiSorter struct {
 // Sort sorts the argument slice according to the less functions passed to OrderedBy.
 func (ms *multiSorter) Sort(changes []Change) {
 	ms.changes = changes
-	sort.Sort(ms)
+	sortlgc.Sort(ms)
 }
 
 // OrderedBy returns a Sorter that sorts using the less functions, in order.
