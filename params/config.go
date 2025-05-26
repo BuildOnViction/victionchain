@@ -217,6 +217,7 @@ type ChainConfig struct {
 	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
 
 	SaigonBlock *big.Int `json:"saigonBlock,omitempty"` // Saigon switch block (nil = no fork, 0 = already activated)
+	VRC25UpgradeBlock *big.Int `json:"VRC25UpgradeBlock,omitempty"` // VRC25UpgradeBlock switch block (nil = no fork, 0 = already activated)
 
 	ExperimentalBlock *big.Int `json:"experimentalBlock,omitempty"` // Experimental switch block (nil = no fork, 0 = already activated)
 
@@ -337,6 +338,10 @@ func (c *ChainConfig) IsTIP2019(num *big.Int) bool {
 
 func (c *ChainConfig) IsTIPSigning(num *big.Int) bool {
 	return isForked(common.TIPSigningBlock, num)
+}
+
+func (c *ChainConfig) IsVIPVRC25Upgrade(num *big.Int) bool {
+	return isForked(c.VRC25UpgradeBlock, num)
 }
 
 func (c *ChainConfig) IsTIPRandomize(num *big.Int) bool {

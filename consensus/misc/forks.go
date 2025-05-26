@@ -64,3 +64,10 @@ func ApplySaigonHardForkTestnet(statedb *state.StateDB, saigonBlock *big.Int, he
 		statedb.AddBalance(posv.FoudationWalletAddr, ecoSystemFund)
 	}
 }
+
+func ApplyVIPVRC25Upgarde(statedb *state.StateDB, vipVRC25Block *big.Int, headBlock *big.Int) {
+	if headBlock.Cmp(vipVRC25Block) == 0 {
+		// TODO: override storage of minCap to 1ether,
+		// TODO: override code of TRC21Issuer to VRC25 code
+	}
+}

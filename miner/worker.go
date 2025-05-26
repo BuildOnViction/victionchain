@@ -20,15 +20,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"github.com/tomochain/tomochain/accounts"
-	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-
 	"math/big"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 
@@ -629,6 +628,9 @@ func (self *worker) commitNewWork() {
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if self.config.VRC25UpgradeBlock.Cmp(header.Number) == 0 {
+		misc.ApplyVIPVRC25Upgarde(work.state, self.config.VRC25UpgradeBlock, header.Number)
+	}
 	if self.config.SaigonBlock != nil && self.config.SaigonBlock.Cmp(header.Number) <= 0 {
 		if common.IsTestnet {
 			misc.ApplySaigonHardForkTestnet(work.state, self.config.SaigonBlock, header.Number, self.config.Posv)
@@ -677,7 +679,7 @@ func (self *worker) commitNewWork() {
 					}
 				}
 				// won't grasp tx at checkpoint
-				//https://github.com/tomochain/tomochain-v1/pull/416
+				// https://github.com/tomochain/tomochain-v1/pull/416
 				if header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 					log.Debug("Start processing order pending")
 					tradingOrderPending, _ := self.eth.OrderPool().Pending()
@@ -853,7 +855,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 	// first priority for special Txs
 	for _, tx := range specialTxs {
 
-		//HF number for black-list
+		// HF number for black-list
 		if (env.header.Number.Uint64() >= common.BlackListHFBlock) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
@@ -966,7 +968,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			break
 		}
 
-		//HF number for black-list
+		// HF number for black-list
 		if (env.header.Number.Uint64() >= common.BlackListHFBlock) && !common.IsTestnet {
 			// check if sender is in black list
 			if tx.From() != nil && common.Blacklist[*tx.From()] {
