@@ -399,7 +399,7 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 	initialRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
 	chainReward := calcInitialReward(initialRewardPerEpoch, lastCheckpointNumber, common.BlocksPerYear)
 	// Get additional reward for Saigon upgrade
-	if chain.Config().IsSaigon(chain.Config().SaigonBlock) {
+	if chain.Config().IsSaigon(block.Number()) {
 		saigonRewardPerEpoch := new(big.Int).Mul(common.SaigonRewardPerEpoch, new(big.Int).SetUint64(params.Ether))
 		chainReward = new(big.Int).Add(chainReward, calcSaigonReward(saigonRewardPerEpoch, chain.Config().SaigonBlock, lastCheckpointNumber, common.BlocksPerYear))
 	}

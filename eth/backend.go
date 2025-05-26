@@ -519,7 +519,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 				initialRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
 				chainReward := calcInitialReward(initialRewardPerEpoch, number, common.BlocksPerYear)
 				// Get additional reward for Saigon upgrade
-				if chain.Config().IsSaigon(chain.Config().SaigonBlock) {
+				if chain.Config().IsSaigon(header.Number) {
 					saigonRewardPerEpoch := new(big.Int).Mul(common.SaigonRewardPerEpoch, new(big.Int).SetUint64(params.Ether))
 					chainReward = new(big.Int).Add(chainReward, calcSaigonReward(saigonRewardPerEpoch, chain.Config().SaigonBlock, number, common.BlocksPerYear))
 				}
