@@ -2,9 +2,10 @@ package state
 
 import (
 	"bytes"
-	"github.com/hashicorp/golang-lru"
-	"github.com/tomochain/tomochain/common"
 	"math/big"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/tomochain/tomochain/common"
 )
 
 var (
@@ -139,14 +140,27 @@ func ValidateTRC21Tx(statedb *StateDB, from common.Address, token common.Address
 	return false
 }
 
-func UpdateTRC21Fee(statedb *StateDB, newBalance map[common.Address]*big.Int, totalFeeUsed *big.Int) {
-	if statedb == nil || len(newBalance) == 0 {
+func UpdateTRC21Fee(statedb *StateDB, usedBalance map[common.Address]*big.Int, totalFeeUsed *big.Int) {
+	if statedb == nil || len(usedBalance) == 0 {
 		return
 	}
+
 	slotTokensState := SlotTRC21Issuer["tokensState"]
-	for token, value := range newBalance {
+
+	// For each token that used fees
+	for token, usedAmount := range usedBalance {
+		// Get current balance from state
 		balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
-		statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(value))
+		currentBalance := statedb.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
+		currentBalanceInt := new(big.Int).SetBytes(currentBalance[:])
+
+		// Subtract used amount from current balance
+		newBalance := new(big.Int).Sub(currentBalanceInt, usedAmount)
+
+		// Update state with new balance
+		statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(newBalance))
 	}
+
+	// Update total fee used
 	statedb.SubBalance(common.TRC21IssuerSMC, totalFeeUsed)
 }
