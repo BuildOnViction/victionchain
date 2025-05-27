@@ -112,7 +112,15 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) error {
 		if b.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 			fee = fee.Mul(fee, common.TRC21GasPrice)
 		}
-		state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee)
+
+		// Create map to track used fee
+		usedFees := map[common.Address]*big.Int{
+			*tx.To(): fee,
+		}
+
+		// state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee)
+		// Update state with used fee
+		state.UpdateTRC21Fee(b.statedb, usedFees, fee)
 	}
 	return nil
 }
