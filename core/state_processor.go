@@ -246,29 +246,18 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
 		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
-	// If TomoX is disabled via hardfork, reject all TomoX-related transactions
-	if config.IsExperimental(header.Number) {
-		if (tx.To() != nil && tx.To().String() == common.TradingStateAddr) ||
-			(tx.To() != nil && tx.To().String() == common.TomoXLendingAddress) ||
-			tx.IsTradingTransaction() ||
-			tx.IsLendingFinalizedTradeTransaction() {
-			return nil, 0, fmt.Errorf("TomoX feature is disabled"), false
-		}
-	} else if config.IsTIPTomoX(header.Number) {
+	if tx.To() != nil && tx.To().String() == common.TradingStateAddr && config.IsTIPTomoX(header.Number) {
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	}
+	if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress && config.IsTIPTomoX(header.Number) {
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	}
+	if tx.IsTradingTransaction() && config.IsTIPTomoX(header.Number) {
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	}
 
-		if tx.To() != nil && tx.To().String() == common.TradingStateAddr {
-			return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
-		}
-		if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress {
-			return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
-		}
-		if tx.IsTradingTransaction() {
-			return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
-		}
-
-		if tx.IsLendingFinalizedTradeTransaction() {
-			return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
-		}
+	if tx.IsLendingFinalizedTradeTransaction() && config.IsTIPTomoX(header.Number) {
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
 
 	var balanceFee *big.Int
