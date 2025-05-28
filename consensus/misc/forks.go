@@ -67,8 +67,8 @@ func ApplySaigonHardForkTestnet(statedb *state.StateDB, saigonBlock *big.Int, he
 
 func ApplyVIPVRC25Upgarde(statedb *state.StateDB, vipVRC25Block *big.Int, headBlock *big.Int) {
 	if headBlock.Cmp(vipVRC25Block) == 0 {
-		statedb.SetCode(common.TRC21IssuerSMC, common.VRC25IssuerCode)
 		minCapLoc := state.GetLocSimpleVariable(common.TRC21IssuerMinCapSlot)
 		statedb.SetState(common.TRC21IssuerSMC, minCapLoc, common.BigToHash(common.VRC25IssuerMinCap))
+		statedb.SetCode(common.TRC21IssuerSMC, common.VRC25IssuerCode)
 	}
 }
