@@ -184,7 +184,6 @@ func (st *StateTransition) buyGas() error {
 			return errInsufficientBalanceForGas
 		}
 	} else if balanceTokenFee.Cmp(mgval) < 0 {
-		// TODO: if balanceTokenFee is not enough to cover gas, sub gas from user balance
 		return errInsufficientBalanceForGas
 	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
