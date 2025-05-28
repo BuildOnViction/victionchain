@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;
 
-import "./TRC21Issuer.sol";
+import "../../trc21issuer/contract/TRC21Issuer.sol";
 
 contract VRC25Issuer is TRC21Issuer {
     event Withdraw(address indexed token, address indexed receiver, uint256 value);

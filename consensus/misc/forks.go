@@ -21,6 +21,7 @@ import (
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/contracts/vrc25issuer"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/params"
@@ -69,6 +70,6 @@ func ApplyVIPVRC25Upgarde(statedb *state.StateDB, vipVRC25Block *big.Int, headBl
 	if headBlock.Cmp(vipVRC25Block) == 0 {
 		minCapLoc := state.GetLocSimpleVariable(common.TRC21IssuerMinCapSlot)
 		statedb.SetState(common.TRC21IssuerSMC, minCapLoc, common.BigToHash(common.VRC25IssuerMinCap))
-		statedb.SetCode(common.TRC21IssuerSMC, common.VRC25IssuerCode)
+		statedb.SetCode(common.TRC21IssuerSMC, []byte(vrc25issuer.Vrc25issuerBin))
 	}
 }

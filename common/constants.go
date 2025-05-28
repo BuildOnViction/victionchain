@@ -76,7 +76,6 @@ var (
 
 	TRC21IssuerMinCapSlot = uint64(0)
 	VRC25IssuerMinCap     = big.NewInt(1000000000000000000) // 1 VRC25
-	VRC25IssuerCode       = []byte{1}                       // Put VRC25IssuerCode here
 )
 
 var Blacklist = map[Address]bool{
