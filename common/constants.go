@@ -73,6 +73,10 @@ var (
 	LendingRegistrationSMC = "0x7d761afd7ff65a79e4173897594a194e3c506e57"
 	TRC21IssuerSMC         = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
 	TomoXListingSMC        = HexToAddress("0xDE34dD0f536170993E8CFF639DdFfCF1A85D3E53")
+
+	TRC21IssuerMinCapSlot = uint64(0)
+	VRC25IssuerMinCap     = big.NewInt(1000000000000000000) // 1 VRC25
+	VRC25IssuerCode       = []byte{1}                       // Put VRC25IssuerCode here
 )
 
 var Blacklist = map[Address]bool{
