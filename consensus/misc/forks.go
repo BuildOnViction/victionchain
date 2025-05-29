@@ -69,7 +69,7 @@ func ApplySaigonHardForkTestnet(statedb *state.StateDB, saigonBlock *big.Int, he
 
 func ApplyVIPVRC25Upgarde(statedb *state.StateDB, vipVRC25Block *big.Int, headBlock *big.Int) {
 	if headBlock.Cmp(vipVRC25Block) == 0 {
-		minCapLoc := state.GetLocSimpleVariable(common.TRC21IssuerMinCapSlot)
+		minCapLoc := state.GetLocSimpleVariable(state.SlotTRC21Issuer["minCap"])
 		startDeployedCode := strings.LastIndex(vrc25issuer.Vrc25issuerBin, "6080604052") // remove constructor code
 
 		deployedCode := common.FromHex(vrc25issuer.Vrc25issuerBin[startDeployedCode:])
