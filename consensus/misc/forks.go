@@ -19,6 +19,7 @@ package misc
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/contracts/vrc25issuer"
@@ -69,7 +70,11 @@ func ApplySaigonHardForkTestnet(statedb *state.StateDB, saigonBlock *big.Int, he
 func ApplyVIPVRC25Upgarde(statedb *state.StateDB, vipVRC25Block *big.Int, headBlock *big.Int) {
 	if headBlock.Cmp(vipVRC25Block) == 0 {
 		minCapLoc := state.GetLocSimpleVariable(common.TRC21IssuerMinCapSlot)
+		startDeployedCode := strings.LastIndex(vrc25issuer.Vrc25issuerBin, "6080604052") // remove constructor code
+
+		deployedCode := common.FromHex(vrc25issuer.Vrc25issuerBin[startDeployedCode:])
+
 		statedb.SetState(common.TRC21IssuerSMC, minCapLoc, common.BigToHash(common.VRC25IssuerMinCap))
-		statedb.SetCode(common.TRC21IssuerSMC, []byte(vrc25issuer.Vrc25issuerBin))
+		statedb.SetCode(common.TRC21IssuerSMC, deployedCode)
 	}
 }
