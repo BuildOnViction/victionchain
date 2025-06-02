@@ -214,7 +214,11 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 			misc.ApplyDAOHardFork(statedb)
 		}
 		if config.SaigonBlock != nil && config.SaigonBlock.Cmp(b.header.Number) <= 0 {
-			misc.ApplySaigonHardFork(statedb, config.SaigonBlock, b.header.Number)
+			if common.IsTestnet {
+				misc.ApplySaigonHardForkTestnet(statedb, config.SaigonBlock, b.header.Number, config.Posv)
+			} else {
+				misc.ApplySaigonHardFork(statedb, config.SaigonBlock, b.header.Number)
+			}
 		}
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {

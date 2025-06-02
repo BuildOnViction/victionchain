@@ -83,7 +83,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
-		misc.ApplySaigonHardFork(statedb, p.config.SaigonBlock, block.Number())
+		if common.IsTestnet {
+			misc.ApplySaigonHardForkTestnet(statedb, p.config.SaigonBlock, block.Number(), p.config.Posv)
+		} else {
+			misc.ApplySaigonHardFork(statedb, p.config.SaigonBlock, block.Number())
+		}
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
@@ -159,7 +163,11 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
-		misc.ApplySaigonHardFork(statedb, p.config.SaigonBlock, block.Number())
+		if common.IsTestnet {
+			misc.ApplySaigonHardForkTestnet(statedb, p.config.SaigonBlock, block.Number(), p.config.Posv)
+		} else {
+			misc.ApplySaigonHardFork(statedb, p.config.SaigonBlock, block.Number())
+		}
 	}
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock

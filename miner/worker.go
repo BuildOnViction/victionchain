@@ -136,6 +136,10 @@ type worker struct {
 	currentMu sync.Mutex
 	current   *Work
 
+	snapshotMu    sync.RWMutex
+	snapshotBlock *types.Block
+	snapshotState *state.StateDB
+
 	uncleMu        sync.Mutex
 	possibleUncles map[common.Hash]*types.Block
 
@@ -195,32 +199,34 @@ func (self *worker) setExtra(extra []byte) {
 }
 
 func (self *worker) pending() (*types.Block, *state.StateDB) {
+	if atomic.LoadInt32(&self.mining) == 0 {
+		// return a snapshot to avoid contention on currentMu mutex
+		self.snapshotMu.RLock()
+		defer self.snapshotMu.RUnlock()
+		if self.snapshotBlock == nil {
+			return nil, nil
+		}
+		return self.snapshotBlock, self.snapshotState.Copy()
+	}
+
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
-
-	if atomic.LoadInt32(&self.mining) == 0 {
-		return types.NewBlock(
-			self.current.header,
-			self.current.txs,
-			nil,
-			self.current.receipts,
-		), self.current.state.Copy()
+	if self.current == nil {
+		return nil, nil
 	}
 	return self.current.Block, self.current.state.Copy()
 }
 
 func (self *worker) pendingBlock() *types.Block {
+	if atomic.LoadInt32(&self.mining) == 0 {
+		// return a snapshot to avoid contention on currentMu mutex
+		self.snapshotMu.RLock()
+		defer self.snapshotMu.RUnlock()
+		return self.snapshotBlock
+	}
+
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
-
-	if atomic.LoadInt32(&self.mining) == 0 {
-		return types.NewBlock(
-			self.current.header,
-			self.current.txs,
-			nil,
-			self.current.receipts,
-		)
-	}
 	return self.current.Block
 }
 
@@ -316,6 +322,7 @@ func (self *worker) update() {
 				feeCapacity := state.GetTRC21FeeCapacityFromState(self.current.state)
 				txset, specialTxs := types.NewTransactionsByPriceAndNonce(self.current.signer, txs, nil, feeCapacity)
 				self.current.commitTransactions(self.mux, feeCapacity, txset, specialTxs, self.chain, self.coinbase)
+				self.updateSnapshot()
 				self.currentMu.Unlock()
 			} else {
 				// If we're mining, but nothing is being processed, wake on new transactions
@@ -623,7 +630,11 @@ func (self *worker) commitNewWork() {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if self.config.SaigonBlock != nil && self.config.SaigonBlock.Cmp(header.Number) <= 0 {
-		misc.ApplySaigonHardFork(work.state, self.config.SaigonBlock, header.Number)
+		if common.IsTestnet {
+			misc.ApplySaigonHardForkTestnet(work.state, self.config.SaigonBlock, header.Number, self.config.Posv)
+		} else {
+			misc.ApplySaigonHardFork(work.state, self.config.SaigonBlock, header.Number)
+		}
 	}
 	// won't grasp txs at checkpoint
 	var (
@@ -816,6 +827,7 @@ func (self *worker) commitNewWork() {
 		self.lastParentBlockCommit = parent.Hash().Hex()
 	}
 	self.push(work)
+	self.updateSnapshot()
 }
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
@@ -1083,6 +1095,19 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}(cpy, env.tcount)
 	}
+}
+
+func (self *worker) updateSnapshot() {
+	self.snapshotMu.Lock()
+	defer self.snapshotMu.Unlock()
+
+	self.snapshotBlock = types.NewBlock(
+		self.current.header,
+		self.current.txs,
+		nil,
+		self.current.receipts,
+	)
+	self.snapshotState = self.current.state.Copy()
 }
 
 func (env *Work) commitTransaction(balanceFee map[common.Address]*big.Int, tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log, bool, uint64) {
