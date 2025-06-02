@@ -697,30 +697,17 @@ func (s *PublicBlockChainAPI) GetBlockFinalityByHash(ctx context.Context, blockH
 	return s.findFinalityOfBlock(ctx, block, masternodes)
 }
 
-func (s *PublicBlockChainAPI) GetNearestBlockFinalityByBlockNumber(ctx context.Context, blockNumber int64) (*types.Block, error) {
-	backMergeSignRangeBlock := blockNumber - blockNumber%common.MergeSignRange
-
-	toBlock := backMergeSignRangeBlock
-	for toBlock >= 0 {
-		if toBlock == 0 {
-			rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
-			return rBlock, nil
-		}
-
-		checkpoint := toBlock - (toBlock % common.EpocBlockRandomize)
-		checkpointBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(checkpoint))
-		masternodes, _ := s.GetMasternodes(ctx, checkpointBlock)
-
-		rBlock, _ := s.b.BlockByNumber(ctx, rpc.BlockNumber(toBlock))
-		threadHold, _ := s.findFinalityOfBlock(ctx, rBlock, masternodes)
-		if threadHold == 100 {
-			return rBlock, nil
-		}
-
-		toBlock = toBlock - common.MergeSignRange
+func (s *PublicBlockChainAPI) GetBlockFinalityByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (uint, error) {
+	block, err := s.b.BlockByNumber(ctx, blockNumber)
+	if err != nil || block == nil {
+		return uint(0), err
 	}
-
-	return nil, errors.New("can't find nearest finality block")
+	masternodes, err := s.GetMasternodes(ctx, block)
+	if err != nil || len(masternodes) == 0 {
+		log.Error("Failed to get masternodes", "err", err, "len(masternodes)", len(masternodes))
+		return uint(0), err
+	}
+	return s.findFinalityOfBlock(ctx, block, masternodes)
 }
 
 // GetMasternodes returns masternodes set at the starting block of epoch of the given block
@@ -1359,6 +1346,7 @@ Use blocksHashCache for to keep track - refer core/blockchain.go for more detail
 func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.Block, masternodes []common.Address) (uint, error) {
 	engine, _ := s.b.GetEngine().(*posv.Posv)
 	signedBlock := s.findNearestSignedBlock(ctx, b)
+
 	if signedBlock == nil {
 		return 0, nil
 	}
@@ -1377,6 +1365,7 @@ func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.
 		if blockSigners == nil {
 			return 0, err
 		}
+
 		return uint(100 * len(blockSigners) / len(masternodes)), nil
 	}
 
@@ -1439,6 +1428,7 @@ func (s *PublicBlockChainAPI) getSigners(ctx context.Context, block *types.Block
 	creator, _ := engine.RecoverSigner(block.Header())
 	signers = append(signers, validator)
 	signers = append(signers, creator)
+
 	for _, masternode := range masternodes {
 		for _, signer := range signers {
 			if signer == masternode {
@@ -3024,7 +3014,8 @@ func GetSignersFromBlocks(b Backend, blockNumber uint64, blockHash common.Hash, 
 // GetStakerROI Estimate ROI for stakers using the last epoc reward
 // then multiple by epoch per year, if the address is not masternode of last epoch - return 0
 // Formular:
-// ROI = average_latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
+//
+//	ROI = average_latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
 func (s *PublicBlockChainAPI) GetStakerROI() float64 {
 	blockNumber := s.b.CurrentBlock().Number().Uint64()
 	lastCheckpointNumber := blockNumber - (blockNumber % s.b.ChainConfig().Posv.Epoch) - s.b.ChainConfig().Posv.Epoch // calculate for 2 epochs ago
@@ -3050,7 +3041,8 @@ func (s *PublicBlockChainAPI) GetStakerROI() float64 {
 // GetStakerROIMasternode Estimate ROI for stakers of a specific masternode using the last epoc reward
 // then multiple by epoch per year, if the address is not masternode of last epoch - return 0
 // Formular:
-// ROI = latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
+//
+//	ROI = latest_epoch_reward_for_voters*number_of_epoch_per_year/latest_total_cap*100
 func (s *PublicBlockChainAPI) GetStakerROIMasternode(masternode common.Address) float64 {
 	votersReward := s.b.GetVotersRewards(masternode)
 	if votersReward == nil {
