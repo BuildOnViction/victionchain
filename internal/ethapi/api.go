@@ -1398,7 +1398,7 @@ func (s *PublicBlockChainAPI) findFinalityOfBlock(ctx context.Context, b *types.
 	}
 
 	// return 0 if not same path with any signed block
-	if (signedBlockSamePath == common.Hash{}) {
+	if len(signedBlockSamePath) == 0 {
 		return 0, nil
 	}
 
