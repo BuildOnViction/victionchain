@@ -835,7 +835,7 @@ func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 
 func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Address]*big.Int, txs *types.TransactionsByPriceAndNonce, specialTxs types.Transactions, bc *core.BlockChain, coinbase common.Address) {
 	gp := new(core.GasPool).AddGas(env.header.GasLimit)
-	balanceUpdated := map[common.Address]*big.Int{}
+	usedFees := make(map[common.Address]*big.Int)
 	totalFeeUsed := big.NewInt(0)
 	var coalescedLogs []*types.Log
 	// first priority for special Txs
@@ -932,10 +932,15 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+
+			// Track used fee in separate map
+			if usedFees[*tx.To()] == nil {
+				usedFees[*tx.To()] = new(big.Int)
+			}
+			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
+			totalFeeUsed.Add(totalFeeUsed, fee)
 		}
+
 	}
 	for {
 		// If we don't have enough gas for any further transactions then we're done
@@ -1050,12 +1055,16 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+
+			// Track used fee in separate map
+			if usedFees[*tx.To()] == nil {
+				usedFees[*tx.To()] = new(big.Int)
+			}
+			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
+			totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	state.UpdateTRC21Fee(env.state, balanceUpdated, totalFeeUsed)
+	state.UpdateTRC21Fee(env.state, usedFees, totalFeeUsed)
 	if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined
 		// logs by filling in the block hash when the block was mined by the local miner. This can

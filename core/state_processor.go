@@ -87,7 +87,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
-	balanceUpdated := map[common.Address]*big.Int{}
+	usedFees := make(map[common.Address]*big.Int)
 	totalFeeUsed := big.NewInt(0)
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
@@ -127,12 +127,16 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+
+			// Track used fee in separate map
+			if usedFees[*tx.To()] == nil {
+				usedFees[*tx.To()] = new(big.Int)
+			}
+			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
+			totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
+	state.UpdateTRC21Fee(statedb, usedFees, totalFeeUsed)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
@@ -162,7 +166,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
-	balanceUpdated := map[common.Address]*big.Int{}
+	usedFees := make(map[common.Address]*big.Int)
 	totalFeeUsed := big.NewInt(0)
 
 	if cBlock.stop {
@@ -211,12 +215,16 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+
+			// Track used fee in separate map
+			if usedFees[*tx.To()] == nil {
+				usedFees[*tx.To()] = new(big.Int)
+			}
+			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
+			totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
+	state.UpdateTRC21Fee(statedb, usedFees, totalFeeUsed)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
