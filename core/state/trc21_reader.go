@@ -140,12 +140,14 @@ func ValidateTRC21Tx(statedb *StateDB, from common.Address, token common.Address
 	return false
 }
 
-func UpdateTRC21Fee(statedb *StateDB, usedBalance map[common.Address]*big.Int, totalFeeUsed *big.Int) {
+func UpdateTRC21Fee(statedb *StateDB, usedBalance map[common.Address]*big.Int) {
 	if statedb == nil || len(usedBalance) == 0 {
 		return
 	}
 
 	slotTokensState := SlotTRC21Issuer["tokensState"]
+
+	totalFeeUsed := big.NewInt(0)
 
 	// For each token that used fees
 	for token, usedAmount := range usedBalance {
@@ -159,6 +161,9 @@ func UpdateTRC21Fee(statedb *StateDB, usedBalance map[common.Address]*big.Int, t
 
 		// Update state with new balance
 		statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(newBalance))
+
+		// Add to total fee used
+		totalFeeUsed.Add(totalFeeUsed, usedAmount)
 	}
 
 	// Update total fee used

@@ -92,7 +92,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
 	usedFees := make(map[common.Address]*big.Int)
-	totalFeeUsed := big.NewInt(0)
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
 		if (block.Number().Uint64() >= common.BlackListHFBlock) && !common.IsTestnet {
@@ -137,10 +136,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				usedFees[*tx.To()] = new(big.Int)
 			}
 			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
-			totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	state.UpdateTRC21Fee(statedb, usedFees, totalFeeUsed)
+	state.UpdateTRC21Fee(statedb, usedFees)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
@@ -175,7 +173,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
 	usedFees := make(map[common.Address]*big.Int)
-	totalFeeUsed := big.NewInt(0)
+	// totalFeeUsed := big.NewInt(0)
 
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
@@ -229,10 +227,10 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 				usedFees[*tx.To()] = new(big.Int)
 			}
 			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
-			totalFeeUsed.Add(totalFeeUsed, fee)
+			// totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	state.UpdateTRC21Fee(statedb, usedFees, totalFeeUsed)
+	state.UpdateTRC21Fee(statedb, usedFees)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil

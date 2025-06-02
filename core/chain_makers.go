@@ -119,7 +119,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 		}
 
 		// Update state with used fee
-		state.UpdateTRC21Fee(b.statedb, usedFees, fee)
+		state.UpdateTRC21Fee(b.statedb, usedFees)
 	}
 }
 
