@@ -217,7 +217,6 @@ type ChainConfig struct {
 	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
 
 	SaigonBlock *big.Int `json:"saigonBlock,omitempty"` // Saigon switch block (nil = no fork, 0 = already activated)
-	VRC25UpgradeBlock *big.Int `json:"VRC25UpgradeBlock,omitempty"` // VRC25UpgradeBlock switch block (nil = no fork, 0 = already activated)
 
 	ExperimentalBlock *big.Int `json:"experimentalBlock,omitempty"` // Experimental switch block (nil = no fork, 0 = already activated)
 

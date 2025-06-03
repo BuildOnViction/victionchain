@@ -82,7 +82,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if p.config.IsExperimental(header.Number) {
-		misc.ApplyVIPVRC25Upgarde(statedb, p.config.VRC25UpgradeBlock, header.Number)
+		misc.ApplyVIPVRC25Upgarde(statedb, p.config.ExperimentalBlock, header.Number)
 	}
 
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
@@ -162,7 +162,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
 	if p.config.IsExperimental(header.Number) {
-		misc.ApplyVIPVRC25Upgarde(statedb, p.config.VRC25UpgradeBlock, header.Number)
+		misc.ApplyVIPVRC25Upgarde(statedb, p.config.ExperimentalBlock, header.Number)
 	}
 
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
