@@ -90,16 +90,15 @@ type Bootnodes struct {
 }
 
 type tomoConfig struct {
-	Eth         eth.Config
-	Shh         whisper.Config
-	Node        node.Config
-	Ethstats    ethstatsConfig
-	TomoX       tomox.Config
-	Account     account
-	StakeEnable bool
-	Bootnodes   Bootnodes
-	Verbosity   int
-	NAT         string
+	Eth       eth.Config
+	Shh       whisper.Config
+	Node      node.Config
+	Ethstats  ethstatsConfig
+	TomoX     tomox.Config
+	Account   account
+	Bootnodes Bootnodes
+	Verbosity int
+	NAT       string
 }
 
 func loadConfig(file string, cfg *tomoConfig) error {
@@ -129,22 +128,18 @@ func defaultNodeConfig() node.Config {
 func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 	// Load defaults.
 	cfg := tomoConfig{
-		Eth:         eth.DefaultConfig,
-		Shh:         whisper.DefaultConfig,
-		TomoX:       tomox.DefaultConfig,
-		Node:        defaultNodeConfig(),
-		StakeEnable: true,
-		Verbosity:   3,
-		NAT:         "",
+		Eth:       eth.DefaultConfig,
+		Shh:       whisper.DefaultConfig,
+		TomoX:     tomox.DefaultConfig,
+		Node:      defaultNodeConfig(),
+		Verbosity: 3,
+		NAT:       "",
 	}
 	// Load config file.
 	if file := ctx.GlobalString(configFileFlag.Name); file != "" {
 		if err := loadConfig(file, &cfg); err != nil {
 			utils.Fatalf("%v", err)
 		}
-	}
-	if ctx.GlobalIsSet(utils.StakingEnabledFlag.Name) {
-		cfg.StakeEnable = ctx.GlobalBool(utils.StakingEnabledFlag.Name)
 	}
 	if !ctx.GlobalIsSet(debug.VerbosityFlag.Name) {
 		debug.Glogger.Verbosity(log.Lvl(cfg.Verbosity))

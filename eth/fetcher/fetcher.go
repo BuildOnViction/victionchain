@@ -718,7 +718,7 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 
 		if f.signHook != nil {
 			if err := f.signHook(block); err != nil {
-				log.Error("Can't sign the imported block", "err", err)
+				log.Error("Cannot sign the imported block", "err", err)
 				return
 			}
 		}
