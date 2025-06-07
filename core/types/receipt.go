@@ -18,6 +18,7 @@ package types
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"unsafe"
@@ -34,6 +35,9 @@ var (
 	receiptStatusSuccessfulRLP = []byte{0x01}
 )
 
+var errShortTypedReceipt = errors.New("typed receipt too short")
+var errEmptyTypedReceipt = errors.New("empty typed receipt bytes")
+
 const (
 	// ReceiptStatusFailed is the status code of a transaction if execution failed.
 	ReceiptStatusFailed = uint(0)
@@ -45,6 +49,7 @@ const (
 // Receipt represents the results of a transaction.
 type Receipt struct {
 	// Consensus fields
+	Type              uint8  `json:"type,omitempty"`
 	PostState         []byte `json:"root"`
 	Status            uint   `json:"status"`
 	CumulativeGasUsed uint64 `json:"cumulativeGasUsed" gencodec:"required"`
@@ -58,6 +63,7 @@ type Receipt struct {
 }
 
 type receiptMarshaling struct {
+	Type              hexutil.Uint64
 	PostState         hexutil.Bytes
 	Status            hexutil.Uint
 	CumulativeGasUsed hexutil.Uint64
@@ -83,8 +89,13 @@ type receiptStorageRLP struct {
 }
 
 // NewReceipt creates a barebone transaction receipt, copying the init fields.
+// Deprecated: create receipts using a struct literal instead.
 func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
-	r := &Receipt{PostState: common.CopyBytes(root), CumulativeGasUsed: cumulativeGasUsed}
+	r := &Receipt{
+		Type:              LegacyTxType,
+		PostState:         common.CopyBytes(root),
+		CumulativeGasUsed: cumulativeGasUsed,
+	}
 	if failed {
 		r.Status = ReceiptStatusFailed
 	} else {
@@ -96,21 +107,87 @@ func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 // EncodeRLP implements rlp.Encoder, and flattens the consensus fields of a receipt
 // into an RLP stream. If no post state is present, byzantium fork is assumed.
 func (r *Receipt) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, &receiptRLP{r.statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs})
+	data := &receiptRLP{r.statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs}
+	if r.Type == LegacyTxType {
+		return rlp.Encode(w, data)
+	}
+	buf := encodeBufferPool.Get().(*bytes.Buffer)
+	defer encodeBufferPool.Put(buf)
+	buf.Reset()
+	if err := r.encodeTyped(data, buf); err != nil {
+		return err
+	}
+	return rlp.Encode(w, buf.Bytes())
+}
+
+// encodeTyped writes the canonical encoding of a typed receipt to w.
+func (r *Receipt) encodeTyped(data *receiptRLP, w *bytes.Buffer) error {
+	w.WriteByte(r.Type)
+	return rlp.Encode(w, data)
 }
 
 // DecodeRLP implements rlp.Decoder, and loads the consensus fields of a receipt
 // from an RLP stream.
 func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
-	var dec receiptRLP
-	if err := s.Decode(&dec); err != nil {
+	kind, _, err := s.Kind()
+	switch {
+	case err != nil:
 		return err
+	case kind == rlp.List:
+		// It's a legacy receipt.
+		var dec receiptRLP
+		if err := s.Decode(&dec); err != nil {
+			return err
+		}
+		r.Type = LegacyTxType
+		return r.setFromRLP(dec)
+	case kind == rlp.Byte:
+		return errShortTypedReceipt
+	case kind == rlp.String:
+		// It's an EIP-2718 typed tx receipt.
+		b, err := s.Bytes()
+		if err != nil {
+			return err
+		}
+		if len(b) == 0 {
+			return errEmptyTypedReceipt
+		}
+		r.Type = b[0]
+		if r.Type == SponsoredTxType {
+			var dec receiptRLP
+			if err := rlp.DecodeBytes(b[1:], &dec); err != nil {
+				return err
+			}
+			return r.setFromRLP(dec)
+		}
+		return ErrTxTypeNotSupported
+	default:
+		return rlp.ErrExpectedList
 	}
-	if err := r.setStatus(dec.PostStateOrStatus); err != nil {
-		return err
+}
+
+// decodeTyped decodes a typed receipt from the canonical format.
+func (r *Receipt) decodeTyped(b []byte) error {
+	if len(b) <= 1 {
+		return errShortTypedReceipt
 	}
-	r.CumulativeGasUsed, r.Bloom, r.Logs = dec.CumulativeGasUsed, dec.Bloom, dec.Logs
-	return nil
+	switch b[0] {
+	case SponsoredTxType:
+		var data receiptRLP
+		err := rlp.DecodeBytes(b[1:], &data)
+		if err != nil {
+			return err
+		}
+		r.Type = b[0]
+		return r.setFromRLP(data)
+	default:
+		return ErrTxTypeNotSupported
+	}
+}
+
+func (r *Receipt) setFromRLP(data receiptRLP) error {
+	r.CumulativeGasUsed, r.Bloom, r.Logs = data.CumulativeGasUsed, data.Bloom, data.Logs
+	return r.setStatus(data.PostStateOrStatus)
 }
 
 func (r *Receipt) setStatus(postStateOrStatus []byte) error {

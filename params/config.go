@@ -59,6 +59,7 @@ var (
 		EIP150Hash:                   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		EIP155Block:                  big.NewInt(3),
 		EIP158Block:                  big.NewInt(3),
+		MikoBlock:                    big.NewInt(0),
 		ByzantiumBlock:               big.NewInt(4),
 		TIP2019Block:                 big.NewInt(0),
 		TIPSigningBlock:              big.NewInt(0),
@@ -141,6 +142,7 @@ var (
 		EIP150Hash:          common.Hash{},
 		EIP155Block:         big.NewInt(0),
 		EIP158Block:         big.NewInt(0),
+		MikoBlock:           big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
 		ConstantinopleBlock: nil,
 		Ethash:              new(EthashConfig),
@@ -203,6 +205,8 @@ type ChainConfig struct {
 
 	EIP155Block *big.Int `json:"eip155Block,omitempty"` // EIP155 HF block
 	EIP158Block *big.Int `json:"eip158Block,omitempty"` // EIP158 HF block
+
+	MikoBlock *big.Int `json:"mikoBlock,omitempty"` // Miko HF block
 
 	ByzantiumBlock      *big.Int `json:"byzantiumBlock,omitempty"`      // Byzantium switch block (nil = no fork, 0 = already on byzantium)
 	ConstantinopleBlock *big.Int `json:"constantinopleBlock,omitempty"` // Constantinople switch block (nil = no fork, 0 = already activated)
@@ -271,13 +275,14 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v TIP2019: %v TIPSigning: %v TIPRandomize: %v BlackListHF: %v TIPTRC21Fee: %v TIPTomoX: %v TIPTomoXLending: %v TIPTomoXCancellationFee: %v Saigon: %v Experimental: %v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v Miko: %v EIP158: %v Byzantium: %v Constantinople: %v TIP2019: %v TIPSigning: %v TIPRandomize: %v BlackListHF: %v TIPTRC21Fee: %v TIPTomoX: %v TIPTomoXLending: %v TIPTomoXCancellationFee: %v Saigon: %v Experimental: %v Engine: %v}",
 		c.ChainId,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
 		c.DAOForkSupport,
 		c.EIP150Block,
 		c.EIP155Block,
+		c.MikoBlock,
 		c.EIP158Block,
 		c.ByzantiumBlock,
 		c.ConstantinopleBlock,
@@ -309,6 +314,10 @@ func (c *ChainConfig) IsEIP150(num *big.Int) bool {
 
 func (c *ChainConfig) IsEIP155(num *big.Int) bool {
 	return isForked(c.EIP155Block, num)
+}
+
+func (c *ChainConfig) IsMiko(num *big.Int) bool {
+	return isForked(c.MikoBlock, num)
 }
 
 func (c *ChainConfig) IsEIP158(num *big.Int) bool {

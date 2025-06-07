@@ -25,6 +25,8 @@ import (
 	"math/big"
 	"path/filepath"
 
+	"github.com/tomochain/tomochain/internal/ethapi"
+
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending"
 
@@ -121,6 +123,16 @@ func (b *EthApiBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 	// Otherwise resolve and return the block
 	if blockNr == rpc.LatestBlockNumber {
 		return b.eth.blockchain.CurrentBlock(), nil
+	}
+	// Finalized block handler
+	if blockNr == rpc.FinalizedBlockNumber {
+		pubChainAPI := ethapi.NewPublicBlockChainAPI(b)
+		block := b.CurrentBlock()
+		fBlock, err := pubChainAPI.GetNearestBlockFinalityByBlockNumber(ctx, block.Number().Int64())
+		if err != nil {
+			return nil, err
+		}
+		return fBlock, nil
 	}
 	return b.eth.blockchain.GetBlockByNumber(uint64(blockNr)), nil
 }

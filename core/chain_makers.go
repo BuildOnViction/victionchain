@@ -83,8 +83,8 @@ func (b *BlockGen) SetExtra(data []byte) {
 // further limitations on the content of transactions that can be
 // added. Notably, contract code relying on the BLOCKHASH instruction
 // will panic during execution.
-func (b *BlockGen) AddTx(tx *types.Transaction) {
-	b.AddTxWithChain(nil, tx)
+func (b *BlockGen) AddTx(tx *types.Transaction) error {
+	return b.AddTxWithChain(nil, tx)
 }
 
 // AddTxWithChain adds a transaction to the generated block. If no coinbase has
@@ -95,7 +95,7 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 // further limitations on the content of transactions that can be
 // added. If contract code relies on the BLOCKHASH instruction,
 // the block in chain will be returned.
-func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
+func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) error {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
@@ -103,7 +103,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
 	receipt, gas, err, tokenFeeUsed := ApplyTransaction(b.config, feeCapacity, bc, &b.header.Coinbase, b.gasPool, b.statedb, nil, b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
-		panic(err)
+		return err
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
@@ -112,8 +112,17 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 		if b.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 			fee = fee.Mul(fee, common.TRC21GasPrice)
 		}
-		state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee)
+
+		// Create map to track used fee
+		usedFees := map[common.Address]*big.Int{
+			*tx.To(): fee,
+		}
+
+		// state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee)
+		// Update state with used fee
+		state.UpdateTRC21Fee(b.statedb, usedFees, fee)
 	}
+	return nil
 }
 
 // Number returns the block number of the block being generated.

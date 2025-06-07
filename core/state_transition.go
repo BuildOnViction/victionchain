@@ -18,10 +18,12 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
@@ -76,6 +78,12 @@ type Message interface {
 	CheckNonce() bool
 	Data() []byte
 	BalanceTokenFee() *big.Int
+
+	// In legacy transaction, this is the same as From.
+	// In sponsored transaction, this is the payer's
+	// address recovered from the payer's signature.
+	Payer() common.Address
+	ExpiredTime() uint64
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -186,14 +194,26 @@ func (st *StateTransition) buyGas() error {
 	} else if balanceTokenFee.Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
 	}
+	if st.msg.Payer() != st.msg.From() {
+		// This is sponsored transaction, check gas fee with payer's balance and msg.value with sender's balance
+		if have, want := st.state.GetBalance(st.msg.Payer()), mgval; have.Cmp(want) < 0 {
+			fmt.Println("payer balance", have.String(), "want", want.String())
+			return ErrInsufficientPayerFunds
+		}
+		if have, want := st.state.GetBalance(st.msg.From()), st.value; have.Cmp(want) < 0 {
+			fmt.Println("sender balance", have.String(), "want", want.String())
+			return ErrInsufficientSenderFunds
+		}
+	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
 	}
 	st.gas += st.msg.Gas()
 
 	st.initialGas = st.msg.Gas()
+	// fmt.Println("tx", balanceTokenFee, state, from.Address().String())
 	if balanceTokenFee == nil {
-		state.SubBalance(from.Address(), mgval)
+		st.state.SubBalance(st.msg.Payer(), mgval)
 	}
 	return nil
 }
@@ -209,6 +229,12 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooHigh
 		} else if nonce > msg.Nonce() {
 			return ErrNonceTooLow
+		}
+	}
+	if st.msg.Payer() != st.msg.From() {
+		if st.msg.ExpiredTime() <= st.evm.Context.Time.Uint64() {
+			return fmt.Errorf("%w: expiredTime: %d, blockTime: %d", types.ErrExpiredSponsoredTx,
+				st.msg.ExpiredTime(), st.evm.Context.Time)
 		}
 	}
 	return st.buyGas()
@@ -289,10 +315,9 @@ func (st *StateTransition) refundGas() {
 
 	balanceTokenFee := st.balanceTokenFee()
 	if balanceTokenFee == nil {
-		from := st.from()
 		// Return ETH for remaining gas, exchanged at the original rate.
 		remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-		st.state.AddBalance(from.Address(), remaining)
+		st.state.AddBalance(st.msg.Payer(), remaining)
 	}
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.

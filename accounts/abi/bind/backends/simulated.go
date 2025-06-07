@@ -473,6 +473,10 @@ func (m callmsg) Value() *big.Int           { return m.CallMsg.Value }
 func (m callmsg) Data() []byte              { return m.CallMsg.Data }
 func (m callmsg) BalanceTokenFee() *big.Int { return m.CallMsg.BalanceTokenFee }
 
+// FIXME: support sponsored transaction in callMsg
+func (m callmsg) Payer() common.Address { return m.CallMsg.From }
+func (m callmsg) ExpiredTime() uint64   { return 0 }
+
 // filterBackend implements filters.Backend to support filtering for logs without
 // taking bloom-bits acceleration structures into account.
 type filterBackend struct {

@@ -38,4 +38,12 @@ var (
 	ErrNotFoundM1 = errors.New("list M1 not found ")
 
 	ErrStopPreparingBlock = errors.New("stop calculating a block not verified by M2")
+
+	// ErrInsufficientPayerFunds is returned if the gas fee cost of executing a transaction
+	// is higher than the balance of the payer's account.
+	ErrInsufficientPayerFunds = errors.New("insufficient payer funds for gas * price")
+
+	// ErrInsufficientSenderFunds is returned if the value in transaction
+	// is higher than the balance of the user's account.
+	ErrInsufficientSenderFunds = errors.New("insufficient sender funds for value")
 )

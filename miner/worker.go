@@ -481,7 +481,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 
 	work := &Work{
 		config:       self.config,
-		signer:       types.NewEIP155Signer(self.config.ChainId),
+		signer:       types.LatestSigner(self.config),
 		state:        state,
 		parentState:  state.Copy(),
 		tradingState: tomoxState,
@@ -822,7 +822,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	if atomic.LoadInt32(&self.mining) == 1 {
-		log.Info("Committing new block", "number", work.Block.Number(), "txs", work.tcount, "special-txs", len(specialTxs), "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
+		log.Info("Committing new block", "number", work.Block.Number(), "txs", work.tcount, "special-txs", len(specialTxs), "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)), "diff", work.Block.Difficulty())
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 		self.lastParentBlockCommit = parent.Hash().Hex()
 	}
@@ -847,7 +847,8 @@ func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 
 func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Address]*big.Int, txs *types.TransactionsByPriceAndNonce, specialTxs types.Transactions, bc *core.BlockChain, coinbase common.Address) {
 	gp := new(core.GasPool).AddGas(env.header.GasLimit)
-	balanceUpdated := map[common.Address]*big.Int{}
+	// balanceUpdated := map[common.Address]*big.Int{}
+	usedFees := make(map[common.Address]*big.Int)
 	totalFeeUsed := big.NewInt(0)
 	var coalescedLogs []*types.Log
 	// first priority for special Txs
@@ -944,9 +945,13 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+
+			// Track used fee in separate map
+			if usedFees[*tx.To()] == nil {
+				usedFees[*tx.To()] = new(big.Int)
+			}
+			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
+			totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
 	for {
@@ -1062,12 +1067,16 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+
+			// Track used fee in separate map
+			if usedFees[*tx.To()] == nil {
+				usedFees[*tx.To()] = new(big.Int)
+			}
+			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
 			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	state.UpdateTRC21Fee(env.state, balanceUpdated, totalFeeUsed)
+	state.UpdateTRC21Fee(env.state, usedFees, totalFeeUsed)
 	if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined
 		// logs by filling in the block hash when the block was mined by the local miner. This can

@@ -81,13 +81,16 @@ var (
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
 
+	ErrInvalidPayer = errors.New("invalid payer")
+
 	ErrZeroGasPrice = errors.New("zero gas price")
 
 	ErrUnderMinGasPrice = errors.New("under min gas price")
 
 	ErrDuplicateSpecialTransaction = errors.New("duplicate a special transaction")
 
-	ErrMinDeploySMC = errors.New("smart contract creation cost is under allowance")
+	ErrMinDeploySMC       = errors.New("smart contract creation cost is under allowance")
+	ErrTxTypeNotSupported = errors.New("transaction type not supported")
 )
 
 var (
@@ -239,6 +242,9 @@ type TxPool struct {
 	homestead        bool
 	IsSigner         func(address common.Address) bool
 	trc21FeeCapacity map[common.Address]*big.Int
+
+	miko        bool   // Fork indicator whether we are using sponsored trnasactions.
+	currentTime uint64 // Current block time in blockchain head
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -252,7 +258,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		config:           config,
 		chainconfig:      chainconfig,
 		chain:            chain,
-		signer:           types.NewEIP155Signer(chainconfig.ChainId),
+		signer:           types.LatestSigner(chainconfig),
 		pending:          make(map[common.Address]*txList),
 		queue:            make(map[common.Address]*txList),
 		beats:            make(map[common.Address]time.Time),
@@ -591,7 +597,21 @@ func (pool *TxPool) GetSender(tx *types.Transaction) (common.Address, error) {
 
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
-func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
+func (pool *TxPool) validateTx(tx *types.Transaction, header *types.Header, local bool, opts *ValidationOptions) error {
+	// Ensure transactions not implemented by the calling pool are rejected
+	// Check if it's sponsored transaction before using Accept bitmap
+	if tx.Type() == types.SponsoredTxType {
+		if !opts.AcceptSponsoredTx {
+			return fmt.Errorf("%w: tx type %v not supported by this pool", ErrTxTypeNotSupported, tx.Type())
+		}
+	} else {
+		if opts.Accept&(1<<tx.Type()) == 0 {
+			return fmt.Errorf("%w: tx type %v not supported by this pool", ErrTxTypeNotSupported, tx.Type())
+		}
+	}
+	if !opts.Config.IsMiko(header.Number) && tx.Type() == types.SponsoredTxType {
+		return fmt.Errorf("%w: type %d rejected, pool not yet in Miko", ErrTxTypeNotSupported, tx.Type())
+	}
 	// check if sender is in black list
 	if tx.From() != nil && common.Blacklist[*tx.From()] {
 		return fmt.Errorf("Reject transaction with sender in black-list: %v", tx.From().Hex())
@@ -600,9 +620,8 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.To() != nil && common.Blacklist[*tx.To()] {
 		return fmt.Errorf("Reject transaction with receiver in black-list: %v", tx.To().Hex())
 	}
-
 	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks
-	if tx.Size() > 32*1024 {
+	if tx.Size() > common.StorageSize(opts.MaxSize) {
 		return ErrOversizedData
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded
@@ -650,6 +669,34 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 			minGasPrice = common.TRC21GasPrice
 		}
 	}
+
+	if tx.Type() == types.SponsoredTxType {
+		// Ensure sponsored transaction is not expired
+		expiredTime := tx.ExpiredTime()
+		if expiredTime != 0 && expiredTime <= header.Time.Uint64() {
+			return types.ErrExpiredSponsoredTx
+		}
+		payer, err := types.Payer(pool.signer, tx)
+		if err != nil {
+			return ErrInvalidPayer
+		}
+		// Ensure payer is different from sender
+		fmt.Println("payer", payer.String(), "sender", from.String())
+		if payer == from {
+			return types.ErrSamePayerSenderSponsoredTx
+		}
+		// Ensure payer can pay for the gas fee == gas fee cap * gas limit
+		payerBalance := pool.currentState.GetBalance(payer)
+		if new(big.Int).Add(payerBalance, feeCapacity).Cmp(tx.Cost()) < 0 {
+			return ErrInsufficientPayerFunds
+		}
+
+		// Ensure sender can pay for the value
+		if pool.currentState.GetBalance(from).Cmp(tx.Value()) < 0 {
+			return ErrInsufficientSenderFunds
+		}
+	}
+
 	if new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
 		return ErrInsufficientFunds
 	}
@@ -681,7 +728,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 			return ErrMinDeploySMC
 		}
 	*/
-
 	// validate minFee slot for TomoZ
 	if tx.IsTomoZApplyTransaction() {
 		copyState := pool.currentState.Copy()
@@ -713,11 +759,11 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 
 	// If the transaction fails basic validation, discard it
-	if err := pool.validateTx(tx, local); err != nil {
+	if err := pool.validateTxBasics(tx, local); err != nil {
 		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
-		invalidTxMeter.Mark(1)
 		return false, err
 	}
+
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if tx.IsSpecialTransaction() && pool.IsSigner != nil && pool.IsSigner(from) && pool.pendingState.GetNonce(from) == tx.Nonce() {
 		return pool.promoteSpecialTx(from, tx, local)
@@ -789,7 +835,7 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, er
 	// Try to insert the transaction into the future queue
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
-		pool.queue[from] = newTxList(false)
+		pool.queue[from] = newTxList(false, pool.signer, nil)
 	}
 	inserted, old := pool.queue[from].Add(tx, pool.config.PriceBump)
 	if !inserted {
@@ -829,7 +875,7 @@ func (pool *TxPool) journalTx(from common.Address, tx *types.Transaction) {
 func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.Transaction) {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
-		pool.pending[addr] = newTxList(true)
+		pool.pending[addr] = newTxList(true, pool.signer, nil)
 	}
 	list := pool.pending[addr]
 
@@ -867,7 +913,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 func (pool *TxPool) promoteSpecialTx(addr common.Address, tx *types.Transaction, local bool) (bool, error) {
 	// Try to insert the transaction into the pending queue
 	if pool.pending[addr] == nil {
-		pool.pending[addr] = newTxList(true)
+		pool.pending[addr] = newTxList(true, pool.signer, nil)
 	}
 	list := pool.pending[addr]
 	old := list.txs.Get(tx.Nonce())
@@ -1103,8 +1149,13 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			delete(pool.all, hash)
 			pool.priced.Removed()
 		}
+		payers := list.Payers()
+		payerCostLimit := make(map[common.Address]*big.Int)
+		for _, payer := range payers {
+			payerCostLimit[payer] = pool.currentState.GetBalance(payer)
+		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, payerCostLimit, pool.currentTime, pool.trc21FeeCapacity)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -1288,8 +1339,13 @@ func (pool *TxPool) demoteUnexecutables() {
 			delete(pool.all, hash)
 			pool.priced.Removed()
 		}
+		payers := list.Payers()
+		payerCostLimit := make(map[common.Address]*big.Int)
+		for _, payer := range payers {
+			payerCostLimit[payer] = pool.currentState.GetBalance(payer)
+		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, payerCostLimit, pool.currentTime, pool.trc21FeeCapacity)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
@@ -1326,6 +1382,47 @@ func (pool *TxPool) demoteUnexecutables() {
 			delete(pool.beats, addr)
 		}
 	}
+}
+
+const (
+	// txSlotSize is used to calculate how many data slots a single transaction
+	// takes up based on its size. The slots are used as DoS protection, ensuring
+	// that validating a new transaction remains a constant operation (in reality
+	// O(maxslots), where max slots are 4 currently).
+	txSlotSize = 32 * 1024
+
+	// txMaxSize is the maximum size a single transaction can have. This field has
+	// non-trivial consequences: larger transactions are significantly harder and
+	// more expensive to propagate; larger transactions also take more resources
+	// to validate whether they fit into the pool or not.
+	txMaxSize = 4 * txSlotSize // 128KB
+)
+
+// ValidationOptions define certain differences between transaction validation
+// across the different pools without having to duplicate those checks.
+type ValidationOptions struct {
+	Config *params.ChainConfig // Chain configuration to selectively validate based on current fork rules
+
+	Accept  uint8  // Bitmap of transaction types that should be accepted for the calling pool
+	MaxSize uint64 // Maximum size of a transaction that the caller can meaningfully handle
+
+	// As the Accept bitmap cannot store the sponsored transaction type which is 0x64 (100),
+	// we need to create a separate bool for this case
+	AcceptSponsoredTx bool
+}
+
+func (pool *TxPool) validateTxBasics(tx *types.Transaction, local bool) error {
+	opts := &ValidationOptions{
+		Config: pool.chainconfig,
+		Accept: 0 |
+			1<<types.LegacyTxType,
+		MaxSize:           txMaxSize,
+		AcceptSponsoredTx: true,
+	}
+	if err := pool.validateTx(tx, pool.chain.CurrentBlock().Header(), local, opts); err != nil {
+		return err
+	}
+	return nil
 }
 
 // addressByHeartbeat is an account address tagged with its last activity timestamp.
