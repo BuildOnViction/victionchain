@@ -946,7 +946,9 @@ func (pool *LendingPool) removeTx(hash common.Hash) {
 func (pool *LendingPool) promoteExecutables(accounts []common.Address) {
 	start := time.Now()
 	log.Debug("start promoteExecutables")
-	defer log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
+	defer func() {
+		log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
+	}()
 	// Gather all the accounts potentially needing updates
 	if accounts == nil {
 		accounts = make([]common.Address, 0, len(pool.queue))

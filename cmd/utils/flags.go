@@ -24,7 +24,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -314,7 +313,7 @@ var (
 	StakerThreadsFlag = cli.IntFlag{
 		Name:  "minerthreads",
 		Usage: "Number of CPU threads to use for staking",
-		Value: runtime.NumCPU(),
+		Value: 1,
 	}
 	TargetGasLimitFlag = cli.Uint64Flag{
 		Name:  "targetgaslimit",
@@ -574,10 +573,6 @@ var (
 	TomoXDBReplicaSetNameFlag = cli.StringFlag{
 		Name:  "tomox.dbReplicaSetName",
 		Usage: "ReplicaSetName if Master-Slave is setup",
-	}
-	TomoSlaveModeFlag = cli.BoolFlag{
-		Name:  "slave",
-		Usage: "Enable slave mode",
 	}
 	ReexecFlag = cli.IntFlag{
 		Name:  "reexec",

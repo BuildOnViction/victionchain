@@ -7,11 +7,6 @@ KEYSTORE_DIR="keystore"
 # variables
 genesisPath=""
 params=""
-accountsCount=$(
-  tomo account list --datadir ${DATA_DIR}  --keystore ${KEYSTORE_DIR} \
-  2> /dev/null \
-  | wc -l
-)
 
 # file to env
 for env in IDENTITY NETWORK_ID SYNC_MODE \
@@ -97,32 +92,33 @@ if [[ ! -f ./password ]]; then
 fi
 
 # private key
-if [[ $accountsCount -le 0 ]]; then
-  echo "No accounts found"
-  if [[ ! -z ${PRIVATE_KEY} ]]; then
-    echo "Creating account from private key"
-    echo "${PRIVATE_KEY}" > ./private_key
-    tomo  account import ./private_key \
-      --datadir ${DATA_DIR} \
-      --keystore ${KEYSTORE_DIR} \
-      --password ./password
-    rm ./private_key
-  else
-    echo "Creating new account"
-    tomo account new \
-      --datadir ${DATA_DIR} \
-      --keystore ${KEYSTORE_DIR} \
-      --password ./password
-  fi
+if [[ ! -z ${PRIVATE_KEY} ]]; then
+  echo "Creating account from private key"
+  echo "${PRIVATE_KEY}" > ./private_key
+  tomo  account import ./private_key \
+    --datadir ${DATA_DIR} \
+    --keystore ${KEYSTORE_DIR} \
+    --password ./password
+  rm ./private_key
 fi
-account=$(
+
+accountsCount=$(
   tomo account list --datadir ${DATA_DIR}  --keystore ${KEYSTORE_DIR} \
   2> /dev/null \
-  | head -n 1 \
-  | cut -d"{" -f 2 | cut -d"}" -f 1
+  | wc -l
 )
-echo "Using account $account"
-params="$params --unlock $account"
+if [[ $accountsCount -ge 1 ]]; then
+  account=$(
+    tomo account list --datadir ${DATA_DIR}  --keystore ${KEYSTORE_DIR} \
+    2> /dev/null \
+    | head -n 1 \
+    | cut -d"{" -f 2 | cut -d"}" -f 1
+  )
+  echo "Using account $account"
+  params="$params --unlock $account"
+else
+  echo "No account found"
+fi
 
 # annonce txs
 if [[ ! -z ${ANNOUNCE_TXS} ]]; then
@@ -161,7 +157,6 @@ exec tomo --identity ${IDENTITY} \
   --maxpeers ${MAX_PEERS} \
   --txpool.globalqueue 5000 \
   --txpool.globalslots 5000 \
-  --mine \
   --keystore ${KEYSTORE_DIR} \
   --password ./password \
   --gasprice "250000000" \
