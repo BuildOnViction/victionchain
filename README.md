@@ -45,7 +45,7 @@ go1.18.10 run build/ci.go install
 Clone this repository and change working directory to where you clone it, then run the following commands:
 
 ```bash
-docker build --file Dockerfile.node -t "viction:2.4.2" .
+docker build --file Dockerfile.node -t "viction:v2.4.6" .
 ```
 
 ### Pre-built Bianries
@@ -140,28 +140,35 @@ docker run --name viction \
   -e NETSTATS_PORT=443 \
   -e WS_SECRET=getty-site-pablo-auger-room-sos-blair-shin-whiz-delhi \
   -e VERBOSITY=3 \
-  buildonviction/node:2.4.2
+  buildonviction/node:v2.4.6
 ```
 
 Brief explainations on the supported variables:
 
 ```text
-EXTIP: Your IP on the internet to let other peers connect to your nodes. Only use this if you have trouble connecting to peers.
 IDENTITY: your full node's name.
-PRIVATE_KEY: Private key of node's account in plain text.
-PASSWORD: Password to encrypt/decrypt node's account in plain text.
 NETWORK_ID: our network ID.
 BOOTNODES: list of enodes of other peers that your full-node will try to connect at startup.
+EXTIP: Your IP on the internet to let other peers connect to your nodes. Only use this if you have trouble connecting to peers.
+P2P_PORT: Port to let other peers to connect to your node. Must map host port the same with configured P2P port.
+MAX_PEERS: Max number of peers allowed to connect with your host. Set to 0 to disable P2P.
 NETSTATS_HOST: Hostname of Ethstats service.
 NETSTATS_PORT: Port of Ethstats service.
 WS_SECRET: Secret of Ethstats service.
-DEBUG_MODE: Enable archive mode.
+PRIVATE_KEY: Private key of node's account in plain text.
+PASSWORD: Password to encrypt/decrypt node's account in plain text.
+DEBUG_MODE: Enable archive mode and debug APIs. Empty for disable.
+STORE_REWARD: Snapshot masternodes reward for each epoch. Empty for disable.
 VERBOSITY: log level from 1 to 5. Here we're using 4 for debug messages.
 ```
 
 ### Other usecases
 
 For full featured guide. Please check our docs: [https://docs.viction.xyz/masternode](https://docs.viction.xyz/masternode)
+
+### Network information
+
+For more information about parameters to connect to Viction networks. Please check our docs: [https://docs.viction.xyz/general/network-information](https://docs.viction.xyz/general/network-information)
 
 ## Contribution
 

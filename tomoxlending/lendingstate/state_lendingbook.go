@@ -18,11 +18,12 @@ package lendingstate
 
 import (
 	"fmt"
+	"io"
+	"math/big"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/rlp"
-	"io"
-	"math/big"
 )
 
 type lendingExchangeState struct {
@@ -181,8 +182,10 @@ func (self *lendingExchangeState) getLiquidationTimeTrie(db Database) Trie {
 	return self.liquidationTimeTrie
 }
 
-/**
-  Get State
+/*
+*
+
+	Get State
 */
 func (self *lendingExchangeState) getBorrowingOrderList(db Database, rate common.Hash) (stateOrderList *itemListState) {
 	// Prefer 'live' objects.
@@ -299,8 +302,10 @@ func (self *lendingExchangeState) getLendingTrade(db Database, tradeId common.Ha
 	return obj
 }
 
-/**
-  Update Trie
+/*
+*
+
+	Update Trie
 */
 func (self *lendingExchangeState) updateLendingTimeTrie(db Database) Trie {
 	tr := self.getLendingItemTrie(db)
@@ -431,7 +436,7 @@ func (self *lendingExchangeState) CommitLendingItemTrie(db Database) error {
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.lendingItemTrie.Commit(nil)
+	root, _, err := self.lendingItemTrie.Commit(nil)
 	if err == nil {
 		self.data.LendingItemRoot = root
 	}
@@ -443,7 +448,7 @@ func (self *lendingExchangeState) CommitLendingTradeTrie(db Database) error {
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.lendingTradeTrie.Commit(nil)
+	root, _, err := self.lendingTradeTrie.Commit(nil)
 	if err == nil {
 		self.data.LendingTradeRoot = root
 	}
@@ -455,7 +460,7 @@ func (self *lendingExchangeState) CommitInvestingTrie(db Database) error {
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.investingTrie.Commit(func(leaf []byte, parent common.Hash) error {
+	root, _, err := self.investingTrie.Commit(func(leaf []byte, parent common.Hash) error {
 		var orderList itemList
 		if err := rlp.DecodeBytes(leaf, &orderList); err != nil {
 			return nil
@@ -476,7 +481,7 @@ func (self *lendingExchangeState) CommitBorrowingTrie(db Database) error {
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.borrowingTrie.Commit(func(leaf []byte, parent common.Hash) error {
+	root, _, err := self.borrowingTrie.Commit(func(leaf []byte, parent common.Hash) error {
 		var orderList itemList
 		if err := rlp.DecodeBytes(leaf, &orderList); err != nil {
 			return nil
@@ -497,7 +502,7 @@ func (self *lendingExchangeState) CommitLiquidationTimeTrie(db Database) error {
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.liquidationTimeTrie.Commit(func(leaf []byte, parent common.Hash) error {
+	root, _, err := self.liquidationTimeTrie.Commit(func(leaf []byte, parent common.Hash) error {
 		var orderList itemList
 		if err := rlp.DecodeBytes(leaf, &orderList); err != nil {
 			return nil
@@ -513,8 +518,9 @@ func (self *lendingExchangeState) CommitLiquidationTimeTrie(db Database) error {
 	return err
 }
 
-/**
-  Get Trie Data
+/*
+*
+Get Trie Data
 */
 func (self *lendingExchangeState) getBestInvestingInterest(db Database) common.Hash {
 	trie := self.getInvestingTrie(db)

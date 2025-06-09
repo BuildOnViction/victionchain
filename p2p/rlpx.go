@@ -40,6 +40,7 @@ import (
 	"github.com/tomochain/tomochain/crypto/ecies"
 	"github.com/tomochain/tomochain/crypto/secp256k1"
 	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/p2p/discover"
 	"github.com/tomochain/tomochain/rlp"
 )
@@ -611,6 +612,10 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 
 		msg.Payload = bytes.NewReader(payload)
 		msg.Size = uint32(len(payload))
+	}
+	msg.meterSize = msg.Size
+	if metrics.Enabled && msg.meterCap.Name != "" { // don't meter non-subprotocol messages
+		metrics.GetOrRegisterMeter(fmt.Sprintf("%s/%s/%d/%#02x", egressMeterName, msg.meterCap.Name, msg.meterCap.Version, msg.meterCode), nil).Mark(int64(msg.meterSize))
 	}
 	// write header
 	headbuf := make([]byte, 32)

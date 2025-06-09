@@ -86,7 +86,7 @@ func (msg *ReceivedMessage) isAsymmetricEncryption() bool {
 	return msg.Dst != nil
 }
 
-// NewMessage creates and initializes a non-signed, non-encrypted Whisper message.
+// NewSentMessage creates and initializes a non-signed, non-encrypted Whisper message.
 func NewSentMessage(params *MessageParams) (*sentMessage, error) {
 	msg := sentMessage{}
 	msg.Raw = make([]byte, 1, len(params.Payload)+len(params.Padding)+signatureLength+padSizeLimit)
@@ -109,7 +109,7 @@ func getSizeOfLength(b []byte) (sz int, err error) {
 	return sz, err
 }
 
-// sizeOfIntSize returns minimal number of bytes necessary to encode an integer value
+// intSize returns minimal number of bytes necessary to encode an integer value
 func intSize(i int) (s int) {
 	for s = 1; i >= 256; s++ {
 		i /= 256
