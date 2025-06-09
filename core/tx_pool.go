@@ -638,32 +638,50 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	balance := pool.currentState.GetBalance(from)
 	cost := tx.Cost()
 	minGasPrice := common.MinGasPrice
-	if tx.To() != nil {
-		if feeCap, ok := pool.trc21FeeCapacity[*tx.To()]; ok {
-			if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
-				return ErrInsufficientFunds
-			}
-			minGasPrice = common.MinGasPrice
-			requiredFee := new(big.Int).Sub(tx.TRC21Cost(), tx.Value())
+	feeCapacity := big.NewInt(0)
+	// Check if we're past the experimental block
+	isAfterExperimental := pool.chain.Config().ExperimentalBlock != nil &&
+		pool.chain.CurrentBlock().Number().Cmp(pool.chain.Config().ExperimentalBlock) >= 0
 
-			// Check if feeCap is sufficient to cover the fee
-			if feeCap.Cmp(requiredFee) >= 0 {
-				// User only needs to have enough balance for the value
-				if balance.Cmp(tx.Value()) < 0 {
-					return ErrInsufficientFunds
+	if tx.To() != nil {
+		feeCap, ok := pool.trc21FeeCapacity[*tx.To()]
+		if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
+			return ErrInsufficientFunds
+		}
+		if isAfterExperimental {
+			if ok {
+				minGasPrice = common.MinGasPrice
+				requiredFee := new(big.Int).Sub(tx.TRC21Cost(), tx.Value())
+
+				// Check if feeCap is sufficient to cover the fee
+				if feeCap.Cmp(requiredFee) >= 0 {
+					// User only needs to have enough balance for the value
+					if balance.Cmp(tx.Value()) < 0 {
+						return ErrInsufficientFunds
+					}
+				} else {
+					// User needs to have enough balance for the entire cost
+					if balance.Cmp(cost) < 0 {
+						return ErrInsufficientFunds
+					}
 				}
 			} else {
-				// User needs to have enough balance for the entire cost
+				// Regular transaction
 				if balance.Cmp(cost) < 0 {
 					return ErrInsufficientFunds
 				}
 			}
 		} else {
-			// Regular transaction
-			if balance.Cmp(cost) < 0 {
-				return ErrInsufficientFunds
+			if ok {
+				feeCapacity = feeCap
+				cost = tx.TRC21Cost()
+				minGasPrice = common.TRC21GasPrice
 			}
 		}
+	}
+
+	if !isAfterExperimental && new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
+		return ErrInsufficientFunds
 	}
 
 	if tx.To() == nil || (tx.To() != nil && !tx.IsSpecialTransaction()) {
