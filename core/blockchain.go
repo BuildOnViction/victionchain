@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/tomochain/tomochain/sortlgc"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"github.com/tomochain/tomochain/accounts/abi/bind"
@@ -2569,9 +2570,16 @@ func (bc *BlockChain) UpdateM1() error {
 		log.Error("No masternode found. Stopping node")
 		os.Exit(1)
 	} else {
-		sort.Slice(ms, func(i, j int) bool {
-			return ms[i].Stake.Cmp(ms[j].Stake) >= 0
-		})
+		header := bc.CurrentHeader()
+		if bc.Config().IsExperimental(header.Number) {
+			sort.SliceStable(ms, func(i, j int) bool {
+				return ms[i].Stake.Cmp(ms[j].Stake) >= 0
+			})
+		} else {
+			sortlgc.Slice(ms, func(i, j int) bool {
+				return ms[i].Stake.Cmp(ms[j].Stake) >= 0
+			})
+		}
 		log.Info("Ordered list of masternode candidates")
 		for _, m := range ms {
 			log.Info("", "address", m.Address.String(), "stake", m.Stake)
@@ -2579,9 +2587,9 @@ func (bc *BlockChain) UpdateM1() error {
 		// update masternodes
 		log.Info("Updating new set of masternodes")
 		if len(ms) > common.MaxMasternodes {
-			err = engine.UpdateMasternodes(bc, bc.CurrentHeader(), ms[:common.MaxMasternodes])
+			err = engine.UpdateMasternodes(bc, header, ms[:common.MaxMasternodes])
 		} else {
-			err = engine.UpdateMasternodes(bc, bc.CurrentHeader(), ms)
+			err = engine.UpdateMasternodes(bc, header, ms)
 		}
 		if err != nil {
 			return err

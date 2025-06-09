@@ -235,47 +235,45 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 	if eth.chainConfig.Posv != nil {
 		c := eth.engine.(*posv.Posv)
 		signHook := func(block *types.Block) error {
-			eb, err := eth.Etherbase()
-			if err != nil {
-				log.Error("Cannot get etherbase for append m2 header", "err", err)
-				return fmt.Errorf("etherbase missing: %v", err)
+			eb, _ := eth.Etherbase()
+			if eb == (common.Address{}) {
+				return nil // early return because etherbase is not set
 			}
-			ok := eth.txPool.IsSigner != nil && eth.txPool.IsSigner(eb)
-			if !ok {
+			isSigner := eth.txPool.IsSigner != nil && eth.txPool.IsSigner(eb)
+			if !isSigner {
 				return nil
 			}
 			if block.NumberU64()%common.MergeSignRange == 0 || !eth.chainConfig.IsTIP2019(block.Number()) {
 				if err := contracts.CreateTransactionSign(chainConfig, eth.txPool, eth.accountManager, block, chainDb, eb); err != nil {
-					return fmt.Errorf("Fail to create tx sign for importing block: %v", err)
+					return fmt.Errorf("fail to create tx sign for imported block: %v", err)
 				}
 			}
 			return nil
 		}
 
 		appendM2HeaderHook := func(block *types.Block) (*types.Block, bool, error) {
-			eb, err := eth.Etherbase()
-			if err != nil {
-				log.Error("Cannot get etherbase for append m2 header", "err", err)
-				return block, false, fmt.Errorf("etherbase missing: %v", err)
+			eb, _ := eth.Etherbase()
+			if eb == (common.Address{}) {
+				return block, false, nil // early return because etherbase is not set
 			}
 			m1, err := c.RecoverSigner(block.Header())
 			if err != nil {
-				return block, false, fmt.Errorf("can't get block creator: %v", err)
+				return block, false, fmt.Errorf("cannot get block creator: %v", err)
 			}
 			m2, err := c.GetValidator(m1, eth.blockchain, block.Header())
 			if err != nil {
-				return block, false, fmt.Errorf("can't get block validator: %v", err)
+				return block, false, fmt.Errorf("cannot get block validator: %v", err)
 			}
 			if m2 == eb {
 				wallet, err := eth.accountManager.Find(accounts.Account{Address: eb})
 				if err != nil {
-					log.Error("Can't find coinbase account wallet", "err", err)
+					log.Error("Cannot find coinbase account wallet", "err", err)
 					return block, false, err
 				}
 				header := block.Header()
 				sighash, err := wallet.SignHash(accounts.Account{Address: eb}, posv.SigHash(header).Bytes())
 				if err != nil || sighash == nil {
-					log.Error("Can't get signature hash of m2", "sighash", sighash, "err", err)
+					log.Error("Cannot get signature hash of m2", "sighash", sighash, "err", err)
 					return block, false, err
 				}
 				header.Validator = sighash
@@ -519,7 +517,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 				initialRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
 				chainReward := calcInitialReward(initialRewardPerEpoch, number, common.BlocksPerYear)
 				// Get additional reward for Saigon upgrade
-				if chain.Config().IsSaigon(chain.Config().SaigonBlock) {
+				if chain.Config().IsSaigon(header.Number) {
 					saigonRewardPerEpoch := new(big.Int).Mul(common.SaigonRewardPerEpoch, new(big.Int).SetUint64(params.Ether))
 					chainReward = new(big.Int).Add(chainReward, calcSaigonReward(saigonRewardPerEpoch, chain.Config().SaigonBlock, number, common.BlocksPerYear))
 				}
