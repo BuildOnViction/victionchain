@@ -80,85 +80,95 @@ func (c *committer) commitNeeded(n Node) bool {
 }
 
 // commit collapses a Node down into a hash Node and inserts it into the database
-func (c *committer) Commit(n Node, db *Database) (HashNode, error) {
+func (c *committer) Commit(n Node, db *Database) (HashNode, int, error) {
 	if db == nil {
-		return nil, errors.New("no Db provided")
+		return nil, 0, errors.New("no Db provided")
 	}
-	h, err := c.commit(n, db, true)
+	h, committed, err := c.commit(n, db, true)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return h.(HashNode), nil
+	return h.(HashNode), committed, nil
 }
 
 // commit collapses a Node down into a hash Node and inserts it into the database
-func (c *committer) commit(n Node, db *Database, force bool) (Node, error) {
+func (c *committer) commit(n Node, db *Database, force bool) (Node, int, error) {
 	// if this path is clean, use available cached data
 	hash, dirty := n.Cache()
 	if hash != nil && !dirty {
-		return hash, nil
+		return hash, 0, nil
 	}
 	// Commit children, then parent, and remove remove the dirty flag.
 	switch cn := n.(type) {
 	case *ShortNode:
 		// Commit child
 		collapsed := cn.copy()
+
+		// If the child is fullNode, recursively commit,
+		// otherwise it can only be hashNode or valueNode.
+		var childCommitted int
 		if _, ok := cn.Val.(ValueNode); !ok {
-			if childV, err := c.commit(cn.Val, db, false); err != nil {
-				return nil, err
+			if childV, committed, err := c.commit(cn.Val, db, false); err != nil {
+				return nil, 0, err
 			} else {
-				collapsed.Val = childV
+				collapsed.Val, childCommitted = childV, committed
 			}
 		}
 		// The key needs to be copied, since we're delivering it to database
 		collapsed.Key = hexToCompact(cn.Key)
 		hashedNode := c.store(collapsed, db, force, true)
 		if hn, ok := hashedNode.(HashNode); ok {
-			return hn, nil
+			return hn, childCommitted + 1, nil
 		} else {
-			return collapsed, nil
+			return collapsed, childCommitted, nil
 		}
 	case *FullNode:
-		hashedKids, hasVnodes, err := c.commitChildren(cn, db, force)
+		hashedKids, hasVnodes, childCommitted, err := c.commitChildren(cn, db, force)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		collapsed := cn.copy()
 		collapsed.Children = hashedKids
 
 		hashedNode := c.store(collapsed, db, force, hasVnodes)
 		if hn, ok := hashedNode.(HashNode); ok {
-			return hn, nil
+			return hn, childCommitted + 1, nil
 		} else {
-			return collapsed, nil
+			return collapsed, childCommitted, nil
 		}
 	case ValueNode:
-		return c.store(cn, db, force, false), nil
+		return c.store(cn, db, force, false), 0, nil
 	// hashnodes aren't stored
 	case HashNode:
-		return cn, nil
+		return cn, 0, nil
 	}
-	return hash, nil
+	return hash, 0, nil
 }
 
 // commitChildren commits the children of the given fullnode
-func (c *committer) commitChildren(n *FullNode, db *Database, force bool) ([17]Node, bool, error) {
-	var children [17]Node
+func (c *committer) commitChildren(n *FullNode, db *Database, force bool) ([17]Node, bool, int, error) {
+	var (
+		committed int
+		children  [17]Node
+	)
+
 	var hasValueNodeChildren = false
 	for i, child := range n.Children {
 		if child == nil {
 			continue
 		}
-		hnode, err := c.commit(child, db, false)
+		hnode, childCommitted, err := c.commit(child, db, false)
 		if err != nil {
-			return children, false, err
+			return children, false, 0, err
 		}
 		children[i] = hnode
 		if _, ok := hnode.(ValueNode); ok {
 			hasValueNodeChildren = true
 		}
+
+		committed += childCommitted
 	}
-	return children, hasValueNodeChildren, nil
+	return children, hasValueNodeChildren, committed, nil
 }
 
 // store hashes the Node n and if we have a storage layer specified, it writes
