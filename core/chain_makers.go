@@ -107,19 +107,27 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
+
+	// Check if we're past the experimental block
+	isAfterExperimental := bc.chainConfig.ExperimentalBlock != nil &&
+		b.Number().Cmp(bc.chainConfig.ExperimentalBlock) >= 0
+
 	if tokenFeeUsed {
 		fee := new(big.Int).SetUint64(gas)
 		if b.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 			fee = fee.Mul(fee, common.TRC21GasPrice)
 		}
-
-		// Create map to track used fee
-		usedFees := map[common.Address]*big.Int{
-			*tx.To(): fee,
+		if isAfterExperimental {
+			// Create map to track used fee
+			usedFees := map[common.Address]*big.Int{
+				*tx.To(): fee,
+			}
+			// Update state with used fee
+			state.UpdateTRC21Fee(b.statedb, usedFees, fee, isAfterExperimental)
+		} else {
+			state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee, isAfterExperimental)
 		}
 
-		// Update state with used fee
-		state.UpdateTRC21Fee(b.statedb, usedFees)
 	}
 }
 

@@ -91,7 +91,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
-	usedFees := make(map[common.Address]*big.Int)
+
+	balanceUpdated := map[common.Address]*big.Int{}
+	totalFeeUsed := big.NewInt(0)
+
+	// Check if we're past the experimental block
+	isAfterExperimental := p.config.ExperimentalBlock != nil &&
+		block.Number().Cmp(p.config.ExperimentalBlock) >= 0
+
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
 		if (block.Number().Uint64() >= common.BlackListHFBlock) && !common.IsTestnet {
@@ -130,15 +137,23 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-
-			// Track used fee in separate map
-			if usedFees[*tx.To()] == nil {
-				usedFees[*tx.To()] = new(big.Int)
+			if isAfterExperimental {
+				// After Experimental HF, Track used fee in separate map
+				if balanceUpdated[*tx.To()] == nil {
+					balanceUpdated[*tx.To()] = new(big.Int)
+				}
+				balanceUpdated[*tx.To()].Add(balanceUpdated[*tx.To()], fee)
+			} else {
+				// Before Experimental HF, Track used fee in separate map
+				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
+				balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 			}
-			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
+
 		}
 	}
-	state.UpdateTRC21Fee(statedb, usedFees)
+	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed, isAfterExperimental)
+
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
@@ -172,8 +187,13 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
-	usedFees := make(map[common.Address]*big.Int)
-	// totalFeeUsed := big.NewInt(0)
+
+	balanceUpdated := map[common.Address]*big.Int{}
+	totalFeeUsed := big.NewInt(0)
+
+	// Check if we're past the experimental block
+	isAfterExperimental := p.config.ExperimentalBlock != nil &&
+		block.Number().Cmp(p.config.ExperimentalBlock) >= 0
 
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
@@ -221,16 +241,22 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-
-			// Track used fee in separate map
-			if usedFees[*tx.To()] == nil {
-				usedFees[*tx.To()] = new(big.Int)
+			if isAfterExperimental {
+				// After Experimental HF, Track used fee in separate map
+				if balanceUpdated[*tx.To()] == nil {
+					balanceUpdated[*tx.To()] = new(big.Int)
+				}
+				balanceUpdated[*tx.To()].Add(balanceUpdated[*tx.To()], fee)
+			} else {
+				// Before Experimental HF, Track used fee in separate map
+				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
+				balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 			}
-			usedFees[*tx.To()].Add(usedFees[*tx.To()], fee)
-			// totalFeeUsed.Add(totalFeeUsed, fee)
+
 		}
 	}
-	state.UpdateTRC21Fee(statedb, usedFees)
+	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed, isAfterExperimental)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
