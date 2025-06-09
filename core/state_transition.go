@@ -179,12 +179,10 @@ func (st *StateTransition) buyGas() error {
 		from            = st.from()
 	)
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if balanceTokenFee == nil {
+	if balanceTokenFee == nil || balanceTokenFee.Cmp(mgval) <= 0 {
 		if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
 			return errInsufficientBalanceForGas
 		}
-	} else if balanceTokenFee.Cmp(mgval) < 0 {
-		return errInsufficientBalanceForGas
 	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
@@ -192,7 +190,7 @@ func (st *StateTransition) buyGas() error {
 	st.gas += st.msg.Gas()
 
 	st.initialGas = st.msg.Gas()
-	if balanceTokenFee == nil {
+	if balanceTokenFee == nil || balanceTokenFee.Cmp(mgval) <= 0 {
 		state.SubBalance(from.Address(), mgval)
 	}
 	return nil
