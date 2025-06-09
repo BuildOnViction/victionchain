@@ -19,12 +19,13 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/consensus"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/tomochain/tomochain/consensus"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
@@ -632,20 +633,32 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	balance := pool.currentState.GetBalance(from)
 	cost := tx.Cost()
 	minGasPrice := common.MinGasPrice
-	feeCapacity := big.NewInt(0)
-
 	if tx.To() != nil {
-		if value, ok := pool.trc21FeeCapacity[*tx.To()]; ok {
-			feeCapacity = value
+		if feeCap, ok := pool.trc21FeeCapacity[*tx.To()]; ok {
 			if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
 				return ErrInsufficientFunds
 			}
-			cost = tx.TRC21Cost()
-			minGasPrice = common.TRC21GasPrice
+			minGasPrice = common.MinGasPrice
+			requiredFee := new(big.Int).Sub(tx.TRC21Cost(), tx.Value())
+
+			// Check if feeCap is sufficient to cover the fee
+			if feeCap.Cmp(requiredFee) >= 0 {
+				// User only needs to have enough balance for the value
+				if balance.Cmp(tx.Value()) < 0 {
+					return ErrInsufficientFunds
+				}
+			} else {
+				// User needs to have enough balance for the entire cost
+				if balance.Cmp(cost) < 0 {
+					return ErrInsufficientFunds
+				}
+			}
+		} else {
+			// Regular transaction
+			if balance.Cmp(cost) < 0 {
+				return ErrInsufficientFunds
+			}
 		}
-	}
-	if new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
-		return ErrInsufficientFunds
 	}
 
 	if tx.To() == nil || (tx.To() != nil && !tx.IsSpecialTransaction()) {
@@ -670,10 +683,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	/*
-		minGasDeploySMC := new(big.Int).Mul(new(big.Int).SetUint64(10), new(big.Int).SetUint64(params.Ether))
-		if tx.To() == nil && (tx.Cost().Cmp(minGasDeploySMC) < 0 || tx.GasPrice().Cmp(new(big.Int).SetUint64(10000*params.Shannon)) < 0) {
+		  minGasDeploySMC := new(big.Int).Mul(new(big.Int).SetUint64(10), new(big.Int).SetUint64(params.Ether))
+		  if tx.To() == nil && (tx.Cost().Cmp(minGasDeploySMC) < 0 || tx.GasPrice().Cmp(new(big.Int).SetUint64(10000*params.Shannon)) < 0) {
 			return ErrMinDeploySMC
-		}
+		  }
 	*/
 
 	// validate minFee slot for TomoZ
