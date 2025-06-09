@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/metrics"
 	"github.com/tomochain/tomochain/rlp"
 )
 
@@ -170,6 +172,10 @@ func (c *stateObject) getTrie(db Database) Trie {
 
 func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
 	value := common.Hash{}
+	// Track the amount of time wasted on reading the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { self.db.StorageReads += time.Since(start) }(time.Now())
+	}
 	// Load from DB in case it is missing.
 	enc, err := self.getTrie(db).TryGet(key[:])
 	if err != nil {
@@ -232,16 +238,24 @@ func (self *stateObject) setState(key, value common.Hash) {
 
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (self *stateObject) updateTrie(db Database) Trie {
+	// Track the amount of time wasted on updating the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { self.db.StorageUpdates += time.Since(start) }(time.Now())
+	}
+
+	// Update all the dirty slots in the trie
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
 		if (value == common.Hash{}) {
 			self.setError(tr.TryDelete(key[:]))
+			self.db.StorageDeleted += 1
 			continue
 		}
 		// Encoding []byte cannot fail, ok to ignore the error.
 		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
 		self.setError(tr.TryUpdate(key[:], v))
+		self.db.StorageUpdated += 1
 	}
 	return tr
 }
@@ -249,21 +263,33 @@ func (self *stateObject) updateTrie(db Database) Trie {
 // UpdateRoot sets the trie root to the current root hash of
 func (self *stateObject) updateRoot(db Database) {
 	self.updateTrie(db)
+
+	// Track the amount of time wasted on hashing the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { self.db.StorageHashes += time.Since(start) }(time.Now())
+	}
+
 	self.data.Root = self.trie.Hash()
 }
 
 // CommitTrie the storage trie of the object to dwb.
 // This updates the trie root.
-func (self *stateObject) CommitTrie(db Database) error {
-	self.updateTrie(db)
-	if self.dbErr != nil {
-		return self.dbErr
+func (s *stateObject) CommitTrie(db Database) (int, error) {
+	s.updateTrie(db)
+	if s.dbErr != nil {
+		return 0, s.dbErr
 	}
-	root, err := self.trie.Commit(nil)
+
+	// Track the amount of time wasted on committing the storage trie
+	if metrics.EnabledExpensive {
+		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
+	}
+
+	root, committed, err := s.trie.Commit(nil)
 	if err == nil {
-		self.data.Root = root
+		s.data.Root = root
 	}
-	return err
+	return committed, err
 }
 
 // AddBalance removes amount from c's balance.
