@@ -17,6 +17,10 @@ package core
 
 import (
 	"fmt"
+	"math/big"
+	"math/rand"
+	"strings"
+
 	ethereum "github.com/tomochain/tomochain"
 	"github.com/tomochain/tomochain/accounts/abi"
 	"github.com/tomochain/tomochain/common"
@@ -25,9 +29,6 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/log"
-	"math/big"
-	"math/rand"
-	"strings"
 )
 
 const (
@@ -85,7 +86,7 @@ func RunContract(chain consensus.ChainContext, statedb *state.StateDB, contractA
 	return unpackResult, nil
 }
 
-//FIXME: please use copyState for this function
+// FIXME: please use copyState for this function
 // CallContractWithState executes a contract call at the given state.
 func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, statedb *state.StateDB) ([]byte, error) {
 	// Ensure message is initialized properly.
@@ -123,6 +124,11 @@ func ValidateTomoXApplyTransaction(chain consensus.ChainContext, blockNumber *bi
 	if blockNumber == nil || blockNumber.Sign() <= 0 {
 		blockNumber = chain.CurrentHeader().Number
 	}
+	// Skip validation if TomoX is disabled via Experimental hardfork
+	if chain.Config().IsExperimental(blockNumber) {
+		return nil
+	}
+
 	if !chain.Config().IsTIPTomoX(blockNumber) {
 		return nil
 	}
