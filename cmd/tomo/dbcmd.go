@@ -259,7 +259,7 @@ func finaliseBlock(
 		vmctx := core.NewEVMContext(msg, targetBlock.Header(), blockchain, nil)
 		vmenv := vm.NewEVM(vmctx, stateDB, tomoxStateDB, chainConfig, vm.Config{})
 		owner := common.Address{}
-		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
+		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), owner); err != nil {
 			return nil, err
 		}
 		stateDB.Finalise(true)

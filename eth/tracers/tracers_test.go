@@ -135,13 +135,13 @@ func TestPrestateTracerCreate2(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 	/**
-		This comes from one of the test-vectors on the Skinny Create2 - EIP
+	  	This comes from one of the test-vectors on the Skinny Create2 - EIP
 
-	    address 0x00000000000000000000000000000000deadbeef
-	    salt 0x00000000000000000000000000000000000000000000000000000000cafebabe
-	    init_code 0xdeadbeef
-	    gas (assuming no mem expansion): 32006
-	    result: 0x60f3f640a8508fC6a86d45DF051962668E1e8AC7
+	      address 0x00000000000000000000000000000000deadbeef
+	      salt 0x00000000000000000000000000000000000000000000000000000000cafebabe
+	      init_code 0xdeadbeef
+	      gas (assuming no mem expansion): 32006
+	      result: 0x60f3f640a8508fC6a86d45DF051962668E1e8AC7
 	*/
 	origin, _ := signer.Sender(tx)
 	context := vm.Context{
@@ -184,7 +184,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 		t.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}
 	st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
-	if _, _, _, err = st.TransitionDb(common.Address{}); err != nil {
+	if _, err = st.TransitionDb(common.Address{}); err != nil {
 		t.Fatalf("failed to execute transaction: %v", err)
 	}
 	// Retrieve the trace result and compare against the etalon
@@ -259,7 +259,7 @@ func TestCallTracer(t *testing.T) {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
 			st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
-			if _, _, _, err = st.TransitionDb(common.Address{}); err != nil {
+			if _, err = st.TransitionDb(common.Address{}); err != nil {
 				t.Fatalf("failed to execute transaction: %v", err)
 			}
 			// Retrieve the trace result and compare against the etalon
