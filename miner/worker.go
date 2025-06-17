@@ -466,9 +466,9 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	var lendingState *lendingstate.LendingStateDB
 
 	if self.config.Posv != nil {
+		parentBlockNumber := parent.Number()
 		// Skip TomoX/Lending if experimental hardfork is active
-		experimentalActive := self.config.IsExperimental(parent.Number())
-		if !experimentalActive {
+		if !self.config.IsExperimental(parentBlockNumber) && self.config.IsTIPTomoX(parentBlockNumber) {
 			tomoX := self.eth.GetTomoX()
 			if tomoX != nil {
 				tomoxState, err = tomoX.GetTradingState(parent, author)
@@ -779,8 +779,9 @@ func (self *worker) commitNewWork() {
 			}
 		}
 
+		blockNumber := header.Number
 		// Skip TomoX/Lending state root transaction if experimental hardfork is active
-		if !self.config.IsExperimental(header.Number) {
+		if !self.config.IsExperimental(blockNumber) && self.config.IsTIPTomoX(blockNumber) {
 			// force adding trading, lending transaction to this block
 			if tradingTransaction != nil {
 				specialTxs = append(specialTxs, tradingTransaction)
@@ -890,7 +891,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 
-		if !env.config.IsExperimental(env.header.Number) {
+		blockNumber := env.header.Number
+		if !env.config.IsExperimental(blockNumber) && env.config.IsTIPTomoX(blockNumber) {
 			// validate balance slot, token decimal for TomoX
 			if tx.IsTomoXApplyTransaction() {
 				copyState, _ := bc.State()
@@ -1008,7 +1010,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 
-		if !env.config.IsExperimental(env.header.Number) {
+		blockNumber := env.header.Number
+		if !env.config.IsExperimental(blockNumber) && env.config.IsTIPTomoX(blockNumber) {
 			// validate balance slot, token decimal for TomoX
 			if tx.IsTomoXApplyTransaction() {
 				copyState, _ := bc.State()

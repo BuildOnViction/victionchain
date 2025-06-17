@@ -365,7 +365,8 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 	}
 	// Skip validation if TomoX is disabled via Experimental hardfork
 	header := pool.chain.GetHeaderByHash(pool.head)
-	if !pool.config.IsExperimental(header.Number) {
+	blockNumber := header.Number
+	if !pool.config.IsExperimental(blockNumber) && pool.config.IsTIPTomoX(blockNumber) {
 		// validate balance slot, token decimal for TomoX
 		if tx.IsTomoXApplyTransaction() {
 

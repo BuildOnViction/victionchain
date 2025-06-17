@@ -112,12 +112,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				return nil, nil, 0, err
 			}
 		}
-
-		if !p.config.IsExperimental(block.Number()) {
+		blockNumber := block.Number()
+		if !p.config.IsExperimental(blockNumber) && p.config.IsTIPTomoX(blockNumber) {
 			// validate balance slot, token decimal for TomoX
 			if tx.IsTomoXApplyTransaction() {
 				copyState := statedb.Copy()
-				if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				if err := ValidateTomoXApplyTransaction(p.bc, blockNumber, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 					return nil, nil, 0, err
 				}
 			}
@@ -202,11 +202,12 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 			}
 		}
 
-		if !p.config.IsExperimental(block.Number()) {
+		blockNumber := block.Number()
+		if !p.config.IsExperimental(blockNumber) && p.config.IsTIPTomoX(blockNumber) {
 			// validate balance slot, token decimal for TomoX
 			if tx.IsTomoXApplyTransaction() {
 				copyState := statedb.Copy()
-				if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				if err := ValidateTomoXApplyTransaction(p.bc, blockNumber, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 					return nil, nil, 0, err
 				}
 			}

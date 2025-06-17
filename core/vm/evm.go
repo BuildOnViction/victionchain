@@ -54,7 +54,8 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			precompiles = PrecompiledContractsIstanbul
 		}
 		if p := precompiles[*contract.CodeAddr]; p != nil {
-			if !evm.ChainConfig().IsExperimental(evm.BlockNumber) {
+			blockNumber := evm.BlockNumber
+			if !evm.ChainConfig().IsExperimental(blockNumber) && evm.ChainConfig().IsTIPTomoX(blockNumber) {
 				switch p.(type) {
 				case *tomoxEpochPrice:
 					p.(*tomoxEpochPrice).SetTradingState(evm.tradingStateDB)
