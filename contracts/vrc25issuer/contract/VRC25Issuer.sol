@@ -20,6 +20,6 @@ contract VRC25Issuer is TRC21Issuer {
         tokensState[token] = tokensState[token].sub(amount);
 
         receiver.transfer(amount);
-        emit Charge(msg.sender, token, amount);
+        emit Withdraw(msg.sender, token, amount);
     }
 }
