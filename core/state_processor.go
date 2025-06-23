@@ -112,14 +112,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				return nil, nil, 0, err
 			}
 		}
+		// validate balance slot, token decimal for TomoX
 		blockNumber := block.Number()
-		if !p.config.IsExperimental(blockNumber) && p.config.IsTIPTomoX(blockNumber) {
-			// validate balance slot, token decimal for TomoX
-			if tx.IsTomoXApplyTransaction() {
-				copyState := statedb.Copy()
-				if err := ValidateTomoXApplyTransaction(p.bc, blockNumber, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-					return nil, nil, 0, err
-				}
+		if p.config.IsTomoXEnabled(blockNumber) && tx.IsTomoXApplyTransaction() {
+			copyState := statedb.Copy()
+			if err := ValidateTomoXApplyTransaction(p.bc, blockNumber, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				return nil, nil, 0, err
 			}
 		}
 
@@ -201,15 +199,12 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 				return nil, nil, 0, err
 			}
 		}
-
+		// validate balance slot, token decimal for TomoX
 		blockNumber := block.Number()
-		if !p.config.IsExperimental(blockNumber) && p.config.IsTIPTomoX(blockNumber) {
-			// validate balance slot, token decimal for TomoX
-			if tx.IsTomoXApplyTransaction() {
-				copyState := statedb.Copy()
-				if err := ValidateTomoXApplyTransaction(p.bc, blockNumber, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-					return nil, nil, 0, err
-				}
+		if p.config.IsTomoXEnabled(blockNumber) && tx.IsTomoXApplyTransaction() {
+			copyState := statedb.Copy()
+			if err := ValidateTomoXApplyTransaction(p.bc, blockNumber, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				return nil, nil, 0, err
 			}
 		}
 
@@ -247,17 +242,17 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
 		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
-	if tx.To() != nil && tx.To().String() == common.TradingStateAddr && config.IsTIPTomoX(header.Number) {
+	if tx.To() != nil && tx.To().String() == common.TradingStateAddr && config.IsTomoXEnabled(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
-	if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress && config.IsTIPTomoX(header.Number) {
+	if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress && config.IsTomoXEnabled(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
-	if tx.IsTradingTransaction() && config.IsTIPTomoX(header.Number) {
+	if tx.IsTradingTransaction() && config.IsTomoXEnabled(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
 
-	if tx.IsLendingFinalizedTradeTransaction() && config.IsTIPTomoX(header.Number) {
+	if tx.IsLendingFinalizedTradeTransaction() && config.IsTomoXEnabled(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
 

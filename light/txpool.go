@@ -363,17 +363,13 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 			return err
 		}
 	}
-	// Skip validation if TomoX is disabled via Experimental hardfork
 	header := pool.chain.GetHeaderByHash(pool.head)
+	// validate balance slot, token decimal for TomoX
 	blockNumber := header.Number
-	if !pool.config.IsExperimental(blockNumber) && pool.config.IsTIPTomoX(blockNumber) {
-		// validate balance slot, token decimal for TomoX
-		if tx.IsTomoXApplyTransaction() {
-
-			copyState := pool.currentState(ctx).Copy()
-			if err := core.ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-				return err
-			}
+	if pool.config.IsTomoXEnabled(blockNumber) && tx.IsTomoXApplyTransaction() {
+		copyState := pool.currentState(ctx).Copy()
+		if err := core.ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			return err
 		}
 	}
 

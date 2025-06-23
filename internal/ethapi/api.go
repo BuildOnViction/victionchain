@@ -1102,11 +1102,9 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 		return nil, 0, false, err
 	}
 
-	// Try to get the TomoxService - it might be nil if TomoX is disabled
 	var tomoxState *tradingstate.TradingStateDB
 	blockNumber := block.Number()
-	if !s.b.ChainConfig().IsExperimental(blockNumber) && s.b.ChainConfig().IsTIPTomoX(blockNumber) {
-
+	if s.b.ChainConfig().IsTomoXEnabled(blockNumber) {
 		author, err := s.b.GetEngine().Author(block.Header())
 		if err != nil {
 			return nil, 0, false, err

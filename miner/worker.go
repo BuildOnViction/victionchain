@@ -467,8 +467,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 
 	if self.config.Posv != nil {
 		parentBlockNumber := parent.Number()
-		// Skip TomoX/Lending if experimental hardfork is active
-		if !self.config.IsExperimental(parentBlockNumber) && self.config.IsTIPTomoX(parentBlockNumber) {
+		if self.config.IsTomoXEnabled(parentBlockNumber) {
 			tomoX := self.eth.GetTomoX()
 			if tomoX != nil {
 				tomoxState, err = tomoX.GetTradingState(parent, author)
@@ -675,7 +674,7 @@ func (self *worker) commitNewWork() {
 			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
 			return
 		}
-		if self.config.Posv != nil && self.chain.Config().IsTIPTomoX(header.Number) {
+		if self.config.Posv != nil && self.config.IsTomoXEnabled(header.Number) {
 			tomoX := self.eth.GetTomoX()
 			tomoXLending := self.eth.GetTomoXLending()
 			if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
@@ -780,8 +779,7 @@ func (self *worker) commitNewWork() {
 		}
 
 		blockNumber := header.Number
-		// Skip TomoX/Lending state root transaction if experimental hardfork is active
-		if !self.config.IsExperimental(blockNumber) && self.config.IsTIPTomoX(blockNumber) {
+		if self.config.IsTomoXEnabled(blockNumber) {
 			// force adding trading, lending transaction to this block
 			if tradingTransaction != nil {
 				specialTxs = append(specialTxs, tradingTransaction)
@@ -891,16 +889,14 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 
+		// validate balance slot, token decimal for TomoX
 		blockNumber := env.header.Number
-		if !env.config.IsExperimental(blockNumber) && env.config.IsTIPTomoX(blockNumber) {
-			// validate balance slot, token decimal for TomoX
-			if tx.IsTomoXApplyTransaction() {
-				copyState, _ := bc.State()
-				if err := core.ValidateTomoXApplyTransaction(bc, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-					log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
-					txs.Pop()
-					continue
-				}
+		if env.config.IsTomoXEnabled(blockNumber) && tx.IsTomoXApplyTransaction() {
+			copyState, _ := bc.State()
+			if err := core.ValidateTomoXApplyTransaction(bc, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
+				txs.Pop()
+				continue
 			}
 		}
 
@@ -1010,16 +1006,14 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 
+		// validate balance slot, token decimal for TomoX
 		blockNumber := env.header.Number
-		if !env.config.IsExperimental(blockNumber) && env.config.IsTIPTomoX(blockNumber) {
-			// validate balance slot, token decimal for TomoX
-			if tx.IsTomoXApplyTransaction() {
-				copyState, _ := bc.State()
-				if err := core.ValidateTomoXApplyTransaction(bc, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-					log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
-					txs.Pop()
-					continue
-				}
+		if env.config.IsTomoXEnabled(blockNumber) && tx.IsTomoXApplyTransaction() {
+			copyState, _ := bc.State()
+			if err := core.ValidateTomoXApplyTransaction(bc, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
+				txs.Pop()
+				continue
 			}
 		}
 

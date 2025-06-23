@@ -33,15 +33,14 @@ var (
 var (
 	// VicMainnetChainConfig contains the chain parameters to run a Viction node on the main network.
 	VicMainnetChainConfig = &ChainConfig{
-		ChainId:           big.NewInt(88),
-		HomesteadBlock:    big.NewInt(1),
-		EIP150Block:       big.NewInt(2),
-		EIP150Hash:        common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-		EIP155Block:       big.NewInt(3),
-		EIP158Block:       big.NewInt(3),
-		ByzantiumBlock:    big.NewInt(4),
-		SaigonBlock:       big.NewInt(86158494),
-		ExperimentalBlock: big.NewInt(94300000),
+		ChainId:        big.NewInt(88),
+		HomesteadBlock: big.NewInt(1),
+		EIP150Block:    big.NewInt(2),
+		EIP150Hash:     common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:    big.NewInt(3),
+		EIP158Block:    big.NewInt(3),
+		ByzantiumBlock: big.NewInt(4),
+		SaigonBlock:    big.NewInt(86158494),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -296,6 +295,7 @@ func (c *ChainConfig) String() string {
 	)
 }
 
+/* Hard fork block check */
 func (c *ChainConfig) IsHomestead(num *big.Int) bool {
 	return isForked(c.HomesteadBlock, num)
 }
@@ -353,10 +353,6 @@ func (c *ChainConfig) IsTIPTRC21Fee(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsTIPTomoX(num *big.Int) bool {
-	// If we're at or after the Experimental HF block, disable TomoX
-	if c.ExperimentalBlock != nil && isForked(c.ExperimentalBlock, num) {
-		return false
-	}
 	return isForked(common.TIPTomoXBlock, num)
 }
 
@@ -374,6 +370,19 @@ func (c *ChainConfig) IsSaigon(num *big.Int) bool {
 
 func (c *ChainConfig) IsExperimental(num *big.Int) bool {
 	return isForked(c.ExperimentalBlock, num)
+}
+
+/* Feature flag check */
+func (c *ChainConfig) IsTomoXEnabled(num *big.Int) bool {
+	return !isForked(c.ExperimentalBlock, num) && isForked(common.TIPTomoXBlock, num)
+}
+
+func (c *ChainConfig) IsTomoXLendingEnabled(num *big.Int) bool {
+	return isForked(common.TIPTomoXLendingBlock, num)
+}
+
+func (c *ChainConfig) IsTomoXCancellationFeeEnabled(num *big.Int) bool {
+	return isForked(common.TIPTomoXCancellationFeeBlock, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).

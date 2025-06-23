@@ -124,14 +124,6 @@ func ValidateTomoXApplyTransaction(chain consensus.ChainContext, blockNumber *bi
 	if blockNumber == nil || blockNumber.Sign() <= 0 {
 		blockNumber = chain.CurrentHeader().Number
 	}
-	// Skip validation if TomoX is disabled via Experimental hardfork
-	if chain.Config().IsExperimental(blockNumber) {
-		return nil
-	}
-
-	if !chain.Config().IsTIPTomoX(blockNumber) {
-		return nil
-	}
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)
 	if err != nil {
 		return fmt.Errorf("ValidateTomoXApplyTransaction: cannot parse ABI. Err: %v", err)
@@ -151,7 +143,7 @@ func ValidateTomoZApplyTransaction(chain consensus.ChainContext, blockNumber *bi
 	if blockNumber == nil || blockNumber.Sign() <= 0 {
 		blockNumber = chain.CurrentHeader().Number
 	}
-	if !chain.Config().IsTIPTomoX(blockNumber) {
+	if !chain.Config().IsTomoXEnabled(blockNumber) {
 		return nil
 	}
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)

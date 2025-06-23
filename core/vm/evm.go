@@ -55,7 +55,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 		}
 		if p := precompiles[*contract.CodeAddr]; p != nil {
 			blockNumber := evm.BlockNumber
-			if !evm.ChainConfig().IsExperimental(blockNumber) && evm.ChainConfig().IsTIPTomoX(blockNumber) {
+			if !evm.ChainConfig().IsExperimental(blockNumber) && evm.ChainConfig().IsTomoXEnabled(blockNumber) {
 				switch p.(type) {
 				case *tomoxEpochPrice:
 					p.(*tomoxEpochPrice).SetTradingState(evm.tradingStateDB)
@@ -66,7 +66,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			return RunPrecompiledContract(p, input, contract)
 		}
 	}
-	if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+	if evm.ChainConfig().IsTomoXCancellationFeeEnabled(evm.BlockNumber) {
 		for _, interpreter := range evm.interpreters {
 			if interpreter.CanRun(contract.Code) {
 				if evm.interpreter != interpreter {
@@ -212,7 +212,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		if evm.chainRules.IsByzantium {
 			precompiles = PrecompiledContractsByzantium
 		}
-		if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+		if evm.ChainConfig().IsTomoXCancellationFeeEnabled(evm.BlockNumber) {
 			if evm.chainRules.IsIstanbul {
 				precompiles = PrecompiledContractsIstanbul
 			}
@@ -351,7 +351,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	contract := NewContract(caller, to, new(big.Int), gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
-	if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+	if evm.ChainConfig().IsTomoXCancellationFeeEnabled(evm.BlockNumber) {
 		// We do an AddBalance of zero here, just in order to trigger a touch.
 		// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
 		// but is the correct thing to do and matters on other networks, in tests, and potential
@@ -365,7 +365,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	if evm.ChainConfig().IsExperimental(evm.BlockNumber) {
 		ret, err = run(evm, contract, input, true)
 	} else {
-		ret, err = run(evm, contract, input, evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber))
+		ret, err = run(evm, contract, input, evm.ChainConfig().IsTomoXCancellationFeeEnabled(evm.BlockNumber))
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
