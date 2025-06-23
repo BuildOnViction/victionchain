@@ -688,10 +688,13 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ValidateTomoZApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:]))
 	}
 
-	// validate balance slot, token decimal for TomoX
-	if tx.IsTomoXApplyTransaction() {
-		copyState := pool.currentState.Copy()
-		return ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:]))
+	blockNumber := pool.chain.CurrentHeader().Number
+	if !pool.chain.Config().IsExperimental(blockNumber) && pool.chain.Config().IsTIPTomoX(blockNumber) {
+		// validate balance slot, token decimal for TomoX
+		if tx.IsTomoXApplyTransaction() {
+			copyState := pool.currentState.Copy()
+			return ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:]))
+		}
 	}
 	return nil
 }

@@ -74,10 +74,13 @@ type TxPool struct {
 //
 // Send instructs backend to forward new transactions
 // NewHead notifies backend about a new head after processed by the tx pool,
-//  including  mined and rolled back transactions since the last event
+//
+//	including  mined and rolled back transactions since the last event
+//
 // Discard notifies backend about transactions that should be discarded either
-//  because they have been replaced by a re-send or because they have been mined
-//  long ago and no rollback is expected
+//
+//	because they have been replaced by a re-send or because they have been mined
+//	long ago and no rollback is expected
 type TxRelayBackend interface {
 	Send(txs types.Transactions)
 	NewHead(head common.Hash, mined []common.Hash, rollback []common.Hash)
@@ -360,11 +363,17 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 			return err
 		}
 	}
-	// validate balance slot, token decimal for TomoX
-	if tx.IsTomoXApplyTransaction() {
-		copyState := pool.currentState(ctx).Copy()
-		if err := core.ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-			return err
+	// Skip validation if TomoX is disabled via Experimental hardfork
+	header := pool.chain.GetHeaderByHash(pool.head)
+	blockNumber := header.Number
+	if !pool.config.IsExperimental(blockNumber) && pool.config.IsTIPTomoX(blockNumber) {
+		// validate balance slot, token decimal for TomoX
+		if tx.IsTomoXApplyTransaction() {
+
+			copyState := pool.currentState(ctx).Copy()
+			if err := core.ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -381,7 +390,6 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 
 	// Check the transaction doesn't exceed the current
 	// block limit gas.
-	header := pool.chain.GetHeaderByHash(pool.head)
 	if header.GasLimit < tx.Gas() {
 		return core.ErrGasLimit
 	}

@@ -464,18 +464,28 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	author, _ := self.chain.Engine().Author(parent.Header())
 	var tomoxState *tradingstate.TradingStateDB
 	var lendingState *lendingstate.LendingStateDB
+
 	if self.config.Posv != nil {
-		tomoX := self.eth.GetTomoX()
-		tomoxState, err = tomoX.GetTradingState(parent, author)
-		if err != nil {
-			log.Error("Failed to get tomox state ", "number", parent.Number(), "err", err)
-			return err
-		}
-		lending := self.eth.GetTomoXLending()
-		lendingState, err = lending.GetLendingState(parent, author)
-		if err != nil {
-			log.Error("Failed to get lending state ", "number", parent.Number(), "err", err)
-			return err
+		parentBlockNumber := parent.Number()
+		// Skip TomoX/Lending if experimental hardfork is active
+		if !self.config.IsExperimental(parentBlockNumber) && self.config.IsTIPTomoX(parentBlockNumber) {
+			tomoX := self.eth.GetTomoX()
+			if tomoX != nil {
+				tomoxState, err = tomoX.GetTradingState(parent, author)
+				if err != nil {
+					log.Error("Failed to get tomox state ", "number", parent.Number(), "err", err)
+					return err
+				}
+			}
+
+			lending := self.eth.GetTomoXLending()
+			if lending != nil {
+				lendingState, err = lending.GetLendingState(parent, author)
+				if err != nil {
+					log.Error("Failed to get lending state ", "number", parent.Number(), "err", err)
+					return err
+				}
+			}
 		}
 	}
 
@@ -769,27 +779,31 @@ func (self *worker) commitNewWork() {
 			}
 		}
 
-		// force adding trading, lending transaction to this block
-		if tradingTransaction != nil {
-			specialTxs = append(specialTxs, tradingTransaction)
-		}
-		if lendingTransaction != nil {
-			specialTxs = append(specialTxs, lendingTransaction)
-		}
-		if lendingFinalizedTradeTransaction != nil {
-			specialTxs = append(specialTxs, lendingFinalizedTradeTransaction)
-		}
+		blockNumber := header.Number
+		// Skip TomoX/Lending state root transaction if experimental hardfork is active
+		if !self.config.IsExperimental(blockNumber) && self.config.IsTIPTomoX(blockNumber) {
+			// force adding trading, lending transaction to this block
+			if tradingTransaction != nil {
+				specialTxs = append(specialTxs, tradingTransaction)
+			}
+			if lendingTransaction != nil {
+				specialTxs = append(specialTxs, lendingTransaction)
+			}
+			if lendingFinalizedTradeTransaction != nil {
+				specialTxs = append(specialTxs, lendingFinalizedTradeTransaction)
+			}
 
-		TomoxStateRoot := work.tradingState.IntermediateRoot()
-		LendingStateRoot := work.lendingState.IntermediateRoot()
-		txData := append(TomoxStateRoot.Bytes(), LendingStateRoot.Bytes()...)
-		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TradingStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txData)
-		txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
-		if err != nil {
-			log.Error("Fail to create tx state root", "error", err)
-			return
+			TomoxStateRoot := work.tradingState.IntermediateRoot()
+			LendingStateRoot := work.lendingState.IntermediateRoot()
+			txData := append(TomoxStateRoot.Bytes(), LendingStateRoot.Bytes()...)
+			tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TradingStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txData)
+			txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
+			if err != nil {
+				log.Error("Fail to create tx state root", "error", err)
+				return
+			}
+			specialTxs = append(specialTxs, txStateRoot)
 		}
-		specialTxs = append(specialTxs, txStateRoot)
 	}
 	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
 	// compute uncles for the new block.
@@ -876,13 +890,17 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 				continue
 			}
 		}
-		// validate balance slot, token decimal for TomoX
-		if tx.IsTomoXApplyTransaction() {
-			copyState, _ := bc.State()
-			if err := core.ValidateTomoXApplyTransaction(bc, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-				log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
-				txs.Pop()
-				continue
+
+		blockNumber := env.header.Number
+		if !env.config.IsExperimental(blockNumber) && env.config.IsTIPTomoX(blockNumber) {
+			// validate balance slot, token decimal for TomoX
+			if tx.IsTomoXApplyTransaction() {
+				copyState, _ := bc.State()
+				if err := core.ValidateTomoXApplyTransaction(bc, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+					log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
+					txs.Pop()
+					continue
+				}
 			}
 		}
 
@@ -991,13 +1009,17 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 				continue
 			}
 		}
-		// validate balance slot, token decimal for TomoX
-		if tx.IsTomoXApplyTransaction() {
-			copyState, _ := bc.State()
-			if err := core.ValidateTomoXApplyTransaction(bc, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
-				log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
-				txs.Pop()
-				continue
+
+		blockNumber := env.header.Number
+		if !env.config.IsExperimental(blockNumber) && env.config.IsTIPTomoX(blockNumber) {
+			// validate balance slot, token decimal for TomoX
+			if tx.IsTomoXApplyTransaction() {
+				copyState, _ := bc.State()
+				if err := core.ValidateTomoXApplyTransaction(bc, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+					log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
+					txs.Pop()
+					continue
+				}
 			}
 		}
 
