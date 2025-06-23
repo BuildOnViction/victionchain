@@ -120,11 +120,6 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
 			Public:    true,
 		}, {
-			Namespace: "tomox",
-			Version:   "1.0",
-			Service:   NewPublicTomoXTransactionPoolAPI(apiBackend, nonceLock),
-			Public:    true,
-		}, {
 			Namespace: "txpool",
 			Version:   "1.0",
 			Service:   NewPublicTxPoolAPI(apiBackend),
