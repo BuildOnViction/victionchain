@@ -179,9 +179,9 @@ func (st *StateTransition) buyGas() error {
 		from            = st.from()
 	)
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	// Check if we're past the experimental block
-	isAfterExperimental := st.evm.ChainConfig().ExperimentalBlock != nil &&
-		st.evm.Context.BlockNumber.Cmp(st.evm.ChainConfig().ExperimentalBlock) >= 0
+
+	currentBlock := st.evm.Context.BlockNumber
+	isAfterExperimental := st.evm.ChainConfig().IsExperimental(currentBlock)
 
 	// Check balance based on hard fork status
 	if err := st.checkBalance(mgval, balanceTokenFee, state, from, isAfterExperimental); err != nil {

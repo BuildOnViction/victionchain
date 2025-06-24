@@ -640,8 +640,9 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	minGasPrice := common.MinGasPrice
 	feeCapacity := big.NewInt(0)
 	// Check if we're past the experimental block
-	isAfterExperimental := pool.chain.Config().ExperimentalBlock != nil &&
-		pool.chain.CurrentBlock().Number().Cmp(pool.chain.Config().ExperimentalBlock) >= 0
+
+	currentBlock := pool.chain.CurrentBlock().Number()
+	isAfterExperimental := pool.chainconfig.IsExperimental(currentBlock)
 
 	if tx.To() != nil {
 		feeCap, ok := pool.trc21FeeCapacity[*tx.To()]
