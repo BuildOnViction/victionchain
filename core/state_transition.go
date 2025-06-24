@@ -179,23 +179,61 @@ func (st *StateTransition) buyGas() error {
 		from            = st.from()
 	)
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if balanceTokenFee == nil {
-		if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
-			return errInsufficientBalanceForGas
-		}
-	} else if balanceTokenFee.Cmp(mgval) < 0 {
-		return errInsufficientBalanceForGas
+
+	currentBlock := st.evm.Context.BlockNumber
+	isAfterExperimental := st.evm.ChainConfig().IsExperimental(currentBlock)
+
+	// Check balance based on hard fork status
+	if err := st.checkBalance(mgval, balanceTokenFee, state, from, isAfterExperimental); err != nil {
+		return err
 	}
+
+	// Update gas tracking
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
 	}
 	st.gas += st.msg.Gas()
-
 	st.initialGas = st.msg.Gas()
-	if balanceTokenFee == nil {
-		state.SubBalance(from.Address(), mgval)
+
+	// Subtract balance based on hard fork status
+	st.subtractBalance(mgval, balanceTokenFee, state, from, isAfterExperimental)
+
+	return nil
+}
+
+func (st *StateTransition) checkBalance(mgval *big.Int, balanceTokenFee *big.Int, state vm.StateDB, from vm.AccountRef, isAfterExperimental bool) error {
+	if isAfterExperimental {
+		// After Experimental HF: Check balance if no token fee or insufficient token fee
+		if balanceTokenFee == nil || balanceTokenFee.Cmp(mgval) <= 0 {
+			if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
+				return errInsufficientBalanceForGas
+			}
+		}
+	} else {
+		// Before Experimental HF: Check balance for regular tx or insufficient token fee
+		if balanceTokenFee == nil {
+			if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
+				return errInsufficientBalanceForGas
+			}
+		} else if balanceTokenFee.Cmp(mgval) < 0 {
+			return errInsufficientBalanceForGas
+		}
 	}
 	return nil
+}
+
+func (st *StateTransition) subtractBalance(mgval *big.Int, balanceTokenFee *big.Int, state vm.StateDB, from vm.AccountRef, isAfterExperimental bool) {
+	if isAfterExperimental {
+		// After Experimental HF: Subtract balance if no token fee or insufficient token fee
+		if balanceTokenFee == nil || balanceTokenFee.Cmp(mgval) <= 0 {
+			state.SubBalance(from.Address(), mgval)
+		}
+	} else {
+		// Before Experimental HF: Subtract balance only for regular transactions
+		if balanceTokenFee == nil {
+			state.SubBalance(from.Address(), mgval)
+		}
+	}
 }
 
 func (st *StateTransition) preCheck() error {
