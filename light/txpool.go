@@ -356,19 +356,18 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 		return fmt.Errorf("Reject transaction with receiver in black-list: %v", tx.To().Hex())
 	}
 
-	// validate minFee slot for TomoZ
-	if tx.IsTomoZApplyTransaction() {
+	header := pool.chain.GetHeaderByHash(pool.head)
+	// validate balance slot, minFee slot for TomoZ
+	if pool.config.IsTomoZEnabled(header.Number) && tx.IsTomoZApplyTransaction() {
 		copyState := pool.currentState(ctx).Copy()
-		if err := core.ValidateTomoZApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+		if err := core.ValidateTomoZApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 			return err
 		}
 	}
-	header := pool.chain.GetHeaderByHash(pool.head)
 	// validate balance slot, token decimal for TomoX
-	blockNumber := header.Number
-	if pool.config.IsTomoXEnabled(blockNumber) && tx.IsTomoXApplyTransaction() {
+	if pool.config.IsTomoXEnabled(header.Number) && tx.IsTomoXApplyTransaction() {
 		copyState := pool.currentState(ctx).Copy()
-		if err := core.ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+		if err := core.ValidateTomoXApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 			return err
 		}
 	}

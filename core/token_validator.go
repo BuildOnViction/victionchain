@@ -120,10 +120,7 @@ func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, 
 }
 
 // make sure that balance of token is at slot 0
-func ValidateTomoXApplyTransaction(chain consensus.ChainContext, blockNumber *big.Int, copyState *state.StateDB, tokenAddr common.Address) error {
-	if blockNumber == nil || blockNumber.Sign() <= 0 {
-		blockNumber = chain.CurrentHeader().Number
-	}
+func ValidateTomoXApplyTransaction(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address) error {
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)
 	if err != nil {
 		return fmt.Errorf("ValidateTomoXApplyTransaction: cannot parse ABI. Err: %v", err)
@@ -139,23 +136,14 @@ func ValidateTomoXApplyTransaction(chain consensus.ChainContext, blockNumber *bi
 
 // make sure that balance of token is at slot 0
 // make sure that minFee of token is at slot 1
-func ValidateTomoZApplyTransaction(chain consensus.ChainContext, blockNumber *big.Int, copyState *state.StateDB, tokenAddr common.Address) error {
-	if blockNumber == nil || blockNumber.Sign() <= 0 {
-		blockNumber = chain.CurrentHeader().Number
-	}
-	if !chain.Config().IsTomoXEnabled(blockNumber) {
-		return nil
-	}
+func ValidateTomoZApplyTransaction(chain consensus.ChainContext, copyState *state.StateDB, tokenAddr common.Address) error {
 	contractABI, err := GetTokenAbi(contract.TRC21ABI)
 	if err != nil {
 		return fmt.Errorf("ValidateTomoZApplyTransaction: cannot parse ABI. Err: %v", err)
 	}
-	// verify balance slot
 	if err := ValidateBalanceSlot(chain, copyState, tokenAddr, contractABI); err != nil {
 		return err
 	}
-
-	// validate minFee slot
 	if err := ValidateMinFeeSlot(chain, copyState, tokenAddr, contractABI); err != nil {
 		return err
 	}

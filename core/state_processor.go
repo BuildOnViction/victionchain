@@ -105,18 +105,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with receiver in black-list: %v", tx.To().Hex())
 			}
 		}
-		// validate minFee slot for TomoZ
-		if tx.IsTomoZApplyTransaction() {
+		// validate balance slot, minFee slot for TomoZ
+		if p.config.IsTomoZEnabled(block.Number()) && tx.IsTomoZApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoZApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoZApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
 		// validate balance slot, token decimal for TomoX
-		blockNumber := block.Number()
-		if p.config.IsTomoXEnabled(blockNumber) && tx.IsTomoXApplyTransaction() {
+		if p.config.IsTomoXEnabled(block.Number()) && tx.IsTomoXApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoXApplyTransaction(p.bc, blockNumber, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoXApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
@@ -192,18 +191,17 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with receiver in black-list: %v", tx.To().Hex())
 			}
 		}
-		// validate minFee slot for TomoZ
-		if tx.IsTomoZApplyTransaction() {
+		// validate balance slot, minFee slot for TomoZ
+		if p.config.IsTomoZEnabled(block.Number()) && tx.IsTomoZApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoZApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoZApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
 		// validate balance slot, token decimal for TomoX
-		blockNumber := block.Number()
-		if p.config.IsTomoXEnabled(blockNumber) && tx.IsTomoXApplyTransaction() {
+		if p.config.IsTomoXEnabled(block.Number()) && tx.IsTomoXApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoXApplyTransaction(p.bc, blockNumber, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoXApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}

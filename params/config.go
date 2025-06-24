@@ -385,6 +385,10 @@ func (c *ChainConfig) IsTomoXCancellationFeeEnabled(num *big.Int) bool {
 	return isForked(common.TIPTomoXCancellationFeeBlock, num)
 }
 
+func (c *ChainConfig) IsTomoZEnabled(num *big.Int) bool {
+	return isForked(common.TIPTomoXBlock, num)
+}
+
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.
