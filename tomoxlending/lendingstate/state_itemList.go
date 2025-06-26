@@ -131,7 +131,7 @@ func (self *itemListState) setOrderItem(orderId common.Hash, amount common.Hash)
 	}
 }
 
-// updateAskTrie writes cached storage modifications into the object's storage trie.
+// updateTrie writes cached storage modifications into the object's storage trie.
 func (self *itemListState) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for orderId, amount := range self.dirtyStorage {

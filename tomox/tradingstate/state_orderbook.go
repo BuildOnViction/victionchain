@@ -203,7 +203,7 @@ func (c *tradingExchanges) getBestBidsTrie(db Database) common.Hash {
 	return common.BytesToHash(encKey)
 }
 
-// updateAskTrie writes cached storage modifications into the object's storage trie.
+// updateAsksTrie writes cached storage modifications into the object's storage trie.
 func (self *tradingExchanges) updateAsksTrie(db Database) Trie {
 	tr := self.getAsksTrie(db)
 	for price, orderList := range self.stateAskObjects {
