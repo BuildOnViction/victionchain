@@ -215,8 +215,7 @@ func (b *EthApiBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 
 	context := core.NewEVMContext(msg, header, b.eth.BlockChain(), nil)
 
-	// Check if TomoX is disabled via Experimental hardfork
-	if b.ChainConfig().IsExperimental(header.Number) && tomoxState != nil {
+	if !b.ChainConfig().IsTomoXEnabled(header.Number) {
 		// If TomoX is disabled, set tomoxState to nil to prevent any TomoX operations
 		tomoxState = nil
 	}
@@ -246,16 +245,6 @@ func (b *EthApiBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 
 func (b *EthApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.eth.txPool.AddLocal(signedTx)
-}
-
-// SendOrderTx send order via backend
-func (b *EthApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
-	return b.eth.orderPool.AddLocal(signedTx)
-}
-
-// SendLendingTx send order via backend
-func (b *EthApiBackend) SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error {
-	return b.eth.lendingPool.AddLocal(signedTx)
 }
 
 func (b *EthApiBackend) GetPoolTransactions() (types.Transactions, error) {
@@ -527,16 +516,16 @@ func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 
 func (b *EthApiBackend) TomoxService() *tomox.TomoX {
 	// Return nil if TomoX is disabled due to Experimental hardfork
-	if b.ChainConfig().IsExperimental(b.CurrentBlock().Number()) {
-		return nil
+	if b.ChainConfig().IsTomoXEnabled(b.CurrentBlock().Number()) {
+		return b.eth.TomoX
 	}
-	return b.eth.TomoX
+	return nil
 }
 
 func (b *EthApiBackend) LendingService() *tomoxlending.Lending {
 	// Return nil if TomoX is disabled due to Experimental hardfork
-	if b.ChainConfig().IsExperimental(b.CurrentBlock().Number()) {
-		return nil
+	if b.ChainConfig().IsTomoXEnabled(b.CurrentBlock().Number()) {
+		return b.eth.Lending
 	}
-	return b.eth.Lending
+	return nil
 }

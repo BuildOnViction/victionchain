@@ -246,22 +246,12 @@ func (t testBackend) SubscribeTxPreEvent(events chan<- core.TxPreEvent) event.Su
 	panic("implement me")
 }
 
-func (t testBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (t testBackend) OrderTxPoolContent() (map[common.Address]types.OrderTransactions, map[common.Address]types.OrderTransactions) {
 	//TODO implement me
 	panic("implement me")
 }
 
 func (t testBackend) OrderStats() (pending int, queued int) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t testBackend) SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error {
 	//TODO implement me
 	panic("implement me")
 }
