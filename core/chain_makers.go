@@ -109,8 +109,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	b.receipts = append(b.receipts, receipt)
 
 	// Check if we're past the experimental block
-	isAfterExperimental := bc.chainConfig.ExperimentalBlock != nil &&
-		b.Number().Cmp(bc.chainConfig.ExperimentalBlock) >= 0
+	isAfterExperimental := bc.Config().IsExperimental(b.Number())
 
 	if tokenFeeUsed {
 		fee := new(big.Int).SetUint64(gas)

@@ -854,8 +854,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 	totalFeeUsed := big.NewInt(0)
 
 	// Check if we're past the experimental block
-	isAfterExperimental := env.config.ExperimentalBlock != nil &&
-		bc.CurrentBlock().Number().Cmp(env.config.ExperimentalBlock) >= 0
+	isAfterExperimental := env.config.IsExperimental(bc.CurrentBlock().Number())
 
 	var coalescedLogs []*types.Log
 	// first priority for special Txs

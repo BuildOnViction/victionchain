@@ -99,8 +99,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	totalFeeUsed := big.NewInt(0)
 
 	// Check if we're past the experimental block
-	isAfterExperimental := p.config.ExperimentalBlock != nil &&
-		block.Number().Cmp(p.config.ExperimentalBlock) >= 0
+	isAfterExperimental := p.config.IsExperimental(block.Number())
 
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
@@ -199,8 +198,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	totalFeeUsed := big.NewInt(0)
 
 	// Check if we're past the experimental block
-	isAfterExperimental := p.config.ExperimentalBlock != nil &&
-		block.Number().Cmp(p.config.ExperimentalBlock) >= 0
+	isAfterExperimental := p.config.IsExperimental(block.Number())
 
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
