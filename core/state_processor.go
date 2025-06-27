@@ -66,7 +66,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, cfg vm.Config, balanceFee map[common.Address]*big.Int) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, cfg vm.Config, balanceFeeMap map[common.Address]*big.Int) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -131,6 +131,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		}
 
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
+		var balanceFee *big.Int
+		if tx.To() != nil {
+			if value, ok := balanceFeeMap[*tx.To()]; ok {
+				balanceFee = value
+			}
+		}
 		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, 0, err
@@ -151,8 +157,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
 			} else {
 				// Before Experimental HF, Store new balance after sub fee
-				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-				balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+				balanceFeeMap[*tx.To()] = new(big.Int).Sub(balanceFeeMap[*tx.To()], fee)
+				balanceUpdated[*tx.To()] = balanceFeeMap[*tx.To()]
 				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 			}
 
@@ -170,7 +176,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	return receipts, allLogs, *usedGas, nil
 }
 
-func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, cfg vm.Config, balanceFee map[common.Address]*big.Int) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, cfg vm.Config, balanceFeeMap map[common.Address]*big.Int) (types.Receipts, []*types.Log, uint64, error) {
 	block := cBlock.block
 	var (
 		receipts types.Receipts
@@ -244,6 +250,12 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		}
 
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
+		var balanceFee *big.Int
+		if tx.To() != nil {
+			if value, ok := balanceFeeMap[*tx.To()]; ok {
+				balanceFee = value
+			}
+		}
 		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, 0, err
@@ -266,8 +278,8 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
 			} else {
 				// Before Experimental HF, Track used fee in separate map
-				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-				balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+				balanceFeeMap[*tx.To()] = new(big.Int).Sub(balanceFeeMap[*tx.To()], fee)
+				balanceUpdated[*tx.To()] = balanceFeeMap[*tx.To()]
 				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 			}
 
@@ -289,7 +301,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*big.Int, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error, bool) {
+func ApplyTransaction(config *params.ChainConfig, balanceFee *big.Int, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error, bool) {
 	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
 		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
@@ -307,12 +319,6 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
 
-	var balanceFee *big.Int
-	if tx.To() != nil {
-		if value, ok := tokensFee[*tx.To()]; ok {
-			balanceFee = value
-		}
-	}
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, true)
 	if err != nil {
 		return nil, 0, err, false
