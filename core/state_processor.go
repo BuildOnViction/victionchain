@@ -18,7 +18,6 @@ package core
 
 import (
 	"fmt"
-
 	"math/big"
 	"runtime"
 	"strings"
@@ -82,6 +81,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if p.config.IsExperimental(header.Number) {
+		misc.ApplyVIPVRC25Upgarde(statedb, p.config.ExperimentalBlock, header.Number)
+	}
+
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
 		if common.IsTestnet {
 			misc.ApplySaigonHardForkTestnet(statedb, p.config.SaigonBlock, block.Number(), p.config.Posv)
@@ -158,6 +161,10 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if p.config.IsExperimental(header.Number) {
+		misc.ApplyVIPVRC25Upgarde(statedb, p.config.ExperimentalBlock, header.Number)
+	}
+
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
 		if common.IsTestnet {
 			misc.ApplySaigonHardForkTestnet(statedb, p.config.SaigonBlock, block.Number(), p.config.Posv)
@@ -424,7 +431,6 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp, coinbaseOwner)
-
 	if err != nil {
 		return nil, 0, err, false
 	}

@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tomochain/tomochain/consensus/misc"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	"github.com/tomochain/tomochain/common"
@@ -670,6 +671,9 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
 	if common.TIPSigningBlock.Cmp(block.Header().Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
+	}
+	if api.eth.chainConfig.IsExperimental(block.Header().Number) {
+		misc.ApplyVIPVRC25Upgarde(statedb, api.eth.chainConfig.ExperimentalBlock, block.Header().Number)
 	}
 	core.InitSignerInTransactions(api.config, block.Header(), block.Transactions())
 	balanceUpdated := map[common.Address]*big.Int{}

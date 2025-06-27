@@ -629,6 +629,9 @@ func (self *worker) commitNewWork() {
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if self.config.IsExperimental(header.Number) {
+		misc.ApplyVIPVRC25Upgarde(work.state, self.config.ExperimentalBlock, header.Number)
+	}
 	if self.config.SaigonBlock != nil && self.config.SaigonBlock.Cmp(header.Number) <= 0 {
 		if common.IsTestnet {
 			misc.ApplySaigonHardForkTestnet(work.state, self.config.SaigonBlock, header.Number, self.config.Posv)
