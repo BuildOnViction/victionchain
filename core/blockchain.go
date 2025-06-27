@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/tomochain/tomochain/sortlgc"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
 
 	"github.com/tomochain/tomochain/accounts/abi/bind"
@@ -326,7 +327,7 @@ func (bc *BlockChain) loadLastState() error {
 		if ok {
 			tradingService := engine.GetTomoXService()
 			lendingService := engine.GetLendingService()
-			if bc.Config().IsTIPTomoX(currentBlock.Number()) && bc.chainConfig.Posv != nil && currentBlock.NumberU64() > bc.chainConfig.Posv.Epoch && tradingService != nil && lendingService != nil {
+			if bc.Config().IsTomoXEnabled(currentBlock.Number()) && bc.chainConfig.Posv != nil && currentBlock.NumberU64() > bc.chainConfig.Posv.Epoch && tradingService != nil && lendingService != nil {
 				tradingRoot, err := tradingService.GetTradingStateRoot(currentBlock, author)
 				if err != nil {
 					repair = true
@@ -539,7 +540,7 @@ func (bc *BlockChain) OrderStateAt(block *types.Block) (*tradingstate.TradingSta
 	engine, ok := bc.Engine().(*posv.Posv)
 	if ok {
 		tomoXService := engine.GetTomoXService()
-		if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && tomoXService != nil {
+		if bc.Config().IsTomoXEnabled(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && tomoXService != nil {
 			author, _ := bc.Engine().Author(block.Header())
 			log.Debug("OrderStateAt", "blocknumber", block.Header().Number)
 			tomoxState, err := tomoXService.GetTradingState(block, author)
@@ -566,7 +567,7 @@ func (bc *BlockChain) LendingStateAt(block *types.Block) (*lendingstate.LendingS
 	engine, ok := bc.Engine().(*posv.Posv)
 	if ok {
 		lendingService := engine.GetLendingService()
-		if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && lendingService != nil {
+		if bc.Config().IsTomoXEnabled(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && lendingService != nil {
 			author, _ := bc.Engine().Author(block.Header())
 			log.Debug("LendingStateAt", "blocknumber", block.Header().Number)
 			lendingState, err := lendingService.GetLendingState(block, author)
@@ -630,7 +631,7 @@ func (bc *BlockChain) repair(head **types.Block) error {
 				if ok {
 					tradingService := engine.GetTomoXService()
 					lendingService := engine.GetLendingService()
-					if bc.Config().IsTIPTomoX((*head).Number()) && bc.chainConfig.Posv != nil && (*head).NumberU64() > bc.chainConfig.Posv.Epoch && tradingService != nil && lendingService != nil {
+					if bc.Config().IsTomoXEnabled((*head).Number()) && bc.chainConfig.Posv != nil && (*head).NumberU64() > bc.chainConfig.Posv.Epoch && tradingService != nil && lendingService != nil {
 						author, _ := bc.Engine().Author((*head).Header())
 						tradingRoot, err := tradingService.GetTradingStateRoot(*head, author)
 						if err == nil {
@@ -783,7 +784,7 @@ func (bc *BlockChain) HasFullState(block *types.Block) bool {
 		return false
 	}
 	engine, _ := bc.Engine().(*posv.Posv)
-	if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
+	if bc.Config().IsTomoXEnabled(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 		tradingService := engine.GetTomoXService()
 		lendingService := engine.GetLendingService()
 		author, _ := bc.Engine().Author(block.Header())
@@ -920,7 +921,7 @@ func (bc *BlockChain) SaveData() {
 		triedb := bc.stateCache.TrieDB()
 		var tradingService posv.TradingService
 		var lendingService posv.LendingService
-		if bc.Config().IsTIPTomoX(bc.CurrentBlock().Number()) && bc.chainConfig.Posv != nil && bc.CurrentBlock().NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
+		if bc.Config().IsTomoXEnabled(bc.CurrentBlock().Number()) && bc.chainConfig.Posv != nil && bc.CurrentBlock().NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
 			tradingService = engine.GetTomoXService()
 			if tradingService != nil && tradingService.GetStateCache() != nil {
 				tradingTriedb = tradingService.GetStateCache().TrieDB()
@@ -938,7 +939,7 @@ func (bc *BlockChain) SaveData() {
 				if err := triedb.Commit(recent.Root(), true); err != nil {
 					log.Error("Failed to commit recent state trie", "err", err)
 				}
-				if bc.Config().IsTIPTomoX(recent.Number()) && bc.chainConfig.Posv != nil && recent.NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
+				if bc.Config().IsTomoXEnabled(recent.Number()) && bc.chainConfig.Posv != nil && recent.NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
 					author, _ := bc.Engine().Author(recent.Header())
 					if tradingService != nil {
 						tradingRoot, _ := tradingService.GetTradingStateRoot(recent, author)
@@ -1248,7 +1249,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	var tradingService posv.TradingService
 	var lendingTrieDb *trie.Database
 	var lendingService posv.LendingService
-	if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
+	if bc.Config().IsTomoXEnabled(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch && engine != nil {
 		tradingService = engine.GetTomoXService()
 		if tradingService != nil {
 			tradingTrieDb = tradingService.GetStateCache().TrieDB()
@@ -1581,7 +1582,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		var tradingService posv.TradingService
 		var lendingService posv.LendingService
 		isSDKNode := false
-		if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
+		if bc.Config().IsTomoXEnabled(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 			tradingService = engine.GetTomoXService()
 			lendingService = engine.GetLendingService()
 			if tradingService != nil && lendingService != nil {
@@ -1739,7 +1740,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
 			bc.UpdateBlocksHashCache(block)
-			if bc.chainConfig.IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
+			if bc.chainConfig.IsTomoXEnabled(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 				bc.logExchangeData(block)
 				bc.logLendingData(block)
 			}
@@ -1900,7 +1901,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 	var tradingService posv.TradingService
 	var lendingService posv.LendingService
 	isSDKNode := false
-	if bc.Config().IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
+	if bc.Config().IsTomoXEnabled(block.Number()) && bc.chainConfig.Posv != nil && engine != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 		tradingService = engine.GetTomoXService()
 		lendingService = engine.GetLendingService()
 		if tradingService != nil && lendingService != nil {
@@ -2086,7 +2087,7 @@ func (bc *BlockChain) insertBlock(block *types.Block) ([]interface{}, []*types.L
 		// Only count canonical blocks for GC processing time
 		bc.gcproc += result.proctime
 		bc.UpdateBlocksHashCache(block)
-		if bc.chainConfig.IsTIPTomoX(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
+		if bc.chainConfig.IsTomoXEnabled(block.Number()) && bc.chainConfig.Posv != nil && block.NumberU64() > bc.chainConfig.Posv.Epoch {
 			bc.logExchangeData(block)
 			bc.logLendingData(block)
 		}
@@ -2286,7 +2287,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 			}
 		}()
 	}
-	if bc.chainConfig.IsTIPTomoX(commonBlock.Number()) && bc.chainConfig.Posv != nil && commonBlock.NumberU64() > bc.chainConfig.Posv.Epoch {
+	if bc.chainConfig.IsTomoXEnabled(commonBlock.Number()) && bc.chainConfig.Posv != nil && commonBlock.NumberU64() > bc.chainConfig.Posv.Epoch {
 		bc.reorgTxMatches(deletedTxs, newChain)
 	}
 	return nil
@@ -2569,9 +2570,16 @@ func (bc *BlockChain) UpdateM1() error {
 		log.Error("No masternode found. Stopping node")
 		os.Exit(1)
 	} else {
-		sort.Slice(ms, func(i, j int) bool {
-			return ms[i].Stake.Cmp(ms[j].Stake) >= 0
-		})
+		header := bc.CurrentHeader()
+		if bc.Config().IsExperimental(header.Number) {
+			sort.SliceStable(ms, func(i, j int) bool {
+				return ms[i].Stake.Cmp(ms[j].Stake) >= 0
+			})
+		} else {
+			sortlgc.Slice(ms, func(i, j int) bool {
+				return ms[i].Stake.Cmp(ms[j].Stake) >= 0
+			})
+		}
 		log.Info("Ordered list of masternode candidates")
 		for _, m := range ms {
 			log.Info("", "address", m.Address.String(), "stake", m.Stake)
@@ -2579,9 +2587,9 @@ func (bc *BlockChain) UpdateM1() error {
 		// update masternodes
 		log.Info("Updating new set of masternodes")
 		if len(ms) > common.MaxMasternodes {
-			err = engine.UpdateMasternodes(bc, bc.CurrentHeader(), ms[:common.MaxMasternodes])
+			err = engine.UpdateMasternodes(bc, header, ms[:common.MaxMasternodes])
 		} else {
-			err = engine.UpdateMasternodes(bc, bc.CurrentHeader(), ms)
+			err = engine.UpdateMasternodes(bc, header, ms)
 		}
 		if err != nil {
 			return err

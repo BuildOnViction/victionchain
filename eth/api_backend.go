@@ -214,6 +214,12 @@ func (b *EthApiBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg, header, b.eth.BlockChain(), nil)
+
+	if !b.ChainConfig().IsTomoXEnabled(header.Number) {
+		// If TomoX is disabled, set tomoxState to nil to prevent any TomoX operations
+		tomoxState = nil
+	}
+
 	return vm.NewEVM(context, state, tomoxState, b.eth.chainConfig, vmCfg), vmError, nil
 }
 
@@ -239,16 +245,6 @@ func (b *EthApiBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 
 func (b *EthApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.eth.txPool.AddLocal(signedTx)
-}
-
-// SendOrderTx send order via backend
-func (b *EthApiBackend) SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error {
-	return b.eth.orderPool.AddLocal(signedTx)
-}
-
-// SendLendingTx send order via backend
-func (b *EthApiBackend) SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error {
-	return b.eth.lendingPool.AddLocal(signedTx)
 }
 
 func (b *EthApiBackend) GetPoolTransactions() (types.Transactions, error) {
@@ -399,7 +395,7 @@ func (b *EthApiBackend) GetVotersRewards(masternodeAddr common.Address) map[comm
 	initialRewardPerEpoch := new(big.Int).Mul(new(big.Int).SetUint64(chain.Config().Posv.Reward), new(big.Int).SetUint64(params.Ether))
 	chainReward := calcInitialReward(initialRewardPerEpoch, lastCheckpointNumber, common.BlocksPerYear)
 	// Get additional reward for Saigon upgrade
-	if chain.Config().IsSaigon(chain.Config().SaigonBlock) {
+	if chain.Config().IsSaigon(block.Number()) {
 		saigonRewardPerEpoch := new(big.Int).Mul(common.SaigonRewardPerEpoch, new(big.Int).SetUint64(params.Ether))
 		chainReward = new(big.Int).Add(chainReward, calcSaigonReward(saigonRewardPerEpoch, chain.Config().SaigonBlock, lastCheckpointNumber, common.BlocksPerYear))
 	}
@@ -519,9 +515,17 @@ func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 }
 
 func (b *EthApiBackend) TomoxService() *tomox.TomoX {
-	return b.eth.TomoX
+	// Return nil if TomoX is disabled due to Experimental hardfork
+	if b.ChainConfig().IsTomoXEnabled(b.CurrentBlock().Number()) {
+		return b.eth.TomoX
+	}
+	return nil
 }
 
 func (b *EthApiBackend) LendingService() *tomoxlending.Lending {
-	return b.eth.Lending
+	// Return nil if TomoX is disabled due to Experimental hardfork
+	if b.ChainConfig().IsTomoXEnabled(b.CurrentBlock().Number()) {
+		return b.eth.Lending
+	}
+	return nil
 }

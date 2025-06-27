@@ -278,7 +278,7 @@ func (pool *OrderPool) loop() {
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
 func (pool *OrderPool) reset(oldHead, newblock *types.Block) {
-	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) || pool.chain.Config().Posv == nil || pool.chain.CurrentBlock().NumberU64() <= pool.chain.Config().Posv.Epoch {
+	if !pool.chainconfig.IsTomoXEnabled(pool.chain.CurrentBlock().Number()) || pool.chainconfig.Posv == nil || pool.chain.CurrentBlock().NumberU64() <= pool.chainconfig.Posv.Epoch {
 		return
 	}
 	// If we're reorging an old state, reinject all dropped transactions
@@ -729,7 +729,7 @@ func (pool *OrderPool) AddRemotes(txs []*types.OrderTransaction) []error {
 
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *OrderPool) addTx(tx *types.OrderTransaction, local bool) error {
-	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) {
+	if !pool.chainconfig.IsTomoXEnabled(pool.chain.CurrentBlock().Number()) {
 		return nil
 	}
 	tx.CacheHash()
@@ -860,7 +860,9 @@ func (pool *OrderPool) removeTx(hash common.Hash) {
 // invalidated transactions (low nonce, low balance) are deleted.
 func (pool *OrderPool) promoteExecutables(accounts []common.Address) {
 	start := time.Now()
-	defer log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
+	defer func() {
+		log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
+	}()
 	// Gather all the accounts potentially needing updates
 	if accounts == nil {
 		accounts = make([]common.Address, 0, len(pool.queue))

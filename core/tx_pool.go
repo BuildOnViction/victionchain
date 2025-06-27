@@ -713,17 +713,17 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		  }
 	*/
 
-	// validate minFee slot for TomoZ
-	if tx.IsTomoZApplyTransaction() {
+	// validate balance slot, minFee slot for TomoZ
+	if pool.chainconfig.IsTomoZEnabled(pool.chain.CurrentHeader().Number) && tx.IsTomoZApplyTransaction() {
 		copyState := pool.currentState.Copy()
-		return ValidateTomoZApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:]))
+		return ValidateTomoZApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:]))
+	}
+	// validate balance slot, token decimal for TomoX
+	if pool.chainconfig.IsTomoXEnabled(pool.chain.CurrentHeader().Number) && tx.IsTomoXApplyTransaction() {
+		copyState := pool.currentState.Copy()
+		return ValidateTomoXApplyTransaction(pool.chain, copyState, common.BytesToAddress(tx.Data()[4:]))
 	}
 
-	// validate balance slot, token decimal for TomoX
-	if tx.IsTomoXApplyTransaction() {
-		copyState := pool.currentState.Copy()
-		return ValidateTomoXApplyTransaction(pool.chain, nil, copyState, common.BytesToAddress(tx.Data()[4:]))
-	}
 	return nil
 }
 
@@ -1112,7 +1112,9 @@ func (pool *TxPool) removeTx(hash common.Hash) {
 func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	start := time.Now()
 	log.Debug("start promoteExecutables")
-	defer log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
+	defer func() {
+		log.Debug("end promoteExecutables", "time", common.PrettyDuration(time.Since(start)))
+	}()
 	// Gather all the accounts potentially needing updates
 	if accounts == nil {
 		accounts = make([]common.Address, 0, len(pool.queue))

@@ -81,10 +81,8 @@ type Backend interface {
 	SubscribeTxPreEvent(chan<- core.TxPreEvent) event.Subscription
 
 	// Order Pool Transaction
-	SendOrderTx(ctx context.Context, signedTx *types.OrderTransaction) error
 	OrderTxPoolContent() (map[common.Address]types.OrderTransactions, map[common.Address]types.OrderTransactions)
 	OrderStats() (pending int, queued int)
-	SendLendingTx(ctx context.Context, signedTx *types.LendingTransaction) error
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
@@ -118,11 +116,6 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "eth",
 			Version:   "1.0",
 			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
-			Public:    true,
-		}, {
-			Namespace: "tomox",
-			Version:   "1.0",
-			Service:   NewPublicTomoXTransactionPoolAPI(apiBackend, nonceLock),
 			Public:    true,
 		}, {
 			Namespace: "txpool",
