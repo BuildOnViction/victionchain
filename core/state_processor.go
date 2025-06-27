@@ -153,7 +153,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				if usedBalances[*tx.To()] == nil {
 					usedBalances[*tx.To()] = new(big.Int)
 				}
-
 				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
 			} else {
 				// Before Experimental HF, Store new balance after sub fee
@@ -161,7 +160,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				balanceUpdated[*tx.To()] = balanceFeeMap[*tx.To()]
 				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 			}
-
 		}
 	}
 
@@ -512,7 +510,12 @@ func ApplyTransaction(config *params.ChainConfig, balanceFee *big.Int, bc *Block
 	if balanceFee != nil && failed {
 		state.PayFeeWithTRC21TxFail(statedb, msg.From(), *tx.To())
 	}
-	return receipt, gas, err, balanceFee != nil
+
+	fee := new(big.Int).SetUint64(gas)
+	if bc.CurrentBlock().Number().Cmp(common.TIPTRC21FeeBlock) > 0 {
+		fee = fee.Mul(fee, common.TRC21GasPrice)
+	}
+	return receipt, gas, err, balanceFee != nil && balanceFee.Cmp(fee) == 1
 }
 
 func ApplySignTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {
