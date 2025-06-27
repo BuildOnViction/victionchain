@@ -140,38 +140,49 @@ func ValidateTRC21Tx(statedb *StateDB, from common.Address, token common.Address
 	return false
 }
 
-func UpdateTRC21Fee(statedb *StateDB, usedBalance map[common.Address]*big.Int, totalFeeUsed *big.Int, isAfterExperimental bool) {
-	if statedb == nil || len(usedBalance) == 0 {
+func UpdateTRC21FeeAfterExperimental(statedb *StateDB, usedBalances map[common.Address]*big.Int) {
+	if statedb == nil || len(usedBalances) == 0 {
 		return
 	}
 
 	slotTokensState := SlotTRC21Issuer["tokensState"]
 
-	if isAfterExperimental {
-		totalFeeUsed = big.NewInt(0)
-		// For each token that used fees
-		for token, usedAmount := range usedBalance {
-			// Get current balance from state
-			balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
-			currentBalance := statedb.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
-			currentBalanceInt := new(big.Int).SetBytes(currentBalance[:])
+	// After hardfork, newBalances will be amount of fee pay for this contracts (used balance)
+	totalFeeUsed := big.NewInt(0)
+	// For each token that used fees
+	for token, usedAmount := range usedBalances {
+		// Get current balance from state
+		balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
+		currentBalance := statedb.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
+		currentBalanceInt := new(big.Int).SetBytes(currentBalance[:])
 
-			// Subtract used amount from current balance
-			newBalance := new(big.Int).Sub(currentBalanceInt, usedAmount)
+		// Subtract used amount from current balance
+		newBalance := new(big.Int).Sub(currentBalanceInt, usedAmount)
 
-			// Update state with new balance
-			statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(newBalance))
-
-			// Add to total fee used
-			totalFeeUsed.Add(totalFeeUsed, usedAmount)
+		// amount alway better than 0
+		if newBalance.Cmp(big.NewInt(0)) == 0 {
+			newBalance = big.NewInt(1) // 1 Wei
 		}
 
-	} else {
-		for token, value := range usedBalance {
-			balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
-			statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(value))
-		}
+		// Update state with new balance
+		statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(newBalance))
+
+		// Add to total fee used
+		totalFeeUsed.Add(totalFeeUsed, usedAmount)
 	}
+
 	statedb.SubBalance(common.TRC21IssuerSMC, totalFeeUsed)
 
+}
+
+func UpdateTRC21Fee(statedb *StateDB, newBalance map[common.Address]*big.Int, totalFeeUsed *big.Int) {
+	if statedb == nil || len(newBalance) == 0 {
+		return
+	}
+	slotTokensState := SlotTRC21Issuer["tokensState"]
+	for token, value := range newBalance {
+		balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
+		statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(value))
+	}
+	statedb.SubBalance(common.TRC21IssuerSMC, totalFeeUsed)
 }

@@ -851,6 +851,8 @@ func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Address]*big.Int, txs *types.TransactionsByPriceAndNonce, specialTxs types.Transactions, bc *core.BlockChain, coinbase common.Address) {
 	gp := new(core.GasPool).AddGas(env.header.GasLimit)
 	balanceUpdated := map[common.Address]*big.Int{}
+	usedBalances := map[common.Address]*big.Int{}
+
 	totalFeeUsed := big.NewInt(0)
 
 	// Check if we're past the experimental block
@@ -953,10 +955,10 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 			if isAfterExperimental {
 				// After Experimental HF, Track used fee in separate map
-				if balanceUpdated[*tx.To()] == nil {
-					balanceUpdated[*tx.To()] = new(big.Int)
+				if usedBalances[*tx.To()] == nil {
+					usedBalances[*tx.To()] = new(big.Int)
 				}
-				balanceUpdated[*tx.To()].Add(balanceUpdated[*tx.To()], fee)
+				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
 			} else {
 				// Before Experimental HF
 				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
@@ -1080,10 +1082,10 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 			if isAfterExperimental {
 				// After Experimental HF, Track used fee in separate map
-				if balanceUpdated[*tx.To()] == nil {
-					balanceUpdated[*tx.To()] = new(big.Int)
+				if usedBalances[*tx.To()] == nil {
+					usedBalances[*tx.To()] = new(big.Int)
 				}
-				balanceUpdated[*tx.To()].Add(balanceUpdated[*tx.To()], fee)
+				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
 			} else {
 				// Before Experimental HF
 				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
@@ -1092,7 +1094,12 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 	}
-	state.UpdateTRC21Fee(env.state, balanceUpdated, totalFeeUsed, isAfterExperimental)
+	if isAfterExperimental {
+		state.UpdateTRC21FeeAfterExperimental(env.state, usedBalances)
+	} else {
+		state.UpdateTRC21Fee(env.state, balanceUpdated, totalFeeUsed)
+
+	}
 
 	if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined

@@ -122,9 +122,9 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 				*tx.To(): fee,
 			}
 			// Update state with used fee
-			state.UpdateTRC21Fee(b.statedb, usedFees, fee, isAfterExperimental)
+			state.UpdateTRC21FeeAfterExperimental(b.statedb, usedFees)
 		} else {
-			state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee, isAfterExperimental)
+			state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee)
 		}
 
 	}
