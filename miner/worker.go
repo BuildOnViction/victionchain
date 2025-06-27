@@ -852,6 +852,11 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 	gp := new(core.GasPool).AddGas(env.header.GasLimit)
 	balanceUpdated := map[common.Address]*big.Int{}
 	totalFeeUsed := big.NewInt(0)
+
+	// Check if we're past the experimental block
+	isAfterExperimental := env.config.ExperimentalBlock != nil &&
+		bc.CurrentBlock().Number().Cmp(env.config.ExperimentalBlock) >= 0
+
 	var coalescedLogs []*types.Log
 	// first priority for special Txs
 	for _, tx := range specialTxs {
@@ -947,9 +952,18 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+			if isAfterExperimental {
+				// After Experimental HF, Track used fee in separate map
+				if balanceUpdated[*tx.To()] == nil {
+					balanceUpdated[*tx.To()] = new(big.Int)
+				}
+				balanceUpdated[*tx.To()].Add(balanceUpdated[*tx.To()], fee)
+			} else {
+				// Before Experimental HF
+				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
+				balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+			}
 		}
 	}
 	for {
@@ -1065,12 +1079,22 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+			if isAfterExperimental {
+				// After Experimental HF, Track used fee in separate map
+				if balanceUpdated[*tx.To()] == nil {
+					balanceUpdated[*tx.To()] = new(big.Int)
+				}
+				balanceUpdated[*tx.To()].Add(balanceUpdated[*tx.To()], fee)
+			} else {
+				// Before Experimental HF
+				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
+				balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
+			}
 		}
 	}
-	state.UpdateTRC21Fee(env.state, balanceUpdated, totalFeeUsed)
+	state.UpdateTRC21Fee(env.state, balanceUpdated, totalFeeUsed, isAfterExperimental)
+
 	if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined
 		// logs by filling in the block hash when the block was mined by the local miner. This can
