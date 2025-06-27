@@ -74,7 +74,7 @@ var (
 	TRC21IssuerSMC         = HexToAddress("0x8c0faeb5C6bEd2129b8674F262Fd45c4e9468bee")
 	TomoXListingSMC        = HexToAddress("0xDE34dD0f536170993E8CFF639DdFfCF1A85D3E53")
 
-	VRC25IssuerMinCap = big.NewInt(1) // 1 VRC25
+	VRC25IssuerMinCap = big.NewInt(1) // 1 Wei
 )
 
 var Blacklist = map[Address]bool{
