@@ -42,7 +42,7 @@ func GetTRC21FeeCapacityFromStateWithCache(trieRoot common.Hash, statedb *StateD
 	}
 	return tokensFee
 }
-func GetTRC21FeeCapacityFromState(statedb *StateDB) map[common.Address]*big.Int {
+func GetTRC21FeeCapacityFromState(statedb *StateDB, tokens []common.Address) map[common.Address]*big.Int {
 	if statedb == nil {
 		return map[common.Address]*big.Int{}
 	}
