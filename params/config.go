@@ -295,6 +295,7 @@ func (c *ChainConfig) String() string {
 	)
 }
 
+/* Hard fork block check */
 func (c *ChainConfig) IsHomestead(num *big.Int) bool {
 	return isForked(c.HomesteadBlock, num)
 }
@@ -369,6 +370,23 @@ func (c *ChainConfig) IsSaigon(num *big.Int) bool {
 
 func (c *ChainConfig) IsExperimental(num *big.Int) bool {
 	return isForked(c.ExperimentalBlock, num)
+}
+
+/* Feature flag check */
+func (c *ChainConfig) IsTomoXEnabled(num *big.Int) bool {
+	return !isForked(c.ExperimentalBlock, num) && isForked(common.TIPTomoXBlock, num)
+}
+
+func (c *ChainConfig) IsTomoXLendingEnabled(num *big.Int) bool {
+	return isForked(common.TIPTomoXLendingBlock, num)
+}
+
+func (c *ChainConfig) IsTomoXCancellationFeeEnabled(num *big.Int) bool {
+	return isForked(common.TIPTomoXCancellationFeeBlock, num)
+}
+
+func (c *ChainConfig) IsTomoZEnabled(num *big.Int) bool {
+	return isForked(common.TIPTomoXBlock, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).

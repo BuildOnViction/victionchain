@@ -3,6 +3,8 @@ package tomoxlending
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core/state"
@@ -10,7 +12,6 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-	"math/big"
 )
 
 func (l *Lending) CommitOrder(header *types.Header, coinbase common.Address, chain consensus.ChainContext, statedb *state.StateDB, lendingStateDB *lendingstate.LendingStateDB, tradingStateDb *tradingstate.TradingStateDB, lendingOrderBook common.Hash, order *lendingstate.LendingItem) ([]*lendingstate.LendingTrade, []*lendingstate.LendingItem, error) {
@@ -478,7 +479,7 @@ func (l *Lending) getLendQuantity(
 	log.Debug("GetLendQuantity", "side", takerOrder.Side, "takerBalance", takerBalance, "makerBalance", makerBalance, "LendingToken", makerOrder.LendingToken, "CollateralToken", collateralToken, "quantity", quantity, "rejectMaker", rejectMaker)
 	if quantity.Sign() > 0 {
 		// Apply Match Order
-		isTomoXLendingFork := chain.Config().IsTIPTomoXLending(header.Number)
+		isTomoXLendingFork := chain.Config().IsTomoXLendingEnabled(header.Number)
 		settleBalanceResult, err := lendingstate.GetSettleBalance(isTomoXLendingFork, takerOrder.Side, lendTokenTOMOPrice, collateralPrice, depositRate, borrowFee, lendToken, collateralToken, LendingTokenDecimal, collateralTokenDecimal, quantity)
 		log.Debug("GetSettleBalance", "settleBalanceResult", settleBalanceResult, "err", err)
 		if err == nil {
@@ -721,7 +722,7 @@ func (l *Lending) ProcessCancelOrder(header *types.Header, lendingStateDB *lendi
 	}
 	feeRate := lendingstate.GetFee(statedb, originOrder.Relayer)
 	tokenCancelFee, tokenPriceInTOMO := common.Big0, common.Big0
-	if !chain.Config().IsTIPTomoXCancellationFee(header.Number) {
+	if !chain.Config().IsTomoXCancellationFeeEnabled(header.Number) {
 		tokenCancelFee = getCancelFeeV1(collateralTokenDecimal, collateralPrice, feeRate, &originOrder)
 	} else {
 		tokenCancelFee, tokenPriceInTOMO = l.getCancelFee(chain, statedb, tradingStateDb, &originOrder, feeRate)
@@ -953,11 +954,11 @@ func (l *Lending) GetMediumTradePriceBeforeEpoch(chain consensus.ChainContext, s
 	return nil, nil
 }
 
-//LendToken and CollateralToken must meet at least one of following conditions
-//- Have direct pair in TomoX: lendToken/CollateralToken or CollateralToken/LendToken
-//- Have pairs with TOMO:
-//-  lendToken/TOMO and CollateralToken/TOMO
-//-  TOMO/lendToken and TOMO/CollateralToken
+// LendToken and CollateralToken must meet at least one of following conditions
+// - Have direct pair in TomoX: lendToken/CollateralToken or CollateralToken/LendToken
+// - Have pairs with TOMO:
+// -  lendToken/TOMO and CollateralToken/TOMO
+// -  TOMO/lendToken and TOMO/CollateralToken
 func (l *Lending) GetCollateralPrices(header *types.Header, chain consensus.ChainContext, statedb *state.StateDB, tradingStateDb *tradingstate.TradingStateDB, collateralToken common.Address, lendingToken common.Address) (*big.Int, *big.Int, error) {
 	// lendTokenTOMOPrice: price of ticker lendToken/TOMO
 	// collateralTOMOPrice: price of ticker collateralToken/TOMO
@@ -1130,7 +1131,7 @@ func (l *Lending) ProcessRepayLendingTrade(header *types.Header, chain consensus
 		}
 		newLendingTrade := &lendingstate.LendingTrade{}
 		var err error
-		if chain.Config().IsTIPTomoXLending(header.Number) {
+		if chain.Config().IsTomoXLendingEnabled(header.Number) {
 			newLendingTrade, err = l.LiquidationExpiredTrade(header, chain, lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
 		} else {
 			newLendingTrade, err = l.LiquidationTrade(lendingStateDB, statedb, tradingstateDB, lendingBook, lendingTradeId)
