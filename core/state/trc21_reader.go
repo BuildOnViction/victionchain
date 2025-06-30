@@ -74,7 +74,9 @@ func GetTRC21FeeCapacityFromStateWithTokens(statedb *StateDB, tokens []common.Ad
 	for _, token := range tokens {
 		balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
 		balanceHash := statedb.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
-		tokensCapacity[common.BytesToAddress(token.Bytes())] = balanceHash.Big()
+		if !common.EmptyHash(balanceHash) {
+			tokensCapacity[common.BytesToAddress(token.Bytes())] = balanceHash.Big()
+		}
 	}
 	return tokensCapacity
 }
@@ -86,6 +88,9 @@ func GetTRC21FeeCapacityFromStateWithToken(statedb *StateDB, token *common.Addre
 	slotTokensState := SlotTRC21Issuer["tokensState"]
 	balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
 	balanceHash := statedb.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
+	if common.EmptyHash(balanceHash) {
+		return nil
+	}
 	return balanceHash.Big()
 }
 
