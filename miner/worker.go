@@ -319,9 +319,8 @@ func (self *worker) update() {
 				self.currentMu.Lock()
 				acc, _ := types.Sender(self.current.signer, ev.Tx)
 				txs := map[common.Address]types.Transactions{acc: {ev.Tx}}
-				feeCapacity := state.GetTRC21FeeCapacityFromState(self.current.state)
 				txset, specialTxs := types.NewTransactionsByPriceAndNonce(self.current.signer, txs, nil)
-				self.current.commitTransactions(self.mux, feeCapacity, txset, specialTxs, self.chain, self.coinbase)
+				self.current.commitTransactions(self.mux, txset, specialTxs, self.chain, self.coinbase)
 				self.updateSnapshot()
 				self.currentMu.Unlock()
 			} else {
@@ -662,7 +661,6 @@ func (self *worker) commitNewWork() {
 		liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades []*lendingstate.LendingTrade
 		lendingFinalizedTradeTransaction                                     *types.Transaction
 	)
-	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		pending, err := self.eth.TxPool().Pending()
 		if err != nil {
@@ -806,7 +804,7 @@ func (self *worker) commitNewWork() {
 			specialTxs = append(specialTxs, txStateRoot)
 		}
 	}
-	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
+	work.commitTransactions(self.mux, txs, specialTxs, self.chain, self.coinbase)
 	// compute uncles for the new block.
 	var (
 		uncles    []*types.Header
@@ -860,7 +858,7 @@ func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 	return nil
 }
 
-func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Address]*big.Int, txs *types.TransactionsByPriceAndNonce, specialTxs types.Transactions, bc *core.BlockChain, coinbase common.Address) {
+func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, specialTxs types.Transactions, bc *core.BlockChain, coinbase common.Address) {
 	gp := new(core.GasPool).AddGas(env.header.GasLimit)
 	balanceUpdated := map[common.Address]*big.Int{}
 	usedBalances := map[common.Address]*big.Int{}
@@ -869,6 +867,12 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 
 	// Check if we're past the experimental block
 	isAfterExperimental := env.config.IsExperimental(bc.CurrentBlock().Number())
+
+	var balanceFee = make(map[common.Address]*big.Int)
+	if !isAfterExperimental {
+		// Get the balance fee capacity from the state
+		balanceFee = state.GetTRC21FeeCapacityFromStateWithCache(bc.CurrentBlock().Root(), env.state)
+	}
 
 	var coalescedLogs []*types.Log
 	// first priority for special Txs
@@ -940,6 +944,11 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 		if nonce != tx.Nonce() && !tx.IsSkipNonceTransaction() {
 			log.Trace("Skipping account with special transaction invalid nonce", "sender", from, "nonce", nonce, "tx nonce ", tx.Nonce(), "to", tx.To())
 			continue
+		}
+		if isAfterExperimental {
+			if tx.To() != nil {
+				balanceFee[*tx.To()] = state.GetTRC21FeeCapacityFromStateWithToken(env.state, tx.To())
+			}
 		}
 		err, logs, tokenFeeUsed, gas := env.commitTransaction(balanceFee, tx, bc, coinbase, gp)
 		switch err {
@@ -1057,6 +1066,11 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
 			continue
+		}
+		if isAfterExperimental {
+			if tx.To() != nil {
+				balanceFee[*tx.To()] = state.GetTRC21FeeCapacityFromStateWithToken(env.state, tx.To())
+			}
 		}
 		err, logs, tokenFeeUsed, gas := env.commitTransaction(balanceFee, tx, bc, coinbase, gp)
 		switch err {

@@ -23,6 +23,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -1670,10 +1671,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 			}
 		}
-		feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
+		var tokens []common.Address
+		for _, tx := range block.Transactions() {
+			if tx.To() != nil && !slices.Contains(tokens, *tx.To()) {
+				tokens = append(tokens, *tx.To())
+			}
+		}
 		// Process block using the parent state as reference point.
 		t0 := time.Now()
-		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, tradingState, bc.vmConfig, feeCapacity)
+		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, tradingState, bc.vmConfig)
 		t1 := time.Now()
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1987,9 +1993,14 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			}
 		}
 	}
-	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
+	var tokens []common.Address
+	for _, tx := range block.Transactions() {
+		if tx.To() != nil && !slices.Contains(tokens, *tx.To()) {
+			tokens = append(tokens, *tx.To())
+		}
+	}
 	// Process block using the parent state as reference point.
-	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, tradingState, bc.vmConfig, feeCapacity)
+	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, tradingState, bc.vmConfig)
 	process := time.Since(bstart)
 	if err != nil {
 		if err != ErrStopPreparingBlock {

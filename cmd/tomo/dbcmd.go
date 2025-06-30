@@ -201,8 +201,7 @@ func regenerateState(
 				tokens = append(tokens, *tx.To())
 			}
 		}
-		feeCapacity := state.GetTRC21FeeCapacityFromStateWithTokens(stateDB, tokens)
-		_, _, _, err := blockchain.Processor().Process(block, stateDB, tomoxStateDB, vm.Config{}, feeCapacity)
+		_, _, _, err := blockchain.Processor().Process(block, stateDB, tomoxStateDB, vm.Config{})
 		if err != nil {
 			return nil, nil, err
 		}

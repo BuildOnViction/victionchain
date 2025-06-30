@@ -288,9 +288,8 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				}
 				traced += uint64(len(txs))
 			}
-			feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
 			// Generate the next state snapshot fast without tracing
-			_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, tomoxState, vm.Config{}, feeCapacity)
+			_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, tomoxState, vm.Config{})
 			if err != nil {
 				failed = err
 				break
@@ -544,8 +543,7 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 		if block = api.eth.blockchain.GetBlockByNumber(block.NumberU64() + 1); block == nil {
 			return nil, nil, fmt.Errorf("block #%d not found", block.NumberU64()+1)
 		}
-		feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-		_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, tomoxState, vm.Config{}, feeCapacity)
+		_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, tomoxState, vm.Config{})
 		if err != nil {
 			return nil, nil, err
 		}
