@@ -236,9 +236,8 @@ type TxPool struct {
 
 	wg sync.WaitGroup // for shutdown sync
 
-	homestead        bool
-	IsSigner         func(address common.Address) bool
-	trc21FeeCapacity map[common.Address]*big.Int
+	homestead bool
+	IsSigner  func(address common.Address) bool
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -249,17 +248,16 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
-		config:           config,
-		chainconfig:      chainconfig,
-		chain:            chain,
-		signer:           types.NewEIP155Signer(chainconfig.ChainId),
-		pending:          make(map[common.Address]*txList),
-		queue:            make(map[common.Address]*txList),
-		beats:            make(map[common.Address]time.Time),
-		all:              make(map[common.Hash]*types.Transaction),
-		chainHeadCh:      make(chan ChainHeadEvent, chainHeadChanSize),
-		gasPrice:         new(big.Int).SetUint64(config.PriceLimit),
-		trc21FeeCapacity: map[common.Address]*big.Int{},
+		config:      config,
+		chainconfig: chainconfig,
+		chain:       chain,
+		signer:      types.NewEIP155Signer(chainconfig.ChainId),
+		pending:     make(map[common.Address]*txList),
+		queue:       make(map[common.Address]*txList),
+		beats:       make(map[common.Address]time.Time),
+		all:         make(map[common.Hash]*types.Transaction),
+		chainHeadCh: make(chan ChainHeadEvent, chainHeadChanSize),
+		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
 	}
 	pool.locals = newAccountSet(pool.signer)
 	pool.priced = newTxPricedList(&pool.all)
@@ -437,7 +435,6 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 		return
 	}
 	pool.currentState = statedb
-	pool.trc21FeeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(newHead.Root, statedb)
 	pool.pendingState = state.ManageState(statedb)
 	pool.currentMaxGas = newHead.GasLimit
 
@@ -645,12 +642,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	isAfterExperimental := pool.chainconfig.IsExperimental(currentBlock)
 
 	if tx.To() != nil {
-		feeCap, ok := pool.trc21FeeCapacity[*tx.To()]
+		feeCap := state.GetTRC21FeeCapacityFromStateWithToken(pool.pendingState.StateDB, tx.To())
 		if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
 			return ErrInsufficientFunds
 		}
 		if isAfterExperimental {
-			if ok {
+			if feeCap != nil {
 				minGasPrice = common.MinGasPrice
 				requiredFee := new(big.Int).Sub(tx.TRC21Cost(), tx.Value())
 
@@ -673,7 +670,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 				}
 			}
 		} else {
-			if ok {
+			if feeCap != nil {
 				feeCapacity = feeCap
 				cost = tx.TRC21Cost()
 				minGasPrice = common.TRC21GasPrice
@@ -1137,7 +1134,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.currentState)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -1322,7 +1319,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.currentState)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
