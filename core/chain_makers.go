@@ -99,34 +99,20 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
-	balanceFee := state.GetTRC21FeeCapacityFromStateWithToken(b.statedb, tx.To())
+	feeCapacity := state.GetTRC21FeeCapacityFromState(b.statedb)
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
-	receipt, gas, err, tokenFeeUsed := ApplyTransaction(b.config, balanceFee, bc, &b.header.Coinbase, b.gasPool, b.statedb, nil, b.header, tx, &b.header.GasUsed, vm.Config{})
+	receipt, gas, err, tokenFeeUsed := ApplyTransaction(b.config, feeCapacity, bc, &b.header.Coinbase, b.gasPool, b.statedb, nil, b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
-
-	// Check if we're past the experimental block
-	isAfterExperimental := bc.Config().IsExperimental(b.Number())
-
 	if tokenFeeUsed {
 		fee := new(big.Int).SetUint64(gas)
 		if b.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 			fee = fee.Mul(fee, common.TRC21GasPrice)
 		}
-		if isAfterExperimental {
-			// Create map to track used fee
-			usedFees := map[common.Address]*big.Int{
-				*tx.To(): fee,
-			}
-			// Update state with used fee
-			state.UpdateTRC21FeeAfterExperimental(b.statedb, usedFees)
-		} else {
-			state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(balanceFee, fee)}, fee)
-		}
-
+		state.UpdateTRC21Fee(b.statedb, map[common.Address]*big.Int{*tx.To(): new(big.Int).Sub(feeCapacity[*tx.To()], new(big.Int).SetUint64(gas))}, fee)
 	}
 }
 

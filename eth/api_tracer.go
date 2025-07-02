@@ -288,8 +288,9 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				}
 				traced += uint64(len(txs))
 			}
+			feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
 			// Generate the next state snapshot fast without tracing
-			_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, tomoxState, vm.Config{})
+			_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, tomoxState, vm.Config{}, feeCapacity)
 			if err != nil {
 				failed = err
 				break
@@ -543,7 +544,8 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 		if block = api.eth.blockchain.GetBlockByNumber(block.NumberU64() + 1); block == nil {
 			return nil, nil, fmt.Errorf("block #%d not found", block.NumberU64()+1)
 		}
-		_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, tomoxState, vm.Config{})
+		feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
+		_, _, _, err := api.eth.blockchain.Processor().Process(block, statedb, tomoxState, vm.Config{}, feeCapacity)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -695,13 +697,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 			context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 			return msg, context, statedb, nil
 		}
-		var balanceFee *big.Int
-		if tx.To() != nil {
-			if value, ok := feeCapacity[*tx.To()]; ok {
-				balanceFee = value
-			}
-		}
-		_, gas, err, tokenFeeUsed := core.ApplyTransaction(api.config, balanceFee, api.eth.blockchain, nil, gp, statedb, tomoxState, block.Header(), tx, usedGas, vm.Config{})
+		_, gas, err, tokenFeeUsed := core.ApplyTransaction(api.config, feeCapacity, api.eth.blockchain, nil, gp, statedb, tomoxState, block.Header(), tx, usedGas, vm.Config{})
 		if err != nil {
 			return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 		}

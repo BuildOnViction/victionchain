@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
+	"math/big"
 	"sort"
 	"time"
 
@@ -195,13 +195,8 @@ func regenerateState(
 		if block = blockchain.GetBlockByNumber(block.NumberU64() + 1); block == nil {
 			return nil, nil, fmt.Errorf("block #%d not found", block.NumberU64()+1)
 		}
-		var tokens []common.Address
-		for _, tx := range block.Transactions() {
-			if tx.To() != nil && !slices.Contains(tokens, *tx.To()) {
-				tokens = append(tokens, *tx.To())
-			}
-		}
-		_, _, _, err := blockchain.Processor().Process(block, stateDB, tomoxStateDB, vm.Config{})
+		feeCapacity := state.GetTRC21FeeCapacityFromState(stateDB)
+		_, _, _, err := blockchain.Processor().Process(block, stateDB, tomoxStateDB, vm.Config{}, feeCapacity)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -251,8 +246,15 @@ func finaliseBlock(
 		signer = types.MakeSigner(chainConfig, targetBlock.Number())
 		txs    = targetBlock.Transactions()
 	)
+
+	feeCapacity := state.GetTRC21FeeCapacityFromState(stateDB)
 	for _, tx := range txs {
-		balance := state.GetTRC21FeeCapacityFromStateWithToken(stateDB, tx.To())
+		var balance *big.Int
+		if tx.To() != nil {
+			if value, ok := feeCapacity[*tx.To()]; ok {
+				balance = value
+			}
+		}
 		msg, _ := tx.AsMessage(signer, balance, targetBlock.Number(), false)
 		vmctx := core.NewEVMContext(msg, targetBlock.Header(), blockchain, nil)
 		vmenv := vm.NewEVM(vmctx, stateDB, tomoxStateDB, chainConfig, vm.Config{})

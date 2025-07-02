@@ -2,6 +2,7 @@ package state
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -33,11 +34,13 @@ func GetTRC21FeeCapacityFromStateWithCache(trieRoot common.Hash, statedb *StateD
 	if data != nil {
 		info = data.(map[common.Address]*big.Int)
 	} else {
+		fmt.Println("=> GetTRC21FeeCapacityFromStateWithCache:data == nil")
 		info = GetTRC21FeeCapacityFromState(statedb)
 	}
 	cache.Add(trieRoot, info)
 	tokensFee := map[common.Address]*big.Int{}
 	for key, value := range info {
+		fmt.Println("=> GetTRC21FeeCapacityFromStateWithCache", key.String(), value.String())
 		tokensFee[key] = big.NewInt(0).SetBytes(value.Bytes())
 	}
 	return tokensFee
@@ -152,41 +155,6 @@ func ValidateTRC21Tx(statedb *StateDB, from common.Address, token common.Address
 	}
 
 	return false
-}
-
-func UpdateTRC21FeeAfterExperimental(statedb *StateDB, usedBalances map[common.Address]*big.Int) {
-	if statedb == nil || len(usedBalances) == 0 {
-		return
-	}
-
-	slotTokensState := SlotTRC21Issuer["tokensState"]
-
-	// After hardfork, newBalances will be amount of fee pay for this contracts (used balance)
-	totalFeeUsed := big.NewInt(0)
-	// For each token that used fees
-	for token, usedAmount := range usedBalances {
-		// Get current balance from state
-		balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
-		currentBalance := statedb.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
-		currentBalanceInt := new(big.Int).SetBytes(currentBalance[:])
-
-		// Subtract used amount from current balance
-		newBalance := new(big.Int).Sub(currentBalanceInt, usedAmount)
-
-		// amount alway better than 0
-		if newBalance.Cmp(big.NewInt(0)) == 0 {
-			newBalance = big.NewInt(1) // 1 Wei
-		}
-
-		// Update state with new balance
-		statedb.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(newBalance))
-
-		// Add to total fee used
-		totalFeeUsed.Add(totalFeeUsed, usedAmount)
-	}
-
-	statedb.SubBalance(common.TRC21IssuerSMC, totalFeeUsed)
-
 }
 
 func UpdateTRC21Fee(statedb *StateDB, newBalance map[common.Address]*big.Int, totalFeeUsed *big.Int) {

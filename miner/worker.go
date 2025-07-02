@@ -319,8 +319,9 @@ func (self *worker) update() {
 				self.currentMu.Lock()
 				acc, _ := types.Sender(self.current.signer, ev.Tx)
 				txs := map[common.Address]types.Transactions{acc: {ev.Tx}}
+				feeCapacity := state.GetTRC21FeeCapacityFromState(self.current.state)
 				txset, specialTxs := types.NewTransactionsByPriceAndNonce(self.current.signer, txs, nil)
-				self.current.commitTransactions(self.mux, txset, specialTxs, self.chain, self.coinbase)
+				self.current.commitTransactions(self.mux, feeCapacity, txset, specialTxs, self.chain, self.coinbase)
 				self.updateSnapshot()
 				self.currentMu.Unlock()
 			} else {
@@ -463,27 +464,18 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	author, _ := self.chain.Engine().Author(parent.Header())
 	var tomoxState *tradingstate.TradingStateDB
 	var lendingState *lendingstate.LendingStateDB
-
 	if self.config.Posv != nil {
-		parentBlockNumber := parent.Number()
-		if self.config.IsTomoXEnabled(parentBlockNumber) {
-			tomoX := self.eth.GetTomoX()
-			if tomoX != nil {
-				tomoxState, err = tomoX.GetTradingState(parent, author)
-				if err != nil {
-					log.Error("Failed to get tomox state ", "number", parent.Number(), "err", err)
-					return err
-				}
-			}
-
-			lending := self.eth.GetTomoXLending()
-			if lending != nil {
-				lendingState, err = lending.GetLendingState(parent, author)
-				if err != nil {
-					log.Error("Failed to get lending state ", "number", parent.Number(), "err", err)
-					return err
-				}
-			}
+		tomoX := self.eth.GetTomoX()
+		tomoxState, err = tomoX.GetTradingState(parent, author)
+		if err != nil {
+			log.Error("Failed to get tomox state ", "number", parent.Number(), "err", err)
+			return err
+		}
+		lending := self.eth.GetTomoXLending()
+		lendingState, err = lending.GetLendingState(parent, author)
+		if err != nil {
+			log.Error("Failed to get lending state ", "number", parent.Number(), "err", err)
+			return err
 		}
 	}
 
@@ -536,9 +528,9 @@ func (self *worker) commitNewWork() {
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
 	var signers map[common.Address]struct{}
-	if parent.Hash().Hex() == self.lastParentBlockCommit {
-		return
-	}
+	// if parent.Hash().Hex() == self.lastParentBlockCommit {
+	// 	return
+	// }
 	if !self.announceTxs && atomic.LoadInt32(&self.mining) == 0 {
 		return
 	}
@@ -661,6 +653,7 @@ func (self *worker) commitNewWork() {
 		liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades []*lendingstate.LendingTrade
 		lendingFinalizedTradeTransaction                                     *types.Transaction
 	)
+	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		pending, err := self.eth.TxPool().Pending()
 		if err != nil {
@@ -675,7 +668,7 @@ func (self *worker) commitNewWork() {
 			log.Warn("Can't find coinbase account wallet", "coinbase", self.coinbase, "err", err)
 			return
 		}
-		if self.config.Posv != nil && self.config.IsTomoXEnabled(header.Number) {
+		if self.config.Posv != nil && self.chain.Config().IsTIPTomoX(header.Number) {
 			tomoX := self.eth.GetTomoX()
 			tomoXLending := self.eth.GetTomoXLending()
 			if tomoX != nil && header.Number.Uint64() > self.config.Posv.Epoch {
@@ -779,32 +772,29 @@ func (self *worker) commitNewWork() {
 			}
 		}
 
-		blockNumber := header.Number
-		if self.config.IsTomoXEnabled(blockNumber) {
-			// force adding trading, lending transaction to this block
-			if tradingTransaction != nil {
-				specialTxs = append(specialTxs, tradingTransaction)
-			}
-			if lendingTransaction != nil {
-				specialTxs = append(specialTxs, lendingTransaction)
-			}
-			if lendingFinalizedTradeTransaction != nil {
-				specialTxs = append(specialTxs, lendingFinalizedTradeTransaction)
-			}
-
-			TomoxStateRoot := work.tradingState.IntermediateRoot()
-			LendingStateRoot := work.lendingState.IntermediateRoot()
-			txData := append(TomoxStateRoot.Bytes(), LendingStateRoot.Bytes()...)
-			tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TradingStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txData)
-			txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
-			if err != nil {
-				log.Error("Fail to create tx state root", "error", err)
-				return
-			}
-			specialTxs = append(specialTxs, txStateRoot)
+		// force adding trading, lending transaction to this block
+		if tradingTransaction != nil {
+			specialTxs = append(specialTxs, tradingTransaction)
 		}
+		if lendingTransaction != nil {
+			specialTxs = append(specialTxs, lendingTransaction)
+		}
+		if lendingFinalizedTradeTransaction != nil {
+			specialTxs = append(specialTxs, lendingFinalizedTradeTransaction)
+		}
+
+		TomoxStateRoot := work.tradingState.IntermediateRoot()
+		LendingStateRoot := work.lendingState.IntermediateRoot()
+		txData := append(TomoxStateRoot.Bytes(), LendingStateRoot.Bytes()...)
+		tx := types.NewTransaction(work.state.GetNonce(self.coinbase), common.HexToAddress(common.TradingStateAddr), big.NewInt(0), txMatchGasLimit, big.NewInt(0), txData)
+		txStateRoot, err := wallet.SignTx(accounts.Account{Address: self.coinbase}, tx, self.config.ChainId)
+		if err != nil {
+			log.Error("Fail to create tx state root", "error", err)
+			return
+		}
+		specialTxs = append(specialTxs, txStateRoot)
 	}
-	work.commitTransactions(self.mux, txs, specialTxs, self.chain, self.coinbase)
+	work.commitTransactions(self.mux, feeCapacity, txs, specialTxs, self.chain, self.coinbase)
 	// compute uncles for the new block.
 	var (
 		uncles    []*types.Header
@@ -858,23 +848,13 @@ func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 	return nil
 }
 
-func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, specialTxs types.Transactions, bc *core.BlockChain, coinbase common.Address) {
+func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Address]*big.Int, txs *types.TransactionsByPriceAndNonce, specialTxs types.Transactions, bc *core.BlockChain, coinbase common.Address) {
 	gp := new(core.GasPool).AddGas(env.header.GasLimit)
 	balanceUpdated := map[common.Address]*big.Int{}
-	usedBalances := map[common.Address]*big.Int{}
-
 	totalFeeUsed := big.NewInt(0)
-
-	// Check if we're past the experimental block
+	var coalescedLogs []*types.Log
 	isAfterExperimental := env.config.IsExperimental(bc.CurrentBlock().Number())
 
-	var balanceFee = make(map[common.Address]*big.Int)
-	if !isAfterExperimental {
-		// Get the balance fee capacity from the state
-		balanceFee = state.GetTRC21FeeCapacityFromStateWithCache(bc.CurrentBlock().Root(), env.state)
-	}
-
-	var coalescedLogs []*types.Log
 	// first priority for special Txs
 	for _, tx := range specialTxs {
 
@@ -892,8 +872,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			}
 		}
 
-		// validate balance slot, minFee slot for TomoZ
-		if env.config.IsTomoZEnabled(env.header.Number) && tx.IsTomoZApplyTransaction() {
+		// validate minFee slot for TomoZ
+		if tx.IsTomoZApplyTransaction() {
 			copyState, _ := bc.State()
 			if err := core.ValidateTomoZApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				log.Debug("TomoZApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
@@ -902,7 +882,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			}
 		}
 		// validate balance slot, token decimal for TomoX
-		if env.config.IsTomoXEnabled(env.header.Number) && tx.IsTomoXApplyTransaction() {
+		if tx.IsTomoXApplyTransaction() {
 			copyState, _ := bc.State()
 			if err := core.ValidateTomoXApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
@@ -945,11 +925,6 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			log.Trace("Skipping account with special transaction invalid nonce", "sender", from, "nonce", nonce, "tx nonce ", tx.Nonce(), "to", tx.To())
 			continue
 		}
-		if isAfterExperimental {
-			if tx.To() != nil {
-				balanceFee[*tx.To()] = state.GetTRC21FeeCapacityFromStateWithToken(env.state, tx.To())
-			}
-		}
 		err, logs, tokenFeeUsed, gas := env.commitTransaction(balanceFee, tx, bc, coinbase, gp)
 		switch err {
 		case core.ErrNonceTooLow:
@@ -969,23 +944,14 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			// nonce-too-high clause will prevent us from executing in vain).
 			log.Debug("Add Special Transaction failed, account skipped", "hash", tx.Hash(), "sender", from, "nonce", tx.Nonce(), "to", tx.To(), "err", err)
 		}
-		if tokenFeeUsed {
+		if !isAfterExperimental && tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			if isAfterExperimental {
-				// After Experimental HF, Track used fee in separate map
-				if usedBalances[*tx.To()] == nil {
-					usedBalances[*tx.To()] = new(big.Int)
-				}
-				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
-			} else {
-				// Before Experimental HF
-				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-				balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
-			}
+			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
+			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
 	for {
@@ -1021,8 +987,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			}
 		}
 
-		// validate balance slot, minFee slot for TomoZ
-		if env.config.IsTomoZEnabled(env.header.Number) && tx.IsTomoZApplyTransaction() {
+		// validate minFee slot for TomoZ
+		if tx.IsTomoZApplyTransaction() {
 			copyState, _ := bc.State()
 			if err := core.ValidateTomoZApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				log.Debug("TomoZApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
@@ -1031,7 +997,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			}
 		}
 		// validate balance slot, token decimal for TomoX
-		if env.config.IsTomoXEnabled(env.header.Number) && tx.IsTomoXApplyTransaction() {
+		if tx.IsTomoXApplyTransaction() {
 			copyState, _ := bc.State()
 			if err := core.ValidateTomoXApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				log.Debug("TomoXApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
@@ -1067,11 +1033,6 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			txs.Pop()
 			continue
 		}
-		if isAfterExperimental {
-			if tx.To() != nil {
-				balanceFee[*tx.To()] = state.GetTRC21FeeCapacityFromStateWithToken(env.state, tx.To())
-			}
-		}
 		err, logs, tokenFeeUsed, gas := env.commitTransaction(balanceFee, tx, bc, coinbase, gp)
 		switch err {
 		case core.ErrGasLimitReached:
@@ -1101,32 +1062,19 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 		}
-		if tokenFeeUsed {
+		if !isAfterExperimental && tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			if isAfterExperimental {
-				// After Experimental HF, Track used fee in separate map
-				if usedBalances[*tx.To()] == nil {
-					usedBalances[*tx.To()] = new(big.Int)
-				}
-				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
-			} else {
-				// Before Experimental HF
-				balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
-				balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
-				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
-			}
+			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
+			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	if isAfterExperimental {
-		state.UpdateTRC21FeeAfterExperimental(env.state, usedBalances)
-	} else {
+	if !isAfterExperimental {
 		state.UpdateTRC21Fee(env.state, balanceUpdated, totalFeeUsed)
-
 	}
-
 	if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined
 		// logs by filling in the block hash when the block was mined by the local miner. This can
@@ -1160,15 +1108,8 @@ func (self *worker) updateSnapshot() {
 	self.snapshotState = self.current.state.Copy()
 }
 
-func (env *Work) commitTransaction(balanceFeeMap map[common.Address]*big.Int, tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log, bool, uint64) {
+func (env *Work) commitTransaction(balanceFee map[common.Address]*big.Int, tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log, bool, uint64) {
 	snap := env.state.Snapshot()
-
-	var balanceFee *big.Int
-	if tx.To() != nil {
-		if value, ok := balanceFeeMap[*tx.To()]; ok {
-			balanceFee = value
-		}
-	}
 
 	receipt, gas, err, tokenFeeUsed := core.ApplyTransaction(env.config, balanceFee, bc, &coinbase, gp, env.state, env.tradingState, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
