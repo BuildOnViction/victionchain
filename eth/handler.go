@@ -104,6 +104,9 @@ type ProtocolManager struct {
 	knownTxs       *lru.Cache
 	knowOrderTxs   *lru.Cache
 	knowLendingTxs *lru.Cache
+
+	// Synchronization for peer unregistration to prevent race conditions
+	unregisterMutex sync.Mutex
 }
 
 // NewProtocolManagerEx add order pool to protocol
@@ -229,7 +232,10 @@ func (pm *ProtocolManager) addLendingPoolProtocol(lendingpool lendingPool) {
 	pm.lendingpool = lendingpool
 }
 func (pm *ProtocolManager) removePeer(id string) {
-	// Short circuit if the peer was already removed
+	// Prevent concurrent unregistrations from the peer set
+	pm.unregisterMutex.Lock()
+	defer pm.unregisterMutex.Unlock()
+
 	peer := pm.peers.Peer(id)
 	if peer == nil {
 		return
