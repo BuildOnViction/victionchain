@@ -96,17 +96,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	InitSignerInTransactions(p.config, header, block.Transactions())
 
 	balanceUpdated := map[common.Address]*big.Int{}
-	usedBalances := map[common.Address]*big.Int{}
-
 	totalFeeUsed := big.NewInt(0)
 
 	// Check if we're past the experimental block
 	isAfterExperimental := p.config.IsExperimental(block.Number())
 
-	var balanceFeeMap = make(map[common.Address]*big.Int)
+	var balanceFee = make(map[common.Address]*big.Int)
 	if !isAfterExperimental {
 		// Get the balance fee capacity from the state
-		balanceFeeMap = state.GetTRC21FeeCapacityFromStateWithCache(block.Root(), statedb)
+		balanceFee = state.GetTRC21FeeCapacityFromStateWithCache(block.Root(), statedb)
 	}
 
 	for i, tx := range block.Transactions() {
@@ -137,43 +135,32 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		}
 
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		var balanceFee *big.Int
+		var tokenFee *big.Int
 		if tx.To() != nil {
 			if isAfterExperimental {
-				balanceFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
-			} else if value, ok := balanceFeeMap[*tx.To()]; ok {
-				balanceFee = value
+				tokenFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
+			} else if value, ok := balanceFee[*tx.To()]; ok {
+				tokenFee = value
 			}
 		}
-		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
+		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, tokenFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
-		if tokenFeeUsed {
+		if tokenFeeUsed && !isAfterExperimental {
 			fee := new(big.Int).SetUint64(gas)
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			if isAfterExperimental {
-				// After Experimental HF, Only store used balance
-				if usedBalances[*tx.To()] == nil {
-					usedBalances[*tx.To()] = new(big.Int)
-				}
-				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
-			} else {
-				// Before Experimental HF, Store new balance after sub fee
-				balanceFeeMap[*tx.To()] = new(big.Int).Sub(balanceFeeMap[*tx.To()], fee)
-				balanceUpdated[*tx.To()] = balanceFeeMap[*tx.To()]
-				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
-			}
+			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
+			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
 
-	if isAfterExperimental {
-		state.UpdateTRC21FeeAfterExperimental(statedb, usedBalances)
-	} else {
+	if !isAfterExperimental {
 		state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
 	}
 
@@ -216,17 +203,16 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	InitSignerInTransactions(p.config, header, block.Transactions())
 
 	balanceUpdated := map[common.Address]*big.Int{}
-	usedBalances := map[common.Address]*big.Int{}
 
 	totalFeeUsed := big.NewInt(0)
 
 	// Check if we're past the experimental block
 	isAfterExperimental := p.config.IsExperimental(block.Number())
 
-	var balanceFeeMap = make(map[common.Address]*big.Int)
+	var balanceFee = make(map[common.Address]*big.Int)
 	if !isAfterExperimental {
 		// Get the balance fee capacity from the state
-		balanceFeeMap = state.GetTRC21FeeCapacityFromStateWithCache(block.Root(), statedb)
+		balanceFee = state.GetTRC21FeeCapacityFromStateWithCache(block.Root(), statedb)
 	}
 
 	if cBlock.stop {
@@ -262,15 +248,15 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		}
 
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		var balanceFee *big.Int
+		var tokenFee *big.Int
 		if tx.To() != nil {
 			if isAfterExperimental {
-				balanceFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
-			} else if value, ok := balanceFeeMap[*tx.To()]; ok {
-				balanceFee = value
+				tokenFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
+			} else if value, ok := balanceFee[*tx.To()]; ok {
+				tokenFee = value
 			}
 		}
-		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
+		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, tokenFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -279,30 +265,18 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		}
 		receipts[i] = receipt
 		allLogs = append(allLogs, receipt.Logs...)
-		if tokenFeeUsed {
+		if tokenFeeUsed && !isAfterExperimental {
 			fee := new(big.Int).SetUint64(gas)
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
 			}
-			if isAfterExperimental {
-				// After Experimental HF, Track used fee in separate map
-				if usedBalances[*tx.To()] == nil {
-					usedBalances[*tx.To()] = new(big.Int)
-				}
-				usedBalances[*tx.To()].Add(usedBalances[*tx.To()], fee)
-			} else {
-				// Before Experimental HF, Track used fee in separate map
-				balanceFeeMap[*tx.To()] = new(big.Int).Sub(balanceFeeMap[*tx.To()], fee)
-				balanceUpdated[*tx.To()] = balanceFeeMap[*tx.To()]
-				totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
-			}
-
+			balanceFee[*tx.To()] = new(big.Int).Sub(balanceFee[*tx.To()], fee)
+			balanceUpdated[*tx.To()] = balanceFee[*tx.To()]
+			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
 
-	if isAfterExperimental {
-		state.UpdateTRC21FeeAfterExperimental(statedb, usedBalances)
-	} else {
+	if !isAfterExperimental {
 		state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
 	}
 
