@@ -182,12 +182,8 @@ func (st *StateTransition) buyGas() (bool, error) {
 
 	currentBlock := st.evm.Context.BlockNumber
 	isAfterExperimental := st.evm.ChainConfig().IsExperimental(currentBlock)
-	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if isAfterExperimental {
-		mgval = new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), common.TRC21GasPrice)
-	}
 	// Check balance based on hard fork status
-	if err := st.checkBalance(mgval, balanceTokenFee, state, from, isAfterExperimental); err != nil {
+	if err := st.checkBalance(balanceTokenFee, state, from, isAfterExperimental); err != nil {
 		return false, err
 	}
 
@@ -199,16 +195,16 @@ func (st *StateTransition) buyGas() (bool, error) {
 	st.initialGas = st.msg.Gas()
 
 	// Subtract balance based on hard fork status
-	isUsedTokenFee := st.subtractBalance(mgval, balanceTokenFee, state, from, isAfterExperimental)
+	isUsedTokenFee := st.subtractBalance(balanceTokenFee, state, from, isAfterExperimental)
 	return isUsedTokenFee, nil
 }
 
-// block [rut - xai]
-
-func (st *StateTransition) checkBalance(mgval *big.Int, balanceTokenFee *big.Int, state vm.StateDB, from vm.AccountRef, isAfterExperimental bool) error {
+func (st *StateTransition) checkBalance(balanceTokenFee *big.Int, state vm.StateDB, from vm.AccountRef, isAfterExperimental bool) error {
+	vrc25val := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), common.TRC21GasPrice)
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if isAfterExperimental {
 		// After Experimental HF: Check balance if no token fee or insufficient token fee
-		if balanceTokenFee == nil || balanceTokenFee.Cmp(mgval) <= 0 {
+		if balanceTokenFee == nil || balanceTokenFee.Cmp(vrc25val) <= 0 {
 			if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
 				return errInsufficientBalanceForGas
 			}
@@ -226,14 +222,16 @@ func (st *StateTransition) checkBalance(mgval *big.Int, balanceTokenFee *big.Int
 	return nil
 }
 
-func (st *StateTransition) subtractBalance(mgval *big.Int, balanceTokenFee *big.Int, stateDB vm.StateDB, from vm.AccountRef, isAfterExperimental bool) bool {
+func (st *StateTransition) subtractBalance(balanceTokenFee *big.Int, stateDB vm.StateDB, from vm.AccountRef, isAfterExperimental bool) bool {
+	vrc25val := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), common.TRC21GasPrice)
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if isAfterExperimental {
 		// After Experimental HF: Subtract balance if no token fee or insufficient token fee
-		if balanceTokenFee == nil || balanceTokenFee.Cmp(mgval) <= 0 {
+		if balanceTokenFee == nil || balanceTokenFee.Cmp(vrc25val) <= 0 {
 			stateDB.SubBalance(from.Address(), mgval)
 			return false
 		} else {
-			st.vrc25PayGas(*st.msg.To(), mgval)
+			st.vrc25PayGas(*st.msg.To(), vrc25val)
 			return true
 		}
 	} else {
