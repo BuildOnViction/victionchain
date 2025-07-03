@@ -263,7 +263,7 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	currentBlock := st.evm.Context.BlockNumber
 	isAfterExperimental := st.evm.ChainConfig().IsExperimental(currentBlock)
 	var isUsedTokenFee bool
-	if isUsedTokenFee, err = st.preCheck(); err != nil {
+	if isUsedTokenFee, err = st.preCheck(isAfterExperimental); err != nil {
 		return
 	}
 	msg := st.msg
