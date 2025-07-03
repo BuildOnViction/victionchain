@@ -135,15 +135,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		}
 
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		var tokenFee *big.Int
-		if tx.To() != nil {
-			if isAfterExperimental {
-				tokenFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
-			} else if value, ok := balanceFee[*tx.To()]; ok {
-				tokenFee = value
-			}
-		}
-		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, tokenFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
+		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -211,7 +203,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 
 	var balanceFee = make(map[common.Address]*big.Int)
 	if !isAfterExperimental {
-		// Get the balance fee capacity from the state
+		// Only fetch all TRC21 fee capacity from the state in older blocks
 		balanceFee = state.GetTRC21FeeCapacityFromStateWithCache(block.Root(), statedb)
 	}
 
@@ -248,15 +240,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		}
 
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		var tokenFee *big.Int
-		if tx.To() != nil {
-			if isAfterExperimental {
-				tokenFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
-			} else if value, ok := balanceFee[*tx.To()]; ok {
-				tokenFee = value
-			}
-		}
-		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, tokenFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
+		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -289,7 +273,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, balanceFee *big.Int, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error, bool) {
+func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*big.Int, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, tomoxState *tradingstate.TradingStateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error, bool) {
 	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
 		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
@@ -305,6 +289,17 @@ func ApplyTransaction(config *params.ChainConfig, balanceFee *big.Int, bc *Block
 
 	if tx.IsLendingFinalizedTradeTransaction() && config.IsTomoXEnabled(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	}
+	var balanceFee *big.Int
+	if tx.To() != nil {
+		if config.IsExperimental(header.Number) {
+			// after upgrade, we will get latest fee capacity from state
+			balanceFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
+		} else {
+			if value, ok := tokensFee[*tx.To()]; ok {
+				balanceFee = value
+			}
+		}
 	}
 
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, true, config.IsExperimental(header.Number))
@@ -503,6 +498,7 @@ func ApplyTransaction(config *params.ChainConfig, balanceFee *big.Int, bc *Block
 		fee = fee.Mul(fee, common.TRC21GasPrice)
 	}
 	if balanceFee != nil && balanceFee.Cmp(fee) == 1 && failed {
+		// No need to care about old blocks because tx with invalid will be dropped
 		state.PayFeeWithTRC21TxFail(statedb, msg.From(), *tx.To())
 	}
 

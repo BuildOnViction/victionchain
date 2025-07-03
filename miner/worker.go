@@ -653,7 +653,11 @@ func (self *worker) commitNewWork() {
 		liquidatedTrades, autoRepayTrades, autoTopUpTrades, autoRecallTrades []*lendingstate.LendingTrade
 		lendingFinalizedTradeTransaction                                     *types.Transaction
 	)
-	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
+	var feeCapacity map[common.Address]*big.Int
+	if !self.config.IsExperimental(header.Number) {
+		// Only fetch the fee capacity from state in old blocks
+		feeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
+	}
 	if self.config.Posv != nil && header.Number.Uint64()%self.config.Posv.Epoch != 0 {
 		pending, err := self.eth.TxPool().Pending()
 		if err != nil {
