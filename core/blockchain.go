@@ -1670,7 +1670,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				}
 			}
 		}
-		feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
+		var feeCapacity map[common.Address]*big.Int
+		if !bc.chainConfig.IsExperimental(block.Number()) {
+			// Only need to get the fee capacity for old blocks
+			feeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
+		}
 		// Process block using the parent state as reference point.
 		t0 := time.Now()
 		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, tradingState, bc.vmConfig, feeCapacity)
@@ -1987,7 +1991,11 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 			}
 		}
 	}
-	feeCapacity := state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
+	var feeCapacity map[common.Address]*big.Int
+	if !bc.chainConfig.IsExperimental(block.Number()) {
+		// Only need to get the fee capacity for old blocks
+		feeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
+	}
 	// Process block using the parent state as reference point.
 	receipts, logs, usedGas, err := bc.processor.ProcessBlockNoValidator(calculatedBlock, statedb, tradingState, bc.vmConfig, feeCapacity)
 	process := time.Since(bstart)

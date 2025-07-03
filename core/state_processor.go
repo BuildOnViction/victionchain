@@ -66,7 +66,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, cfg vm.Config, balanceFee map[common.Address]*big.Int) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -100,12 +100,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 
 	// Check if we're past the experimental block
 	isAfterExperimental := p.config.IsExperimental(block.Number())
-
-	var balanceFee = make(map[common.Address]*big.Int)
-	if !isAfterExperimental {
-		// Get the balance fee capacity from the state
-		balanceFee = state.GetTRC21FeeCapacityFromStateWithCache(block.Root(), statedb)
-	}
 
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
@@ -161,7 +155,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	return receipts, allLogs, *usedGas, nil
 }
 
-func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, statedb *state.StateDB, tradingState *tradingstate.TradingStateDB, cfg vm.Config, balanceFee map[common.Address]*big.Int) (types.Receipts, []*types.Log, uint64, error) {
 	block := cBlock.block
 	var (
 		receipts types.Receipts
@@ -200,12 +194,6 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 
 	// Check if we're past the experimental block
 	isAfterExperimental := p.config.IsExperimental(block.Number())
-
-	var balanceFee = make(map[common.Address]*big.Int)
-	if !isAfterExperimental {
-		// Only fetch all TRC21 fee capacity from the state in older blocks
-		balanceFee = state.GetTRC21FeeCapacityFromStateWithCache(block.Root(), statedb)
-	}
 
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
