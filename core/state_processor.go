@@ -523,14 +523,15 @@ func ApplyTransaction(config *params.ChainConfig, balanceFee *big.Int, bc *Block
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	if balanceFee != nil && failed {
-		state.PayFeeWithTRC21TxFail(statedb, msg.From(), *tx.To())
-	}
-
 	fee := new(big.Int).SetUint64(gas)
+
 	if bc.CurrentBlock().Number().Cmp(common.TIPTRC21FeeBlock) > 0 {
 		fee = fee.Mul(fee, common.TRC21GasPrice)
 	}
+	if balanceFee != nil && balanceFee.Cmp(fee) == 1 && failed {
+		state.PayFeeWithTRC21TxFail(statedb, msg.From(), *tx.To())
+	}
+
 	return receipt, gas, err, balanceFee != nil && balanceFee.Cmp(fee) == 1
 }
 
