@@ -305,7 +305,12 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, statedb *state.Stat
 		if tx.To() != nil {
 			feeCap := state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
 			if feeCap != nil {
-				return new(big.Int).Add(costLimit, feeCap).Cmp(tx.TRC21Cost()) < 0 || tx.Gas() > gasLimit
+				requiredFee := new(big.Int).Sub(tx.TRC21Cost(), tx.Value()) // gas fee
+
+				// Check if feeCap is sufficient to cover the fee
+				if feeCap.Cmp(requiredFee) >= 0 {
+					return tx.Value().Cmp(maximum) > 0 || tx.Gas() > gasLimit
+				}
 			}
 		}
 		return tx.Cost().Cmp(maximum) > 0 || tx.Gas() > gasLimit
