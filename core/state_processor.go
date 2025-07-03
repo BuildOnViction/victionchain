@@ -333,7 +333,7 @@ func ApplyTransaction(config *params.ChainConfig, balanceFee *big.Int, bc *Block
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
 
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, true)
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, true, config.IsExperimental(header.Number))
 	if err != nil {
 		return nil, 0, err, false
 	}
