@@ -173,15 +173,12 @@ func (st *StateTransition) useGas(amount uint64) error {
 	return nil
 }
 
-func (st *StateTransition) buyGas() (bool, error) {
+func (st *StateTransition) buyGas(isAfterExperimental bool) (bool, error) {
 	var (
 		state           = st.state
 		balanceTokenFee = st.balanceTokenFee()
 		from            = st.from()
 	)
-
-	currentBlock := st.evm.Context.BlockNumber
-	isAfterExperimental := st.evm.ChainConfig().IsExperimental(currentBlock)
 	// Check balance based on hard fork status
 	if err := st.checkBalance(balanceTokenFee, state, from, isAfterExperimental); err != nil {
 		return false, err
@@ -243,7 +240,7 @@ func (st *StateTransition) subtractBalance(balanceTokenFee *big.Int, stateDB vm.
 	return false
 }
 
-func (st *StateTransition) preCheck() (bool, error) {
+func (st *StateTransition) preCheck(isAfterExperimental bool) (bool, error) {
 	msg := st.msg
 	sender := st.from()
 
@@ -256,13 +253,15 @@ func (st *StateTransition) preCheck() (bool, error) {
 			return false, ErrNonceTooLow
 		}
 	}
-	return st.buyGas()
+	return st.buyGas(isAfterExperimental)
 }
 
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the the used gas. It returns an error if it
 // failed. An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedGas uint64, failed bool, err error) {
+	currentBlock := st.evm.Context.BlockNumber
+	isAfterExperimental := st.evm.ChainConfig().IsExperimental(currentBlock)
 	var isUsedTokenFee bool
 	if isUsedTokenFee, err = st.preCheck(); err != nil {
 		return
@@ -314,12 +313,20 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 	}
 	st.refundGas(isUsedTokenFee)
 
+	transactionFee := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
+
+	if isAfterExperimental {
+		// need to handle it because after Experimental HF, we're not override gas price
+		if isUsedTokenFee {
+			transactionFee = new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), common.TRC21GasPrice)
+		}
+	}
 	if st.evm.BlockNumber.Cmp(common.TIPTRC21FeeBlock) > 0 {
 		if (owner != common.Address{}) {
-			st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+			st.state.AddBalance(owner, transactionFee)
 		}
 	} else {
-		st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+		st.state.AddBalance(st.evm.Coinbase, transactionFee)
 	}
 
 	return ret, st.gasUsed(), vmerr != nil, err
