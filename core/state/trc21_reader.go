@@ -2,7 +2,6 @@ package state
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -34,13 +33,11 @@ func GetTRC21FeeCapacityFromStateWithCache(trieRoot common.Hash, statedb *StateD
 	if data != nil {
 		info = data.(map[common.Address]*big.Int)
 	} else {
-		fmt.Println("=> GetTRC21FeeCapacityFromStateWithCache:data == nil")
 		info = GetTRC21FeeCapacityFromState(statedb)
 	}
 	cache.Add(trieRoot, info)
 	tokensFee := map[common.Address]*big.Int{}
 	for key, value := range info {
-		fmt.Println("=> GetTRC21FeeCapacityFromStateWithCache", key.String(), value.String())
 		tokensFee[key] = big.NewInt(0).SetBytes(value.Bytes())
 	}
 	return tokensFee
