@@ -176,11 +176,11 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	PriceBump:  10,
 
 	AccountSlots: 16,
-	GlobalSlots:  4096,
-	AccountQueue: 64,
-	GlobalQueue:  1024,
+	GlobalSlots:  3072,
+	AccountQueue: 32,
+	GlobalQueue:  768,
 
-	Lifetime: 3 * time.Hour,
+	Lifetime: 10 * time.Minute,
 }
 
 // sanitize checks the provided user configurations and changes anything that's
