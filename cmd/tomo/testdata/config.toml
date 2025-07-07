@@ -1,4 +1,3 @@
-StakeEnable	=   true	    # flag  --miner ( true : enable staker , false : disable )
 Verbosity   =   0           # flag  --verbosity (0=Crit 1=Error 2=Warn 3=Info 4=Debug   5=Trace)
 NAT         =   ""          # flag  --nat
 
