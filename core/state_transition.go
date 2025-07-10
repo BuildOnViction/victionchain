@@ -377,11 +377,6 @@ func (st *StateTransition) vrc25PayGas(token common.Address, usedFee *big.Int) {
 	// Subtract used amount from current balance
 	newBalance := new(big.Int).Sub(currentBalanceInt, usedFee)
 
-	// amount alway better than 0
-	if newBalance.Cmp(big.NewInt(0)) == 0 {
-		newBalance = big.NewInt(1) // 1 Wei
-	}
-
 	st.state.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(newBalance))
 	st.state.SubBalance(common.TRC21IssuerSMC, usedFee)
 }
