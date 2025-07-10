@@ -537,9 +537,9 @@ func (self *worker) commitNewWork() {
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
 	var signers map[common.Address]struct{}
-	// if parent.Hash().Hex() == self.lastParentBlockCommit {
-	// 	return
-	// }
+	if parent.Hash().Hex() == self.lastParentBlockCommit {
+		return
+	}
 	if !self.announceTxs && atomic.LoadInt32(&self.mining) == 0 {
 		return
 	}
