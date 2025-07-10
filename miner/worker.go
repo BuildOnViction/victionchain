@@ -888,8 +888,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 
-		// validate minFee slot for TomoZ
-		if tx.IsTomoZApplyTransaction() {
+		// validate balance slot, minFee slot for TomoZ
+		if env.config.IsTomoZEnabled(env.header.Number) && tx.IsTomoZApplyTransaction() {
 			copyState, _ := bc.State()
 			if err := core.ValidateTomoZApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				log.Debug("TomoZApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
@@ -1003,8 +1003,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			}
 		}
 
-		// validate minFee slot for TomoZ
-		if tx.IsTomoZApplyTransaction() {
+		// validate balance slot, minFee slot for TomoZ
+		if env.config.IsTomoZEnabled(env.header.Number) && tx.IsTomoZApplyTransaction() {
 			copyState, _ := bc.State()
 			if err := core.ValidateTomoZApplyTransaction(bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				log.Debug("TomoZApply: invalid token", "token", common.BytesToAddress(tx.Data()[4:]).Hex())
