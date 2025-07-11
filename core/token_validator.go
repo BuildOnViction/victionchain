@@ -100,12 +100,7 @@ func CallContractWithState(call ethereum.CallMsg, chain consensus.ChainContext, 
 	}
 	// Execute the call.
 	msg := callmsg{call}
-	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
-	if msg.To() != nil {
-		if value, ok := feeCapacity[*msg.To()]; ok {
-			msg.CallMsg.BalanceTokenFee = value
-		}
-	}
+	msg.CallMsg.BalanceTokenFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, msg.To())
 	evmContext := NewEVMContext(msg, chain.CurrentHeader(), chain, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.

@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tomochain/tomochain/consensus/misc"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	"github.com/tomochain/tomochain/common"
@@ -205,7 +206,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 							balance = value
 						}
 					}
-					msg, _ := tx.AsMessage(signer, balance, task.block.Number(), false)
+					msg, _ := tx.AsMessage(signer, balance, task.block.Number(), false, api.config.IsExperimental(task.block.Number()))
 					vmctx := core.NewEVMContext(msg, task.block.Header(), api.eth.blockchain, nil)
 
 					res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -442,7 +443,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 						balance = value
 					}
 				}
-				msg, _ := txs[task.index].AsMessage(signer, balance, block.Number(), false)
+				msg, _ := txs[task.index].AsMessage(signer, balance, block.Number(), false, api.config.IsExperimental(block.Number()))
 				vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 				res, err := api.traceTx(ctx, msg, vmctx, task.statedb, config)
@@ -467,7 +468,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 			}
 		}
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer, balance, block.Number(), false)
+		msg, _ := tx.AsMessage(signer, balance, block.Number(), false, api.config.IsExperimental(block.Number()))
 		vmctx := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 
 		vmenv := vm.NewEVM(vmctx, statedb, tomoxState, api.config, vm.Config{})
@@ -671,6 +672,9 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	if common.TIPSigningBlock.Cmp(block.Header().Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if api.eth.chainConfig.IsExperimental(block.Header().Number) {
+		misc.ApplyVIPVRC25Upgarde(statedb, api.eth.chainConfig.ExperimentalBlock, block.Header().Number)
+	}
 	core.InitSignerInTransactions(api.config, block.Header(), block.Transactions())
 	balanceUpdated := map[common.Address]*big.Int{}
 	totalFeeUsed := big.NewInt(0)
@@ -686,7 +690,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 					balanceFee = value
 				}
 			}
-			msg, err := tx.AsMessage(types.MakeSigner(api.config, block.Header().Number), balanceFee, block.Number(), false)
+			msg, err := tx.AsMessage(types.MakeSigner(api.config, block.Header().Number), balanceFee, block.Number(), false, api.config.IsExperimental(block.Number()))
 			if err != nil {
 				return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 			}

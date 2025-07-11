@@ -236,9 +236,8 @@ type TxPool struct {
 
 	wg sync.WaitGroup // for shutdown sync
 
-	homestead        bool
-	IsSigner         func(address common.Address) bool
-	trc21FeeCapacity map[common.Address]*big.Int
+	homestead bool
+	IsSigner  func(address common.Address) bool
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -249,17 +248,16 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
-		config:           config,
-		chainconfig:      chainconfig,
-		chain:            chain,
-		signer:           types.NewEIP155Signer(chainconfig.ChainId),
-		pending:          make(map[common.Address]*txList),
-		queue:            make(map[common.Address]*txList),
-		beats:            make(map[common.Address]time.Time),
-		all:              make(map[common.Hash]*types.Transaction),
-		chainHeadCh:      make(chan ChainHeadEvent, chainHeadChanSize),
-		gasPrice:         new(big.Int).SetUint64(config.PriceLimit),
-		trc21FeeCapacity: map[common.Address]*big.Int{},
+		config:      config,
+		chainconfig: chainconfig,
+		chain:       chain,
+		signer:      types.NewEIP155Signer(chainconfig.ChainId),
+		pending:     make(map[common.Address]*txList),
+		queue:       make(map[common.Address]*txList),
+		beats:       make(map[common.Address]time.Time),
+		all:         make(map[common.Hash]*types.Transaction),
+		chainHeadCh: make(chan ChainHeadEvent, chainHeadChanSize),
+		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
 	}
 	pool.locals = newAccountSet(pool.signer)
 	pool.priced = newTxPricedList(&pool.all)
@@ -437,7 +435,6 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 		return
 	}
 	pool.currentState = statedb
-	pool.trc21FeeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(newHead.Root, statedb)
 	pool.pendingState = state.ManageState(statedb)
 	pool.currentMaxGas = newHead.GasLimit
 
@@ -639,18 +636,49 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	cost := tx.Cost()
 	minGasPrice := common.MinGasPrice
 	feeCapacity := big.NewInt(0)
+	// Check if we're past the experimental block
+
+	currentBlock := pool.chain.CurrentBlock().Number()
+	isAfterExperimental := pool.chainconfig.IsExperimental(currentBlock)
 
 	if tx.To() != nil {
-		if value, ok := pool.trc21FeeCapacity[*tx.To()]; ok {
-			feeCapacity = value
-			if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
-				return ErrInsufficientFunds
+		feeCap := state.GetTRC21FeeCapacityFromStateWithToken(pool.pendingState.StateDB, tx.To())
+		if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
+			return ErrInsufficientFunds
+		}
+		if isAfterExperimental {
+			if feeCap != nil {
+				minGasPrice = common.MinGasPrice
+				requiredFee := new(big.Int).Sub(tx.TRC21Cost(), tx.Value())
+
+				// Check if feeCap is sufficient to cover the fee
+				if feeCap.Cmp(requiredFee) >= 0 {
+					// User only needs to have enough balance for the value
+					if balance.Cmp(tx.Value()) < 0 {
+						return ErrInsufficientFunds
+					}
+				} else {
+					// User needs to have enough balance for the entire cost
+					if balance.Cmp(cost) < 0 {
+						return ErrInsufficientFunds
+					}
+				}
+			} else {
+				// Regular transaction
+				if balance.Cmp(cost) < 0 {
+					return ErrInsufficientFunds
+				}
 			}
-			cost = tx.TRC21Cost()
-			minGasPrice = common.TRC21GasPrice
+		} else {
+			if feeCap != nil {
+				feeCapacity = feeCap
+				cost = tx.TRC21Cost()
+				minGasPrice = common.TRC21GasPrice
+			}
 		}
 	}
-	if new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
+
+	if !isAfterExperimental && new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
 		return ErrInsufficientFunds
 	}
 
@@ -676,10 +704,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	/*
-		minGasDeploySMC := new(big.Int).Mul(new(big.Int).SetUint64(10), new(big.Int).SetUint64(params.Ether))
-		if tx.To() == nil && (tx.Cost().Cmp(minGasDeploySMC) < 0 || tx.GasPrice().Cmp(new(big.Int).SetUint64(10000*params.Shannon)) < 0) {
+		  minGasDeploySMC := new(big.Int).Mul(new(big.Int).SetUint64(10), new(big.Int).SetUint64(params.Ether))
+		  if tx.To() == nil && (tx.Cost().Cmp(minGasDeploySMC) < 0 || tx.GasPrice().Cmp(new(big.Int).SetUint64(10000*params.Shannon)) < 0) {
 			return ErrMinDeploySMC
-		}
+		  }
 	*/
 
 	// validate balance slot, minFee slot for TomoZ
@@ -1106,7 +1134,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.currentState)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -1291,7 +1319,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.trc21FeeCapacity)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.currentState)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)

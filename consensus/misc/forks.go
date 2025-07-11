@@ -64,3 +64,10 @@ func ApplySaigonHardForkTestnet(statedb *state.StateDB, saigonBlock *big.Int, he
 		statedb.AddBalance(posv.FoudationWalletAddr, ecoSystemFund)
 	}
 }
+
+func ApplyVIPVRC25Upgarde(statedb *state.StateDB, vipVRC25Block *big.Int, headBlock *big.Int) {
+	if headBlock.Cmp(vipVRC25Block) == 0 {
+		minCapLoc := state.GetLocSimpleVariable(state.SlotTRC21Issuer["minCap"])
+		statedb.SetState(common.TRC21IssuerSMC, minCapLoc, common.BigToHash(common.VRC25IssuerMinCap))
+	}
+}

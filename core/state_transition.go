@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
@@ -172,33 +173,74 @@ func (st *StateTransition) useGas(amount uint64) error {
 	return nil
 }
 
-func (st *StateTransition) buyGas() error {
+func (st *StateTransition) buyGas(isAfterExperimental bool) (bool, error) {
 	var (
 		state           = st.state
 		balanceTokenFee = st.balanceTokenFee()
 		from            = st.from()
 	)
-	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if balanceTokenFee == nil {
-		if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
-			return errInsufficientBalanceForGas
-		}
-	} else if balanceTokenFee.Cmp(mgval) < 0 {
-		return errInsufficientBalanceForGas
+	// Check balance based on hard fork status
+	if err := st.checkBalance(balanceTokenFee, state, from, isAfterExperimental); err != nil {
+		return false, err
 	}
+
+	// Update gas tracking
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
-		return err
+		return false, err
 	}
 	st.gas += st.msg.Gas()
-
 	st.initialGas = st.msg.Gas()
-	if balanceTokenFee == nil {
-		state.SubBalance(from.Address(), mgval)
+
+	// Subtract balance based on hard fork status
+	isUsedTokenFee := st.subtractBalance(balanceTokenFee, state, from, isAfterExperimental)
+	return isUsedTokenFee, nil
+}
+
+func (st *StateTransition) checkBalance(balanceTokenFee *big.Int, state vm.StateDB, from vm.AccountRef, isAfterExperimental bool) error {
+	vrc25val := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), common.TRC21GasPrice)
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	if isAfterExperimental {
+		// After Experimental HF: Check balance if no token fee or insufficient token fee
+		if balanceTokenFee == nil || balanceTokenFee.Cmp(vrc25val) <= 0 {
+			if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
+				return errInsufficientBalanceForGas
+			}
+		}
+	} else {
+		// Before Experimental HF: Check balance for regular tx or insufficient token fee
+		if balanceTokenFee == nil {
+			if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
+				return errInsufficientBalanceForGas
+			}
+		} else if balanceTokenFee.Cmp(mgval) < 0 {
+			return errInsufficientBalanceForGas
+		}
 	}
 	return nil
 }
 
-func (st *StateTransition) preCheck() error {
+func (st *StateTransition) subtractBalance(balanceTokenFee *big.Int, stateDB vm.StateDB, from vm.AccountRef, isAfterExperimental bool) bool {
+	vrc25val := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), common.TRC21GasPrice)
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	if isAfterExperimental {
+		// After Experimental HF: Subtract balance if no token fee or insufficient token fee
+		if balanceTokenFee == nil || balanceTokenFee.Cmp(vrc25val) <= 0 {
+			stateDB.SubBalance(from.Address(), mgval)
+			return false
+		} else {
+			st.vrc25PayGas(*st.msg.To(), vrc25val)
+			return true
+		}
+	} else {
+		// Before Experimental HF: Subtract balance only for regular transactions
+		if balanceTokenFee == nil {
+			stateDB.SubBalance(from.Address(), mgval)
+		}
+	}
+	return false
+}
+
+func (st *StateTransition) preCheck(isAfterExperimental bool) (bool, error) {
 	msg := st.msg
 	sender := st.from()
 
@@ -206,20 +248,23 @@ func (st *StateTransition) preCheck() error {
 	if msg.CheckNonce() {
 		nonce := st.state.GetNonce(sender.Address())
 		if nonce < msg.Nonce() {
-			return ErrNonceTooHigh
+			return false, ErrNonceTooHigh
 		} else if nonce > msg.Nonce() {
-			return ErrNonceTooLow
+			return false, ErrNonceTooLow
 		}
 	}
-	return st.buyGas()
+	return st.buyGas(isAfterExperimental)
 }
 
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the the used gas. It returns an error if it
 // failed. An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedGas uint64, failed bool, err error) {
-	if err = st.preCheck(); err != nil {
-		return
+	currentBlock := st.evm.Context.BlockNumber
+	isAfterExperimental := st.evm.ChainConfig().IsExperimental(currentBlock)
+	var isUsedTokenFee bool
+	if isUsedTokenFee, err = st.preCheck(isAfterExperimental); err != nil {
+		return nil, 0, false, err
 	}
 	msg := st.msg
 	sender := st.from() // err checked in preCheck
@@ -266,20 +311,28 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 			return nil, 0, false, vmerr
 		}
 	}
-	st.refundGas()
+	st.refundGas(isUsedTokenFee)
 
+	transactionFee := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
+
+	if isAfterExperimental {
+		// need to handle it because after Experimental HF, we're not override gas price
+		if isUsedTokenFee {
+			transactionFee = new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), common.TRC21GasPrice)
+		}
+	}
 	if st.evm.BlockNumber.Cmp(common.TIPTRC21FeeBlock) > 0 {
 		if (owner != common.Address{}) {
-			st.state.AddBalance(owner, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+			st.state.AddBalance(owner, transactionFee)
 		}
 	} else {
-		st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+		st.state.AddBalance(st.evm.Coinbase, transactionFee)
 	}
 
 	return ret, st.gasUsed(), vmerr != nil, err
 }
 
-func (st *StateTransition) refundGas() {
+func (st *StateTransition) refundGas(isUsedTokenFee bool) {
 	// Apply refund counter, capped to half of the used gas.
 	refund := st.gasUsed() / 2
 	if refund > st.state.GetRefund() {
@@ -288,12 +341,20 @@ func (st *StateTransition) refundGas() {
 	st.gas += refund
 
 	balanceTokenFee := st.balanceTokenFee()
-	if balanceTokenFee == nil {
-		from := st.from()
-		// Return ETH for remaining gas, exchanged at the original rate.
-		remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-		st.state.AddBalance(from.Address(), remaining)
+	if st.evm.ChainConfig().IsExperimental(st.evm.BlockNumber) {
+		if isUsedTokenFee {
+			remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), common.TRC21GasPrice)
+			st.vrc25RefundGas(*st.msg.To(), remaining)
+		}
+	} else {
+		if balanceTokenFee == nil {
+			from := st.from()
+			// Return ETH for remaining gas, exchanged at the original rate.
+			remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
+			st.state.AddBalance(from.Address(), remaining)
+		}
 	}
+
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.
 	st.gp.AddGas(st.gas)
@@ -302,4 +363,34 @@ func (st *StateTransition) refundGas() {
 // gasUsed returns the amount of gas used up by the state transition.
 func (st *StateTransition) gasUsed() uint64 {
 	return st.initialGas - st.gas
+}
+
+func (st *StateTransition) vrc25PayGas(token common.Address, usedFee *big.Int) {
+	if usedFee.Cmp(big.NewInt(0)) == 0 {
+		return
+	}
+	slotTokensState := state.SlotTRC21Issuer["tokensState"]
+	balanceKey := state.GetLocMappingAtKey(token.Hash(), slotTokensState)
+	balanceHash := st.state.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
+	currentBalanceInt := new(big.Int).SetBytes(balanceHash[:])
+
+	// Subtract used amount from current balance
+	newBalance := new(big.Int).Sub(currentBalanceInt, usedFee)
+
+	st.state.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(newBalance))
+	st.state.SubBalance(common.TRC21IssuerSMC, usedFee)
+}
+
+func (st *StateTransition) vrc25RefundGas(token common.Address, remaining *big.Int) {
+	if remaining.Cmp(big.NewInt(0)) == 0 {
+		return
+	}
+	slotTokensState := state.SlotTRC21Issuer["tokensState"]
+	balanceKey := state.GetLocMappingAtKey(token.Hash(), slotTokensState)
+	balanceHash := st.state.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
+	currentBalanceInt := new(big.Int).SetBytes(balanceHash[:])
+
+	newBalance := new(big.Int).Add(currentBalanceInt, remaining)
+	st.state.SetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey), common.BigToHash(newBalance))
+	st.state.AddBalance(common.TRC21IssuerSMC, remaining)
 }
