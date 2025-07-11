@@ -638,8 +638,8 @@ func (self *worker) commitNewWork() {
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		work.state.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if self.config.IsExperimental(header.Number) {
-		misc.ApplyVIPVRC25Upgarde(work.state, self.config.ExperimentalBlock, header.Number)
+	if self.config.IsAtlas(header.Number) {
+		misc.ApplyVIPVRC25Upgarde(work.state, self.config.AtlasBlock, header.Number)
 	}
 	if self.config.SaigonBlock != nil && self.config.SaigonBlock.Cmp(header.Number) <= 0 {
 		if common.IsTestnet {
@@ -663,7 +663,7 @@ func (self *worker) commitNewWork() {
 		lendingFinalizedTradeTransaction                                     *types.Transaction
 	)
 	var feeCapacity map[common.Address]*big.Int
-	if !self.config.IsExperimental(header.Number) {
+	if !self.config.IsAtlas(header.Number) {
 		// Only fetch the fee capacity from state in old blocks
 		feeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), work.state)
 	}
@@ -869,7 +869,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 	balanceUpdated := map[common.Address]*big.Int{}
 	totalFeeUsed := big.NewInt(0)
 	var coalescedLogs []*types.Log
-	isAfterExperimental := env.config.IsExperimental(bc.CurrentBlock().Number())
+	isAtlas := env.config.IsAtlas(bc.CurrentBlock().Number())
 
 	// first priority for special Txs
 	for _, tx := range specialTxs {
@@ -960,7 +960,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			// nonce-too-high clause will prevent us from executing in vain).
 			log.Debug("Add Special Transaction failed, account skipped", "hash", tx.Hash(), "sender", from, "nonce", tx.Nonce(), "to", tx.To(), "err", err)
 		}
-		if !isAfterExperimental && tokenFeeUsed {
+		if !isAtlas && tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
@@ -1078,7 +1078,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 		}
-		if !isAfterExperimental && tokenFeeUsed {
+		if !isAtlas && tokenFeeUsed {
 			fee := new(big.Int).SetUint64(gas)
 			if env.header.Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
@@ -1088,7 +1088,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, balanceFee map[common.Ad
 			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	if !isAfterExperimental {
+	if !isAtlas {
 		state.UpdateTRC21Fee(env.state, balanceUpdated, totalFeeUsed)
 	}
 	if len(coalescedLogs) > 0 || env.tcount > 0 {

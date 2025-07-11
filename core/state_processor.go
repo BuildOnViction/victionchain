@@ -81,8 +81,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if p.config.IsExperimental(header.Number) {
-		misc.ApplyVIPVRC25Upgarde(statedb, p.config.ExperimentalBlock, header.Number)
+	if p.config.IsAtlas(header.Number) {
+		misc.ApplyVIPVRC25Upgarde(statedb, p.config.AtlasBlock, header.Number)
 	}
 
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
@@ -98,8 +98,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	balanceUpdated := map[common.Address]*big.Int{}
 	totalFeeUsed := big.NewInt(0)
 
-	// Check if we're past the experimental block
-	isAfterExperimental := p.config.IsExperimental(block.Number())
+	// Check if we're past the Atlas block
+	isAtlas := p.config.IsAtlas(block.Number())
 
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
@@ -135,7 +135,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
-		if tokenFeeUsed && !isAfterExperimental {
+		if tokenFeeUsed && !isAtlas {
 			fee := new(big.Int).SetUint64(gas)
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
@@ -146,7 +146,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		}
 	}
 
-	if !isAfterExperimental {
+	if !isAtlas {
 		state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
 	}
 
@@ -171,8 +171,8 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
-	if p.config.IsExperimental(header.Number) {
-		misc.ApplyVIPVRC25Upgarde(statedb, p.config.ExperimentalBlock, header.Number)
+	if p.config.IsAtlas(header.Number) {
+		misc.ApplyVIPVRC25Upgarde(statedb, p.config.AtlasBlock, header.Number)
 	}
 
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
@@ -192,8 +192,8 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 
 	totalFeeUsed := big.NewInt(0)
 
-	// Check if we're past the experimental block
-	isAfterExperimental := p.config.IsExperimental(block.Number())
+	// Check if we're past the Atlas block
+	isAtlas := p.config.IsAtlas(block.Number())
 
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
@@ -237,7 +237,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		}
 		receipts[i] = receipt
 		allLogs = append(allLogs, receipt.Logs...)
-		if tokenFeeUsed && !isAfterExperimental {
+		if tokenFeeUsed && !isAtlas {
 			fee := new(big.Int).SetUint64(gas)
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
@@ -248,7 +248,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		}
 	}
 
-	if !isAfterExperimental {
+	if !isAtlas {
 		state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
 	}
 
@@ -280,7 +280,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	}
 	var balanceFee *big.Int
 	if tx.To() != nil {
-		if config.IsExperimental(header.Number) {
+		if config.IsAtlas(header.Number) {
 			// after upgrade, we will get latest fee capacity from state
 			balanceFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
 		} else {
@@ -290,7 +290,7 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 		}
 	}
 
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, true, config.IsExperimental(header.Number))
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, true, config.IsAtlas(header.Number))
 	if err != nil {
 		return nil, 0, err, false
 	}

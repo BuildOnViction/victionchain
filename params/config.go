@@ -217,8 +217,7 @@ type ChainConfig struct {
 	TIPTomoXCancellationFeeBlock *big.Int `json:"tipTomoXCancellationFeeBlock,omitempty"` // TIPTomoXCancellationFee switch block (nil = no fork, 0 = already activated)
 
 	SaigonBlock *big.Int `json:"saigonBlock,omitempty"` // Saigon switch block (nil = no fork, 0 = already activated)
-
-	ExperimentalBlock *big.Int `json:"experimentalBlock,omitempty"` // Experimental switch block (nil = no fork, 0 = already activated)
+	AtlasBlock  *big.Int `json:"atlasBlock,omitempty"`  // Atlas switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
@@ -271,7 +270,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v TIP2019: %v TIPSigning: %v TIPRandomize: %v BlackListHF: %v TIPTRC21Fee: %v TIPTomoX: %v TIPTomoXLending: %v TIPTomoXCancellationFee: %v Saigon: %v Experimental: %v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v TIP2019: %v TIPSigning: %v TIPRandomize: %v BlackListHF: %v TIPTRC21Fee: %v TIPTomoX: %v TIPTomoXLending: %v TIPTomoXCancellationFee: %v Saigon: %v Atlas: %v Engine: %v}",
 		c.ChainId,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -290,7 +289,7 @@ func (c *ChainConfig) String() string {
 		c.TIPTomoXLendingBlock,
 		c.TIPTomoXCancellationFeeBlock,
 		c.SaigonBlock,
-		c.ExperimentalBlock,
+		c.AtlasBlock,
 		engine,
 	)
 }
@@ -368,13 +367,13 @@ func (c *ChainConfig) IsSaigon(num *big.Int) bool {
 	return isForked(c.SaigonBlock, num)
 }
 
-func (c *ChainConfig) IsExperimental(num *big.Int) bool {
-	return isForked(c.ExperimentalBlock, num)
+func (c *ChainConfig) IsAtlas(num *big.Int) bool {
+	return isForked(c.AtlasBlock, num)
 }
 
 /* Feature flag check */
 func (c *ChainConfig) IsTomoXEnabled(num *big.Int) bool {
-	return !isForked(c.ExperimentalBlock, num) && isForked(common.TIPTomoXBlock, num)
+	return !isForked(c.AtlasBlock, num) && isForked(common.TIPTomoXBlock, num)
 }
 
 func (c *ChainConfig) IsTomoXLendingEnabled(num *big.Int) bool {
@@ -479,8 +478,8 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.SaigonBlock, newcfg.SaigonBlock, head) {
 		return newCompatError("Saigon fork block", c.SaigonBlock, newcfg.SaigonBlock)
 	}
-	if isForkIncompatible(c.ExperimentalBlock, newcfg.ExperimentalBlock, head) {
-		return newCompatError("Experimental fork block", c.ExperimentalBlock, newcfg.ExperimentalBlock)
+	if isForkIncompatible(c.AtlasBlock, newcfg.AtlasBlock, head) {
+		return newCompatError("Atlas fork block", c.AtlasBlock, newcfg.AtlasBlock)
 	}
 	return nil
 }
@@ -552,7 +551,7 @@ type Rules struct {
 	IsTIP2019, IsTIPSigning, IsTIPRandomize                  bool
 	IsBlackListHF, IsTIPTRC21Fee                             bool
 	IsTIPTomoX, IsTIPTomoXLending, IsTIPTomoXCancellationFee bool
-	IsSaigon, IsExperimental                                 bool
+	IsSaigon, IsAtlas                                        bool
 }
 
 func (c *ChainConfig) Rules(num *big.Int) Rules {
@@ -580,6 +579,6 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		IsTIPTomoXLending:         c.IsTIPTomoXLending(num),
 		IsTIPTomoXCancellationFee: c.IsTIPTomoXCancellationFee(num),
 		IsSaigon:                  c.IsSaigon(num),
-		IsExperimental:            c.IsExperimental(num),
+		IsAtlas:                   c.IsAtlas(num),
 	}
 }

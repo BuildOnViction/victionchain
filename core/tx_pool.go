@@ -636,17 +636,17 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	cost := tx.Cost()
 	minGasPrice := common.MinGasPrice
 	feeCapacity := big.NewInt(0)
-	// Check if we're past the experimental block
 
+	// Check if we're past the Atlas block
 	currentBlock := pool.chain.CurrentBlock().Number()
-	isAfterExperimental := pool.chainconfig.IsExperimental(currentBlock)
+	isAtlas := pool.chainconfig.IsAtlas(currentBlock)
 
 	if tx.To() != nil {
 		feeCap := state.GetTRC21FeeCapacityFromStateWithToken(pool.pendingState.StateDB, tx.To())
 		if !state.ValidateTRC21Tx(pool.pendingState.StateDB, from, *tx.To(), tx.Data()) {
 			return ErrInsufficientFunds
 		}
-		if isAfterExperimental {
+		if isAtlas {
 			if feeCap != nil {
 				minGasPrice = common.MinGasPrice
 				requiredFee := new(big.Int).Sub(tx.TRC21Cost(), tx.Value())
@@ -678,7 +678,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 	}
 
-	if !isAfterExperimental && new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
+	if !isAtlas && new(big.Int).Add(balance, feeCapacity).Cmp(cost) < 0 {
 		return ErrInsufficientFunds
 	}
 
