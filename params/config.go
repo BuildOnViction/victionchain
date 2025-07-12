@@ -41,6 +41,7 @@ var (
 		EIP158Block:    big.NewInt(3),
 		ByzantiumBlock: big.NewInt(4),
 		SaigonBlock:    big.NewInt(86158494),
+		AtlasBlock:     big.NewInt(97705094),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
@@ -69,6 +70,7 @@ var (
 		TIPTomoXLendingBlock:         big.NewInt(0),
 		TIPTomoXCancellationFeeBlock: big.NewInt(0),
 		SaigonBlock:                  big.NewInt(10004200),
+		AtlasBlock:                   big.NewInt(24697500),
 		Posv: &PosvConfig{
 			Period:              2,
 			Epoch:               900,
