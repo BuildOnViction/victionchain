@@ -515,7 +515,6 @@ func (b *EthApiBackend) GetOrderNonce(address common.Hash) (uint64, error) {
 }
 
 func (b *EthApiBackend) TomoxService() *tomox.TomoX {
-	// Return nil if TomoX is disabled due to Experimental hardfork
 	if b.ChainConfig().IsTomoXEnabled(b.CurrentBlock().Number()) {
 		return b.eth.TomoX
 	}
@@ -523,7 +522,6 @@ func (b *EthApiBackend) TomoxService() *tomox.TomoX {
 }
 
 func (b *EthApiBackend) LendingService() *tomoxlending.Lending {
-	// Return nil if TomoX is disabled due to Experimental hardfork
 	if b.ChainConfig().IsTomoXEnabled(b.CurrentBlock().Number()) {
 		return b.eth.Lending
 	}

@@ -1671,7 +1671,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			}
 		}
 		var feeCapacity map[common.Address]*big.Int
-		if !bc.chainConfig.IsExperimental(block.Number()) {
+		if !bc.chainConfig.IsAtlas(block.Number()) {
 			// Only need to get the fee capacity for old blocks
 			feeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 		}
@@ -1992,7 +1992,7 @@ func (bc *BlockChain) getResultBlock(block *types.Block, verifiedM2 bool) (*Resu
 		}
 	}
 	var feeCapacity map[common.Address]*big.Int
-	if !bc.chainConfig.IsExperimental(block.Number()) {
+	if !bc.chainConfig.IsAtlas(block.Number()) {
 		// Only need to get the fee capacity for old blocks
 		feeCapacity = state.GetTRC21FeeCapacityFromStateWithCache(parent.Root(), statedb)
 	}
@@ -2579,7 +2579,7 @@ func (bc *BlockChain) UpdateM1() error {
 		os.Exit(1)
 	} else {
 		header := bc.CurrentHeader()
-		if bc.Config().IsExperimental(header.Number) {
+		if bc.Config().IsAtlas(header.Number) {
 			sort.SliceStable(ms, func(i, j int) bool {
 				return ms[i].Stake.Cmp(ms[j].Stake) >= 0
 			})

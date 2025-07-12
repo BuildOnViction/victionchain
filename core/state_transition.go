@@ -173,14 +173,14 @@ func (st *StateTransition) useGas(amount uint64) error {
 	return nil
 }
 
-func (st *StateTransition) buyGas(isAfterExperimental bool) (bool, error) {
+func (st *StateTransition) buyGas(useAtlasRule bool) (bool, error) {
 	var (
 		state           = st.state
 		balanceTokenFee = st.balanceTokenFee()
 		from            = st.from()
 	)
 	// Check balance based on hard fork status
-	if err := st.checkBalance(balanceTokenFee, state, from, isAfterExperimental); err != nil {
+	if err := st.checkBalance(balanceTokenFee, state, from, useAtlasRule); err != nil {
 		return false, err
 	}
 
@@ -192,22 +192,22 @@ func (st *StateTransition) buyGas(isAfterExperimental bool) (bool, error) {
 	st.initialGas = st.msg.Gas()
 
 	// Subtract balance based on hard fork status
-	isUsedTokenFee := st.subtractBalance(balanceTokenFee, state, from, isAfterExperimental)
+	isUsedTokenFee := st.subtractBalance(balanceTokenFee, state, from, useAtlasRule)
 	return isUsedTokenFee, nil
 }
 
-func (st *StateTransition) checkBalance(balanceTokenFee *big.Int, state vm.StateDB, from vm.AccountRef, isAfterExperimental bool) error {
+func (st *StateTransition) checkBalance(balanceTokenFee *big.Int, state vm.StateDB, from vm.AccountRef, useAtlasRule bool) error {
 	vrc25val := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), common.TRC21GasPrice)
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if isAfterExperimental {
-		// After Experimental HF: Check balance if no token fee or insufficient token fee
+	if useAtlasRule {
+		// After Atlas HF: Check balance if no token fee or insufficient token fee
 		if balanceTokenFee == nil || balanceTokenFee.Cmp(vrc25val) <= 0 {
 			if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
 				return errInsufficientBalanceForGas
 			}
 		}
 	} else {
-		// Before Experimental HF: Check balance for regular tx or insufficient token fee
+		// Before Atlas HF: Check balance for regular tx or insufficient token fee
 		if balanceTokenFee == nil {
 			if state.GetBalance(from.Address()).Cmp(mgval) < 0 {
 				return errInsufficientBalanceForGas
@@ -219,11 +219,11 @@ func (st *StateTransition) checkBalance(balanceTokenFee *big.Int, state vm.State
 	return nil
 }
 
-func (st *StateTransition) subtractBalance(balanceTokenFee *big.Int, stateDB vm.StateDB, from vm.AccountRef, isAfterExperimental bool) bool {
+func (st *StateTransition) subtractBalance(balanceTokenFee *big.Int, stateDB vm.StateDB, from vm.AccountRef, useAtlasRule bool) bool {
 	vrc25val := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), common.TRC21GasPrice)
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if isAfterExperimental {
-		// After Experimental HF: Subtract balance if no token fee or insufficient token fee
+	if useAtlasRule {
+		// After Atlas HF: Subtract balance if no token fee or insufficient token fee
 		if balanceTokenFee == nil || balanceTokenFee.Cmp(vrc25val) <= 0 {
 			stateDB.SubBalance(from.Address(), mgval)
 			return false
@@ -232,7 +232,7 @@ func (st *StateTransition) subtractBalance(balanceTokenFee *big.Int, stateDB vm.
 			return true
 		}
 	} else {
-		// Before Experimental HF: Subtract balance only for regular transactions
+		// Before Atlas HF: Subtract balance only for regular transactions
 		if balanceTokenFee == nil {
 			stateDB.SubBalance(from.Address(), mgval)
 		}
@@ -240,7 +240,7 @@ func (st *StateTransition) subtractBalance(balanceTokenFee *big.Int, stateDB vm.
 	return false
 }
 
-func (st *StateTransition) preCheck(isAfterExperimental bool) (bool, error) {
+func (st *StateTransition) preCheck(useAtlasRule bool) (bool, error) {
 	msg := st.msg
 	sender := st.from()
 
@@ -253,7 +253,7 @@ func (st *StateTransition) preCheck(isAfterExperimental bool) (bool, error) {
 			return false, ErrNonceTooLow
 		}
 	}
-	return st.buyGas(isAfterExperimental)
+	return st.buyGas(useAtlasRule)
 }
 
 // TransitionDb will transition the state by applying the current message and
@@ -261,9 +261,9 @@ func (st *StateTransition) preCheck(isAfterExperimental bool) (bool, error) {
 // failed. An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedGas uint64, failed bool, err error) {
 	currentBlock := st.evm.Context.BlockNumber
-	isAfterExperimental := st.evm.ChainConfig().IsExperimental(currentBlock)
+	isAtlas := st.evm.ChainConfig().IsAtlas(currentBlock)
 	var isUsedTokenFee bool
-	if isUsedTokenFee, err = st.preCheck(isAfterExperimental); err != nil {
+	if isUsedTokenFee, err = st.preCheck(isAtlas); err != nil {
 		return nil, 0, false, err
 	}
 	msg := st.msg
@@ -315,8 +315,8 @@ func (st *StateTransition) TransitionDb(owner common.Address) (ret []byte, usedG
 
 	transactionFee := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
 
-	if isAfterExperimental {
-		// need to handle it because after Experimental HF, we're not override gas price
+	if isAtlas {
+		// need to handle it because after Atlas HF, we're not override gas price
 		if isUsedTokenFee {
 			transactionFee = new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), common.TRC21GasPrice)
 		}
@@ -341,7 +341,7 @@ func (st *StateTransition) refundGas(isUsedTokenFee bool) {
 	st.gas += refund
 
 	balanceTokenFee := st.balanceTokenFee()
-	if st.evm.ChainConfig().IsExperimental(st.evm.BlockNumber) {
+	if st.evm.ChainConfig().IsAtlas(st.evm.BlockNumber) {
 		if isUsedTokenFee {
 			remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), common.TRC21GasPrice)
 			st.vrc25RefundGas(*st.msg.To(), remaining)
