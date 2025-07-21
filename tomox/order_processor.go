@@ -2,10 +2,11 @@ package tomox
 
 import (
 	"encoding/json"
-	"github.com/tomochain/tomochain/core/types"
 	"math/big"
 	"strconv"
 	"time"
+
+	"github.com/tomochain/tomochain/core/types"
 
 	"github.com/tomochain/tomochain/consensus"
 
@@ -636,7 +637,7 @@ func (tomox *TomoX) ProcessCancelOrder(header *types.Header, tradingStateDB *tra
 	log.Debug("ProcessCancelOrder", "baseToken", originOrder.BaseToken, "quoteToken", originOrder.QuoteToken)
 	feeRate := tradingstate.GetExRelayerFee(originOrder.ExchangeAddress, statedb)
 	tokenCancelFee, tokenPriceInTOMO := common.Big0, common.Big0
-	if !chain.Config().IsTIPTomoXCancellationFee(header.Number) {
+	if !chain.Config().IsTomoXCancellationFeeEnabled(header.Number) {
 		tokenCancelFee = getCancelFeeV1(baseTokenDecimal, feeRate, &originOrder)
 	} else {
 		tokenCancelFee, tokenPriceInTOMO = tomox.getCancelFee(chain, statedb, tradingStateDB, &originOrder, feeRate)

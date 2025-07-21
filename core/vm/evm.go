@@ -17,12 +17,13 @@
 package vm
 
 import (
-	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"errors"
-	"github.com/tomochain/tomochain/params"
 	"math/big"
 	"sync/atomic"
 	"time"
+
+	"github.com/tomochain/tomochain/params"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
@@ -53,16 +54,18 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			precompiles = PrecompiledContractsIstanbul
 		}
 		if p := precompiles[*contract.CodeAddr]; p != nil {
-			switch p.(type) {
-			case *tomoxEpochPrice:
-				p.(*tomoxEpochPrice).SetTradingState(evm.tradingStateDB)
-			case *tomoxLastPrice:
-				p.(*tomoxLastPrice).SetTradingState(evm.tradingStateDB)
+			if evm.ChainConfig().IsTomoXEnabled(evm.BlockNumber) {
+				switch p.(type) {
+				case *tomoxEpochPrice:
+					p.(*tomoxEpochPrice).SetTradingState(evm.tradingStateDB)
+				case *tomoxLastPrice:
+					p.(*tomoxLastPrice).SetTradingState(evm.tradingStateDB)
+				}
 			}
 			return RunPrecompiledContract(p, input, contract)
 		}
 	}
-	if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+	if evm.ChainConfig().IsTomoXCancellationFeeEnabled(evm.BlockNumber) {
 		for _, interpreter := range evm.interpreters {
 			if interpreter.CanRun(contract.Code) {
 				if evm.interpreter != interpreter {
@@ -150,13 +153,13 @@ type EVM struct {
 // only ever be used *once*.
 func NewEVM(ctx Context, statedb StateDB, tradingStateDB *tradingstate.TradingStateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
 	evm := &EVM{
-		Context:      ctx,
-		StateDB:      statedb,
+		Context:        ctx,
+		StateDB:        statedb,
 		tradingStateDB: tradingStateDB,
-		vmConfig:     vmConfig,
-		chainConfig:  chainConfig,
-		chainRules:   chainConfig.Rules(ctx.BlockNumber),
-		interpreters: make([]Interpreter, 0, 1),
+		vmConfig:       vmConfig,
+		chainConfig:    chainConfig,
+		chainRules:     chainConfig.Rules(ctx.BlockNumber),
+		interpreters:   make([]Interpreter, 0, 1),
 	}
 
 	// vmConfig.EVMInterpreter will be used by EVM-C, it won't be checked here
@@ -208,7 +211,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		if evm.chainRules.IsByzantium {
 			precompiles = PrecompiledContractsByzantium
 		}
-		if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+		if evm.ChainConfig().IsTomoXCancellationFeeEnabled(evm.BlockNumber) {
 			if evm.chainRules.IsIstanbul {
 				precompiles = PrecompiledContractsIstanbul
 			}
@@ -347,7 +350,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	contract := NewContract(caller, to, new(big.Int), gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
-	if evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber) {
+	if evm.ChainConfig().IsTomoXCancellationFeeEnabled(evm.BlockNumber) {
 		// We do an AddBalance of zero here, just in order to trigger a touch.
 		// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
 		// but is the correct thing to do and matters on other networks, in tests, and potential
@@ -355,11 +358,14 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 		evm.StateDB.AddBalance(addr, bigZero)
 	}
 
-
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in Homestead this also counts for code storage gas errors.
-	ret, err = run(evm, contract, input, evm.ChainConfig().IsTIPTomoXCancellationFee(evm.BlockNumber))
+	if evm.ChainConfig().IsTomoXEnabled(evm.BlockNumber) {
+		ret, err = run(evm, contract, input, evm.ChainConfig().IsTomoXCancellationFeeEnabled(evm.BlockNumber))
+	} else {
+		ret, err = run(evm, contract, input, true)
+	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != ErrExecutionReverted {

@@ -247,7 +247,7 @@ func (tx *Transaction) Size() common.StorageSize {
 // AsMessage requires a signer to derive the sender.
 //
 // XXX Rename message to something less arbitrary?
-func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int, checkNonce bool) (Message, error) {
+func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int, checkNonce bool, isUpgradeVRC25 bool) (Message, error) {
 	msg := Message{
 		nonce:           tx.data.AccountNonce,
 		gasLimit:        tx.data.GasLimit,
@@ -260,11 +260,14 @@ func (tx *Transaction) AsMessage(s Signer, balanceFee *big.Int, number *big.Int,
 	}
 	var err error
 	msg.from, err = Sender(s, tx)
-	if balanceFee != nil {
-		if number.Cmp(common.TIPTRC21FeeBlock) > 0 {
-			msg.gasPrice = common.TRC21GasPrice
-		} else {
-			msg.gasPrice = common.TRC21GasPriceBefore
+
+	if !isUpgradeVRC25 { // fix override gas price
+		if balanceFee != nil {
+			if number.Cmp(common.TIPTRC21FeeBlock) > 0 {
+				msg.gasPrice = common.TRC21GasPrice
+			} else {
+				msg.gasPrice = common.TRC21GasPriceBefore
+			}
 		}
 	}
 	return msg, err

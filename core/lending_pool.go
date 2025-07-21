@@ -273,7 +273,7 @@ func (pool *LendingPool) loop() {
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
 func (pool *LendingPool) reset(oldHead, newblock *types.Block) {
-	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) || pool.chain.Config().Posv == nil || pool.chain.CurrentBlock().NumberU64() <= pool.chain.Config().Posv.Epoch {
+	if !pool.chainconfig.IsTomoXEnabled(pool.chain.CurrentBlock().Number()) || pool.chainconfig.Posv == nil || pool.chain.CurrentBlock().NumberU64() <= pool.chainconfig.Posv.Epoch {
 		return
 	}
 	// If we're reorging an old state, reinject all dropped transactions
@@ -565,7 +565,7 @@ func (pool *LendingPool) validateBalance(cloneStateDb *state.StateDB, cloneLendi
 			}
 		}
 	}
-	isTomoXLendingFork := pool.chain.Config().IsTIPTomoXLending(pool.chain.CurrentHeader().Number)
+	isTomoXLendingFork := pool.chain.Config().IsTomoXLendingEnabled(pool.chain.CurrentHeader().Number)
 	if err := lendingstate.VerifyBalance(isTomoXLendingFork,
 		cloneStateDb,
 		cloneLendingStateDb,
@@ -814,7 +814,7 @@ func (pool *LendingPool) AddRemotes(txs []*types.LendingTransaction) []error {
 
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *LendingPool) addTx(tx *types.LendingTransaction, local bool) error {
-	if !pool.chainconfig.IsTIPTomoX(pool.chain.CurrentBlock().Number()) {
+	if !pool.chainconfig.IsTomoXEnabled(pool.chain.CurrentBlock().Number()) {
 		return nil
 	}
 	tx.CacheHash()

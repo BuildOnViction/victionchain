@@ -18,7 +18,6 @@ package core
 
 import (
 	"fmt"
-
 	"math/big"
 	"runtime"
 	"strings"
@@ -82,6 +81,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if p.config.IsAtlas(header.Number) {
+		misc.ApplyVIPVRC25Upgarde(statedb, p.config.AtlasBlock, header.Number)
+	}
+
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
 		if common.IsTestnet {
 			misc.ApplySaigonHardForkTestnet(statedb, p.config.SaigonBlock, block.Number(), p.config.Posv)
@@ -91,8 +94,13 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
+
 	balanceUpdated := map[common.Address]*big.Int{}
 	totalFeeUsed := big.NewInt(0)
+
+	// Check if we're past the Atlas block
+	isAtlas := p.config.IsAtlas(block.Number())
+
 	for i, tx := range block.Transactions() {
 		// check black-list txs after hf
 		if (block.Number().Uint64() >= common.BlackListHFBlock) && !common.IsTestnet {
@@ -105,20 +113,21 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with receiver in black-list: %v", tx.To().Hex())
 			}
 		}
-		// validate minFee slot for TomoZ
-		if tx.IsTomoZApplyTransaction() {
+		// validate balance slot, minFee slot for TomoZ
+		if p.config.IsTomoZEnabled(block.Number()) && tx.IsTomoZApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoZApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoZApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
 		// validate balance slot, token decimal for TomoX
-		if tx.IsTomoXApplyTransaction() {
+		if p.config.IsTomoXEnabled(block.Number()) && tx.IsTomoXApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoXApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
+
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
@@ -126,7 +135,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
-		if tokenFeeUsed {
+		if tokenFeeUsed && !isAtlas {
 			fee := new(big.Int).SetUint64(gas)
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
@@ -136,7 +145,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, tra
 			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
+
+	if !isAtlas {
+		state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
+	}
+
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
@@ -158,6 +171,10 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	if common.TIPSigningBlock.Cmp(header.Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}
+	if p.config.IsAtlas(header.Number) {
+		misc.ApplyVIPVRC25Upgarde(statedb, p.config.AtlasBlock, header.Number)
+	}
+
 	if p.config.SaigonBlock != nil && p.config.SaigonBlock.Cmp(block.Number()) <= 0 {
 		if common.IsTestnet {
 			misc.ApplySaigonHardForkTestnet(statedb, p.config.SaigonBlock, block.Number(), p.config.Posv)
@@ -170,8 +187,13 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 	}
 	parentState := statedb.Copy()
 	InitSignerInTransactions(p.config, header, block.Transactions())
+
 	balanceUpdated := map[common.Address]*big.Int{}
+
 	totalFeeUsed := big.NewInt(0)
+
+	// Check if we're past the Atlas block
+	isAtlas := p.config.IsAtlas(block.Number())
 
 	if cBlock.stop {
 		return nil, nil, 0, ErrStopPreparingBlock
@@ -190,20 +212,21 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 				return nil, nil, 0, fmt.Errorf("Block contains transaction with receiver in black-list: %v", tx.To().Hex())
 			}
 		}
-		// validate minFee slot for TomoZ
-		if tx.IsTomoZApplyTransaction() {
+		// validate balance slot, minFee slot for TomoZ
+		if p.config.IsTomoZEnabled(block.Number()) && tx.IsTomoZApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoZApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoZApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
 		// validate balance slot, token decimal for TomoX
-		if tx.IsTomoXApplyTransaction() {
+		if p.config.IsTomoXEnabled(block.Number()) && tx.IsTomoXApplyTransaction() {
 			copyState := statedb.Copy()
-			if err := ValidateTomoXApplyTransaction(p.bc, block.Number(), copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
+			if err := ValidateTomoXApplyTransaction(p.bc, copyState, common.BytesToAddress(tx.Data()[4:])); err != nil {
 				return nil, nil, 0, err
 			}
 		}
+
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, gas, err, tokenFeeUsed := ApplyTransaction(p.config, balanceFee, p.bc, nil, gp, statedb, tradingState, header, tx, usedGas, cfg)
 		if err != nil {
@@ -214,7 +237,7 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 		}
 		receipts[i] = receipt
 		allLogs = append(allLogs, receipt.Logs...)
-		if tokenFeeUsed {
+		if tokenFeeUsed && !isAtlas {
 			fee := new(big.Int).SetUint64(gas)
 			if block.Header().Number.Cmp(common.TIPTRC21FeeBlock) > 0 {
 				fee = fee.Mul(fee, common.TRC21GasPrice)
@@ -224,7 +247,11 @@ func (p *StateProcessor) ProcessBlockNoValidator(cBlock *CalculatedBlock, stated
 			totalFeeUsed = totalFeeUsed.Add(totalFeeUsed, fee)
 		}
 	}
-	state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
+
+	if !isAtlas {
+		state.UpdateTRC21Fee(statedb, balanceUpdated, totalFeeUsed)
+	}
+
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, parentState, block.Transactions(), block.Uncles(), receipts)
 	return receipts, allLogs, *usedGas, nil
@@ -238,27 +265,32 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	if tx.To() != nil && tx.To().String() == common.BlockSigners && config.IsTIPSigning(header.Number) {
 		return ApplySignTransaction(config, statedb, header, tx, usedGas)
 	}
-	if tx.To() != nil && tx.To().String() == common.TradingStateAddr && config.IsTIPTomoX(header.Number) {
+	if tx.To() != nil && tx.To().String() == common.TradingStateAddr && config.IsTomoXEnabled(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
-	if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress && config.IsTIPTomoX(header.Number) {
+	if tx.To() != nil && tx.To().String() == common.TomoXLendingAddress && config.IsTomoXEnabled(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
-	if tx.IsTradingTransaction() && config.IsTIPTomoX(header.Number) {
-		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
-	}
-
-	if tx.IsLendingFinalizedTradeTransaction() && config.IsTIPTomoX(header.Number) {
+	if tx.IsTradingTransaction() && config.IsTomoXEnabled(header.Number) {
 		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
 	}
 
+	if tx.IsLendingFinalizedTradeTransaction() && config.IsTomoXEnabled(header.Number) {
+		return ApplyEmptyTransaction(config, statedb, header, tx, usedGas)
+	}
 	var balanceFee *big.Int
 	if tx.To() != nil {
-		if value, ok := tokensFee[*tx.To()]; ok {
-			balanceFee = value
+		if config.IsAtlas(header.Number) {
+			// after upgrade, we will get latest fee capacity from state
+			balanceFee = state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
+		} else {
+			if value, ok := tokensFee[*tx.To()]; ok {
+				balanceFee = value
+			}
 		}
 	}
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, true)
+
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), balanceFee, header.Number, true, config.IsAtlas(header.Number))
 	if err != nil {
 		return nil, 0, err, false
 	}
@@ -424,7 +456,6 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp, coinbaseOwner)
-
 	if err != nil {
 		return nil, 0, err, false
 	}
@@ -449,10 +480,17 @@ func ApplyTransaction(config *params.ChainConfig, tokensFee map[common.Address]*
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	if balanceFee != nil && failed {
+	fee := new(big.Int).SetUint64(gas)
+
+	if bc.CurrentBlock().Number().Cmp(common.TIPTRC21FeeBlock) > 0 {
+		fee = fee.Mul(fee, common.TRC21GasPrice)
+	}
+	if balanceFee != nil && balanceFee.Cmp(fee) == 1 && failed {
+		// No need to care about old blocks because tx with invalid will be dropped
 		state.PayFeeWithTRC21TxFail(statedb, msg.From(), *tx.To())
 	}
-	return receipt, gas, err, balanceFee != nil
+
+	return receipt, gas, err, balanceFee != nil && balanceFee.Cmp(fee) == 1
 }
 
 func ApplySignTransaction(config *params.ChainConfig, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, uint64, error, bool) {

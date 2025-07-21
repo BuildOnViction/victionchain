@@ -155,12 +155,12 @@ exec tomo --identity ${IDENTITY} \
   --wsorigins "*" \
   --port ${P2P_PORT} \
   --maxpeers ${MAX_PEERS} \
-  --txpool.globalqueue 5000 \
-  --txpool.globalslots 5000 \
   --keystore ${KEYSTORE_DIR} \
   --password ./password \
   --gasprice "250000000" \
-  --targetgaslimit "84000000" \
+  --targetgaslimit "30000000" \
+  --txpool.globalslots ${TXPOOL_GLSLOTS} \
+  --txpool.globalqueue ${TXPOOL_GLQUEUE} \
   --verbosity ${VERBOSITY} \
   ${params} \
   "$@"
