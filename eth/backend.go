@@ -55,6 +55,7 @@ import (
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/internal/ethapi"
+	"github.com/tomochain/tomochain/internal/shutdowncheck"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/miner"
 	"github.com/tomochain/tomochain/node"
@@ -109,6 +110,8 @@ type Ethereum struct {
 	lock    sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 	TomoX   *tomox.TomoX
 	Lending *tomoxlending.Lending
+
+	shutdownTracker *shutdowncheck.ShutdownTracker // Tracks if and when the node has shutdown ungracefully
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -149,6 +152,7 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
 	// Inject TomoX Service into main Eth Service.
 	if tomoXServ != nil {
@@ -595,6 +599,10 @@ func New(ctx *node.ServiceContext, config *Config, tomoXServ *tomox.TomoX, lendi
 		}
 
 	}
+
+	// Successful startup; push a marker and check previous unclean shutdowns.
+	eth.shutdownTracker.MarkStartup()
+	
 	return eth, nil
 }
 
@@ -845,6 +853,10 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
+
+	// Regularly update shutdown marker
+	s.shutdownTracker.Start()
+
 	return nil
 }
 func (s *Ethereum) SaveData() {
@@ -863,6 +875,9 @@ func (s *Ethereum) Stop() error {
 	s.txPool.Stop()
 	s.miner.Stop()
 	s.eventMux.Stop()
+
+	// Clean shutdown marker as the last thing before closing db
+	s.shutdownTracker.Stop()
 
 	s.chainDb.Close()
 	close(s.shutdownChan)
