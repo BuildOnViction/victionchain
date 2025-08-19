@@ -2,9 +2,10 @@ package state
 
 import (
 	"bytes"
-	"github.com/hashicorp/golang-lru"
-	"github.com/tomochain/tomochain/common"
 	"math/big"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/tomochain/tomochain/common"
 )
 
 var (
@@ -41,6 +42,7 @@ func GetTRC21FeeCapacityFromStateWithCache(trieRoot common.Hash, statedb *StateD
 	}
 	return tokensFee
 }
+
 func GetTRC21FeeCapacityFromState(statedb *StateDB) map[common.Address]*big.Int {
 	if statedb == nil {
 		return map[common.Address]*big.Int{}
@@ -61,6 +63,19 @@ func GetTRC21FeeCapacityFromState(statedb *StateDB) map[common.Address]*big.Int 
 		}
 	}
 	return tokensCapacity
+}
+
+func GetTRC21FeeCapacityFromStateWithToken(statedb *StateDB, token *common.Address) *big.Int {
+	if statedb == nil || token == nil {
+		return nil
+	}
+	slotTokensState := SlotTRC21Issuer["tokensState"]
+	balanceKey := GetLocMappingAtKey(token.Hash(), slotTokensState)
+	balanceHash := statedb.GetState(common.TRC21IssuerSMC, common.BigToHash(balanceKey))
+	if common.EmptyHash(balanceHash) {
+		return nil
+	}
+	return balanceHash.Big()
 }
 
 func PayFeeWithTRC21TxFail(statedb *StateDB, from common.Address, token common.Address) {

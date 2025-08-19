@@ -255,7 +255,7 @@ func finaliseBlock(
 				balance = value
 			}
 		}
-		msg, _ := tx.AsMessage(signer, balance, targetBlock.Number(), false)
+		msg, _ := tx.AsMessage(signer, balance, targetBlock.Number(), false, chainConfig.IsAtlas(targetBlock.Number()))
 		vmctx := core.NewEVMContext(msg, targetBlock.Header(), blockchain, nil)
 		vmenv := vm.NewEVM(vmctx, stateDB, tomoxStateDB, chainConfig, vm.Config{})
 		owner := common.Address{}

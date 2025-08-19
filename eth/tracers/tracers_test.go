@@ -179,7 +179,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 	}
 	evm := vm.NewEVM(context, statedb, nil, params.MainnetChainConfig, vm.Config{Debug: true, Tracer: tracer})
 
-	msg, err := tx.AsMessage(signer, nil, nil, false)
+	msg, err := tx.AsMessage(signer, nil, nil, false, params.MainnetChainConfig.IsAtlas(context.BlockNumber))
 	if err != nil {
 		t.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestCallTracer(t *testing.T) {
 			}
 			evm := vm.NewEVM(context, statedb, nil, test.Genesis.Config, vm.Config{Debug: true, Tracer: tracer})
 
-			msg, err := tx.AsMessage(signer, nil, common.Big0, false)
+			msg, err := tx.AsMessage(signer, nil, common.Big0, false, test.Genesis.Config.IsAtlas(context.BlockNumber))
 			if err != nil {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
