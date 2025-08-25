@@ -345,6 +345,10 @@ func (st *StateTransition) refundGas(isUsedTokenFee bool) {
 		if isUsedTokenFee {
 			remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), common.TRC21GasPrice)
 			st.vrc25RefundGas(*st.msg.To(), remaining)
+		} else if st.evm.ChainConfig().IsExperiential(st.evm.BlockNumber) {
+			from := st.from()
+			remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
+			st.state.AddBalance(from.Address(), remaining)
 		}
 	} else {
 		if balanceTokenFee == nil {
