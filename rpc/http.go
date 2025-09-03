@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/rs/cors"
+	"github.com/tomochain/tomochain/log"
 )
 
 const (
@@ -151,12 +152,13 @@ func (t *httpReadWriteNopCloser) Close() error {
 // Deprecated: Server implements http.Handler
 func NewHTTPServer(cors []string, vhosts []string, srv *Server) *http.Server {
 	// Wrap the CORS-handler within a host-handler
+	log.Info("NewHTTPServer", "cors", cors, "vhosts", vhosts)
 	handler := newCorsHandler(srv, cors)
 	handler = newVHostHandler(vhosts, handler)
 	return &http.Server{
 		Handler:      handler,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 20 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
 }
