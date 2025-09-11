@@ -47,12 +47,12 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 		minerBalance                 *big.Int
 		senderBalance                *big.Int
 		expectSuccess                bool
-		atlasHardFork                bool
+		experientialHardFork         bool
 		expectedMinerBalanceAfterTx  *big.Int
 		expectedSenderBalanceAfterTx *big.Int
 	}{
 		{
-			name:                         "Standard ETH transaction fee distribution",
+			name:                         "Before Atlas - Standard ETH transaction fee distribution",
 			gasPrice:                     big.NewInt(1000000000), // 1 Gwei
 			gasLimit:                     21000,
 			gasUsed:                      21000,
@@ -60,12 +60,12 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 			minerBalance:                 big.NewInt(0),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			expectSuccess:                true,
-			atlasHardFork:                false,
+			experientialHardFork:         false,
 			expectedMinerBalanceAfterTx:  big.NewInt(21000000000000),     // 0 + (21000 * 1 Gwei)
 			expectedSenderBalanceAfterTx: big.NewInt(999979000000000000), // 2 ETH - 1 ETH - 0.000021 ETH
 		},
 		{
-			name:                         "High gas price fee distribution",
+			name:                         "Before Atlas - High gas price fee distribution",
 			gasPrice:                     big.NewInt(100000000000), // 100 Gwei
 			gasLimit:                     21000,
 			gasUsed:                      21000,
@@ -73,25 +73,12 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 			minerBalance:                 big.NewInt(0),
 			senderBalance:                big.NewInt(5000000000000000000), // 5 ETH
 			expectSuccess:                true,
-			atlasHardFork:                false,
+			experientialHardFork:         false,
 			expectedMinerBalanceAfterTx:  big.NewInt(2100000000000000),    // 0 + (21000 * 100 Gwei)
 			expectedSenderBalanceAfterTx: big.NewInt(4897900000000000000), // 5 ETH - 0.1 ETH - 0.0021 ETH
 		},
 		{
-			name:                         "After Atlas standard ETH transaction fee distribution",
-			gasPrice:                     big.NewInt(1000000000), // 1 Gwei
-			gasLimit:                     50000,
-			gasUsed:                      21000,
-			transferValue:                big.NewInt(1000000000000000000), // 1 ETH
-			minerBalance:                 big.NewInt(0),
-			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
-			expectSuccess:                true,
-			atlasHardFork:                true,
-			expectedMinerBalanceAfterTx:  big.NewInt(21000000000000),     // 0 + (21000 * 1 Gwei)
-			expectedSenderBalanceAfterTx: big.NewInt(999979000000000000), // 2 ETH - 1 ETH - 0.000021 ETH
-		},
-		{
-			name:                         "Atlas hard fork fee distribution",
+			name:                         "After Experimental - Standard ETH transaction fee distribution",
 			gasPrice:                     big.NewInt(2000000000), // 2 Gwei
 			gasLimit:                     21000,
 			gasUsed:                      21000,
@@ -99,12 +86,26 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 			minerBalance:                 big.NewInt(0),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			expectSuccess:                true,
-			atlasHardFork:                true,
+			experientialHardFork:         true,
 			expectedMinerBalanceAfterTx:  big.NewInt(42000000000000),     // 0 + (21000 * 2000000000)
 			expectedSenderBalanceAfterTx: big.NewInt(999958000000000000), // 2 ETH - 1 ETH - 0.000042 ETH
 		},
 		{
-			name:                         "Gas refund scenario - partial gas usage",
+			name:                         "After Experimental - Gas refund scenario - partial gas usage",
+			gasPrice:                     big.NewInt(1000000000), // 1 Gwei
+			gasLimit:                     50000,
+			gasUsed:                      21000,
+			transferValue:                big.NewInt(1000000000000000000), // 1 ETH
+			minerBalance:                 big.NewInt(0),
+			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
+			expectSuccess:                true,
+			experientialHardFork:         true,
+			expectedMinerBalanceAfterTx:  big.NewInt(21000000000000),     // 0 + (21000 * 1 Gwei)
+			expectedSenderBalanceAfterTx: big.NewInt(999979000000000000), // 2 ETH - 1 ETH - 0.000021 ETH
+		},
+
+		{
+			name:                         "Before Atlas - Gas refund scenario - partial gas usage",
 			gasPrice:                     big.NewInt(1000000000),          // 1 Gwei
 			gasLimit:                     50000,                           // Higher limit
 			gasUsed:                      21000,                           // Only basic transfer gas used
@@ -112,12 +113,12 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 			minerBalance:                 big.NewInt(0),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			expectSuccess:                true,
-			atlasHardFork:                false,
+			experientialHardFork:         false,
 			expectedMinerBalanceAfterTx:  big.NewInt(21000000000000),     // 0 + (21000 * 1 Gwei) - only actual gas used
 			expectedSenderBalanceAfterTx: big.NewInt(999979000000000000), // 2 ETH - 1 ETH - 0.000021 ETH (refund 29000 gas)
 		},
 		{
-			name:                         "Gas refund with high gas limit - Atlas fork",
+			name:                         "After Experimental - Gas refund with high gas limit",
 			gasPrice:                     VRC25GasPrice,                   // VRC25 gas price = 0.25 Gwei
 			gasLimit:                     100000,                          // Much higher limit
 			gasUsed:                      21000,                           // Only basic transfer gas used
@@ -125,7 +126,7 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 			minerBalance:                 big.NewInt(0),                   // 1 ETH initial
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			expectSuccess:                true,
-			atlasHardFork:                true,
+			experientialHardFork:         true,
 			expectedMinerBalanceAfterTx:  big.NewInt(5250000000000),      //  + (21000 * 250000000)
 			expectedSenderBalanceAfterTx: big.NewInt(999994750000000000), // 2 ETH - 1 ETH - 0.00000525 ETH (refund 79000 gas = 19750000000000 wei )
 		},
@@ -148,21 +149,21 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 
 			// Create chain config
 			config := &params.ChainConfig{
-				ChainId:        big.NewInt(89),
-				HomesteadBlock: big.NewInt(0),
-				EIP150Block:    big.NewInt(0),
-				EIP155Block:    big.NewInt(0),
-				EIP158Block:    big.NewInt(0),
-				ByzantiumBlock: big.NewInt(0),
+				ChainId:           big.NewInt(89),
+				HomesteadBlock:    big.NewInt(0),
+				EIP150Block:       big.NewInt(0),
+				EIP155Block:       big.NewInt(0),
+				EIP158Block:       big.NewInt(0),
+				ByzantiumBlock:    big.NewInt(0),
+				AtlasBlock:        big.NewInt(13523400),
+				ExperientialBlock: big.NewInt(13523410), // Fix refund issue at Atlas
 			}
 
 			var blockNumber *big.Int
-			if tt.atlasHardFork {
-				config.AtlasBlock = big.NewInt(13523400)
-				blockNumber = big.NewInt(13523401) // After Atlas
+			if tt.experientialHardFork {
+				blockNumber = big.NewInt(13523411) // After Experiential
 			} else {
-				config.AtlasBlock = big.NewInt(13523400)
-				blockNumber = big.NewInt(13523399) // Before Atlas
+				blockNumber = big.NewInt(13523399) // Before Experiential
 			}
 
 			// Create EVM context
@@ -430,13 +431,14 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 
 			// Create chain config
 			config := &params.ChainConfig{
-				ChainId:        big.NewInt(89),
-				HomesteadBlock: big.NewInt(0),
-				EIP150Block:    big.NewInt(0),
-				EIP155Block:    big.NewInt(0),
-				EIP158Block:    big.NewInt(0),
-				ByzantiumBlock: big.NewInt(0),
-				AtlasBlock:     big.NewInt(13523400),
+				ChainId:           big.NewInt(89),
+				HomesteadBlock:    big.NewInt(0),
+				EIP150Block:       big.NewInt(0),
+				EIP155Block:       big.NewInt(0),
+				EIP158Block:       big.NewInt(0),
+				ByzantiumBlock:    big.NewInt(0),
+				AtlasBlock:        big.NewInt(13523400), // VRC25 active after this block
+				ExperientialBlock: big.NewInt(13523410), // Fix refund issue at Atlas
 			}
 
 			// Create EVM context
@@ -446,7 +448,7 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 				GetHash:     func(uint64) common.Hash { return common.Hash{} },
 				Origin:      sender,
 				Coinbase:    miner,
-				BlockNumber: big.NewInt(13523401),
+				BlockNumber: big.NewInt(13523411), // After ExperientialBlock
 				Time:        big.NewInt(0),
 				Difficulty:  big.NewInt(0),
 				GasLimit:    8000000,
