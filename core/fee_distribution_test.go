@@ -74,7 +74,7 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 			senderBalance:                big.NewInt(5000000000000000000), // 5 ETH
 			expectSuccess:                true,
 			atlasHardFork:                false,
-			expectedMinerBalanceAfterTx:  big.NewInt(2100000000000000),    // 0+ (21000 * 100 Gwei)
+			expectedMinerBalanceAfterTx:  big.NewInt(2100000000000000),    // 0 + (21000 * 100 Gwei)
 			expectedSenderBalanceAfterTx: big.NewInt(4897900000000000000), // 5 ETH - 0.1 ETH - 0.0021 ETH
 		},
 		{
@@ -132,7 +132,6 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		fmt.Println("-------------------------------------------------------------------")
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup test environment
 			key, _ := crypto.GenerateKey()
@@ -180,23 +179,18 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 				GasPrice:    tt.gasPrice,
 			}
 
-			evm := vm.NewEVM(context, statedb, nil, config, vm.Config{})
+			// Record initial balances
+			initialSenderBalance := statedb.GetBalance(sender)
+			initialMinerBalance := statedb.GetBalance(miner)
+			initialRecipientBalance := statedb.GetBalance(recipient)
 
+			evm := vm.NewEVM(context, statedb, nil, config, vm.Config{})
 			// Create message
 			msg := types.NewMessage(sender, &recipient, 0, tt.transferValue, tt.gasLimit, tt.gasPrice, nil, false, nil)
 
 			// Create state transition and execute
 			gp := new(GasPool).AddGas(tt.gasLimit)
 			st := NewStateTransition(evm, msg, gp)
-
-			// Record initial balances
-			initialSenderBalance := statedb.GetBalance(sender)
-			initialMinerBalance := statedb.GetBalance(miner)
-			initialRecipientBalance := statedb.GetBalance(recipient)
-
-			fmt.Println("Initial Sender Balance:", initialSenderBalance)
-			fmt.Println("Initial Miner Balance:", initialMinerBalance)
-			fmt.Println("Initial Recipient Balance:", initialRecipientBalance)
 
 			// Execute transaction
 			_, gasUsed, failed, err := st.TransitionDb(miner)
@@ -223,9 +217,6 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 				finalMinerBalance := statedb.GetBalance(miner)
 				finalRecipientBalance := statedb.GetBalance(recipient)
 
-				fmt.Println("Final Sender Balance:", finalSenderBalance)
-				fmt.Println("Final Miner Balance:", finalMinerBalance)
-				fmt.Println("Final Recipient Balance:", finalRecipientBalance)
 				// Check sender balance against expected value
 				if finalSenderBalance.Cmp(tt.expectedSenderBalanceAfterTx) != 0 {
 					t.Errorf("Sender balance incorrect: got %v, want %v", finalSenderBalance, tt.expectedSenderBalanceAfterTx)
@@ -278,6 +269,8 @@ func TestNormalTransactionFeeDistribution(t *testing.T) {
 				}
 			}
 		})
+
+		fmt.Println("___________________________________________________________________________________")
 	}
 }
 
@@ -292,7 +285,6 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 		transferValue                *big.Int
 		senderBalance                *big.Int
 		minerBalance                 *big.Int
-		atlasHardFork                bool
 		expectTokenFee               bool
 		expectSuccess                bool
 		expectedMinerBalanceAfterTx  *big.Int
@@ -307,7 +299,6 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 			transferValue:                big.NewInt(1000),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			minerBalance:                 big.NewInt(0),
-			atlasHardFork:                true,
 			expectTokenFee:               true,
 			expectSuccess:                true,
 			expectedMinerBalanceAfterTx:  big.NewInt(5250000000000),       // 0 + (21000 * 250000000) = 5250000000000
@@ -322,7 +313,6 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 			transferValue:                big.NewInt(1000),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			minerBalance:                 big.NewInt(0),
-			atlasHardFork:                true,
 			expectTokenFee:               false, // Falls back to ETH when capacity <= required fee
 			expectSuccess:                true,
 			expectedMinerBalanceAfterTx:  big.NewInt(5250000000000),       // 0 + (21000 * 250000000) = 5250000000000
@@ -333,11 +323,10 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 			name:                         "VRC25 high gas limit with sufficient capacity",
 			tokenCapacity:                big.NewInt(20000000000000000), // 0.02 ETH worth (sufficient for gas)
 			gasLimit:                     100000,
-			gasUsed:                      21000, // Actual gas used (simple transfer)
+			gasUsed:                      21000,
 			transferValue:                big.NewInt(1000),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			minerBalance:                 big.NewInt(0),
-			atlasHardFork:                true,
 			expectTokenFee:               true,
 			expectSuccess:                true,
 			expectedMinerBalanceAfterTx:  big.NewInt(5250000000000),       // 0 + (21000 * 250000000) = 5250000000000
@@ -352,7 +341,6 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 			transferValue:                big.NewInt(1000),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			minerBalance:                 big.NewInt(0),
-			atlasHardFork:                true,
 			expectTokenFee:               false,
 			expectSuccess:                true,
 			expectedMinerBalanceAfterTx:  big.NewInt(5250000000000),       // 0 + (21000 * 250000000) = 5250000000000
@@ -363,11 +351,10 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 			name:                         "VRC25 large gas refund with token fee",
 			tokenCapacity:                big.NewInt(25000000000000000), // 0.025 ETH worth (sufficient for gas)
 			gasLimit:                     100000,
-			gasUsed:                      21000, // Actual gas used (simple transfer)
+			gasUsed:                      21000,
 			transferValue:                big.NewInt(1000),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			minerBalance:                 big.NewInt(0),
-			atlasHardFork:                true,
 			expectTokenFee:               true,
 			expectSuccess:                true,
 			expectedMinerBalanceAfterTx:  big.NewInt(5250000000000),       // 0 + (21000 * 250000000) = 5250000000000
@@ -378,11 +365,10 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 			name:                         "VRC25 small gas refund with exact capacity",
 			tokenCapacity:                big.NewInt(7500000000000), // Less than required for gas limit (30000 * 250000000 = 7500000000000)
 			gasLimit:                     30000,
-			gasUsed:                      21000, // Actual gas used (simple transfer)
+			gasUsed:                      21000,
 			transferValue:                big.NewInt(1000),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			minerBalance:                 big.NewInt(0),
-			atlasHardFork:                true,
 			expectTokenFee:               false, // Falls back to ETH when capacity <= required fee for gas limit
 			expectSuccess:                true,
 			expectedMinerBalanceAfterTx:  big.NewInt(5250000000000),       // 0 + (21000 * 250000000) = 5250000000000
@@ -397,7 +383,6 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 			transferValue:                big.NewInt(1000),
 			senderBalance:                big.NewInt(2000000000000000000), // 2 ETH
 			minerBalance:                 big.NewInt(0),
-			atlasHardFork:                true,
 			expectTokenFee:               true,
 			expectSuccess:                true,
 			expectedMinerBalanceAfterTx:  big.NewInt(5250000000000),       // 0 + (21000 * 250000000) = 5250000000000
@@ -412,7 +397,6 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 			transferValue:                big.NewInt(1000),
 			senderBalance:                big.NewInt(3000000000000), // Very low balance (insufficient for ETH fallback fee + transfer)
 			minerBalance:                 big.NewInt(0),
-			atlasHardFork:                true,
 			expectTokenFee:               false,                     // Falls back to ETH but insufficient balance
 			expectSuccess:                false,                     // Should fail due to insufficient funds
 			expectedMinerBalanceAfterTx:  big.NewInt(0),             // No change (transaction fails)
@@ -452,15 +436,7 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 				EIP155Block:    big.NewInt(0),
 				EIP158Block:    big.NewInt(0),
 				ByzantiumBlock: big.NewInt(0),
-			}
-
-			var blockNumber *big.Int
-			if tt.atlasHardFork {
-				config.AtlasBlock = big.NewInt(13523400)
-				blockNumber = big.NewInt(13523401) // After Atlas
-			} else {
-				config.AtlasBlock = big.NewInt(13523400)
-				blockNumber = big.NewInt(13523399) // Before Atlas
+				AtlasBlock:     big.NewInt(13523400),
 			}
 
 			// Create EVM context
@@ -470,22 +446,21 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 				GetHash:     func(uint64) common.Hash { return common.Hash{} },
 				Origin:      sender,
 				Coinbase:    miner,
-				BlockNumber: blockNumber,
+				BlockNumber: big.NewInt(13523401),
 				Time:        big.NewInt(0),
 				Difficulty:  big.NewInt(0),
 				GasLimit:    8000000,
 				GasPrice:    VRC25GasPrice,
 			}
 
-			evm := vm.NewEVM(context, statedb, nil, config, vm.Config{})
-
-			// Create VRC25 message
-			msg := types.NewMessage(sender, &tokenAddr, 0, tt.transferValue, tt.gasLimit, VRC25GasPrice, nil, true, tt.tokenCapacity)
-
 			// Record initial state
 			initialSenderBalance := statedb.GetBalance(sender)
 			initialMinerBalance := statedb.GetBalance(miner)
 			initialTokenCapacity := state.GetTRC21FeeCapacityFromStateWithToken(statedb, &tokenAddr)
+
+			evm := vm.NewEVM(context, statedb, nil, config, vm.Config{})
+			// Create VRC25 message
+			msg := types.NewMessage(sender, &tokenAddr, 0, tt.transferValue, tt.gasLimit, VRC25GasPrice, nil, true, tt.tokenCapacity)
 
 			// Create state transition and execute
 			gp := new(GasPool).AddGas(tt.gasLimit)
@@ -510,12 +485,6 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 				finalSenderBalance := statedb.GetBalance(sender)
 				finalMinerBalance := statedb.GetBalance(miner)
 				finalTokenCapacity := state.GetTRC21FeeCapacityFromStateWithToken(statedb, &tokenAddr)
-				fmt.Println("Initial Sender Balance:", initialSenderBalance)
-				fmt.Println("Final Sender Balance:", finalSenderBalance)
-				fmt.Println("Initial Miner Balance:", initialMinerBalance)
-				fmt.Println("Final Miner Balance:", finalMinerBalance)
-				fmt.Println("Initial Token Capacity:", initialTokenCapacity)
-				fmt.Println("Final Token Capacity:", finalTokenCapacity)
 
 				// Check sender balance against expected value
 				if finalSenderBalance.Cmp(tt.expectedSenderBalanceAfterTx) != 0 {
@@ -591,7 +560,7 @@ func TestVRC25TokenFeeDistribution(t *testing.T) {
 				}
 			}
 		})
-		fmt.Println("-------------------------------------------------------------------")
+		fmt.Println("___________________________________________________________________________________")
 	}
 }
 
