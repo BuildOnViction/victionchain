@@ -329,7 +329,7 @@ func (l *LendingItem) EncodedSide() *big.Int {
 	return big.NewInt(1)
 }
 
-//verify signatures
+// verify signatures
 func (l *LendingItem) VerifyLendingSignature() error {
 	V := big.NewInt(int64(l.Signature.V))
 	R := l.Signature.R.Big()

@@ -131,9 +131,9 @@ func (i *Number) SetBytes(x []byte) *Number {
 
 // Cmp compares x and y and returns:
 //
-//     -1 if x <  y
-//     0 if x == y
-//     +1 if x >  y
+//	-1 if x <  y
+//	0 if x == y
+//	+1 if x >  y
 func (i *Number) Cmp(x *Number) int {
 	return i.num.Cmp(x.num)
 }

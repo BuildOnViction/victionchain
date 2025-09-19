@@ -65,7 +65,7 @@ var (
 	errOperationTimedOut    = errors.New("operation timed out")
 )
 
-//metrics variables
+// metrics variables
 var (
 	newChunkCounter = metrics.NewRegisteredCounter("storage.chunks.new", nil)
 )

@@ -142,8 +142,8 @@ func IsValidPair(statedb *state.StateDB, coinbase common.Address, baseToken comm
 // @param baseToken: address of baseToken
 // @param terms: term
 // @return:
-//		- collaterals []common.Address  : list of addresses of collateral
-//		- isSpecialCollateral			: TRUE if collateral is a token which is NOT available for trading in TomoX, otherwise FALSE
+//   - collaterals []common.Address  : list of addresses of collateral
+//   - isSpecialCollateral			: TRUE if collateral is a token which is NOT available for trading in TomoX, otherwise FALSE
 func GetCollaterals(statedb *state.StateDB, coinbase common.Address, baseToken common.Address, term uint64) (collaterals []common.Address, isSpecialCollateral bool) {
 	validPair, _ := IsValidPair(statedb, coinbase, baseToken, term)
 	if !validPair {

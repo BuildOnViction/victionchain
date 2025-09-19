@@ -39,7 +39,7 @@ import (
 	"github.com/tomochain/tomochain/rlp"
 )
 
-//metrics variables
+// metrics variables
 var (
 	gcCounter            = metrics.NewRegisteredCounter("storage.db.dbstore.gc.count", nil)
 	dbStoreDeleteCounter = metrics.NewRegisteredCounter("storage.db.dbstore.rm.count", nil)
@@ -540,7 +540,8 @@ func (s *DbStore) Close() {
 	s.db.Close()
 }
 
-//  describes a section of the DbStore representing the unsynced
+//	describes a section of the DbStore representing the unsynced
+//
 // domain relevant to a peer
 // Start - Stop designate a continuous area Keys in an address space
 // typically the addresses closer to us than to the peer but not closer

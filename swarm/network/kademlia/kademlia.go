@@ -27,10 +27,10 @@ import (
 	"github.com/tomochain/tomochain/metrics"
 )
 
-//metrics variables
-//For metrics, we want to count how many times peers are added/removed
-//at a certain index. Thus we do that with an array of counters with
-//entry for each index
+// metrics variables
+// For metrics, we want to count how many times peers are added/removed
+// at a certain index. Thus we do that with an array of counters with
+// entry for each index
 var (
 	bucketAddIndexCount []metrics.Counter
 	bucketRmIndexCount  []metrics.Counter
@@ -310,7 +310,7 @@ func (self *Kademlia) Suggest() (*NodeRecord, bool, int) {
 	return self.db.findBest(self.BucketSize, func(i int) int { return len(self.buckets[i]) })
 }
 
-//  adds node records to kaddb (persisted node record db)
+// adds node records to kaddb (persisted node record db)
 func (self *Kademlia) Add(nrs []*NodeRecord) {
 	self.db.add(nrs, self.proximityBin)
 }
@@ -441,7 +441,7 @@ func (self *Kademlia) String() string {
 	return strings.Join(rows, "\n")
 }
 
-//We have to build up the array of counters for each index
+// We have to build up the array of counters for each index
 func (self *Kademlia) initMetricsVariables() {
 	//create the arrays
 	bucketAddIndexCount = make([]metrics.Counter, self.MaxProx+1)

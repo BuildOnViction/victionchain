@@ -97,6 +97,7 @@ tomo-windows-amd64:
 	go run build/ci.go xgo -- --go=$(GO) -buildmode=mode -x --targets=windows/amd64 -v ./cmd/tomo
 	@echo "Windows amd64 cross compilation done:"
 	@ls -ld $(GOBIN)/tomo-windows-* | grep amd64
-gofmt:
-	$(GOFMT) -s -w $(GO_FILES)
-	$(GIT) checkout vendor
+
+#? fmt: Ensure consistent code formatting.
+fmt:
+	gofmt -s -w $(shell find . -name "*.go")

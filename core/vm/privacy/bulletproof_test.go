@@ -448,7 +448,8 @@ func parseTestData(filePath string) MultiRangeProof {
 	return proof
 }
 
-/**
+/*
+*
 Utils for parsing data from json
 */
 func MapBigI(list []string, f func(string) *big.Int) []*big.Int {
