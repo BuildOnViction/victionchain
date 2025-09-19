@@ -19,7 +19,6 @@ package miner
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/tomoxlending"
 	"sync/atomic"
 
 	"github.com/tomochain/tomochain/accounts"
@@ -34,6 +33,7 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/tomox"
+	"github.com/tomochain/tomochain/tomoxlending"
 )
 
 // Backend wraps all methods required for mining.

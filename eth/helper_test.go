@@ -22,7 +22,6 @@ package eth
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"sort"
 	"sync"
@@ -31,6 +30,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/crypto"

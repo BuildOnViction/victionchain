@@ -17,12 +17,12 @@
 package eth
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 )
 

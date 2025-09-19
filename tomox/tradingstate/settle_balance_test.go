@@ -1,10 +1,11 @@
 package tradingstate
 
 import (
-	"github.com/tomochain/tomochain/common"
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/tomochain/tomochain/common"
 )
 
 func TestGetSettleBalance(t *testing.T) {

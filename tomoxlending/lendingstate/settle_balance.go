@@ -3,9 +3,10 @@ package lendingstate
 import (
 	"encoding/json"
 	"errors"
+	"math/big"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
-	"math/big"
 )
 
 const DefaultFeeRate = 100 // 100 / TomoXBaseFee = 100 / 10000 = 1%

@@ -1,14 +1,15 @@
 package tomoxlending
 
 import (
+	"math/big"
+	"reflect"
+	"testing"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/tomox"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-	"math/big"
-	"reflect"
-	"testing"
 )
 
 func Test_getCancelFeeV1(t *testing.T) {

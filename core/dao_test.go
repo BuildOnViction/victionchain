@@ -17,11 +17,11 @@
 package core
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 
 	"github.com/tomochain/tomochain/consensus/ethash"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/vm"
 	"github.com/tomochain/tomochain/params"
 )

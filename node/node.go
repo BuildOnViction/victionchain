@@ -19,7 +19,6 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/prometheus/prometheus/util/flock"
 	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/internal/debug"

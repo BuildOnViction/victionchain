@@ -18,13 +18,13 @@ package core
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 )
 

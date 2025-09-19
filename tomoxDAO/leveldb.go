@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/log"
 )

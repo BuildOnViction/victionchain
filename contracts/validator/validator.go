@@ -16,10 +16,11 @@
 package validator
 
 import (
+	"math/big"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/contracts/validator/contract"
-	"math/big"
 )
 
 type Validator struct {

@@ -2,14 +2,15 @@ package lendingstate
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/globalsign/mgo/bson"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto/sha3"
-	"math/big"
-	"strconv"
-	"time"
 )
 
 const (
@@ -329,7 +330,7 @@ func (l *LendingItem) EncodedSide() *big.Int {
 	return big.NewInt(1)
 }
 
-//verify signatures
+// verify signatures
 func (l *LendingItem) VerifyLendingSignature() error {
 	V := big.NewInt(int64(l.Signature.V))
 	R := l.Signature.R.Big()

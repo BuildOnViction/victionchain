@@ -17,10 +17,11 @@
 package lendingstate
 
 import (
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/rlp"
 	"io"
 	"math/big"
+
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/rlp"
 )
 
 type lendingTradeState struct {

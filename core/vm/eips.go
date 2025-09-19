@@ -18,6 +18,7 @@ package vm
 
 import (
 	"fmt"
+
 	"github.com/tomochain/tomochain/params"
 )
 

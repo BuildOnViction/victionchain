@@ -2,11 +2,12 @@ package tradingstate
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
+
 	"github.com/globalsign/mgo/bson"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/crypto"
-	"math/big"
-	"strconv"
 )
 
 type EpochPriceItem struct {

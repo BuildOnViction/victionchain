@@ -14,17 +14,19 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
+//go:build linux || darwin || freebsd
 // +build linux darwin freebsd
 
 package fuse
 
 import (
-	"bazil.org/fuse"
-	"bazil.org/fuse/fs"
-	"golang.org/x/net/context"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"bazil.org/fuse"
+	"bazil.org/fuse/fs"
+	"golang.org/x/net/context"
 )
 
 var (

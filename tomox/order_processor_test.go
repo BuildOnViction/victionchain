@@ -1,12 +1,13 @@
 package tomox
 
 import (
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 )
 
 func Test_getCancelFeeV1(t *testing.T) {

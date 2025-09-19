@@ -1,8 +1,9 @@
 package simulation
 
 import (
-	"github.com/tomochain/tomochain/crypto"
 	"math/big"
+
+	"github.com/tomochain/tomochain/crypto"
 )
 
 var (

@@ -63,7 +63,7 @@ type Config struct {
 	BootNodes   string
 }
 
-//create a default config with all parameters to set to defaults
+// create a default config with all parameters to set to defaults
 func NewDefaultConfig() (self *Config) {
 
 	self = &Config{
@@ -87,8 +87,8 @@ func NewDefaultConfig() (self *Config) {
 	return
 }
 
-//some config params need to be initialized after the complete
-//config building phase is completed (e.g. due to overriding flags)
+// some config params need to be initialized after the complete
+// config building phase is completed (e.g. due to overriding flags)
 func (self *Config) Init(prvKey *ecdsa.PrivateKey) {
 
 	address := crypto.PubkeyToAddress(prvKey.PublicKey)

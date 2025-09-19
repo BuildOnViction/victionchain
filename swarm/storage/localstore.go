@@ -22,7 +22,7 @@ import (
 	"github.com/tomochain/tomochain/metrics"
 )
 
-//metrics variables
+// metrics variables
 var (
 	dbStorePutCounter = metrics.NewRegisteredCounter("storage.db.dbstore.put.count", nil)
 )

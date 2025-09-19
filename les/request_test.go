@@ -18,12 +18,12 @@ package les
 
 import (
 	"context"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"testing"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/eth"
 	"github.com/tomochain/tomochain/ethdb"

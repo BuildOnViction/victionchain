@@ -18,11 +18,12 @@ package tradingstate
 
 import (
 	"fmt"
+	"math/big"
+	"sort"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
-	"math/big"
-	"sort"
 )
 
 type DumpOrderList struct {

@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	lru "github.com/hashicorp/golang-lru"
@@ -12,8 +15,6 @@ import (
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-	"strings"
-	"time"
 )
 
 const (

@@ -18,6 +18,7 @@ package rawdb
 
 import (
 	"fmt"
+
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/ethdb/leveldb"
 	"github.com/tomochain/tomochain/ethdb/memorydb"

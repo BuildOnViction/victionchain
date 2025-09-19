@@ -17,9 +17,10 @@
 package fuse
 
 import (
-	"github.com/tomochain/tomochain/swarm/api"
 	"sync"
 	"time"
+
+	"github.com/tomochain/tomochain/swarm/api"
 )
 
 const (

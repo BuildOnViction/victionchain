@@ -18,8 +18,8 @@ package core
 
 import (
 	"container/list"
-	"github.com/tomochain/tomochain/core/rawdb"
 
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/event"

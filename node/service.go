@@ -17,10 +17,10 @@
 package node
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"reflect"
 
 	"github.com/tomochain/tomochain/accounts"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/event"
 	"github.com/tomochain/tomochain/p2p"

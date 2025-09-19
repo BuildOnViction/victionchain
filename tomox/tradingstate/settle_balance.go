@@ -3,9 +3,10 @@ package tradingstate
 import (
 	"encoding/json"
 	"errors"
+	"math/big"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/log"
-	"math/big"
 )
 
 const DefaultFeeRate = 10 // 10 / TomoXBaseFee = 10 / 10000 = 0.1%

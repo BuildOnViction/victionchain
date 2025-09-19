@@ -18,10 +18,11 @@ package lendingstate
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
+
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 )
 
 func TestEchangeStates(t *testing.T) {

@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math"
 	"math/big"
 	"math/rand"
@@ -29,10 +28,10 @@ import (
 	"testing"
 	"testing/quick"
 
-	check "gopkg.in/check.v1"
-
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
+	check "gopkg.in/check.v1"
 )
 
 // Tests that updating a state trie does not leak any database writes prior to

@@ -20,7 +20,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"strings"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/tomochain/tomochain/common/hexutil"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"

@@ -19,6 +19,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
 	"github.com/tomochain/tomochain/common"
@@ -27,10 +32,6 @@ import (
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 var (

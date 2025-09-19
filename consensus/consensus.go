@@ -18,12 +18,13 @@
 package consensus
 
 import (
+	"math/big"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/params"
 	"github.com/tomochain/tomochain/rpc"
-	"math/big"
 )
 
 // ChainReader defines a small collection of methods needed to access the local

@@ -17,12 +17,12 @@
 package vm
 
 import (
-	"github.com/tomochain/tomochain/params"
 	"math/big"
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/params"
 )
 
 type dummyContractRef struct {
@@ -50,7 +50,7 @@ func (*dummyStatedb) GetRefund() uint64 { return 1337 }
 
 func TestStoreCapture(t *testing.T) {
 	var (
-		env      = NewEVM(Context{}, &dummyStatedb{},nil, params.TestChainConfig, Config{})
+		env      = NewEVM(Context{}, &dummyStatedb{}, nil, params.TestChainConfig, Config{})
 		logger   = NewStructLogger(nil)
 		mem      = NewMemory()
 		stack    = newstack()

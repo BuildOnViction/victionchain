@@ -2,12 +2,13 @@ package tradingstate
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 )
 
 func TestTomoxTrieTest(t *testing.T) {

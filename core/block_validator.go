@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/consensus/posv"

@@ -17,13 +17,13 @@
 package vm
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math"
 	"math/big"
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/hexutil"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/params"
 )
@@ -91,7 +91,7 @@ func TestEIP2200(t *testing.T) {
 			CanTransfer: func(StateDB, common.Address, *big.Int) bool { return true },
 			Transfer:    func(StateDB, common.Address, common.Address, *big.Int) {},
 		}
-		vmenv := NewEVM(vmctx, statedb, nil,params.AllEthashProtocolChanges, Config{ExtraEips: []int{2200}})
+		vmenv := NewEVM(vmctx, statedb, nil, params.AllEthashProtocolChanges, Config{ExtraEips: []int{2200}})
 
 		_, gas, err := vmenv.Call(AccountRef(common.Address{}), address, nil, tt.gaspool, new(big.Int))
 		if err != tt.failure {

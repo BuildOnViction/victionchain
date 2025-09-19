@@ -3,9 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
-	"github.com/tomochain/tomochain/ethdb"
-	"github.com/tomochain/tomochain/ethdb/leveldb"
 	"os"
 	"os/signal"
 	"runtime"
@@ -13,12 +10,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/tomochain/tomochain/cmd/utils"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/eth"
+	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/ethdb/leveldb"
 	"github.com/tomochain/tomochain/rlp"
 	"github.com/tomochain/tomochain/trie"
 )

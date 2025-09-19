@@ -17,7 +17,6 @@
 package runtime
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"strings"
 	"testing"
@@ -26,6 +25,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"

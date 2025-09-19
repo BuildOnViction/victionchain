@@ -1,8 +1,6 @@
 package tomox
 
 import (
-	"github.com/tomochain/tomochain/contracts/tomox/contract"
-	"github.com/tomochain/tomochain/log"
 	"math/big"
 	"strings"
 
@@ -11,7 +9,9 @@ import (
 	"github.com/tomochain/tomochain/accounts/abi/bind/backends"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus"
+	"github.com/tomochain/tomochain/contracts/tomox/contract"
 	"github.com/tomochain/tomochain/core/state"
+	"github.com/tomochain/tomochain/log"
 )
 
 // GetTokenAbi return token abi

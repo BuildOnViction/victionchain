@@ -2,17 +2,18 @@ package core
 
 import (
 	"context"
-	"github.com/tomochain/tomochain/common"
-	"github.com/tomochain/tomochain/core/types"
-	"github.com/tomochain/tomochain/crypto"
-	"github.com/tomochain/tomochain/ethclient"
-	"github.com/tomochain/tomochain/rpc"
 	"log"
 	"math/big"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/types"
+	"github.com/tomochain/tomochain/crypto"
+	"github.com/tomochain/tomochain/ethclient"
+	"github.com/tomochain/tomochain/rpc"
 )
 
 type OrderMsg struct {

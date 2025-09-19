@@ -19,7 +19,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"os"
 	"runtime"
 	"strconv"
@@ -30,6 +29,7 @@ import (
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/console"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/eth/downloader"

@@ -18,13 +18,13 @@ package light
 
 import (
 	"context"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/consensus/ethash"
 	"github.com/tomochain/tomochain/core"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/params"

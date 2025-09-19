@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/tomochain/tomochain/contracts/tomox/simulation"
 	"math/big"
 	"os"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/contracts/tomox"
+	"github.com/tomochain/tomochain/contracts/tomox/simulation"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/ethclient"
 )

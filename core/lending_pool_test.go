@@ -3,6 +3,13 @@ package core
 import (
 	"context"
 	"fmt"
+	"log"
+	"math/big"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto"
@@ -10,12 +17,6 @@ import (
 	"github.com/tomochain/tomochain/ethclient"
 	"github.com/tomochain/tomochain/rpc"
 	"github.com/tomochain/tomochain/tomoxlending/lendingstate"
-	"log"
-	"math/big"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
 )
 
 type LendingMsg struct {

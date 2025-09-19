@@ -17,13 +17,13 @@
 package eth
 
 import (
-	"github.com/tomochain/tomochain/core/rawdb"
 	"time"
 
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/bitutil"
 	"github.com/tomochain/tomochain/core"
 	"github.com/tomochain/tomochain/core/bloombits"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/ethdb"
 	"github.com/tomochain/tomochain/params"

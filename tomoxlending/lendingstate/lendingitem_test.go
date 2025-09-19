@@ -2,17 +2,18 @@ package lendingstate
 
 import (
 	"fmt"
+	"math/big"
+	"math/rand"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/crypto"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/rpc"
-	"math/big"
-	"math/rand"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestLendingItem_VerifyLendingSide(t *testing.T) {

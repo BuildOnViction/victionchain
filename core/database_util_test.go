@@ -18,11 +18,11 @@ package core
 
 import (
 	"bytes"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"math/big"
 	"testing"
 
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/core/rawdb"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/rlp"

@@ -17,13 +17,13 @@
 package types
 
 import (
+	"bytes"
 	"math/big"
+	"reflect"
 	"testing"
 
-	"bytes"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/rlp"
-	"reflect"
 )
 
 // from bcValidBlockTest.json, "SimpleTx"

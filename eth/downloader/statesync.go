@@ -18,7 +18,6 @@ package downloader
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/ethdb/memorydb"
 	"hash"
 	"sync"
 	"time"
@@ -28,6 +27,7 @@ import (
 	"github.com/tomochain/tomochain/core/state"
 	"github.com/tomochain/tomochain/crypto/sha3"
 	"github.com/tomochain/tomochain/ethdb"
+	"github.com/tomochain/tomochain/ethdb/memorydb"
 	"github.com/tomochain/tomochain/log"
 	"github.com/tomochain/tomochain/trie"
 )

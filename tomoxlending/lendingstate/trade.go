@@ -2,14 +2,14 @@ package lendingstate
 
 import (
 	"fmt"
-	"github.com/tomochain/tomochain/crypto/sha3"
-	"github.com/tomochain/tomochain/tomox/tradingstate"
 	"math/big"
 	"strconv"
 	"time"
 
 	"github.com/globalsign/mgo/bson"
 	"github.com/tomochain/tomochain/common"
+	"github.com/tomochain/tomochain/crypto/sha3"
+	"github.com/tomochain/tomochain/tomox/tradingstate"
 )
 
 const (

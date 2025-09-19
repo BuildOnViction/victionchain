@@ -1,10 +1,11 @@
 package lendingstate
 
 import (
-	"github.com/tomochain/tomochain/common"
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/tomochain/tomochain/common"
 )
 
 func TestCalculateInterestRate(t *testing.T) {

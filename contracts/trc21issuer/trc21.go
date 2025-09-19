@@ -1,10 +1,11 @@
 package trc21issuer
 
 import (
+	"math/big"
+
 	"github.com/tomochain/tomochain/accounts/abi/bind"
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/contracts/trc21issuer/contract"
-	"math/big"
 )
 
 type MyTRC21 struct {

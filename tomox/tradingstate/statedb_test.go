@@ -18,11 +18,12 @@ package tradingstate
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/common/math"
 	"github.com/tomochain/tomochain/core/rawdb"
-	"math/big"
-	"testing"
 )
 
 func TestEchangeStates(t *testing.T) {
