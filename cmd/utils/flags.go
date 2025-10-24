@@ -423,7 +423,7 @@ var (
 	RPCTimeoutFlag = cli.IntFlag{
 		Name:  "rpctimeout",
 		Usage: "Timeout for RPC HTTP Handlers in seconds",
-		Value: 10,
+		Value: 120,
 	}
 	IPCDisabledFlag = cli.BoolFlag{
 		Name:  "ipcdisable",
