@@ -420,6 +420,11 @@ var (
 		Usage: "API's offered over the HTTP-RPC interface",
 		Value: "",
 	}
+	RPCTimeoutFlag = cli.IntFlag{
+		Name:  "rpctimeout",
+		Usage: "Timeout for RPC HTTP Handlers in seconds",
+		Value: 120,
+	}
 	IPCDisabledFlag = cli.BoolFlag{
 		Name:  "ipcdisable",
 		Usage: "Disable the IPC-RPC server",
@@ -740,6 +745,11 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 	}
 	if ctx.GlobalIsSet(RPCApiFlag.Name) {
 		cfg.HTTPModules = splitAndTrim(ctx.GlobalString(RPCApiFlag.Name))
+	}
+	if ctx.GlobalIsSet(RPCTimeoutFlag.Name) {
+		cfg.HTTPTimeout = ctx.GlobalInt(RPCTimeoutFlag.Name)
+	} else {
+		cfg.HTTPTimeout = RPCTimeoutFlag.Value
 	}
 	if ctx.GlobalIsSet(RPCVirtualHostsFlag.Name) {
 		cfg.HTTPVirtualHosts = splitAndTrim(ctx.GlobalString(RPCVirtualHostsFlag.Name))

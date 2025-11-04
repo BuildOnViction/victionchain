@@ -119,6 +119,9 @@ type Config struct {
 	// exposed.
 	HTTPModules []string `toml:",omitempty"`
 
+	// HTTPTimeout define the maximum duration in seconds for handling HTTP requests.
+	HTTPTimeout int `toml:",omitempty"`
+
 	// WSHost is the host interface on which to start the websocket RPC server. If
 	// this field is empty, no websocket API endpoint will be started.
 	WSHost string `toml:",omitempty"`
