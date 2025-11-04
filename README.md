@@ -40,7 +40,7 @@ go run build/ci.go install
 Clone this repository and change working directory to where you clone it, then run the following commands:
 
 ```bash
-docker build --file Dockerfile.node -t "viction:v2.5.0" .
+docker build --file Dockerfile.node -t "buildonviction/node:v2.5.0" .
 ```
 
 ### Pre-built Bianries
@@ -104,7 +104,7 @@ Brief explainations on the used flags:
 --networkid: our network ID.
 --tomo-testnet: required when running a network other than Mainnet
 --gasprice: Minimal gas price to accept for mining a transaction.
---rpc, --rpcaddr, --rpcport, --rpcvhosts, --rpccorsdomain: configure HTTP-RPC.
+--rpc, --rpcaddr, --rpcport, --rpcvhosts, --rpccorsdomain, --rpctimeout: configure HTTP-RPC.
 --ws, --wsaddr, --wsport, --wsorigins: configure Websocket.
 --mine: your full-node wants to register to be a candidate for masternode selection.
 --bootnodes: list of enodes of other peers that your full-node will try to connect at startup
@@ -129,7 +129,6 @@ docker run --name viction \
   -p 30303:30303 \
   -e IDENTITY=my-full-node \
   -e NETWORK_ID=88
-  -e BOOTNODES=enode://fd3da177f9492a39d1e7ce036b05745512894df251399cb3ec565081cb8c6dfa1092af8fac27991e66b6af47e9cb42e02420cc89f8549de0ce513ee25ebffc3a@3.212.20.0:30303,enode://97f0ca95a653e3c44d5df2674e19e9324ea4bf4d47a46b1d8560f3ed4ea328f725acec3fcfcb37eb11706cf07da669e9688b091f1543f89b2425700a68bc8876@104.248.98.78:30301,enode://b72927f349f3a27b789d0ca615ffe3526f361665b496c80e7cc19dace78bd94785fdadc270054ab727dbb172d9e3113694600dd31b2558dd77ad85a869032dea@188.166.207.189:30301,enode://c8f2f0643527d4efffb8cb10ef9b6da4310c5ac9f2e988a7f85363e81d42f1793f64a9aa127dbaff56b1e8011f90fe9ff57fa02a36f73220da5ff81d8b8df351@104.248.98.60:30301 \
   -e NETSTATS_HOST=stats.viction.xyz \
   -e NETSTATS_PORT=443 \
   -e WS_SECRET=getty-site-pablo-auger-room-sos-blair-shin-whiz-delhi \
