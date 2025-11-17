@@ -1672,6 +1672,7 @@ func (s *PublicTransactionPoolAPI) GetRawTransactionByHash(ctx context.Context, 
 
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
 func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
+	fmt.Println("[GetTransactionReceipt::debug::entry]", hash.String())
 	tx, blockHash, blockNumber, index := core.GetTransaction(s.b.ChainDb(), hash)
 	if tx == nil {
 		return nil, nil
@@ -1689,7 +1690,35 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 	if tx.Protected() {
 		signer = types.NewEIP155Signer(tx.ChainId())
 	}
-	return marshalReceipt(receipt, blockHash, blockNumber, signer, tx, int(index)), nil
+	// check is sponsored transaction
+	isSponsored := false
+	if tx.To() != nil {
+		stateDB, header, err := s.b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(blockNumber))
+		if err != nil {
+			return nil, err
+		}
+		if stateDB != nil && header != nil {
+			tokenBalance := state.GetTRC21FeeCapacityFromStateWithToken(stateDB, tx.To())
+			fmt.Println("[GetTransactionReceipt::debug]", tokenBalance, "of", tx.To().String(), "atBlock", blockNumber)
+			if tokenBalance != nil && tokenBalance.Cmp(big.NewInt(0)) > 0 {
+				requiredGasFee := new(big.Int).Mul(
+					new(big.Int).SetUint64(receipt.GasUsed),
+					common.TRC21GasPrice,
+				)
+				fmt.Println("[GetTransactionReceipt::debug]", requiredGasFee, "required for gas used", receipt.GasUsed)
+				if tokenBalance.Cmp(requiredGasFee) >= 0 {
+					isSponsored = true
+				}
+			}
+		}
+	}
+
+	result := marshalReceipt(receipt, blockHash, blockNumber, signer, tx, int(index))
+	if isSponsored {
+		result["hasSponsoredGas"] = true
+		result["sponsorToken"] = tx.To()
+	}
+	return result, nil
 }
 
 // marshalReceipt marshals a transaction receipt into a JSON object.
