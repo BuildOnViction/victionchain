@@ -667,8 +667,17 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	if err != nil {
 		return nil, vm.Context{}, nil, err
 	}
+	feeCapacity := make(map[common.Address]*big.Int)
 	// Recompute transactions up to the target index.
-	feeCapacity := state.GetTRC21FeeCapacityFromState(statedb)
+	for _, tx := range block.Transactions() {
+		if tx.To() != nil {
+			tFeeCapacity := state.GetTRC21FeeCapacityFromStateWithToken(statedb, tx.To())
+			if tFeeCapacity != nil {
+				feeCapacity[*tx.To()] = tFeeCapacity
+			}
+		}
+	}
+
 	if common.TIPSigningBlock.Cmp(block.Header().Number) == 0 {
 		statedb.DeleteAddress(common.HexToAddress(common.BlockSigners))
 	}

@@ -19,13 +19,14 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/tomochain/tomochain/core/rawdb"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/tomochain/tomochain/core/rawdb"
 
 	"github.com/prometheus/prometheus/util/flock"
 	"github.com/tomochain/tomochain/accounts"
@@ -264,7 +265,7 @@ func (n *Node) startRPC(services map[reflect.Type]Service) error {
 		n.stopInProc()
 		return err
 	}
-	if err := n.startHTTP(n.httpEndpoint, apis, n.config.HTTPModules, n.config.HTTPCors, n.config.HTTPVirtualHosts); err != nil {
+	if err := n.startHTTP(n.httpEndpoint, apis, n.config.HTTPModules, n.config.HTTPCors, n.config.HTTPVirtualHosts, n.config.HTTPTimeout); err != nil {
 		n.stopIPC()
 		n.stopInProc()
 		return err
@@ -366,7 +367,7 @@ func (n *Node) stopIPC() {
 }
 
 // startHTTP initializes and starts the HTTP RPC endpoint.
-func (n *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string) error {
+func (n *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeout int) error {
 	// Short circuit if the HTTP endpoint isn't being exposed
 	if endpoint == "" {
 		return nil
@@ -394,8 +395,8 @@ func (n *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors
 	if listener, err = net.Listen("tcp", endpoint); err != nil {
 		return err
 	}
-	go rpc.NewHTTPServer(cors, vhosts, handler).Serve(listener)
-	n.log.Info("HTTP endpoint opened", "url", fmt.Sprintf("http://%s", endpoint), "cors", strings.Join(cors, ","), "vhosts", strings.Join(vhosts, ","))
+	go rpc.NewHTTPServer(cors, vhosts, handler, timeout).Serve(listener)
+	n.log.Info("HTTP endpoint opened", "url", fmt.Sprintf("http://%s", endpoint), "modules", strings.Join(modules, ","), "cors", strings.Join(cors, ","), "vhosts", strings.Join(vhosts, ","), "timeout", timeout)
 	// All listeners booted successfully
 	n.httpEndpoint = endpoint
 	n.httpListener = listener

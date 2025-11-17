@@ -1,0 +1,187 @@
+name: Release
+
+on:
+  push:
+    # Publish `v1.2.3` tags as releases.
+    tags:
+      - v*
+env:
+  CGO_CFLAGS: "-O -D__BLST_PORTABLE__"
+  CGO_CFLAGS_ALLOW: "-O -D__BLST_PORTABLE__"
+
+jobs:
+  build:
+    name: Build Release
+    strategy:
+      matrix:
+        go-version: [1.20.x]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - uses: actions/cache@v3
+        with:
+          # In order:
+          # * Module download cache
+          # * Build cache (Linux)
+          # * Build cache (Mac)
+          # * Build cache (Windows)
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            ~\AppData\Local\go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # ==============================
+      #       Linux Cross Compile for AMD64
+      # ==============================
+
+      - name: Build Binary for Linux AMD64
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          go mod download
+          wget https://pub-c0627345c16f47ab858c9469133073a8.r2.dev/x86_64-linux-musl-cross.tgz
+          tar -xvf ./x86_64-linux-musl-cross.tgz
+          GIT_COMMIT=$(git rev-parse HEAD)
+          GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE -extldflags=-static" -o ./build/bin/tomo-linux-amd64 -a ./cmd/tomo
+
+      # ==============================
+      #       Linux Cross Compile for ARM64
+      # ==============================
+
+      - name: Build Binary for Linux ARM64
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          go mod download
+          wget https://pub-c0627345c16f47ab858c9469133073a8.r2.dev/aarch64-linux-musl-cross.tgz
+          tar -xvf ./aarch64-linux-musl-cross.tgz
+          GIT_COMMIT=$(git rev-parse HEAD)
+          GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 CC=$(pwd)/aarch64-linux-musl-cross/bin/aarch64-linux-musl-gcc go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE -extldflags=-static" -o ./build/bin/tomo-linux-arm64 -a ./cmd/tomo
+
+      # ==============================
+      #       Windows
+      # ==============================
+
+      - name: Build Binary for Windows AMD64
+        if: matrix.os == 'windows-latest'
+        run: |
+          go mod download
+          git rev-parse HEAD > env.txt
+          set /p GIT_COMMIT=<env.txt
+          go build -ldflags "-X main.gitCommit=%GIT_COMMIT%" -o ./build/bin/tomo-windows-amd64.exe -a ./cmd/tomo
+
+      # ==============================
+      #       MacOS
+      # ==============================
+
+      - name: Build Binary for MacOS ARM64
+        if: matrix.os == 'macos-latest'
+        run: |
+          go mod download
+          GIT_COMMIT=$(git rev-parse HEAD)
+          GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE" -o ./build/bin/tomo-macos-arm64 -a ./cmd/tomo
+
+      # ==============================
+      #       Upload artifacts
+      # ==============================
+
+      - name: Upload Linux Build
+        uses: actions/upload-artifact@v4.3.3
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: linux-amd64
+          path: ./build/bin/tomo-linux-amd64
+
+      - name: Upload ARM64 Build
+        uses: actions/upload-artifact@v4.3.3
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: linux-arm64
+          path: ./build/bin/tomo-linux-arm64
+
+      - name: Upload Windows Build
+        uses: actions/upload-artifact@v4.3.3
+        if: matrix.os == 'windows-latest'
+        with:
+          name: windows-amd64
+          path: ./build/bin/tomo-windows-amd64.exe
+
+      - name: Upload MacOS Build
+        uses: actions/upload-artifact@v4.3.3
+        if: matrix.os == 'macos-latest'
+        with:
+          name: macos-arm64
+          path: ./build/bin/tomo-macos-arm64
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set Env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # ==============================
+      #       Download artifacts
+      # ==============================
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: linux-amd64
+          path: .
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: linux-arm64
+          path: .
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: windows-amd64
+          path: .
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: macos-arm64
+          path: .
+
+      # ==============================
+      #       Create release
+      # ==============================
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ env.RELEASE_VERSION}}
+          release_name: ${{ env.RELEASE_VERSION}}
+          body: |
+            "Created by Github Actions"
+          draft: true
+          prerelease: false
+          files: |
+            ./tomo-linux-amd64
+            ./tomo-linux-arm64
+            ./tomo-windows-amd64.exe
+            ./tomo-macos-arm64

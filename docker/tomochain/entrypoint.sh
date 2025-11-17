@@ -9,7 +9,7 @@ genesisPath=""
 params=""
 
 # file to env
-for env in IDENTITY NETWORK_ID SYNC_MODE \
+for env in IDENTITY NETWORK_ID SYNC_MODE RPC_TIMEOUT \
            BOOTNODES EXTIP P2P_PORT NETSTATS_HOST NETSTATS_PORT WS_SECRET \
            PASSWORD PRIVATE_KEY ANNOUNCE_TXS VERBOSITY ''; do
   file=$(eval echo "\$${env}_FILE")
@@ -60,6 +60,11 @@ fi
 # identity
 if [[ -z ${IDENTITY} ]]; then
   IDENTITY="unnamed_$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c6)"
+fi
+
+# rpctimeout
+if [[ ! -z ${RPC_TIMEOUT} ]]; then
+  params="$params --rpctimeout ${RPC_TIMEOUT}"
 fi
 
 # bootnodes
