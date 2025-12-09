@@ -127,6 +127,7 @@ var (
 		utils.StoreRewardFlag,
 		utils.RollbackFlag,
 		utils.ReexecFlag,
+		utils.TraceOutdirFlag,
 	}
 
 	rpcFlags = []cli.Flag{

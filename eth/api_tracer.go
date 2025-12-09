@@ -19,10 +19,13 @@ package eth
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -723,4 +726,57 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	}
 	statedb.DeleteSuicides()
 	return nil, vm.Context{}, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
+}
+
+func (api *PrivateDebugAPI) StandardTraceBlocksToFile(ctx context.Context, numbers []rpc.BlockNumber, config *TraceConfig) ([]string, error) {
+	if common.StoreTraceFolder == "" {
+		return nil, errors.New("trace output directory not set")
+	}
+	var allDumps []string
+	for _, number := range numbers {
+		file, err := api.standardTraceBlockToFile(ctx, number, config)
+		if err != nil {
+			log.Warn("Trace failed", "block", number, "err", err)
+			continue
+		}
+		allDumps = append(allDumps, file)
+	}
+	return allDumps, nil
+}
+
+// StandardTraceBlockToFile dumps the structured logs created during the
+// execution of EVM to the local file system and returns a list of files
+// to the caller..
+func (api *PrivateDebugAPI) standardTraceBlockToFile(ctx context.Context, number rpc.BlockNumber, config *TraceConfig) (string, error) {
+	var block *types.Block
+	switch number {
+	case rpc.PendingBlockNumber:
+		block = api.eth.miner.PendingBlock()
+	case rpc.LatestBlockNumber:
+		block = api.eth.blockchain.CurrentBlock()
+	default:
+		block = api.eth.blockchain.GetBlockByNumber(uint64(number))
+	}
+	// Trace the block if it was found
+	if block == nil {
+		return "", fmt.Errorf("block #%d not found", number)
+	}
+	var results, err = api.traceBlock(ctx, block, config)
+	if err != nil {
+		return "", fmt.Errorf("failed to trace block: %v", err)
+	}
+	path := filepath.Join(common.StoreTraceFolder, fmt.Sprintf("block_%d.json", block.NumberU64()))
+	log.Info("Writing block trace to file", "file", path)
+	f, err := os.Create(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to create trace file: %v", err)
+	}
+	defer f.Close()
+	encoder := json.NewEncoder(f)
+	encoder.SetIndent("", "  ") // Pretty print
+	if err := encoder.Encode(results); err != nil {
+		return "", fmt.Errorf("failed to encode trace result: %v", err)
+	}
+	log.Info("Wrote block trace", "file", path)
+	return path, nil
 }
