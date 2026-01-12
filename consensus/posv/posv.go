@@ -261,14 +261,26 @@ type Posv struct {
 	signFn clique.SignerFn // Signer function to authorize hashes with
 	lock   sync.RWMutex    // Protects the signer fields
 
-	BlockSigners               *lru.Cache
-	HookReward                 func(chain consensus.ChainReader, state *state.StateDB, parentState *state.StateDB, header *types.Header) (error, map[string]interface{})
-	HookPenalty                func(chain consensus.ChainReader, blockNumberEpoc uint64) ([]common.Address, error)
-	HookPenaltyTIPSigning      func(chain consensus.ChainReader, header *types.Header, candidate []common.Address) ([]common.Address, error)
-	HookValidator              func(header *types.Header, signers []common.Address) ([]byte, error)
-	HookVerifyMNs              func(header *types.Header, signers []common.Address) error
-	GetTomoXService            func() TradingService
-	GetLendingService          func() LendingService
+	BlockSigners *lru.Cache
+
+	// PosvGetEpochReward
+	HookReward func(chain consensus.ChainReader, state *state.StateDB, parentState *state.StateDB, header *types.Header) (error, map[string]interface{})
+
+	// PosvGetPenalties
+	HookPenalty func(chain consensus.ChainReader, blockNumberEpoc uint64) ([]common.Address, error)
+	// PosvGetPenalties
+	HookPenaltyTIPSigning func(chain consensus.ChainReader, header *types.Header, candidate []common.Address) ([]common.Address, error)
+
+	// PosvGetAttestors
+	HookValidator func(header *types.Header, signers []common.Address) ([]byte, error)
+
+	// Deleted
+	HookVerifyMNs func(header *types.Header, signers []common.Address) error
+
+	GetTomoXService   func() TradingService
+	GetLendingService func() LendingService
+
+	// PosvGetValidators
 	HookGetSignersFromContract func(blockHash common.Hash) ([]common.Address, error)
 }
 
@@ -333,6 +345,7 @@ func (c *Posv) VerifyHeaders(chain consensus.ChainReader, headers []*types.Heade
 	return abort, results
 }
 
+// Mapped to verifyHeaderWithCache
 func (c *Posv) verifyHeaderWithCache(chain consensus.ChainReader, header *types.Header, parents []*types.Header, fullVerify bool) error {
 	_, check := c.verifiedHeaders.Get(header.Hash())
 	if check {
@@ -345,6 +358,7 @@ func (c *Posv) verifyHeaderWithCache(chain consensus.ChainReader, header *types.
 	return err
 }
 
+// Mapped to verifyHeader
 // verifyHeader checks whether a header conforms to the consensus rules.The
 // caller may optionally pass in a batch of parents (ascending order) to avoid
 // looking those up from the database. This is useful for concurrently verifying
@@ -358,11 +372,13 @@ func (c *Posv) verifyHeader(chain consensus.ChainReader, header *types.Header, p
 		if header.Number.Uint64() > c.config.Epoch && len(header.Validator) == 0 {
 			return consensus.ErrNoValidatorSignature
 		}
-		// Don't waste time checking blocks from the future
-		if header.Time.Cmp(big.NewInt(time.Now().Unix())) > 0 {
-			return consensus.ErrFutureBlock
-		}
 	}
+
+	// Don't waste time checking blocks from the future
+	if header.Time.Cmp(big.NewInt(time.Now().Unix())) > 0 {
+		return consensus.ErrFutureBlock
+	}
+
 	// Checkpoint blocks need to enforce zero beneficiary
 	checkpoint := (number % c.config.Epoch) == 0
 	if checkpoint && header.Coinbase != (common.Address{}) {
@@ -407,6 +423,7 @@ func (c *Posv) verifyHeader(chain consensus.ChainReader, header *types.Header, p
 	return c.verifyCascadingFields(chain, header, parents, fullVerify)
 }
 
+// Mapped to verifyCascadingFields
 // verifyCascadingFields verifies all the header fields that are not standalone,
 // rather depend on a batch of previous headers. The caller may optionally pass
 // in a batch of parents (ascending order) to avoid looking those up from the
@@ -463,6 +480,7 @@ func (c *Posv) verifyCascadingFields(chain consensus.ChainReader, header *types.
 	return err
 }
 
+// Mapped to verifyValidators
 func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *types.Header, signers []common.Address) error {
 	number := header.Number.Uint64()
 	// ignore signerCheck at checkpoint block 14458500 due to wrong snapshot at gap 14458495
@@ -512,6 +530,7 @@ func (c *Posv) checkSignersOnCheckpoint(chain consensus.ChainReader, header *typ
 	return nil
 }
 
+// Mapped to AreSimilarSlices
 // compare 2 signers lists
 // return true if they are same elements, otherwise return false
 func compareSignersLists(list1 []common.Address, list2 []common.Address) bool {
@@ -527,6 +546,7 @@ func compareSignersLists(list1 []common.Address, list2 []common.Address) bool {
 	return reflect.DeepEqual(list1, list2)
 }
 
+// Deleted, Redundant
 func (c *Posv) GetSnapshot(chain consensus.ChainReader, header *types.Header) (*Snapshot, error) {
 	number := header.Number.Uint64()
 	log.Trace("take snapshot", "number", number, "hash", header.Hash())
@@ -541,6 +561,7 @@ func (c *Posv) StoreSnapshot(snap *Snapshot) error {
 	return snap.store(c.db)
 }
 
+// Mapped to common.IndexOf
 func position(list []common.Address, x common.Address) int {
 	for i, item := range list {
 		if item == x {
@@ -550,6 +571,7 @@ func position(list []common.Address, x common.Address) int {
 	return -1
 }
 
+// Mapped to GetNearestCheckpointValidators
 func (c *Posv) GetMasternodes(chain consensus.ChainReader, header *types.Header) []common.Address {
 	n := header.Number.Uint64()
 	e := c.config.Epoch
@@ -566,6 +588,7 @@ func (c *Posv) GetMasternodes(chain consensus.ChainReader, header *types.Header)
 
 func (c *Posv) GetPeriod() uint64 { return c.config.Period }
 
+// Redundant. Use ecrecover directly
 func whoIsCreator(snap *Snapshot, header *types.Header) (common.Address, error) {
 	if header.Number.Uint64() == 0 {
 		return common.Address{}, errors.New("Don't take block 0")
@@ -577,6 +600,7 @@ func whoIsCreator(snap *Snapshot, header *types.Header) (common.Address, error) 
 	return m, nil
 }
 
+// Mapped to IsMyTurn
 func (c *Posv) YourTurn(chain consensus.ChainReader, parent *types.Header, signer common.Address) (int, int, int, bool, error) {
 	masternodes := c.GetMasternodes(chain, parent)
 
@@ -611,6 +635,7 @@ func (c *Posv) YourTurn(chain consensus.ChainReader, parent *types.Header, signe
 	return len(masternodes), preIndex, curIndex, false, nil
 }
 
+// Mapped to snapshot
 // snapshot retrieves the authorization snapshot at a given point in time.
 func (c *Posv) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
@@ -711,35 +736,22 @@ func (c *Posv) VerifySeal(chain consensus.ChainReader, header *types.Header) err
 // verifySeal also checks the pair of creator-validator set in the header satisfies
 // the double validation.
 func (c *Posv) verifySeal(chain consensus.ChainReader, header *types.Header, parents []*types.Header, fullVerify bool) error {
+	// Retrieve the snapshot needed to verify this header and cache it
+	snap, err := c.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, parents)
+	if err != nil {
+		return err
+	}
+
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
 		return errUnknownBlock
-	}
-	// Retrieve the snapshot needed to verify this header and cache it
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
-	if err != nil {
-		return err
 	}
 
 	// Resolve the authorization key and check against signers
 	creator, err := ecrecover(header, c.signatures)
 	if err != nil {
 		return err
-	}
-	var parent *types.Header
-	if len(parents) > 0 {
-		parent = parents[len(parents)-1]
-	} else {
-		parent = chain.GetHeader(header.ParentHash, number-1)
-	}
-	difficulty := c.calcDifficulty(chain, parent, creator)
-	log.Debug("verify seal block", "number", header.Number, "hash", header.Hash(), "block difficulty", header.Difficulty, "calc difficulty", difficulty, "creator", creator)
-	// Ensure that the block's difficulty is meaningful (may not be correct at this point)
-	if number > 0 {
-		if header.Difficulty.Int64() != difficulty.Int64() {
-			return errInvalidDifficulty
-		}
 	}
 	masternodes := c.GetMasternodes(chain, header)
 	mstring := []string{}
@@ -763,6 +775,8 @@ func (c *Posv) verifySeal(chain consensus.ChainReader, header *types.Header, par
 			return errUnauthorized
 		}
 	}
+
+	// Prevent continuous block creation by the same signer
 	if len(masternodes) > 1 {
 		for seen, recent := range snap.Recents {
 			if recent == creator {
@@ -778,8 +792,22 @@ func (c *Posv) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		}
 	}
 
-	// header must contain validator info following double validation design
-	// start checking from epoch 2nd.
+	// Ensure that the difficulty corresponds to the turn-ness of the signer
+	var parent *types.Header
+	if len(parents) > 0 {
+		parent = parents[len(parents)-1]
+	} else {
+		parent = chain.GetHeader(header.ParentHash, number-1)
+	}
+	difficulty := c.calcDifficulty(chain, parent, creator)
+	log.Debug("verify seal block", "number", header.Number, "hash", header.Hash(), "block difficulty", header.Difficulty, "calc difficulty", difficulty, "creator", creator)
+	if number > 0 {
+		if header.Difficulty.Int64() != difficulty.Int64() {
+			return errInvalidDifficulty
+		}
+	}
+
+	// Double validation
 	if header.Number.Uint64() > c.config.Epoch && fullVerify {
 		validator, err := c.RecoverValidator(header)
 		if err != nil {
@@ -801,23 +829,23 @@ func (c *Posv) verifySeal(chain consensus.ChainReader, header *types.Header, par
 
 func (c *Posv) GetValidator(creator common.Address, chain consensus.ChainReader, header *types.Header) (common.Address, error) {
 	epoch := c.config.Epoch
-	no := header.Number.Uint64()
-	cpNo := no
-	if no%epoch != 0 {
-		cpNo = no - (no % epoch)
+	number := header.Number.Uint64()
+	checkpointNumber := number
+	if number%epoch != 0 {
+		checkpointNumber = number - (number % epoch)
 	}
-	if cpNo == 0 {
+	if checkpointNumber == 0 {
 		return common.Address{}, nil
 	}
-	cpHeader := chain.GetHeaderByNumber(cpNo)
-	if cpHeader == nil {
-		if no%epoch == 0 {
-			cpHeader = header
+	checkpointHeader := chain.GetHeaderByNumber(checkpointNumber)
+	if checkpointHeader == nil {
+		if number%epoch == 0 {
+			checkpointHeader = header
 		} else {
 			return common.Address{}, fmt.Errorf("couldn't find checkpoint header")
 		}
 	}
-	m, err := GetM1M2FromCheckpointHeader(cpHeader, header, chain.Config())
+	m, err := GetM1M2FromCheckpointHeader(checkpointHeader, header, chain.Config())
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -1091,10 +1119,12 @@ func (c *Posv) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
+// Mapped to Ecrecover
 func (c *Posv) RecoverSigner(header *types.Header) (common.Address, error) {
 	return ecrecover(header, c.signatures)
 }
 
+// Mapped to Ecrecover
 func (c *Posv) RecoverValidator(header *types.Header) (common.Address, error) {
 	// If the signature's already cached, return that
 	hash := header.Hash()
@@ -1132,6 +1162,7 @@ func (c *Posv) GetMasternodesFromCheckpointHeader(preCheckpointHeader *types.Hea
 	return masternodes
 }
 
+// PosvGetBlockSignData
 func (c *Posv) CacheData(header *types.Header, txs []*types.Transaction, receipts []*types.Receipt) []*types.Transaction {
 	signTxs := []*types.Transaction{}
 	for _, tx := range txs {
@@ -1162,6 +1193,7 @@ func (c *Posv) CacheData(header *types.Header, txs []*types.Transaction, receipt
 	return signTxs
 }
 
+// PosvGetBlockSignData
 func (c *Posv) CacheSigner(hash common.Hash, txs []*types.Transaction) []*types.Transaction {
 	signTxs := []*types.Transaction{}
 	for _, tx := range txs {
@@ -1178,6 +1210,7 @@ func (c *Posv) GetDb() ethdb.Database {
 	return c.db
 }
 
+// Mapped to common.SetSubstract
 // Extract validators from byte array.
 func RemovePenaltiesFromBlock(chain consensus.ChainReader, masternodes []common.Address, epochNumber uint64) []common.Address {
 	if epochNumber <= 0 {
@@ -1193,6 +1226,7 @@ func RemovePenaltiesFromBlock(chain consensus.ChainReader, masternodes []common.
 	return masternodes
 }
 
+// Mapped to ExtractValidatorsFromCheckpointHeader
 // Get masternodes address from checkpoint Header.
 func GetMasternodesFromCheckpointHeader(checkpointHeader *types.Header) []common.Address {
 	masternodes := make([]common.Address, (len(checkpointHeader.Extra)-extraVanity-extraSeal)/common.AddressLength)
@@ -1217,27 +1251,28 @@ func GetM1M2FromCheckpointHeader(checkpointHeader *types.Header, currentHeader *
 	return m1m2, nil
 }
 
-func getM1M2(masternodes []common.Address, validators []int64, currentHeader *types.Header, config *params.ChainConfig) (map[common.Address]common.Address, uint64, error) {
-	m1m2 := map[common.Address]common.Address{}
-	maxMNs := len(masternodes)
-	moveM2 := uint64(0)
-	if len(validators) < maxMNs {
-		return nil, moveM2, errors.New("len(m2) is less than len(m1)")
+func getM1M2(validators []common.Address, attestorIdxs []int64, currentHeader *types.Header, config *params.ChainConfig) (map[common.Address]common.Address, uint64, error) {
+	results := map[common.Address]common.Address{}
+	validatorCount := len(validators)
+	offset := uint64(0)
+	if len(attestorIdxs) < validatorCount {
+		return nil, offset, errors.New("len(m2) is less than len(m1)")
 	}
-	if maxMNs > 0 {
+	if validatorCount > 0 {
 		isForked := config.IsTIPRandomize(currentHeader.Number)
 		if isForked {
-			moveM2 = ((currentHeader.Number.Uint64() % config.Posv.Epoch) / uint64(maxMNs)) % uint64(maxMNs)
+			offset = ((currentHeader.Number.Uint64() % config.Posv.Epoch) / uint64(validatorCount)) % uint64(validatorCount)
 		}
-		for i, m1 := range masternodes {
-			m2Index := uint64(validators[i] % int64(maxMNs))
-			m2Index = (m2Index + moveM2) % uint64(maxMNs)
-			m1m2[m1] = masternodes[m2Index]
+		for i, m1 := range validators {
+			m2Index := uint64(attestorIdxs[i] % int64(validatorCount))
+			m2Index = (m2Index + offset) % uint64(validatorCount)
+			results[m1] = validators[m2Index]
 		}
 	}
-	return m1m2, moveM2, nil
+	return results, offset, nil
 }
 
+// Mapped to ExtractAttestorsFromCheckpointHeader
 // Extract validators from byte array.
 func ExtractValidatorsFromBytes(byteValidators []byte) []int64 {
 	lenValidator := len(byteValidators) / M2ByteLength
@@ -1255,6 +1290,7 @@ func ExtractValidatorsFromBytes(byteValidators []byte) []int64 {
 	return validators
 }
 
+// Mapped to Distance
 func Hop(len, pre, cur int) int {
 	switch {
 	case pre < cur:
@@ -1294,6 +1330,7 @@ func (c *Posv) CheckMNTurn(chain consensus.ChainReader, parent *types.Header, si
 	return false
 }
 
+// included in verifyValidators
 func (c *Posv) GetSignersFromContract(chain consensus.ChainReader, checkpointHeader *types.Header) ([]common.Address, error) {
 	startGapBlockHeader := checkpointHeader
 	number := checkpointHeader.Number.Uint64()
