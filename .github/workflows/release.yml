@@ -54,6 +54,7 @@ jobs:
           tar -xvf ./x86_64-linux-musl-cross.tgz
           GIT_COMMIT=$(git rev-parse HEAD)
           GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
+          echo $GIT_COMMIT $GIT_COMMIT_DATE
           GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE -extldflags=-static" -o ./build/bin/tomo-linux-amd64 -a ./cmd/tomo
 
       # ==============================
@@ -68,6 +69,7 @@ jobs:
           tar -xvf ./aarch64-linux-musl-cross.tgz
           GIT_COMMIT=$(git rev-parse HEAD)
           GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
+          echo $GIT_COMMIT $GIT_COMMIT_DATE
           GOOS=linux GOARCH=arm64 CGO_ENABLED=1 CC=$(pwd)/aarch64-linux-musl-cross/bin/aarch64-linux-musl-gcc go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE -extldflags=-static" -o ./build/bin/tomo-linux-arm64 -a ./cmd/tomo
 
       # ==============================
@@ -78,9 +80,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           go mod download
-          git rev-parse HEAD > env.txt
-          set /p GIT_COMMIT=<env.txt
-          go build -ldflags "-X main.gitCommit=%GIT_COMMIT%" -o ./build/bin/tomo-windows-amd64.exe -a ./cmd/tomo
+          $GIT_COMMIT=git rev-parse HEAD
+          $GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
+          Write-Host $GIT_COMMIT $GIT_COMMIT_DATE
+          go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE" -o ./build/bin/tomo-windows-amd64.exe -a ./cmd/tomo
 
       # ==============================
       #       MacOS
@@ -92,6 +95,7 @@ jobs:
           go mod download
           GIT_COMMIT=$(git rev-parse HEAD)
           GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
+          echo $GIT_COMMIT $GIT_COMMIT_DATE
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE" -o ./build/bin/tomo-macos-arm64 -a ./cmd/tomo
 
       # ==============================
