@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
+//go:build none
 // +build none
 
 /*
@@ -23,18 +24,18 @@ Usage: go run build/ci.go <command> <command flags/arguments>
 
 Available commands are:
 
-   install    [ -arch architecture ] [ -cc compiler ] [ packages... ]                          -- builds packages and executables
-   test       [ -coverage ] [ packages... ]                                                    -- runs the tests
-   lint                                                                                        -- runs certain pre-selected linters
-   importkeys                                                                                  -- imports signing keys from env
-   xgo        [ -alltools ] [ options ]                                                        -- cross builds according to options
+	install    [ -arch architecture ] [ -cc compiler ] [ packages... ]                          -- builds packages and executables
+	test       [ -coverage ] [ packages... ]                                                    -- runs the tests
+	lint                                                                                        -- runs certain pre-selected linters
+	importkeys                                                                                  -- imports signing keys from env
+	xgo        [ -alltools ] [ options ]                                                        -- cross builds according to options
 
 For all commands, -n prevents execution of external programs (dry run mode).
-
 */
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"go/parser"
@@ -48,6 +49,7 @@ import (
 	"strings"
 
 	"github.com/tomochain/tomochain/internal/build"
+	"github.com/tomochain/tomochain/internal/download"
 )
 
 var (
@@ -247,32 +249,52 @@ func doTest(cmdline []string) {
 }
 
 func doLint(cmdline []string) {
+	var (
+		cachedir = flag.String("cachedir", "./build/cache", "directory for caching golangci-lint binary.")
+	)
 	flag.CommandLine.Parse(cmdline)
 
-	packages := []string{"./..."}
-	if len(flag.CommandLine.Args()) > 0 {
-		packages = flag.CommandLine.Args()
+	packages := flag.CommandLine.Args()
+	if len(packages) == 0 {
+		// Get module directories in workspace.
+		packages = []string{"./..."}
+		modules := workspaceModules()
+		for _, m := range modules[1:] {
+			dir := strings.TrimPrefix(m, modules[0])
+			packages = append(packages, "."+dir+"/...")
+		}
 	}
-	// Get golangci-lint and install all supported linters
-	build.MustRun(goTool("get", "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.18.0"))
 
-	// Run fast linters batched together
-	configs := []string{
-		"run",
-		"--disable-all",
-		"--enable=vet",
-		"--enable=gofmt",
-		"--enable=misspell",
-		"--enable=goconst",
-		"--min-occurrences=6", // for goconst
-	}
-	build.MustRunCommand(filepath.Join(GOBIN, "golangci-lint"), append(configs, packages...)...)
+	linter := downloadLinter(*cachedir)
+	lflags := []string{"run", "--config", ".golangci.yml"}
+	build.MustRunCommandWithOutput(linter, append(lflags, packages...)...)
+	fmt.Println("You have achieved perfection.")
+}
 
-	// Run slow linters one by one
-	for _, linter := range []string{"unconvert", "gosimple"} {
-		configs = []string{"--vendor", "--deadline=10m", "--disable-all", "--enable=" + linter}
-		build.MustRunCommand(filepath.Join(GOBIN, "golangci-lint"), append(configs, packages...)...)
+// downloadLinter downloads and unpacks golangci-lint.
+func downloadLinter(cachedir string) string {
+	csdb := download.MustLoadChecksums("build/checksums.txt")
+	version, err := csdb.FindVersion("golangci")
+	if err != nil {
+		log.Fatal(err)
 	}
+	arch := runtime.GOARCH
+	ext := ".tar.gz"
+	if runtime.GOOS == "windows" {
+		ext = ".zip"
+	}
+	if arch == "arm" {
+		arch += "v" + os.Getenv("GOARM")
+	}
+	base := fmt.Sprintf("golangci-lint-%s-%s-%s", version, runtime.GOOS, arch)
+	archivePath := filepath.Join(cachedir, base+ext)
+	if err := csdb.DownloadFileFromKnownURL(archivePath); err != nil {
+		log.Fatal(err)
+	}
+	if err := build.ExtractArchive(archivePath, cachedir); err != nil {
+		log.Fatal(err)
+	}
+	return filepath.Join(cachedir, base, "golangci-lint")
 }
 
 // Cross compilation
@@ -325,4 +347,23 @@ func xgoTool(args []string) *exec.Cmd {
 		cmd.Env = append(cmd.Env, e)
 	}
 	return cmd
+}
+
+// workspaceModules lists the module paths in the current work.
+func workspaceModules() []string {
+	listing, err := new(build.GoToolchain).Go("list", "-m").Output()
+	if err != nil {
+		log.Fatalf("go list failed:", err)
+	}
+	var modules []string
+	for _, m := range bytes.Split(listing, []byte("\n")) {
+		m = bytes.TrimSpace(m)
+		if len(m) > 0 {
+			modules = append(modules, string(m))
+		}
+	}
+	if len(modules) == 0 {
+		panic("no modules found")
+	}
+	return modules
 }
