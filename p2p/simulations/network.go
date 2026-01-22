@@ -501,8 +501,8 @@ func (self *Network) Shutdown() {
 	close(self.quitc)
 }
 
-//Reset resets all network properties:
-//emtpies the nodes and the connection list
+// Reset resets all network properties:
+// emtpies the nodes and the connection list
 func (self *Network) Reset() {
 	self.lock.Lock()
 	defer self.lock.Unlock()

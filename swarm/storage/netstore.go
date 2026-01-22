@@ -57,7 +57,7 @@ type StoreParams struct {
 	Radius        int
 }
 
-//create params with default values
+// create params with default values
 func NewDefaultStoreParams() (self *StoreParams) {
 	return &StoreParams{
 		DbCapacity:    defaultDbCapacity,
@@ -66,8 +66,8 @@ func NewDefaultStoreParams() (self *StoreParams) {
 	}
 }
 
-//this can only finally be set after all config options (file, cmd line, env vars)
-//have been evaluated
+// this can only finally be set after all config options (file, cmd line, env vars)
+// have been evaluated
 func (self *StoreParams) Init(path string) {
 	self.ChunkDbPath = filepath.Join(path, "chunks")
 }

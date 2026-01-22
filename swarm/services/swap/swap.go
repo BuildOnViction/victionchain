@@ -80,7 +80,7 @@ type PayProfile struct {
 	lock        sync.RWMutex
 }
 
-//create params with default values
+// create params with default values
 func NewDefaultSwapParams() *SwapParams {
 	return &SwapParams{
 		PayProfile: &PayProfile{},
@@ -102,8 +102,8 @@ func NewDefaultSwapParams() *SwapParams {
 	}
 }
 
-//this can only finally be set after all config options (file, cmd line, env vars)
-//have been evaluated
+// this can only finally be set after all config options (file, cmd line, env vars)
+// have been evaluated
 func (self *SwapParams) Init(contract common.Address, prvkey *ecdsa.PrivateKey) {
 	pubkey := &prvkey.PublicKey
 

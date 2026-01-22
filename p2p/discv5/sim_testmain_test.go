@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
+//go:build go1.4 && nacl && faketime_simulation
 // +build go1.4,nacl,faketime_simulation
 
 package discv5
