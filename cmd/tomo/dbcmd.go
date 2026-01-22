@@ -81,18 +81,18 @@ func setupChain(ctx *cli.Context) (ethdb.Database, tomoConfig, *params.ChainConf
 	chainConfig, _, _ := core.SetupGenesisBlock(chainDB, nodeConfig.Eth.Genesis)
 
 	var (
-		vmConfig       = vm.Config{}
-		cacheConfig    = &core.CacheConfig{}
-		tomoXService   *tomox.TomoX
-		lendingService *tomoxlending.Lending
+		vmConfig    = vm.Config{}
+		cacheConfig = &core.CacheConfig{}
 	)
 
 	posvConsensus := posv.New(chainConfig.Posv, chainDB)
+
+	tomoXService := tomox.New(&nodeConfig.TomoX)
 	posvConsensus.GetTomoXService = func() posv.TradingService {
 		return tomoXService
 	}
 	posvConsensus.GetLendingService = func() posv.LendingService {
-		return lendingService
+		return tomoxlending.New(tomoXService)
 	}
 
 	blockchain, err := core.NewBlockChain(chainDB, cacheConfig, chainConfig, posvConsensus, vmConfig)
