@@ -25,6 +25,11 @@ bootnode:
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/bootnode\" to launch a bootnode."
 
+tomo-race-detector:
+	go run build/ci.go install --race ./cmd/tomo
+	@echo "Done building."
+	@echo "Run \"$(GOBIN)/ronin\" to launch tomo."
+
 puppeth:
 	go run build/ci.go install ./cmd/puppeth
 	@echo "Done building."
@@ -35,6 +40,9 @@ all:
 
 test: all
 	go run build/ci.go test
+
+test-race-detector:
+	go run build/ci.go test --race
 
 clean:
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
