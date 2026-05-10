@@ -98,7 +98,7 @@ func (c *committer) commit(n Node, db *Database, force bool) (Node, int, error) 
 	if hash != nil && !dirty {
 		return hash, 0, nil
 	}
-	// Commit children, then parent, and remove remove the dirty flag.
+	// Commit children, then parent, and remove the dirty flag.
 	switch cn := n.(type) {
 	case *ShortNode:
 		// Commit child
