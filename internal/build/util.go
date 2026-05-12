@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 var DryRunFlag = flag.Bool("n", false, "dry run, don't execute commands")
@@ -47,6 +48,27 @@ func MustRun(cmd *exec.Cmd) {
 }
 
 func MustRunCommand(cmd string, args ...string) {
+	MustRun(exec.Command(cmd, args...))
+}
+
+// MustRunCommandWithOutput runs the given command, and ensures that some output will be
+// printed while it runs. This is useful for CI builds where the process will be stopped
+// when there is no output.
+func MustRunCommandWithOutput(cmd string, args ...string) {
+	interval := time.NewTicker(time.Minute)
+	done := make(chan struct{})
+	defer interval.Stop()
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case <-interval.C:
+				fmt.Printf("Waiting for command %q\n", cmd)
+			case <-done:
+				return
+			}
+		}
+	}()
 	MustRun(exec.Command(cmd, args...))
 }
 
@@ -114,7 +136,7 @@ func CopyFile(dst, src string, mode os.FileMode) {
 // so that go commands executed by build use the same version of Go as the 'host' that runs
 // build code. e.g.
 //
-//     /usr/lib/go-1.11/bin/go run build/ci.go ...
+//	/usr/lib/go-1.11/bin/go run build/ci.go ...
 //
 // runs using go 1.11 and invokes go 1.11 tools from the same GOROOT. This is also important
 // because runtime.Version checks on the host should match the tools that are run.

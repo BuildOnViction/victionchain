@@ -6,6 +6,7 @@ GOBIN = $(shell pwd)/build/bin
 GOFMT = gofmt
 GO ?= 1.18.10
 GO_PACKAGES = .
+GORUN = go run
 GO_FILES := $(shell find $(shell go list -f '{{.Dir}}' $(GO_PACKAGES)) -name \*.go)
 
 GIT = git
@@ -35,6 +36,10 @@ all:
 
 test: all
 	go run build/ci.go test
+
+#? lint: Run certain pre-selected linters.
+lint: ## Run linters.
+	$(GORUN) build/ci.go lint
 
 clean:
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
