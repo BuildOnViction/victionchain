@@ -56,7 +56,7 @@ var (
 	}
 )
 
-//constants for environment variables
+// constants for environment variables
 const (
 	SWARM_ENV_CHEQUEBOOK_ADDR = "SWARM_CHEQUEBOOK_ADDR"
 	SWARM_ENV_ACCOUNT         = "SWARM_ACCOUNT"
@@ -90,7 +90,7 @@ var tomlSettings = toml.Config{
 	},
 }
 
-//before booting the swarm node, build the configuration
+// before booting the swarm node, build the configuration
 func buildConfig(ctx *cli.Context) (config *bzzapi.Config, err error) {
 	//check for deprecated flags
 	checkDeprecated(ctx)
@@ -111,7 +111,7 @@ func buildConfig(ctx *cli.Context) (config *bzzapi.Config, err error) {
 	return
 }
 
-//finally, after the configuration build phase is finished, initialize
+// finally, after the configuration build phase is finished, initialize
 func initSwarmNode(config *bzzapi.Config, stack *node.Node, ctx *cli.Context) {
 	//at this point, all vars should be set in the Config
 	//get the account for the provided swarm account
@@ -126,7 +126,7 @@ func initSwarmNode(config *bzzapi.Config, stack *node.Node, ctx *cli.Context) {
 	log.Debug(printConfig(config))
 }
 
-//override the current config with whatever is in the config file, if a config file has been provided
+// override the current config with whatever is in the config file, if a config file has been provided
 func configFileOverride(config *bzzapi.Config, ctx *cli.Context) (*bzzapi.Config, error) {
 	var err error
 
@@ -154,8 +154,8 @@ func configFileOverride(config *bzzapi.Config, ctx *cli.Context) (*bzzapi.Config
 	return config, err
 }
 
-//override the current config with whatever is provided through the command line
-//most values are not allowed a zero value (empty string), if not otherwise noted
+// override the current config with whatever is provided through the command line
+// most values are not allowed a zero value (empty string), if not otherwise noted
 func cmdLineOverride(currentConfig *bzzapi.Config, ctx *cli.Context) *bzzapi.Config {
 
 	if keyid := ctx.GlobalString(SwarmAccountFlag.Name); keyid != "" {
@@ -225,8 +225,8 @@ func cmdLineOverride(currentConfig *bzzapi.Config, ctx *cli.Context) *bzzapi.Con
 
 }
 
-//override the current config with whatver is provided in environment variables
-//most values are not allowed a zero value (empty string), if not otherwise noted
+// override the current config with whatver is provided in environment variables
+// most values are not allowed a zero value (empty string), if not otherwise noted
 func envVarsOverride(currentConfig *bzzapi.Config) (config *bzzapi.Config) {
 
 	if keyid := os.Getenv(SWARM_ENV_ACCOUNT); keyid != "" {
@@ -312,7 +312,7 @@ func dumpConfig(ctx *cli.Context) error {
 	return nil
 }
 
-//deprecated flags checked here
+// deprecated flags checked here
 func checkDeprecated(ctx *cli.Context) {
 	// exit if the deprecated --ethapi flag is set
 	if ctx.GlobalString(DeprecatedEthAPIFlag.Name) != "" {
@@ -324,7 +324,7 @@ func checkDeprecated(ctx *cli.Context) {
 	}
 }
 
-//validate configuration parameters
+// validate configuration parameters
 func validateConfig(cfg *bzzapi.Config) (err error) {
 	for _, ensAPI := range cfg.EnsAPIs {
 		if ensAPI != "" {
@@ -336,7 +336,7 @@ func validateConfig(cfg *bzzapi.Config) (err error) {
 	return nil
 }
 
-//validate EnsAPIs configuration parameter
+// validate EnsAPIs configuration parameter
 func validateEnsAPIs(s string) (err error) {
 	// missing contract address
 	if strings.HasPrefix(s, "@") {
@@ -357,7 +357,7 @@ func validateEnsAPIs(s string) (err error) {
 	return nil
 }
 
-//print a Config as string
+// print a Config as string
 func printConfig(config *bzzapi.Config) string {
 	out, err := tomlSettings.Marshal(&config)
 	if err != nil {

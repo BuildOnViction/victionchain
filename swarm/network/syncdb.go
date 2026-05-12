@@ -342,7 +342,6 @@ func (self *syncDb) dbRead(useBatches bool, counter uint64, fun func(interface{}
 	}
 }
 
-//
 func (self *syncDb) stop() {
 	close(self.quit)
 	<-self.done

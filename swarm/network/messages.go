@@ -45,7 +45,7 @@ const (
 )
 
 /*
- Handshake
+	Handshake
 
 * Version: 8 byte integer version of the protocol
 * ID: arbitrary byte sequence client identifier human readable
@@ -54,7 +54,6 @@ const (
 * NetworkID: 8 byte integer network identifier
 * Caps: swarm-specific capabilities, format identical to devp2p
 * SyncState: syncronisation state (db iterator key and address space etc) persisted about the peer
-
 */
 type statusMsgData struct {
 	Version   uint64
@@ -69,12 +68,12 @@ func (self *statusMsgData) String() string {
 }
 
 /*
- store requests are forwarded to the peers in their kademlia proximity bin
- if they are distant
- if they are within our storage radius or have any incentive to store it
- then attach your nodeID to the metadata
- if the storage request is sufficiently close (within our proxLimit, i. e., the
- last row of the routing table)
+store requests are forwarded to the peers in their kademlia proximity bin
+if they are distant
+if they are within our storage radius or have any incentive to store it
+then attach your nodeID to the metadata
+if the storage request is sufficiently close (within our proxLimit, i. e., the
+last row of the routing table)
 */
 type storeRequestMsgData struct {
 	Key   storage.Key // hash of datasize | data

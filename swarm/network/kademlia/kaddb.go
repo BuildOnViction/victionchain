@@ -165,7 +165,6 @@ offline past peer)
 || (proxBin(a) < proxBin(b) && |proxBin(a)| == |proxBin(b)|)
 || (proxBin(a) == proxBin(b) && lastChecked(a) < lastChecked(b))
 
-
 The second argument returned names the first missing slot found
 */
 func (self *KadDb) findBest(maxBinSize int, binSize func(int) int) (node *NodeRecord, need bool, proxLimit int) {

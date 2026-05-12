@@ -38,7 +38,7 @@ import (
 
 var hashMatcher = regexp.MustCompile("^[0-9A-Fa-f]{64}")
 
-//setup metrics
+// setup metrics
 var (
 	apiResolveCount    = metrics.NewRegisteredCounter("api.resolve.count", nil)
 	apiResolveFail     = metrics.NewRegisteredCounter("api.resolve.fail", nil)
@@ -146,7 +146,7 @@ type Api struct {
 	dns Resolver
 }
 
-//the api constructor initialises
+// the api constructor initialises
 func NewApi(dpa *storage.DPA, dns Resolver) (self *Api) {
 	self = &Api{
 		dpa: dpa,

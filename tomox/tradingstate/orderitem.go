@@ -239,7 +239,7 @@ func (o *OrderItem) verifyRelayer(state *state.StateDB) error {
 	return nil
 }
 
-//verify signatures
+// verify signatures
 func (o *OrderItem) verifySignature() error {
 	bigstr := o.Nonce.String()
 	n, err := strconv.ParseInt(bigstr, 10, 64)
@@ -269,7 +269,7 @@ func (o *OrderItem) verifyOrderType() error {
 	return nil
 }
 
-//verify order side
+// verify order side
 func (o *OrderItem) verifyOrderSide() error {
 
 	if o.Side != Bid && o.Side != Ask {

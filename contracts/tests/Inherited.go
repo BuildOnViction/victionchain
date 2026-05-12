@@ -29,7 +29,7 @@ func NewMyInherited(transactOpts *bind.TransactOpts, contractAddr common.Address
 	}, nil
 }
 
-func DeployMyInherited(transactOpts *bind.TransactOpts, contractBackend bind.ContractBackend) (common.Address, *MyInherited, error){
+func DeployMyInherited(transactOpts *bind.TransactOpts, contractBackend bind.ContractBackend) (common.Address, *MyInherited, error) {
 	contractAddr, _, _, err := contract.DeployInherited(transactOpts, contractBackend)
 	if err != nil {
 		return contractAddr, nil, err

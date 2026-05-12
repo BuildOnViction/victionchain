@@ -77,7 +77,7 @@ type HiveParams struct {
 	*kademlia.KadParams
 }
 
-//create default params
+// create default params
 func NewDefaultHiveParams() *HiveParams {
 	kad := kademlia.NewDefaultKadParams()
 	// kad.BucketSize = bucketSize
@@ -90,8 +90,8 @@ func NewDefaultHiveParams() *HiveParams {
 	}
 }
 
-//this can only finally be set after all config options (file, cmd line, env vars)
-//have been evaluated
+// this can only finally be set after all config options (file, cmd line, env vars)
+// have been evaluated
 func (self *HiveParams) Init(path string) {
 	self.KadDbPath = filepath.Join(path, "bzz-peers.json")
 }

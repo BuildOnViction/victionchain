@@ -28,18 +28,18 @@ const (
 	pubkeyHybrid       byte = 0x6 // y_bit + x coord + y coord
 )
 
-//The proof contains pretty much stuffs
-//The proof contains pretty much stuffs
-//Ring size rs: 1 byte => proof[0]
-//num input: number of real inputs: 1 byte => proof[1]
-//List of inputs/UTXO index typed uint64 => total size = rs * numInput * 8 = proof[0]*proof[1]*8
-//List of key images: total size = numInput * 33 = proof[1] * 33
-//number of output n: 1 byte
-//List of output => n * 130 bytes
-//transaction fee: uint256 => 32 byte
-//ringCT proof size ctSize: uint16 => 2 byte
-//ringCT proof: ctSize bytes
-//bulletproofs: bp
+// The proof contains pretty much stuffs
+// The proof contains pretty much stuffs
+// Ring size rs: 1 byte => proof[0]
+// num input: number of real inputs: 1 byte => proof[1]
+// List of inputs/UTXO index typed uint64 => total size = rs * numInput * 8 = proof[0]*proof[1]*8
+// List of key images: total size = numInput * 33 = proof[1] * 33
+// number of output n: 1 byte
+// List of output => n * 130 bytes
+// transaction fee: uint256 => 32 byte
+// ringCT proof size ctSize: uint16 => 2 byte
+// ringCT proof: ctSize bytes
+// bulletproofs: bp
 type PrivateSendVerifier struct {
 	proof []byte
 	//ringCT 	RingCT
@@ -544,7 +544,7 @@ func Link(sig_a *RingSignature, sig_b *RingSignature) bool {
 	return false
 }
 
-//function returns(mutiple rings, private keys, message, error)
+// function returns(mutiple rings, private keys, message, error)
 func GenerateMultiRingParams(numRing int, ringSize int, s int) (rings []Ring, privkeys []*ecdsa.PrivateKey, m [32]byte, err error) {
 	for i := 0; i < numRing; i++ {
 		privkey, err := crypto.GenerateKey()

@@ -27,7 +27,7 @@ import (
 	"github.com/tomochain/tomochain/swarm/storage"
 )
 
-//metrics variables
+// metrics variables
 var (
 	syncReceiveCount  = metrics.NewRegisteredCounter("network.sync.recv.count", nil)
 	syncReceiveIgnore = metrics.NewRegisteredCounter("network.sync.recv.ignore", nil)

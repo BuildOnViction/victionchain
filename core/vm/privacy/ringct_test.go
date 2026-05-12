@@ -3,7 +3,7 @@ package privacy
 import (
 	"fmt"
 	"testing"
-	)
+)
 
 func TestSign(t *testing.T) {
 	/*for i := 14; i < 15; i++ {

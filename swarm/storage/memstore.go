@@ -26,7 +26,7 @@ import (
 	"github.com/tomochain/tomochain/metrics"
 )
 
-//metrics variables
+// metrics variables
 var (
 	memstorePutCounter    = metrics.NewRegisteredCounter("storage.db.memstore.put.count", nil)
 	memstoreRemoveCounter = metrics.NewRegisteredCounter("storage.db.memstore.rm.count", nil)

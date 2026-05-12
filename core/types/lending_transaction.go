@@ -363,7 +363,7 @@ func (s *LendingTxByNonce) Pop() interface{} {
 	return x
 }
 
-//LendingTransactionByNonce sort transaction by nonce
+// LendingTransactionByNonce sort transaction by nonce
 type LendingTransactionByNonce struct {
 	txs    map[common.Address]LendingTransactions
 	heads  LendingTxByNonce
