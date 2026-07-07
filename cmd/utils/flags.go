@@ -115,6 +115,11 @@ var (
 		Usage: "Rollback chain at hash",
 		Value: "",
 	}
+	LastKnownBlockHashFlag = cli.StringFlag{
+		Name:  "last-known-blockhash",
+		Usage: "Specify the last known valid block hash to recover corrupted head header pointer",
+		Value: "",
+	}
 	// General settings
 	AnnounceTxsFlag = cli.BoolFlag{
 		Name:  "announce-txs",

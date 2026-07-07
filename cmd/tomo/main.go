@@ -126,6 +126,7 @@ var (
 		utils.AnnounceTxsFlag,
 		utils.StoreRewardFlag,
 		utils.RollbackFlag,
+		utils.LastKnownBlockHashFlag,
 		utils.ReexecFlag,
 	}
 

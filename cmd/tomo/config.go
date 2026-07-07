@@ -181,6 +181,11 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, tomoConfig) {
 		common.RollbackHash = common.HexToHash(rollbackHash)
 	}
 
+	// Check last known block hash for head header recovery.
+	if lastKnownBlockHash := ctx.GlobalString(utils.LastKnownBlockHashFlag.Name); lastKnownBlockHash != "" {
+		common.LastKnownBlockHash = common.HexToHash(lastKnownBlockHash)
+	}
+
 	// Check GasPrice
 	common.MinGasPrice = big.NewInt(common.DefaultMinGasPrice)
 	if ctx.GlobalIsSet(utils.GasPriceFlag.Name) {

@@ -43,8 +43,9 @@ var (
 
 	IsTestnet         bool = false
 	StoreRewardFolder string
-	RollbackHash      Hash
-	LimitTimeFinality = uint64(30) // limit in 30 block
+	RollbackHash          Hash
+	LastKnownBlockHash    Hash
+	LimitTimeFinality     = uint64(30) // limit in 30 block
 
 	BasePrice               = big.NewInt(1000000000000000000)                // 1
 	BaseLendingInterest     = big.NewInt(100000000)                          // 1e8

@@ -199,7 +199,16 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	// are returned to the caller unless we're already at block zero.
 	height := GetBlockNumber(db, GetHeadHeaderHash(db))
 	if height == missingNumber {
-		return newcfg, stored, fmt.Errorf("missing block number for head header hash")
+		if common.LastKnownBlockHash != (common.Hash{}) {
+			log.Warn("Recovering corrupted head header pointer with last-known-blockhash", "hash", common.LastKnownBlockHash)
+			WriteHeadHeaderHash(db, common.LastKnownBlockHash)
+			height = GetBlockNumber(db, common.LastKnownBlockHash)
+			if height == missingNumber {
+				return newcfg, stored, fmt.Errorf("missing block number for last known header hash: %s", common.LastKnownBlockHash.Hex())
+			}
+		} else {
+			return newcfg, stored, fmt.Errorf("missing block number for head header hash")
+		}
 	}
 	compatErr := storedcfg.CheckCompatible(newcfg, height)
 	if compatErr != nil && height != 0 && compatErr.RewindTo != 0 {
