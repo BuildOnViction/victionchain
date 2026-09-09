@@ -17,6 +17,14 @@ Read more about us on:
 - our documentation portal: [https://docs.viction.xyz](https://docs.viction.xyz)
 - our blockchain explorer: [https://vicscan.xyz](https://vicscan.xyz)
 
+Notice
+
+    This client is reaching its End of Life and will soon be archived. To continue working with Viction, it's recommended to migrate to the new client: Vic-Geth.
+
+    Vic-Geth is a new Viction implementation with higher performance, include bug fixes and better compabilities with modern EVM libraries and toolings.
+
+    For more information, please visit: https://github.com/BuildOnViction/vic-geth
+
 ## How To Build
 
 Viction supports both binaries build and Docker build for your convenience. Building Viction requires Go lang and C compiler on all platforms (Linux, Windows, MacOS).
