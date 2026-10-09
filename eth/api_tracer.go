@@ -63,6 +63,22 @@ type TraceConfig struct {
 	Reexec  *uint64
 }
 
+// errCustomTracer is returned when a trace request names anything other than a
+// bundled tracer. Arbitrary JavaScript is rejected because the Duktape engine
+// exposes native internals (e.g. Duktape.Pointer) to the evaluated code.
+var errCustomTracer = errors.New("custom JavaScript tracers are disabled, use a built-in tracer name")
+
+// validateTracerConfig ensures the requested tracer, if any, is a bundled one.
+func validateTracerConfig(config *TraceConfig) error {
+	if config == nil || config.Tracer == nil {
+		return nil
+	}
+	if !tracers.IsBuiltin(*config.Tracer) {
+		return errCustomTracer
+	}
+	return nil
+}
+
 // txTraceResult is the result of a single transaction trace.
 type txTraceResult struct {
 	Result    interface{} `json:"result,omitempty"`    // Trace results produced by the tracer
@@ -97,6 +113,9 @@ type txTraceTask struct {
 // TraceChain returns the structured logs created during the execution of EVM
 // between two blocks (excluding start) and returns them as a JSON object.
 func (api *PrivateDebugAPI) TraceChain(ctx context.Context, start, end rpc.BlockNumber, config *TraceConfig) (*rpc.Subscription, error) {
+	if err := validateTracerConfig(config); err != nil {
+		return nil, err
+	}
 	// Fetch the block interval that we want to trace
 	var from, to *types.Block
 
@@ -403,6 +422,9 @@ func (api *PrivateDebugAPI) TraceBlockFromFile(ctx context.Context, file string,
 // executes all the transactions contained within. The return value will be one item
 // per transaction, dependent on the requestd tracer.
 func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, config *TraceConfig) ([]*txTraceResult, error) {
+	if err := validateTracerConfig(config); err != nil {
+		return nil, err
+	}
 	// Create the parent state database
 	parent := api.eth.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
@@ -609,6 +631,9 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 	)
 	switch {
 	case config != nil && config.Tracer != nil:
+		if err := validateTracerConfig(config); err != nil {
+			return nil, err
+		}
 		// Define a meaningful timeout of a single transaction trace
 		timeout := defaultTraceTimeout
 		if config.Timeout != nil {
