@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/tomochain/tomochain/common"
 	"github.com/tomochain/tomochain/core/types"
 	"github.com/tomochain/tomochain/core/vm"
 )
@@ -51,5 +52,22 @@ func TestTraceEntryPointsRejectCustomTracer(t *testing.T) {
 	}
 	if _, err := api.traceTx(context.Background(), nil, vm.Context{}, nil, config); err != errCustomTracer {
 		t.Errorf("traceTx: have %v, want %v", err, errCustomTracer)
+	}
+}
+
+// TestTraceTransactionRejectsCustomTracer ensures TraceTransaction rejects a
+// custom tracer before looking up the transaction and re-executing state.
+func TestTraceTransactionRejectsCustomTracer(t *testing.T) {
+	js := "{step:function(){},fault:function(){},result:function(){return Duktape.version}}"
+	config := &TraceConfig{Tracer: &js}
+	api := &PrivateDebugAPI{}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("TraceTransaction reached backend before tracer validation: %v", r)
+		}
+	}()
+	if _, err := api.TraceTransaction(context.Background(), common.Hash{}, config); err != errCustomTracer {
+		t.Errorf("TraceTransaction: have %v, want %v", err, errCustomTracer)
 	}
 }
