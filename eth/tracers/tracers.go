@@ -44,6 +44,13 @@ func init() {
 	}
 }
 
+// IsBuiltin reports whether name exactly matches one of the bundled JavaScript
+// tracers. No normalization is applied, so callers can use it as an allowlist.
+func IsBuiltin(name string) bool {
+	_, ok := all[name]
+	return ok
+}
+
 // tracer retrieves a specific JavaScript tracer by name.
 func tracer(name string) (string, bool) {
 	if tracer, ok := all[name]; ok {
