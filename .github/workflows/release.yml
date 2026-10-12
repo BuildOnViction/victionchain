@@ -1,13 +1,20 @@
 name: Release
 
 on:
-  push:
-    # Publish `v1.2.3` tags as releases.
-    tags:
-      - v*
+  release:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CGO_CFLAGS: "-O -D__BLST_PORTABLE__"
   CGO_CFLAGS_ALLOW: "-O -D__BLST_PORTABLE__"
+  GIT_TAG: ${{ github.ref_name }}
 
 jobs:
   build:
@@ -17,16 +24,18 @@ jobs:
         go-version: [1.20.x]
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: ${{ matrix.go-version }}
+          cache: false
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           # In order:
           # * Module download cache
@@ -42,35 +51,49 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Install zstd (MacOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install zstd
+
       # ==============================
       #       Linux Cross Compile for AMD64
       # ==============================
+
+      - name: Download musl-cross Toolchain (AMD64)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          wget -q https://github.com/cross-tools/musl-cross/releases/download/20250520/x86_64-unknown-linux-musl.tar.xz
+          echo "a896bad67a4dae7cd7baece62d537fda07f8c74e65fee1b450a691b83e151a9c  x86_64-unknown-linux-musl.tar.xz" | sha256sum -c -
+          tar -xJf ./x86_64-unknown-linux-musl.tar.xz
 
       - name: Build Binary for Linux AMD64
         if: matrix.os == 'ubuntu-latest'
         run: |
           go mod download
-          wget https://pub-c0627345c16f47ab858c9469133073a8.r2.dev/x86_64-linux-musl-cross.tgz
-          tar -xvf ./x86_64-linux-musl-cross.tgz
           GIT_COMMIT=$(git rev-parse HEAD)
           GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
           echo $GIT_COMMIT $GIT_COMMIT_DATE
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE -extldflags=-static" -o ./build/bin/tomo-linux-amd64 -a ./cmd/tomo
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-unknown-linux-musl/bin/x86_64-unknown-linux-musl-gcc go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE -extldflags=-static" -o ./build/bin/tomo-linux-amd64 -a ./cmd/tomo
 
       # ==============================
       #       Linux Cross Compile for ARM64
       # ==============================
 
+      - name: Download musl-cross Toolchain (ARM64)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          wget -q https://github.com/cross-tools/musl-cross/releases/download/20250520/aarch64-unknown-linux-musl.tar.xz
+          echo "76f0d71893f3864e91ad09feff71a719cdf94cccd4f14cc25d7deed395968b5b  aarch64-unknown-linux-musl.tar.xz" | sha256sum -c -
+          tar -xJf ./aarch64-unknown-linux-musl.tar.xz
+
       - name: Build Binary for Linux ARM64
         if: matrix.os == 'ubuntu-latest'
         run: |
           go mod download
-          wget https://pub-c0627345c16f47ab858c9469133073a8.r2.dev/aarch64-linux-musl-cross.tgz
-          tar -xvf ./aarch64-linux-musl-cross.tgz
           GIT_COMMIT=$(git rev-parse HEAD)
           GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d')
           echo $GIT_COMMIT $GIT_COMMIT_DATE
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 CC=$(pwd)/aarch64-linux-musl-cross/bin/aarch64-linux-musl-gcc go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE -extldflags=-static" -o ./build/bin/tomo-linux-arm64 -a ./cmd/tomo
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 CC=$(pwd)/aarch64-unknown-linux-musl/bin/aarch64-unknown-linux-musl-gcc go build -ldflags "-X main.gitCommit=$GIT_COMMIT -X main.gitDate=$GIT_COMMIT_DATE -extldflags=-static" -o ./build/bin/tomo-linux-arm64 -a ./cmd/tomo
 
       # ==============================
       #       Windows
@@ -103,28 +126,28 @@ jobs:
       # ==============================
 
       - name: Upload Linux Build
-        uses: actions/upload-artifact@v4.3.3
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: matrix.os == 'ubuntu-latest'
         with:
           name: linux-amd64
           path: ./build/bin/tomo-linux-amd64
 
       - name: Upload ARM64 Build
-        uses: actions/upload-artifact@v4.3.3
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: matrix.os == 'ubuntu-latest'
         with:
           name: linux-arm64
           path: ./build/bin/tomo-linux-arm64
 
       - name: Upload Windows Build
-        uses: actions/upload-artifact@v4.3.3
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: matrix.os == 'windows-latest'
         with:
           name: windows-amd64
           path: ./build/bin/tomo-windows-amd64.exe
 
       - name: Upload MacOS Build
-        uses: actions/upload-artifact@v4.3.3
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: matrix.os == 'macos-latest'
         with:
           name: macos-arm64
@@ -134,37 +157,37 @@ jobs:
     name: Release
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
-      - name: Set Env
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       # ==============================
       #       Download artifacts
       # ==============================
 
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4.1.7
+      - name: Download linux-amd64 artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: linux-amd64
           path: .
 
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4.1.7
+      - name: Download linux-arm64 artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: linux-arm64
           path: .
 
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4.1.7
+      - name: Download windows-amd64 artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: windows-amd64
           path: .
 
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4.1.7
+      - name: Download macos-arm64 artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: macos-arm64
           path: .
@@ -174,16 +197,17 @@ jobs:
       # ==============================
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
         with:
-          tag_name: ${{ env.RELEASE_VERSION}}
-          release_name: ${{ env.RELEASE_VERSION}}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           body: |
             "Created by Github Actions"
           draft: true
           prerelease: false
+          fail_on_unmatched_files: true
           files: |
             ./tomo-linux-amd64
             ./tomo-linux-arm64
