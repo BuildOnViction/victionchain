@@ -93,7 +93,7 @@ func (api *PublicWhisperAPI) SetMaxMessageSize(ctx context.Context, size uint32)
 	return true, api.w.SetMaxMessageSize(size)
 }
 
-// SetMinPow sets the minimum PoW for a message before it is accepted.
+// SetMinPoW sets the minimum PoW for a message before it is accepted.
 func (api *PublicWhisperAPI) SetMinPoW(ctx context.Context, pow float64) (bool, error) {
 	return true, api.w.SetMinimumPoW(pow)
 }
