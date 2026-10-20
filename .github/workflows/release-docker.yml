@@ -13,7 +13,7 @@ concurrency:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: buildonviction/vic-geth
+  IMAGE_NAME: buildonviction/node
 
 jobs:
   docker-release:
