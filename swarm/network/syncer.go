@@ -255,7 +255,7 @@ func decodeSync(meta *json.RawMessage) (*syncState, error) {
    * Mode: by default once again via confirmation roundtrip
    * Priority: the items are replayed as the proirity specified for StaleSync
    * but within the order respects earlier priority level of request
- * after all items are consumed for a priority level, the the respective
+ * after all items are consumed for a priority level, the respective
   queue for delivery requests is open (this way new reqs not written to db)
   (TODO: this should be checked)
  * the sync state provided by the remote peer is used to sync history
